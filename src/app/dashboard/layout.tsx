@@ -31,17 +31,18 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="flex justify-between items-center px-6 py-4">
-          {/* Logo */}
+          {/* Logo and Dashboard Label */}
           <div className="flex items-center">
             <Image
               src="/assets/mmlogox.png"
               alt="Logo"
-              width={40}
-              height={40}
-              className="w-10 h-10"
+              width={32}
+              height={32}
+              className="w-8 h-8"
             />
+            <span className="ml-3 text-lg font-semibold text-gray-900">Dashboard</span>
           </div>
           
           {/* Right side - just hamburger menu */}
@@ -61,19 +62,7 @@ export default function DashboardLayout({
       <div className="flex">
         {/* Sidebar */}
         <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ease-in-out`}>
-          <div className="flex items-center justify-between h-16 px-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          
-          <nav className="mt-6">
+          <nav className="pt-6">
             <div className="px-4 space-y-2">
               {sidebarItems.map((item) => {
                 const isActive = pathname === item.href;

@@ -51,9 +51,9 @@ const monthlyData = [
 ];
 
 const pieData = [
-  { name: 'Total Users', value: 1247, color: '#672DB7' },
+  { name: 'Total Users', value: 1247, color: 'rgb(0,136,255)' },
   { name: 'Active Today', value: 892, color: '#10B981' },
-  { name: 'New Today', value: 23, color: '#F59E0B' },
+  { name: 'New Today', value: 23, color: 'rgb(255,45,85)' },
 ];
 
 const COLORS = ['#672DB7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
@@ -198,9 +198,9 @@ export default function DashboardOverview() {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="users" fill="#672DB7" name="Users" />
+              <Bar dataKey="users" fill="rgb(0,136,255)" name="Users" />
               <Bar dataKey="matches" fill="#10B981" name="Matches" />
-              <Bar dataKey="likes" fill="#F59E0B" name="Likes" />
+              <Bar dataKey="likes" fill="rgb(255,45,85)" name="Likes" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -217,9 +217,9 @@ export default function DashboardOverview() {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
+              <Line type="monotone" dataKey="users" stroke="rgb(0,136,255)" strokeWidth={2} name="Users" />
               <Line type="monotone" dataKey="matches" stroke="#10B981" strokeWidth={2} name="Matches" />
-              <Line type="monotone" dataKey="likes" stroke="#F59E0B" strokeWidth={2} name="Likes" />
+              <Line type="monotone" dataKey="likes" stroke="rgb(255,45,85)" strokeWidth={2} name="Likes" />
             </LineChart>
           </ResponsiveContainer>
         </div>
