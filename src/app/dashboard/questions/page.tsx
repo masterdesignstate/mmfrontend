@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Generate mock data for questions
 const generateMockQuestions = () => {
@@ -147,6 +148,7 @@ const mockQuestions = generateMockQuestions();
 const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
 
 export default function QuestionsPage() {
+  const router = useRouter();
   const [questions, setQuestions] = useState(mockQuestions);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -234,6 +236,10 @@ export default function QuestionsPage() {
     return sortDirection === 'asc' 
       ? <i className="fas fa-sort-up text-[#672DB7] ml-1"></i>
       : <i className="fas fa-sort-down text-[#672DB7] ml-1"></i>;
+  };
+
+  const handleRowClick = (questionId: number) => {
+    router.push(`/dashboard/question/${questionId}`);
   };
 
   return (
@@ -393,7 +399,11 @@ export default function QuestionsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentQuestions.map((question) => (
-                <tr key={question.id} className="hover:bg-gray-50">
+                <tr 
+                  key={question.id} 
+                  className="hover:bg-gray-50 cursor-pointer transition-colors duration-200"
+                  onClick={() => handleRowClick(question.id)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {question.id}
                   </td>
@@ -429,7 +439,7 @@ export default function QuestionsPage() {
                     {question.createdAt}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                       <button className="text-[#672DB7] hover:text-[#5a2a9e] transition-colors duration-200 cursor-pointer">
                         <i className="fas fa-edit"></i>
                       </button>

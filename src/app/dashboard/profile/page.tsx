@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-// Question model schema based on models.py
+// Profile model schema based on models.py
 interface FieldDefinition {
   name: string;
   type: string;
@@ -19,9 +19,11 @@ interface FieldDefinition {
   editable?: boolean;
   unique?: boolean;
   primary_key?: boolean;
+  upload_to?: string;
+  validators?: string[];
 }
 
-const questionModelSchema: FieldDefinition[] = [
+const userModelSchema: FieldDefinition[] = [
   {
     name: 'id',
     type: 'UUIDField',
@@ -31,87 +33,248 @@ const questionModelSchema: FieldDefinition[] = [
     help_text: 'Primary key using UUID'
   },
   {
-    name: 'text',
-    type: 'TextField',
-    help_text: 'The question text content'
-  },
-  {
-    name: 'tags',
-    type: 'ManyToManyField',
-    related_name: 'questions',
-    help_text: 'Tags associated with this question'
-  },
-  {
-    name: 'question_type',
+    name: 'username',
     type: 'CharField',
-    max_length: 20,
-    choices: [
-      { value: 'mandatory', label: 'Mandatory' },
-      { value: 'answered', label: 'Answered' },
-      { value: 'unanswered', label: 'Unanswered' },
-      { value: 'required', label: 'Required' },
-      { value: 'submitted', label: 'Submitted' }
-    ],
-    default: 'unanswered',
-    help_text: 'Type of question'
+    max_length: 150,
+    unique: true,
+    help_text: 'Username for login'
   },
   {
-    name: 'is_required_for_match',
+    name: 'email',
+    type: 'EmailField',
+    unique: true,
+    help_text: 'User email address'
+  },
+  {
+    name: 'first_name',
+    type: 'CharField',
+    max_length: 150,
+    blank: true,
+    help_text: 'User first name'
+  },
+  {
+    name: 'last_name',
+    type: 'CharField',
+    max_length: 150,
+    blank: true,
+    help_text: 'User last name'
+  },
+  {
+    name: 'profile_photo',
+    type: 'ImageField',
+    upload_to: 'profile_photos/',
+    null: true,
+    blank: true,
+    help_text: 'User profile picture'
+  },
+  {
+    name: 'age',
+    type: 'PositiveIntegerField',
+    null: true,
+    blank: true,
+    help_text: 'User age'
+  },
+  {
+    name: 'date_of_birth',
+    type: 'DateField',
+    null: true,
+    blank: true,
+    help_text: 'User date of birth'
+  },
+  {
+    name: 'height',
+    type: 'PositiveIntegerField',
+    null: true,
+    blank: true,
+    help_text: 'Height in cm'
+  },
+  {
+    name: 'city',
+    type: 'CharField',
+    max_length: 100,
+    null: true,
+    blank: true,
+    help_text: 'User city'
+  },
+  {
+    name: 'bio',
+    type: 'TextField',
+    max_length: 500,
+    blank: true,
+    help_text: 'User biography'
+  },
+  {
+    name: 'is_online',
     type: 'BooleanField',
     default: false,
-    help_text: 'Whether this question is required for matching'
+    help_text: 'Whether user is currently online'
+  },
+  {
+    name: 'last_seen',
+    type: 'DateTimeField',
+    default: 'timezone.now',
+    help_text: 'Last time user was active'
+  },
+  {
+    name: 'is_banned',
+    type: 'BooleanField',
+    default: false,
+    help_text: 'Whether user is banned'
+  },
+  {
+    name: 'ban_reason',
+    type: 'TextField',
+    blank: true,
+    help_text: 'Reason for ban if applicable'
+  },
+  {
+    name: 'ban_date',
+    type: 'DateTimeField',
+    null: true,
+    blank: true,
+    help_text: 'Date when user was banned'
+  },
+  {
+    name: 'questions_answered_count',
+    type: 'PositiveIntegerField',
+    default: 0,
+    help_text: 'Number of questions answered by user'
+  },
+  {
+    name: 'is_active',
+    type: 'BooleanField',
+    default: true,
+    help_text: 'Whether user account is active'
+  },
+  {
+    name: 'is_staff',
+    type: 'BooleanField',
+    default: false,
+    help_text: 'Whether user has staff permissions'
+  },
+  {
+    name: 'is_superuser',
+    type: 'BooleanField',
+    default: false,
+    help_text: 'Whether user has superuser permissions'
+  },
+  {
+    name: 'date_joined',
+    type: 'DateTimeField',
+    auto_now_add: true,
+    help_text: 'When user account was created'
+  },
+  {
+    name: 'last_login',
+    type: 'DateTimeField',
+    null: true,
+    blank: true,
+    help_text: 'Last time user logged in'
+  }
+];
+
+const userAnswerModelSchema: FieldDefinition[] = [
+  {
+    name: 'id',
+    type: 'UUIDField',
+    primary_key: true,
+    default: 'uuid.uuid4',
+    editable: false,
+    help_text: 'Primary key using UUID'
+  },
+  {
+    name: 'user',
+    type: 'ForeignKey',
+    related_name: 'answers',
+    on_delete: 'CASCADE',
+    help_text: 'User who answered the question'
+  },
+  {
+    name: 'question',
+    type: 'ForeignKey',
+    related_name: 'user_answers',
+    on_delete: 'CASCADE',
+    help_text: 'Question that was answered'
+  },
+  {
+    name: 'me_answer',
+    type: 'PositiveIntegerField',
+    validators: ['MinValueValidator(1)', 'MaxValueValidator(6)'],
+    help_text: '1-5 for specific answers, 6 for open to all'
+  },
+  {
+    name: 'me_open_to_all',
+    type: 'BooleanField',
+    default: false,
+    help_text: 'Whether user is open to all options'
+  },
+  {
+    name: 'me_multiplier',
+    type: 'PositiveIntegerField',
+    default: 1,
+    help_text: 'Weight multiplier for this answer'
+  },
+  {
+    name: 'me_share',
+    type: 'BooleanField',
+    default: true,
+    help_text: 'Whether to share this answer'
+  },
+  {
+    name: 'looking_for_answer',
+    type: 'PositiveIntegerField',
+    validators: ['MinValueValidator(1)', 'MaxValueValidator(6)'],
+    help_text: '1-5 for specific answers, 6 for open to all'
+  },
+  {
+    name: 'looking_for_open_to_all',
+    type: 'BooleanField',
+    default: false,
+    help_text: 'Whether user is open to all options for partner'
+  },
+  {
+    name: 'looking_for_multiplier',
+    type: 'PositiveIntegerField',
+    default: 1,
+    help_text: 'Weight multiplier for partner preference'
+  },
+  {
+    name: 'looking_for_share',
+    type: 'BooleanField',
+    default: true,
+    help_text: 'Whether to share this preference'
   },
   {
     name: 'created_at',
     type: 'DateTimeField',
     auto_now_add: true,
-    help_text: 'When the question was created'
+    help_text: 'When the answer was created'
   },
   {
     name: 'updated_at',
     type: 'DateTimeField',
     auto_now: true,
-    help_text: 'When the question was last updated'
+    help_text: 'When the answer was last updated'
   }
 ];
 
-const tagModelSchema: FieldDefinition[] = [
-  {
-    name: 'id',
-    type: 'AutoField',
-    primary_key: true,
-    help_text: 'Primary key'
-  },
-  {
-    name: 'name',
-    type: 'CharField',
-    max_length: 50,
-    choices: [
-      { value: 'value', label: 'Value' },
-      { value: 'lifestyle', label: 'Lifestyle' },
-      { value: 'look', label: 'Look' },
-      { value: 'trait', label: 'Trait' },
-      { value: 'hobby', label: 'Hobby' },
-      { value: 'interest', label: 'Interest' }
-    ],
-    unique: true,
-    help_text: 'Tag name'
-  }
-];
+export default function ProfileModelPage() {
+  const [selectedModel, setSelectedModel] = useState<'user' | 'user_answer'>('user');
 
-export default function QuestionModelPage() {
-  const [selectedModel, setSelectedModel] = useState<'question' | 'tag'>('question');
-
-  const currentSchema = selectedModel === 'question' ? questionModelSchema : tagModelSchema;
+  const currentSchema = selectedModel === 'user' ? userModelSchema : userAnswerModelSchema;
 
   const getFieldTypeColor = (type: string) => {
     const colors: Record<string, string> = {
       'UUIDField': 'bg-purple-100 text-purple-800',
-      'TextField': 'bg-blue-100 text-blue-800',
       'CharField': 'bg-green-100 text-green-800',
-      'BooleanField': 'bg-yellow-100 text-yellow-800',
-      'DateTimeField': 'bg-red-100 text-red-800',
-      'ManyToManyField': 'bg-indigo-100 text-indigo-800',
+      'EmailField': 'bg-blue-100 text-blue-800',
+      'TextField': 'bg-indigo-100 text-indigo-800',
+      'PositiveIntegerField': 'bg-yellow-100 text-yellow-800',
+      'DateField': 'bg-red-100 text-red-800',
+      'DateTimeField': 'bg-orange-100 text-orange-800',
+      'BooleanField': 'bg-pink-100 text-pink-800',
+      'ImageField': 'bg-teal-100 text-teal-800',
+      'ForeignKey': 'bg-gray-100 text-gray-800',
       'AutoField': 'bg-gray-100 text-gray-800'
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
@@ -120,11 +283,15 @@ export default function QuestionModelPage() {
   const getFieldIcon = (type: string) => {
     const icons: Record<string, string> = {
       'UUIDField': 'fas fa-fingerprint',
-      'TextField': 'fas fa-align-left',
       'CharField': 'fas fa-font',
-      'BooleanField': 'fas fa-toggle-on',
+      'EmailField': 'fas fa-envelope',
+      'TextField': 'fas fa-align-left',
+      'PositiveIntegerField': 'fas fa-hashtag',
+      'DateField': 'fas fa-calendar',
       'DateTimeField': 'fas fa-clock',
-      'ManyToManyField': 'fas fa-link',
+      'BooleanField': 'fas fa-toggle-on',
+      'ImageField': 'fas fa-image',
+      'ForeignKey': 'fas fa-link',
       'AutoField': 'fas fa-hashtag'
     };
     return icons[type] || 'fas fa-cube';
@@ -136,11 +303,11 @@ export default function QuestionModelPage() {
       <div className="flex justify-between items-center">
         <div>
           <nav className="text-sm text-gray-500 mb-2">
-            <span>Question</span>
+            <span>Profile</span>
             <span className="mx-2">{'>'}</span>
             <span className="text-gray-900">Model Schema</span>
           </nav>
-          <h1 className="text-3xl font-bold text-gray-900">Question Model Schema</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Profile Model Schema</h1>
         </div>
       </div>
 
@@ -148,33 +315,33 @@ export default function QuestionModelPage() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex space-x-4 mb-6">
           <button
-            onClick={() => setSelectedModel('question')}
+            onClick={() => setSelectedModel('user')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 cursor-pointer ${
-              selectedModel === 'question'
+              selectedModel === 'user'
                 ? 'bg-[#672DB7] text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Question Model
+            User Model
           </button>
           <button
-            onClick={() => setSelectedModel('tag')}
+            onClick={() => setSelectedModel('user_answer')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 cursor-pointer ${
-              selectedModel === 'tag'
+              selectedModel === 'user_answer'
                 ? 'bg-[#672DB7] text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Tag Model
+            UserAnswer Model
           </button>
         </div>
 
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            {selectedModel === 'question' ? 'Question' : 'Tag'} Model Fields
+            {selectedModel === 'user' ? 'User' : 'UserAnswer'} Model Fields
           </h2>
           <p className="text-sm text-gray-600">
-            Database schema for the {selectedModel} model. This is a read-only view of the model structure.
+            Database schema for the {selectedModel === 'user' ? 'User' : 'UserAnswer'} model. This is a read-only view of the model structure.
           </p>
         </div>
 
@@ -258,6 +425,16 @@ export default function QuestionModelPage() {
                           not editable
                         </span>
                       )}
+                      {field.upload_to && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800">
+                          upload_to
+                        </span>
+                      )}
+                      {field.validators && field.validators.length > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                          validators
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -286,13 +463,13 @@ export default function QuestionModelPage() {
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Database Table</h3>
             <code className="bg-gray-100 px-3 py-2 rounded text-sm font-mono">
-              {selectedModel === 'question' ? 'questions' : 'tags'}
+              {selectedModel === 'user' ? 'users' : 'api_useranswer'}
             </code>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Python Class</h3>
             <code className="bg-gray-100 px-3 py-2 rounded text-sm font-mono">
-              {selectedModel === 'question' ? 'Question' : 'Tag'}
+              {selectedModel === 'user' ? 'User' : 'UserAnswer'}
             </code>
           </div>
           <div>
