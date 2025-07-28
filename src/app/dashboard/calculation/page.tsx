@@ -34,6 +34,7 @@ export default function CalculationPage() {
   const [compatibilityPercentage1, setCompatibilityPercentage1] = useState(0);
   const [compatibilityPercentage2, setCompatibilityPercentage2] = useState(0);
   const [overallCompatibility, setOverallCompatibility] = useState(0);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,10 +128,13 @@ export default function CalculationPage() {
       if (!userId) return;
       
       try {
+        setLoadingAnswers(true);
         const answers = await apiService.getUserAnswers(userId);
         setUserAnswers(prev => ({ ...prev, [userId]: answers }));
       } catch (error) {
         console.error('Error fetching user answers:', error);
+      } finally {
+        setLoadingAnswers(false);
       }
     };
 
@@ -353,24 +357,19 @@ export default function CalculationPage() {
         </div>
       </div>
 
-      {/* Debug Information */}
-      {(person1 || person2) && (
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Debug Information:</h4>
-          <div className="text-xs text-gray-600 space-y-1">
-            <p>Total Questions: {questions.length}</p>
-            {person1 && (
-              <p>Person 1 ({getPersonName(person1)}) Answers: {userAnswers[person1]?.length || 0}</p>
-            )}
-            {person2 && (
-              <p>Person 2 ({getPersonName(person2)}) Answers: {userAnswers[person2]?.length || 0}</p>
-            )}
-            {person1 && person2 && (
-              <p>Common Questions: {questions.filter(q => 
-                userAnswers[person1]?.some(a => a.question.id === q.id) && 
-                userAnswers[person2]?.some(a => a.question.id === q.id)
-              ).length}</p>
-            )}
+      {/* Loading Screen for User Answers */}
+      {loadingAnswers && (
+        <div className="mt-4 p-6 bg-white rounded-lg shadow">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
+              <i className="fas fa-spinner fa-spin text-3xl text-[#672DB7]"></i>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Loading User Answers
+            </h3>
+            <p className="text-sm text-gray-600">
+              Fetching compatibility data for selected users...
+            </p>
           </div>
         </div>
       )}
@@ -466,7 +465,7 @@ export default function CalculationPage() {
             <div className="p-6 bg-gray-50 border-t border-gray-200">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {getPersonName(person2)}&apos;s compatibility w.r.t {getPersonName(person1)}: {compatibilityPercentage1}%
+                  {getPersonName(person2)}&apos;s compatibility with {getPersonName(person1)}: {compatibilityPercentage1}%
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Based on {calculationResults1.length} questions
@@ -563,7 +562,7 @@ export default function CalculationPage() {
             <div className="p-6 bg-gray-50 border-t border-gray-200">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {getPersonName(person1)}&apos;s compatibility w.r.t {getPersonName(person2)}: {compatibilityPercentage2}%
+                  {getPersonName(person1)}&apos;s compatibility with {getPersonName(person2)}: {compatibilityPercentage2}%
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Based on {calculationResults2.length} questions
