@@ -1,151 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { apiService } from '@/services/api';
 
 // Type definition for restricted user
 interface RestrictedUser {
   id: number;
-  name: string;
+  username: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  profileImage: string;
-  restrictionReason: string;
-  restrictionDate: string;
-  restrictionType: string;
-  restrictionDuration: string;
-  status: string;
-  lastActivity: string;
-  reportsCount: number;
-  severity: string;
+  profile_photo?: string;
+  restriction_reason?: string;
+  restriction_date?: string;
+  restriction_type?: string;
+  restriction_duration?: number;
+  is_banned: boolean;
+  last_seen?: string;
+  city?: string;
+  age?: number;
 }
 
-// Mock data for restricted users
-const generateMockRestrictedUsers = () => {
-  const users = [
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john.smith@email.com",
-      profileImage: "/assets/avatar1.jpg",
-      restrictionReason: "Inappropriate behavior",
-      restrictionDate: "Jan 28, 2025",
-      restrictionType: "Temporary",
-      restrictionDuration: "30 days",
-      status: "Active",
-      lastActivity: "Jan 27, 2025",
-      reportsCount: 3,
-      severity: "Medium"
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      email: "sarah.j@email.com",
-      profileImage: "/assets/avatar2.jpg",
-      restrictionReason: "Spam messages",
-      restrictionDate: "Jan 25, 2025",
-      restrictionType: "Permanent",
-      restrictionDuration: "Indefinite",
-      status: "Active",
-      lastActivity: "Jan 24, 2025",
-      reportsCount: 5,
-      severity: "High"
-    },
-    {
-      id: 3,
-      name: "Mike Wilson",
-      email: "mike.w@email.com",
-      profileImage: "/assets/avatar3.jpg",
-      restrictionReason: "Fake profile",
-      restrictionDate: "Jan 22, 2025",
-      restrictionType: "Temporary",
-      restrictionDuration: "14 days",
-      status: "Active",
-      lastActivity: "Jan 21, 2025",
-      reportsCount: 2,
-      severity: "Low"
-    },
-    {
-      id: 4,
-      name: "Lisa Davis",
-      email: "lisa.d@email.com",
-      profileImage: "/assets/avatar4.jpg",
-      restrictionReason: "Harassment",
-      restrictionDate: "Jan 20, 2025",
-      restrictionType: "Permanent",
-      restrictionDuration: "Indefinite",
-      status: "Active",
-      lastActivity: "Jan 19, 2025",
-      reportsCount: 7,
-      severity: "High"
-    },
-    {
-      id: 5,
-      name: "David Brown",
-      email: "david.b@email.com",
-      profileImage: "/assets/avatar5.jpg",
-      restrictionReason: "Inappropriate content",
-      restrictionDate: "Jan 18, 2025",
-      restrictionType: "Temporary",
-      restrictionDuration: "7 days",
-      status: "Expired",
-      lastActivity: "Jan 17, 2025",
-      reportsCount: 1,
-      severity: "Low"
-    },
-    {
-      id: 6,
-      name: "Emma Taylor",
-      email: "emma.t@email.com",
-      profileImage: "/assets/avatar6.jpg",
-      restrictionReason: "Multiple violations",
-      restrictionDate: "Jan 15, 2025",
-      restrictionType: "Permanent",
-      restrictionDuration: "Indefinite",
-      status: "Active",
-      lastActivity: "Jan 14, 2025",
-      reportsCount: 4,
-      severity: "Medium"
-    },
-    {
-      id: 7,
-      name: "Alex Rodriguez",
-      email: "alex.r@email.com",
-      profileImage: "/assets/avatar7.jpg",
-      restrictionReason: "Suspicious activity",
-      restrictionDate: "Jan 12, 2025",
-      restrictionType: "Temporary",
-      restrictionDuration: "21 days",
-      status: "Active",
-      lastActivity: "Jan 11, 2025",
-      reportsCount: 2,
-      severity: "Medium"
-    },
-    {
-      id: 8,
-      name: "Maria Garcia",
-      email: "maria.g@email.com",
-      profileImage: "/assets/avatar8.jpg",
-      restrictionReason: "Terms of service violation",
-      restrictionDate: "Jan 10, 2025",
-      restrictionType: "Permanent",
-      restrictionDuration: "Indefinite",
-      status: "Active",
-      lastActivity: "Jan 9, 2025",
-      reportsCount: 6,
-      severity: "High"
-    }
-  ];
-
-  return users;
-};
-
-const mockRestrictedUsers = generateMockRestrictedUsers();
+// Type definition for API response
+interface ApiUser {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  profile_photo?: string;
+  restriction_reason?: string;
+  restriction_date?: string;
+  restriction_type?: string;
+  restriction_duration?: number;
+  is_banned: boolean;
+  last_seen?: string;
+  city?: string;
+  age?: number;
+}
 
 const restrictionTypes = ["All", "Temporary", "Permanent"];
 const statusTypes = ["All", "Active", "Expired"];
 const severityTypes = ["All", "Low", "Medium", "High"];
 
 export default function RestrictedUsersPage() {
-  const [users, setUsers] = useState(mockRestrictedUsers);
+  const [users, setUsers] = useState<RestrictedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestrictionType, setSelectedRestrictionType] = useState('All');
@@ -161,25 +62,45 @@ export default function RestrictedUsersPage() {
   const [showActionModal, setShowActionModal] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedUserForAction, setSelectedUserForAction] = useState<RestrictedUser | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch restricted users from API
+  const fetchRestrictedUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.getRestrictedUsers();
+      setUsers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch restricted users');
+      console.error('Error fetching restricted users:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRestrictedUsers();
+  }, []);
 
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchTerm === '' || 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.restrictionReason.toLowerCase().includes(searchTerm.toLowerCase());
+      (user.restriction_reason && user.restriction_reason.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesRestrictionType = selectedRestrictionType === 'All' || 
-      user.restrictionType === selectedRestrictionType;
+      user.restriction_type === selectedRestrictionType;
     
     const matchesStatus = selectedStatus === 'All' || 
-      user.status === selectedStatus;
+      (selectedStatus === 'Active' && user.is_banned) ||
+      (selectedStatus === 'Expired' && !user.is_banned);
 
-    const matchesSeverity = selectedSeverity === 'All' || 
-      user.severity === selectedSeverity;
+    const matchesSeverity = selectedSeverity === 'All'; // You can add severity logic here
     
-    const matchesDateRange = (!startDate || user.restrictionDate >= startDate) &&
-                           (!endDate || user.restrictionDate <= endDate);
+    const matchesDateRange = (!startDate || !user.restriction_date || user.restriction_date >= startDate) &&
+                           (!endDate || !user.restriction_date || user.restriction_date <= endDate);
     
     return matchesSearch && matchesRestrictionType && matchesStatus && matchesSeverity && matchesDateRange;
   });
@@ -191,16 +112,10 @@ export default function RestrictedUsersPage() {
     const aValue = a[sortField as keyof typeof a];
     const bValue = b[sortField as keyof typeof b];
     
-    if (sortField === 'reportsCount') {
-      const aNum = typeof aValue === 'number' ? aValue : 0;
-      const bNum = typeof bValue === 'number' ? bValue : 0;
-      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-    }
-    
     if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
+      return (aValue ?? '') > (bValue ?? '') ? 1 : -1;
     } else {
-      return aValue < bValue ? 1 : -1;
+      return (aValue ?? '') < (bValue ?? '') ? 1 : -1;
     }
   });
 
@@ -272,55 +187,80 @@ export default function RestrictedUsersPage() {
     setShowActionModal(true);
   };
 
-  const executeAction = () => {
-    if (selectedAction === 'remove') {
-      if (selectedUserForAction) {
-        // Remove restriction for single user
-        setUsers(prev => prev.filter(u => u.id !== selectedUserForAction.id));
-        setSelectedUsers(prev => prev.filter(id => id !== selectedUserForAction.id));
-      } else {
-        // Remove restrictions for bulk selected users
-        setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
-        setSelectedUsers([]);
+  const executeAction = async () => {
+    if (!selectedAction) return;
+
+    setActionLoading(true);
+    try {
+      if (selectedAction === 'remove') {
+        if (selectedUserForAction) {
+          // Remove restriction for single user
+          await apiService.removeRestriction(selectedUserForAction.id);
+          setUsers(prev => prev.filter(u => u.id !== selectedUserForAction!.id));
+          setSelectedUsers(prev => prev.filter(id => id !== selectedUserForAction!.id));
+        } else {
+          // Remove restrictions for bulk selected users
+          for (const userId of selectedUsers) {
+            await apiService.removeRestriction(userId);
+          }
+          setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
+          setSelectedUsers([]);
+        }
+      } else if (selectedAction === 'extend') {
+        // Extend restriction logic - you can implement this
+        console.log('Extend restriction:', selectedUserForAction || selectedUsers);
+      } else if (selectedAction === 'permanent') {
+        // Make restriction permanent
+        if (selectedUserForAction) {
+          await apiService.restrictUser(selectedUserForAction.id, {
+            restriction_type: 'permanent',
+            duration: 0,
+            reason: 'Made permanent by admin'
+          });
+          setUsers(prev => prev.map(u => 
+            u.id === selectedUserForAction.id 
+              ? { ...u, restriction_type: 'Permanent', restriction_duration: 0 }
+              : u
+          ));
+        } else {
+          for (const userId of selectedUsers) {
+            await apiService.restrictUser(userId, {
+              restriction_type: 'permanent',
+              duration: 0,
+              reason: 'Made permanent by admin'
+            });
+          }
+          setUsers(prev => prev.map(u => 
+            selectedUsers.includes(u.id)
+              ? { ...u, restriction_type: 'Permanent', restriction_duration: 0 }
+              : u
+          ));
+        }
       }
-    } else if (selectedAction === 'extend') {
-      // Extend restriction logic
-      console.log('Extend restriction:', selectedUserForAction || selectedUsers);
-    } else if (selectedAction === 'permanent') {
-      // Make restriction permanent
-      setUsers(prev => prev.map(u => {
-        if (selectedUserForAction && u.id === selectedUserForAction.id) {
-          return { ...u, restrictionType: 'Permanent', restrictionDuration: 'Indefinite' };
-        }
-        if (selectedUsers.includes(u.id)) {
-          return { ...u, restrictionType: 'Permanent', restrictionDuration: 'Indefinite' };
-        }
-        return u;
-      }));
-    }
-    
-    setShowActionModal(false);
-    setSelectedAction('');
-    setSelectedUserForAction(null);
-    setShowBulkActions(false);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return 'bg-red-100 text-red-800';
-      case 'Expired':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      
+      setShowActionModal(false);
+      setSelectedAction('');
+      setSelectedUserForAction(null);
+      setShowBulkActions(false);
+    } catch (err) {
+      console.error('Error executing action:', err);
+      setError(err instanceof Error ? err.message : 'Failed to execute action');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const getRestrictionTypeColor = (type: string) => {
+  const getStatusColor = (isBanned: boolean) => {
+    return isBanned 
+      ? 'bg-red-100 text-red-800'
+      : 'bg-gray-100 text-gray-800';
+  };
+
+  const getRestrictionTypeColor = (type?: string) => {
     switch (type) {
-      case 'Permanent':
+      case 'permanent':
         return 'bg-red-100 text-red-800';
-      case 'Temporary':
+      case 'temporary':
         return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -339,6 +279,37 @@ export default function RestrictedUsersPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <i className="fas fa-spinner fa-spin text-4xl text-[#672DB7] mb-4"></i>
+          <p className="text-gray-600">Loading restricted users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="flex items-center">
+          <i className="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+          <div>
+            <h3 className="text-lg font-medium text-red-800">Error Loading Data</h3>
+            <p className="text-red-600 mt-1">{error}</p>
+            <button 
+              onClick={fetchRestrictedUsers}
+              className="mt-3 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors duration-200 cursor-pointer"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -379,10 +350,10 @@ export default function RestrictedUsersPage() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-                        <button
-                onClick={resetFilters}
-                className="text-red-600 hover:text-red-800 font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors duration-200 cursor-pointer"
-              >
+          <button
+            onClick={resetFilters}
+            className="text-red-600 hover:text-red-800 font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors duration-200 cursor-pointer"
+          >
             Reset
           </button>
         </div>
@@ -478,17 +449,10 @@ export default function RestrictedUsersPage() {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('reportsCount')}
-                >
-                  Reports
-                  <SortIcon field="reportsCount" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('restrictionDate')}
+                  onClick={() => handleSort('restriction_date')}
                 >
                   Restricted Date
-                  <SortIcon field="restrictionDate" />
+                  <SortIcon field="restriction_date" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -509,39 +473,46 @@ export default function RestrictedUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-[#672DB7] flex items-center justify-center">
-                          <i className="fas fa-user text-white"></i>
-                        </div>
+                        {user.profile_photo ? (
+                          <img 
+                            className="h-10 w-10 rounded-full object-cover"
+                            src={user.profile_photo}
+                            alt={`${user.first_name} ${user.last_name}`}
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-[#672DB7] flex items-center justify-center">
+                            <i className="fas fa-user text-white"></i>
+                          </div>
+                        )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.first_name} {user.last_name}
+                        </div>
                         <div className="text-sm text-gray-500">{user.email}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{user.restrictionReason}</div>
+                    <div className="truncate">{user.restriction_reason || 'No reason provided'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRestrictionTypeColor(user.restrictionType)}`}>
-                      {user.restrictionType}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRestrictionTypeColor(user.restriction_type)}`}>
+                      {user.restriction_type || 'Unknown'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(user.severity)}`}>
-                      {user.severity}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor('Medium')}`}>
+                      Medium
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
-                      {user.status}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.is_banned)}`}>
+                      {user.is_banned ? 'Active' : 'Expired'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.reportsCount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.restrictionDate}
+                    {user.restriction_date ? new Date(user.restriction_date).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2">
@@ -671,18 +642,23 @@ export default function RestrictedUsersPage() {
               <div className="flex justify-center space-x-3">
                 <button
                   onClick={() => setShowActionModal(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 cursor-pointer"
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={executeAction}
-                  className={`px-4 py-2 rounded-md text-white transition-colors duration-200 cursor-pointer ${
+                  disabled={actionLoading}
+                  className={`px-4 py-2 rounded-md text-white transition-colors duration-200 cursor-pointer disabled:opacity-50 ${
                     selectedAction === 'remove' ? 'bg-green-600 hover:bg-green-700' :
                     selectedAction === 'extend' ? 'bg-orange-600 hover:bg-orange-700' :
                     'bg-red-600 hover:bg-red-700'
                   }`}
                 >
+                  {actionLoading ? (
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                  ) : null}
                   Confirm
                 </button>
               </div>

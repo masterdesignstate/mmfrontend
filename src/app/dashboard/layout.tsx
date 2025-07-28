@@ -18,6 +18,7 @@ const sidebarItems = [
   { name: 'Picture Moderation Queue', href: '/dashboard/picture-moderation', icon: 'fas fa-images' },
   { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },
   { name: 'Reported Users', href: '/dashboard/reported-users', icon: 'fas fa-exclamation-triangle' },
+  { name: 'Restricted Text', href: '/dashboard/restricted-text', icon: 'fas fa-shield-alt' },
 ];
 
 export default function DashboardLayout({

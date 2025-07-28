@@ -1,150 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { apiService } from '@/services/api';
 
 // Type definition for reported user
 interface ReportedUser {
   id: number;
-  name: string;
-  email: string;
-  profileImage: string;
-  reportReason: string;
-  reportDate: string;
-  reportCount: number;
-  status: 'Pending' | 'Under Review' | 'Resolved' | 'Dismissed';
-  severity: 'Low' | 'Medium' | 'High' | 'Critical';
-  reporterCount: number;
-  lastReported: string;
-  currentRestriction: string;
+  user: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    profile_photo?: string;
+  };
+  report_reason: string;
+  report_date: string;
+  report_count: number;
+  status: 'pending' | 'under_review' | 'resolved' | 'dismissed';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  reporter_count: number;
+  last_reported: string;
+  current_restriction?: string;
 }
 
-// Mock data for reported users
-const generateMockReportedUsers = () => {
-  const users = [
-    {
-      id: 1,
-      name: "Alex Thompson",
-      email: "alex.t@email.com",
-      profileImage: "/assets/avatar1.jpg",
-      reportReason: "Inappropriate messages",
-      reportDate: "Jan 28, 2025",
-      reportCount: 3,
-      status: "Pending",
-      severity: "Medium",
-      reporterCount: 2,
-      lastReported: "Jan 27, 2025",
-      currentRestriction: "None"
-    },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      email: "sarah.w@email.com",
-      profileImage: "/assets/avatar2.jpg",
-      reportReason: "Fake profile",
-      reportDate: "Jan 25, 2025",
-      reportCount: 5,
-      status: "Under Review",
-      severity: "High",
-      reporterCount: 4,
-      lastReported: "Jan 24, 2025",
-      currentRestriction: "None"
-    },
-    {
-      id: 3,
-      name: "Mike Davis",
-      email: "mike.d@email.com",
-      profileImage: "/assets/avatar3.jpg",
-      reportReason: "Harassment",
-      reportDate: "Jan 22, 2025",
-      reportCount: 2,
-      status: "Resolved",
-      severity: "Critical",
-      reporterCount: 1,
-      lastReported: "Jan 21, 2025",
-      currentRestriction: "Temporary (30 days)"
-    },
-    {
-      id: 4,
-      name: "Lisa Brown",
-      email: "lisa.b@email.com",
-      profileImage: "/assets/avatar4.jpg",
-      reportReason: "Spam behavior",
-      reportDate: "Jan 20, 2025",
-      reportCount: 7,
-      status: "Pending",
-      severity: "Medium",
-      reporterCount: 3,
-      lastReported: "Jan 19, 2025",
-      currentRestriction: "None"
-    },
-    {
-      id: 5,
-      name: "David Wilson",
-      email: "david.w@email.com",
-      profileImage: "/assets/avatar5.jpg",
-      reportReason: "Inappropriate content",
-      reportDate: "Jan 18, 2025",
-      reportCount: 1,
-      status: "Dismissed",
-      severity: "Low",
-      reporterCount: 1,
-      lastReported: "Jan 17, 2025",
-      currentRestriction: "None"
-    },
-    {
-      id: 6,
-      name: "Emma Garcia",
-      email: "emma.g@email.com",
-      profileImage: "/assets/avatar6.jpg",
-      reportReason: "Multiple violations",
-      reportDate: "Jan 15, 2025",
-      reportCount: 4,
-      status: "Under Review",
-      severity: "High",
-      reporterCount: 2,
-      lastReported: "Jan 14, 2025",
-      currentRestriction: "None"
-    },
-    {
-      id: 7,
-      name: "Alex Rodriguez",
-      email: "alex.r@email.com",
-      profileImage: "/assets/avatar7.jpg",
-      reportReason: "Suspicious activity",
-      reportDate: "Jan 12, 2025",
-      reportCount: 2,
-      status: "Resolved",
-      severity: "Medium",
-      reporterCount: 1,
-      lastReported: "Jan 11, 2025",
-      currentRestriction: "Temporary (14 days)"
-    },
-    {
-      id: 8,
-      name: "Maria Johnson",
-      email: "maria.j@email.com",
-      profileImage: "/assets/avatar8.jpg",
-      reportReason: "Terms of service violation",
-      reportDate: "Jan 10, 2025",
-      reportCount: 6,
-      status: "Pending",
-      severity: "Critical",
-      reporterCount: 5,
-      lastReported: "Jan 9, 2025",
-      currentRestriction: "None"
-    }
-  ];
-
-  return users;
-};
-
-const mockReportedUsers = generateMockReportedUsers();
-
-const statusTypes = ["All", "Pending", "Under Review", "Resolved", "Dismissed"];
-const severityTypes = ["All", "Low", "Medium", "High", "Critical"];
-
 export default function ReportedUsersPage() {
-  const [users, setUsers] = useState(mockReportedUsers);
+  const [users, setUsers] = useState<ReportedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -159,22 +41,42 @@ export default function ReportedUsersPage() {
   const [showActionModal, setShowActionModal] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedUserForAction, setSelectedUserForAction] = useState<ReportedUser | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch reported users from API
+  const fetchReportedUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.getReportedUsers();
+      setUsers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch reported users');
+      console.error('Error fetching reported users:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReportedUsers();
+  }, []);
 
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchTerm === '' || 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.reportReason.toLowerCase().includes(searchTerm.toLowerCase());
+      `${user.user.first_name} ${user.user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.report_reason.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = selectedStatus === 'All' || 
-      user.status === selectedStatus;
-
-    const matchesSeverity = selectedSeverity === 'All' || 
-      user.severity === selectedSeverity;
+      user.status === selectedStatus.toLowerCase().replace(' ', '_');
     
-    const matchesDateRange = (!startDate || user.reportDate >= startDate) &&
-                           (!endDate || user.reportDate <= endDate);
+    const matchesSeverity = selectedSeverity === 'All' || 
+      user.severity === selectedSeverity.toLowerCase();
+    
+    const matchesDateRange = (!startDate || !user.report_date || user.report_date >= startDate) &&
+                           (!endDate || !user.report_date || user.report_date <= endDate);
     
     return matchesSearch && matchesStatus && matchesSeverity && matchesDateRange;
   });
@@ -186,16 +88,10 @@ export default function ReportedUsersPage() {
     const aValue = a[sortField as keyof typeof a];
     const bValue = b[sortField as keyof typeof b];
     
-    if (sortField === 'reportCount' || sortField === 'reporterCount') {
-      const aNum = typeof aValue === 'number' ? aValue : 0;
-      const bNum = typeof bValue === 'number' ? bValue : 0;
-      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-    }
-    
     if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
+      return (aValue ?? '') > (bValue ?? '') ? 1 : -1;
     } else {
-      return aValue < bValue ? 1 : -1;
+      return (aValue ?? '') < (bValue ?? '') ? 1 : -1;
     }
   });
 
@@ -266,74 +162,70 @@ export default function ReportedUsersPage() {
     setShowActionModal(true);
   };
 
-  const executeAction = () => {
-    if (selectedAction === 'dismiss') {
-      if (selectedUserForAction) {
-        // Dismiss report for single user
-        setUsers(prev => prev.map(u => 
-          u.id === selectedUserForAction.id 
-            ? { ...u, status: 'Dismissed' as const }
-            : u
-        ));
-      } else {
-        // Dismiss reports for bulk selected users
-        setUsers(prev => prev.map(u => 
-          selectedUsers.includes(u.id) 
-            ? { ...u, status: 'Dismissed' as const }
-            : u
-        ));
+  const executeAction = async () => {
+    if (!selectedAction) return;
+
+    setActionLoading(true);
+    try {
+      if (selectedAction === 'dismiss') {
+        if (selectedUserForAction) {
+          await apiService.resolveReport(selectedUserForAction.id, 'dismiss');
+          setUsers(prev => prev.filter(u => u.id !== selectedUserForAction!.id));
+          setSelectedUsers(prev => prev.filter(id => id !== selectedUserForAction!.id));
+        } else {
+          for (const userId of selectedUsers) {
+            await apiService.resolveReport(userId, 'dismiss');
+          }
+          setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
+          setSelectedUsers([]);
+        }
+      } else if (selectedAction === 'restrict') {
+        if (selectedUserForAction) {
+          await apiService.resolveReport(selectedUserForAction.id, 'restrict');
+          setUsers(prev => prev.filter(u => u.id !== selectedUserForAction!.id));
+          setSelectedUsers(prev => prev.filter(id => id !== selectedUserForAction!.id));
+        } else {
+          for (const userId of selectedUsers) {
+            await apiService.resolveReport(userId, 'restrict');
+          }
+          setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
+          setSelectedUsers([]);
+        }
+      } else if (selectedAction === 'permanent') {
+        if (selectedUserForAction) {
+          await apiService.resolveReport(selectedUserForAction.id, 'permanent');
+          setUsers(prev => prev.filter(u => u.id !== selectedUserForAction!.id));
+          setSelectedUsers(prev => prev.filter(id => id !== selectedUserForAction!.id));
+        } else {
+          for (const userId of selectedUsers) {
+            await apiService.resolveReport(userId, 'permanent');
+          }
+          setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
+          setSelectedUsers([]);
+        }
       }
-    } else if (selectedAction === 'restrict') {
-      // Apply restriction logic
-      setUsers(prev => prev.map(u => {
-        if (selectedUserForAction && u.id === selectedUserForAction.id) {
-          return { ...u, status: 'Resolved' as const, currentRestriction: 'Temporary (30 days)' };
-        }
-        if (selectedUsers.includes(u.id)) {
-          return { ...u, status: 'Resolved' as const, currentRestriction: 'Temporary (30 days)' };
-        }
-        return u;
-      }));
-    } else if (selectedAction === 'permanent') {
-      // Apply permanent restriction
-      setUsers(prev => prev.map(u => {
-        if (selectedUserForAction && u.id === selectedUserForAction.id) {
-          return { ...u, status: 'Resolved' as const, currentRestriction: 'Permanent' };
-        }
-        if (selectedUsers.includes(u.id)) {
-          return { ...u, status: 'Resolved' as const, currentRestriction: 'Permanent' };
-        }
-        return u;
-      }));
-    } else if (selectedAction === 'review') {
-      // Mark for review
-      setUsers(prev => prev.map(u => {
-        if (selectedUserForAction && u.id === selectedUserForAction.id) {
-          return { ...u, status: 'Under Review' as const };
-        }
-        if (selectedUsers.includes(u.id)) {
-          return { ...u, status: 'Under Review' as const };
-        }
-        return u;
-      }));
+      
+      setShowActionModal(false);
+      setSelectedAction('');
+      setSelectedUserForAction(null);
+      setShowBulkActions(false);
+    } catch (err) {
+      console.error('Error executing action:', err);
+      setError(err instanceof Error ? err.message : 'Failed to execute action');
+    } finally {
+      setActionLoading(false);
     }
-    
-    setShowActionModal(false);
-    setSelectedAction('');
-    setSelectedUserForAction(null);
-    setSelectedUsers([]);
-    setShowBulkActions(false);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Pending':
+      case 'pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'Under Review':
+      case 'under_review':
         return 'bg-blue-100 text-blue-800';
-      case 'Resolved':
+      case 'resolved':
         return 'bg-green-100 text-green-800';
-      case 'Dismissed':
+      case 'dismissed':
         return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -342,18 +234,49 @@ export default function ReportedUsersPage() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'Critical':
+      case 'critical':
         return 'bg-red-100 text-red-800';
-      case 'High':
+      case 'high':
         return 'bg-orange-100 text-orange-800';
-      case 'Medium':
+      case 'medium':
         return 'bg-yellow-100 text-yellow-800';
-      case 'Low':
+      case 'low':
         return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <i className="fas fa-spinner fa-spin text-4xl text-[#672DB7] mb-4"></i>
+          <p className="text-gray-600">Loading reported users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="flex items-center">
+          <i className="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+          <div>
+            <h3 className="text-lg font-medium text-red-800">Error Loading Data</h3>
+            <p className="text-red-600 mt-1">{error}</p>
+            <button 
+              onClick={fetchReportedUsers}
+              className="mt-3 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors duration-200 cursor-pointer"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -426,9 +349,11 @@ export default function ReportedUsersPage() {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white"
             >
-              {statusTypes.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
+              <option value="All">All</option>
+              <option value="Pending">Pending</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Dismissed">Dismissed</option>
             </select>
           </div>
 
@@ -440,20 +365,22 @@ export default function ReportedUsersPage() {
               onChange={(e) => setSelectedSeverity(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white"
             >
-              {severityTypes.map(severity => (
-                <option key={severity} value={severity}>{severity}</option>
-              ))}
+              <option value="All">All</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
             </select>
           </div>
 
           {/* Date Range */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Reported From</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Report Date</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
             />
           </div>
         </div>
@@ -485,29 +412,15 @@ export default function ReportedUsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Severity
                 </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('reportCount')}
-                >
-                  Reports
-                  <SortIcon field="reportCount" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('reporterCount')}
-                >
-                  Reporters
-                  <SortIcon field="reporterCount" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('reportDate')}
-                >
-                  Reported Date
-                  <SortIcon field="reportDate" />
-                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Current Restriction
+                  Reports
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('report_date')}
+                >
+                  Report Date
+                  <SortIcon field="report_date" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -528,40 +441,44 @@ export default function ReportedUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-[#672DB7] flex items-center justify-center">
-                          <i className="fas fa-user text-white"></i>
-                        </div>
+                        {user.user.profile_photo ? (
+                          <img 
+                            className="h-10 w-10 rounded-full object-cover"
+                            src={user.user.profile_photo}
+                            alt={`${user.user.first_name} ${user.user.last_name}`}
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-[#672DB7] flex items-center justify-center">
+                            <i className="fas fa-user text-white"></i>
+                          </div>
+                        )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.user.first_name} {user.user.last_name}
+                        </div>
+                        <div className="text-sm text-gray-500">{user.user.email}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{user.reportReason}</div>
+                    <div className="truncate">{user.report_reason}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
-                      {user.status}
+                      {user.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(user.severity)}`}>
-                      {user.severity}
+                      {user.severity.charAt(0).toUpperCase() + user.severity.slice(1)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.reportCount}
+                    {user.report_count}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.reporterCount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.reportDate}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.currentRestriction}
+                    {user.report_date ? new Date(user.report_date).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2">
@@ -573,25 +490,18 @@ export default function ReportedUsersPage() {
                         <i className="fas fa-times"></i>
                       </button>
                       <button 
-                        onClick={() => handleAction('review', user)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
-                        title="Mark for Review"
+                        onClick={() => handleAction('restrict', user)}
+                        className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
+                        title="Review & Restrict"
                       >
                         <i className="fas fa-eye"></i>
                       </button>
                       <button 
-                        onClick={() => handleAction('restrict', user)}
-                        className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
-                        title="Apply Restriction"
-                      >
-                        <i className="fas fa-ban"></i>
-                      </button>
-                      <button 
                         onClick={() => handleAction('permanent', user)}
                         className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"
-                        title="Permanent Ban"
+                        title="Make Permanent"
                       >
-                        <i className="fas fa-user-slash"></i>
+                        <i className="fas fa-ban"></i>
                       </button>
                     </div>
                   </td>
@@ -691,27 +601,30 @@ export default function ReportedUsersPage() {
                 Confirm Action
               </h3>
               <p className="text-sm text-gray-500 mb-6">
-                {selectedAction === 'dismiss' && 'Are you sure you want to dismiss this report(s)?'}
-                {selectedAction === 'review' && 'Are you sure you want to mark this for review?'}
-                {selectedAction === 'restrict' && 'Are you sure you want to apply a temporary restriction?'}
-                {selectedAction === 'permanent' && 'Are you sure you want to apply a permanent ban?'}
+                {selectedAction === 'dismiss' && 'Are you sure you want to dismiss the report(s)?'}
+                {selectedAction === 'restrict' && 'Are you sure you want to restrict the user(s)?'}
+                {selectedAction === 'permanent' && 'Are you sure you want to permanently ban the user(s)?'}
               </p>
               <div className="flex justify-center space-x-3">
                 <button
                   onClick={() => setShowActionModal(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 cursor-pointer"
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={executeAction}
-                  className={`px-4 py-2 rounded-md text-white transition-colors duration-200 cursor-pointer ${
+                  disabled={actionLoading}
+                  className={`px-4 py-2 rounded-md text-white transition-colors duration-200 cursor-pointer disabled:opacity-50 ${
                     selectedAction === 'dismiss' ? 'bg-gray-600 hover:bg-gray-700' :
-                    selectedAction === 'review' ? 'bg-blue-600 hover:bg-blue-700' :
                     selectedAction === 'restrict' ? 'bg-orange-600 hover:bg-orange-700' :
                     'bg-red-600 hover:bg-red-700'
                   }`}
                 >
+                  {actionLoading ? (
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                  ) : null}
                   Confirm
                 </button>
               </div>
