@@ -48,8 +48,150 @@ export default function ReportedUsersPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getReportedUsers();
-      setUsers(data);
+      
+      // Use dummy data since no users are actually reported yet
+      const dummyData: ReportedUser[] = [
+        {
+          id: 1,
+          user: {
+            id: 1,
+            first_name: 'John',
+            last_name: 'Smith',
+            email: 'john.smith@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Harassment and inappropriate messages',
+          report_date: '2024-01-20T14:30:00Z',
+          report_count: 3,
+          status: 'pending',
+          severity: 'high',
+          reporter_count: 2,
+          last_reported: '2024-01-20T14:30:00Z'
+        },
+        {
+          id: 2,
+          user: {
+            id: 2,
+            first_name: 'Sarah',
+            last_name: 'Johnson',
+            email: 'sarah.johnson@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Fake profile and misleading information',
+          report_date: '2024-01-19T11:15:00Z',
+          report_count: 5,
+          status: 'under_review',
+          severity: 'medium',
+          reporter_count: 3,
+          last_reported: '2024-01-19T16:45:00Z'
+        },
+        {
+          id: 3,
+          user: {
+            id: 3,
+            first_name: 'Mike',
+            last_name: 'Davis',
+            email: 'mike.davis@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Spam messages to multiple users',
+          report_date: '2024-01-18T09:45:00Z',
+          report_count: 8,
+          status: 'resolved',
+          severity: 'critical',
+          reporter_count: 6,
+          last_reported: '2024-01-18T13:20:00Z',
+          current_restriction: 'Temporary ban - 14 days'
+        },
+        {
+          id: 4,
+          user: {
+            id: 4,
+            first_name: 'Emily',
+            last_name: 'Wilson',
+            email: 'emily.wilson@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Inappropriate profile picture',
+          report_date: '2024-01-17T16:20:00Z',
+          report_count: 2,
+          status: 'pending',
+          severity: 'low',
+          reporter_count: 1,
+          last_reported: '2024-01-17T16:20:00Z'
+        },
+        {
+          id: 5,
+          user: {
+            id: 5,
+            first_name: 'David',
+            last_name: 'Brown',
+            email: 'david.brown@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Age misrepresentation',
+          report_date: '2024-01-16T12:10:00Z',
+          report_count: 1,
+          status: 'dismissed',
+          severity: 'medium',
+          reporter_count: 1,
+          last_reported: '2024-01-16T12:10:00Z'
+        },
+        {
+          id: 6,
+          user: {
+            id: 6,
+            first_name: 'Lisa',
+            last_name: 'Taylor',
+            email: 'lisa.taylor@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Aggressive behavior in chat',
+          report_date: '2024-01-15T10:30:00Z',
+          report_count: 4,
+          status: 'under_review',
+          severity: 'high',
+          reporter_count: 2,
+          last_reported: '2024-01-15T14:15:00Z'
+        },
+        {
+          id: 7,
+          user: {
+            id: 7,
+            first_name: 'Alex',
+            last_name: 'Chen',
+            email: 'alex.chen@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Multiple account creation',
+          report_date: '2024-01-14T08:45:00Z',
+          report_count: 6,
+          status: 'resolved',
+          severity: 'critical',
+          reporter_count: 4,
+          last_reported: '2024-01-14T11:30:00Z',
+          current_restriction: 'Permanent ban'
+        },
+        {
+          id: 8,
+          user: {
+            id: 8,
+            first_name: 'Rachel',
+            last_name: 'Martinez',
+            email: 'rachel.martinez@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face'
+          },
+          report_reason: 'Inappropriate language in messages',
+          report_date: '2024-01-13T15:20:00Z',
+          report_count: 2,
+          status: 'pending',
+          severity: 'medium',
+          reporter_count: 1,
+          last_reported: '2024-01-13T15:20:00Z'
+        }
+      ];
+      
+      setUsers(dummyData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch reported users');
       console.error('Error fetching reported users:', err);

@@ -45,8 +45,54 @@ export default function RestrictedTextPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getRestrictedText();
-      setWords(data);
+      
+      // Use dummy data with the initial list of restricted words
+      const dummyData: RestrictedWord[] = [
+        { id: 1, text: 'anal', category: 'Profanity', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 2, text: 'arse', category: 'Profanity', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 3, text: 'ass', category: 'Profanity', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 4, text: 'bastard', category: 'Profanity', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 5, text: 'bitch', category: 'Profanity', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 6, text: 'bloody', category: 'Profanity', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 7, text: 'blowjob', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 8, text: 'bollocks', category: 'Profanity', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 9, text: 'bugger', category: 'Profanity', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 10, text: 'choke', category: 'Violence', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 11, text: 'christ', category: 'Religious', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 12, text: 'cock', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 13, text: 'crap', category: 'Profanity', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 14, text: 'cum', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 15, text: 'cunt', category: 'Profanity', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 16, text: 'dammit', category: 'Profanity', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 17, text: 'damn', category: 'Profanity', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 18, text: 'dick', category: 'Sexual', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 19, text: 'dumb', category: 'Insult', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 20, text: 'dyke', category: 'Hate Speech', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 21, text: 'ejaculate', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 22, text: 'fuck', category: 'Profanity', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 23, text: 'hell', category: 'Religious', severity: 'low', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 24, text: 'hurt', category: 'Violence', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 25, text: 'kike', category: 'Hate Speech', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 26, text: 'kill', category: 'Violence', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 27, text: 'murder', category: 'Violence', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 28, text: 'nigga', category: 'Hate Speech', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 29, text: 'nigger', category: 'Hate Speech', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 30, text: 'piss', category: 'Profanity', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 31, text: 'porn', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 32, text: 'prick', category: 'Profanity', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 33, text: 'prostitute', category: 'Sexual', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 34, text: 'pussy', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 35, text: 'sex', category: 'Sexual', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 36, text: 'shit', category: 'Profanity', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 37, text: 'slap', category: 'Violence', severity: 'medium', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 38, text: 'slut', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 39, text: 'snuff', category: 'Violence', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 40, text: 'tit', category: 'Sexual', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 41, text: 'twat', category: 'Profanity', severity: 'high', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true },
+        { id: 42, text: 'whore', category: 'Sexual', severity: 'critical', added_date: '2024-01-15T10:00:00Z', added_by: 'admin', usage_count: 0, is_active: true }
+      ];
+      
+      setWords(dummyData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch restricted words');
       console.error('Error fetching restricted words:', err);

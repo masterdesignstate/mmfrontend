@@ -45,8 +45,140 @@ export default function PictureModerationPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getPictureModerationQueue();
-      setItems(data);
+      
+      // Use dummy data since no users have photos yet
+      const dummyData: PictureModerationItem[] = [
+        {
+          id: 1,
+          user: {
+            id: 1,
+            first_name: 'Sarah',
+            last_name: 'Johnson',
+            email: 'sarah.johnson@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-15',
+            location: 'New York, NY',
+            age: 28
+          },
+          submitted_date: '2024-01-20T10:30:00Z',
+          status: 'pending',
+          previous_rejections: 0
+        },
+        {
+          id: 2,
+          user: {
+            id: 2,
+            first_name: 'Michael',
+            last_name: 'Chen',
+            email: 'michael.chen@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-10',
+            location: 'San Francisco, CA',
+            age: 32
+          },
+          submitted_date: '2024-01-19T14:45:00Z',
+          status: 'pending',
+          previous_rejections: 1
+        },
+        {
+          id: 3,
+          user: {
+            id: 3,
+            first_name: 'Emily',
+            last_name: 'Davis',
+            email: 'emily.davis@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-12',
+            location: 'Chicago, IL',
+            age: 25
+          },
+          submitted_date: '2024-01-18T09:15:00Z',
+          status: 'pending',
+          previous_rejections: 0
+        },
+        {
+          id: 4,
+          user: {
+            id: 4,
+            first_name: 'David',
+            last_name: 'Wilson',
+            email: 'david.wilson@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-08',
+            location: 'Austin, TX',
+            age: 29
+          },
+          submitted_date: '2024-01-17T16:20:00Z',
+          status: 'pending',
+          previous_rejections: 2
+        },
+        {
+          id: 5,
+          user: {
+            id: 5,
+            first_name: 'Jessica',
+            last_name: 'Brown',
+            email: 'jessica.brown@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-14',
+            location: 'Seattle, WA',
+            age: 27
+          },
+          submitted_date: '2024-01-16T11:30:00Z',
+          status: 'pending',
+          previous_rejections: 0
+        },
+        {
+          id: 6,
+          user: {
+            id: 6,
+            first_name: 'Alex',
+            last_name: 'Martinez',
+            email: 'alex.martinez@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-11',
+            location: 'Miami, FL',
+            age: 31
+          },
+          submitted_date: '2024-01-15T13:45:00Z',
+          status: 'pending',
+          previous_rejections: 1
+        },
+        {
+          id: 7,
+          user: {
+            id: 7,
+            first_name: 'Rachel',
+            last_name: 'Taylor',
+            email: 'rachel.taylor@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-09',
+            location: 'Denver, CO',
+            age: 26
+          },
+          submitted_date: '2024-01-14T08:15:00Z',
+          status: 'pending',
+          previous_rejections: 0
+        },
+        {
+          id: 8,
+          user: {
+            id: 8,
+            first_name: 'Kevin',
+            last_name: 'Anderson',
+            email: 'kevin.anderson@example.com',
+            profile_photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face',
+            join_date: '2024-01-13',
+            location: 'Portland, OR',
+            age: 33
+          },
+          submitted_date: '2024-01-13T15:30:00Z',
+          status: 'pending',
+          previous_rejections: 0
+        }
+      ];
+      
+      setItems(dummyData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch picture moderation queue');
       console.error('Error fetching picture moderation queue:', err);
@@ -146,7 +278,7 @@ export default function PictureModerationPage() {
   const handleApprove = async (item: PictureModerationItem) => {
     setActionLoading(true);
     try {
-      await apiService.approvePicture(item.id);
+      await apiService.approvePicture(item.id.toString());
       setItems(prev => prev.filter(i => i.id !== item.id));
       setSelectedItems(prev => prev.filter(id => id !== item.id));
     } catch (err) {
@@ -168,7 +300,7 @@ export default function PictureModerationPage() {
 
     setActionLoading(true);
     try {
-      await apiService.rejectPicture(selectedItemForRejection.id, rejectionReason);
+      await apiService.rejectPicture(selectedItemForRejection.id.toString(), rejectionReason);
       setItems(prev => prev.filter(i => i.id !== selectedItemForRejection.id));
       setSelectedItems(prev => prev.filter(id => id !== selectedItemForRejection.id));
       setShowRejectionModal(false);
@@ -186,7 +318,7 @@ export default function PictureModerationPage() {
     setActionLoading(true);
     try {
       for (const itemId of selectedItems) {
-        await apiService.approvePicture(itemId);
+        await apiService.approvePicture(itemId.toString());
       }
       setItems(prev => prev.filter(i => !selectedItems.includes(i.id)));
       setSelectedItems([]);

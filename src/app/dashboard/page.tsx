@@ -58,9 +58,35 @@ const pieData = [
 
 const COLORS = ['#672DB7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
+// Color scheme for different periods
+const periodColors = {
+  today: {
+    bg: 'bg-red-100',
+    icon: 'text-red-600',
+    iconColor: '#dc2626'
+  },
+  weekly: {
+    bg: 'bg-blue-100',
+    icon: 'text-blue-600',
+    iconColor: '#2563eb'
+  },
+  monthly: {
+    bg: 'bg-green-100',
+    icon: 'text-green-600',
+    iconColor: '#059669'
+  },
+  yearly: {
+    bg: 'bg-purple-100',
+    icon: 'text-purple-600',
+    iconColor: '#7c3aed'
+  }
+};
+
 export default function DashboardOverview() {
   const [stats, setStats] = useState(mockStats);
   const [loading, setLoading] = useState(true);
+  const [selectedWeek, setSelectedWeek] = useState('current');
+  const [selectedMonth, setSelectedMonth] = useState('current');
 
   useEffect(() => {
     // Simulate API call
@@ -101,8 +127,8 @@ export default function DashboardOverview() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-user-plus" style={{color: '#059669', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.today.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-user-plus" style={{color: periodColors.today.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">New Users Today</p>
@@ -113,8 +139,8 @@ export default function DashboardOverview() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-heart" style={{color: '#2563eb', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.today.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-heart" style={{color: periodColors.today.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">New Matches Today</p>
@@ -125,8 +151,8 @@ export default function DashboardOverview() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-chart-line" style={{color: '#d97706', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.today.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-chart-line" style={{color: periodColors.today.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Daily Active Users</p>
@@ -140,8 +166,8 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-calendar-week" style={{color: '#672DB7', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.weekly.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-calendar-week" style={{color: periodColors.weekly.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Weekly Active Users</p>
@@ -151,8 +177,8 @@ export default function DashboardOverview() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-user-plus" style={{color: '#059669', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.weekly.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-user-plus" style={{color: periodColors.weekly.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">New Users This Week</p>
@@ -162,8 +188,8 @@ export default function DashboardOverview() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-calendar-alt" style={{color: '#2563eb', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.monthly.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-calendar-alt" style={{color: periodColors.monthly.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">New Users This Month</p>
@@ -173,8 +199,8 @@ export default function DashboardOverview() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-indigo-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-calendar" style={{color: '#7c3aed', fontSize: '1.25rem'}}></i>
+            <div className={`p-3 rounded-full ${periodColors.yearly.bg} flex items-center justify-center w-12 h-12`}>
+              <i className="fas fa-calendar" style={{color: periodColors.yearly.iconColor, fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">New Users This Year</p>
@@ -188,10 +214,24 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Activity Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            <i className="fas fa-chart-bar mr-2"></i>
-            Weekly Activity
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              <i className="fas fa-chart-bar mr-2"></i>
+              Weekly Activity
+            </h3>
+            <div className="flex gap-2">
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
+              >
+                <option value="current">Current Week</option>
+                <option value="previous">Previous Week</option>
+                <option value="two-weeks-ago">Two Weeks Ago</option>
+                <option value="three-weeks-ago">Three Weeks Ago</option>
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -207,10 +247,24 @@ export default function DashboardOverview() {
 
         {/* Monthly Growth Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            <i className="fas fa-chart-line mr-2"></i>
-            Monthly Growth
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              <i className="fas fa-chart-line mr-2"></i>
+              Monthly Growth
+            </h3>
+            <div className="flex gap-2">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
+              >
+                <option value="current">Current Month</option>
+                <option value="previous">Previous Month</option>
+                <option value="two-months-ago">Two Months Ago</option>
+                <option value="three-months-ago">Three Months Ago</option>
+              </select>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -262,23 +316,45 @@ export default function DashboardOverview() {
             <i className="fas fa-chart-pie mr-2"></i>
             User Distribution
           </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
+          <div className="flex items-center">
+            <div className="w-1/2">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={60}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="w-1/2 pl-4">
+              <div className="space-y-3">
                 {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <div key={index} className="flex items-center">
+                    <div 
+                      className="w-4 h-4 rounded-full mr-3" 
+                      style={{ backgroundColor: entry.color }}
+                    ></div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900">{entry.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {((entry.value / pieData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

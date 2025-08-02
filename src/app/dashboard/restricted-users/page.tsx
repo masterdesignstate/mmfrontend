@@ -69,8 +69,140 @@ export default function RestrictedUsersPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getRestrictedUsers();
-      setUsers(data);
+      
+      // Use dummy data since no users are actually restricted yet
+      const dummyData: RestrictedUser[] = [
+        {
+          id: 1,
+          username: 'john_doe',
+          first_name: 'John',
+          last_name: 'Doe',
+          email: 'john.doe@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Inappropriate behavior in chat',
+          restriction_date: '2024-01-15T10:30:00Z',
+          restriction_type: 'temporary',
+          restriction_duration: 7,
+          is_banned: true,
+          last_seen: '2024-01-14T18:45:00Z',
+          city: 'New York, NY',
+          age: 28
+        },
+        {
+          id: 2,
+          username: 'sarah_smith',
+          first_name: 'Sarah',
+          last_name: 'Smith',
+          email: 'sarah.smith@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Multiple violations of community guidelines',
+          restriction_date: '2024-01-12T14:20:00Z',
+          restriction_type: 'permanent',
+          restriction_duration: 0,
+          is_banned: true,
+          last_seen: '2024-01-12T13:15:00Z',
+          city: 'Los Angeles, CA',
+          age: 32
+        },
+        {
+          id: 3,
+          username: 'mike_wilson',
+          first_name: 'Mike',
+          last_name: 'Wilson',
+          email: 'mike.wilson@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Spam messages to multiple users',
+          restriction_date: '2024-01-10T09:15:00Z',
+          restriction_type: 'temporary',
+          restriction_duration: 14,
+          is_banned: true,
+          last_seen: '2024-01-10T08:30:00Z',
+          city: 'Chicago, IL',
+          age: 25
+        },
+        {
+          id: 4,
+          username: 'emily_davis',
+          first_name: 'Emily',
+          last_name: 'Davis',
+          email: 'emily.davis@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Fake profile information',
+          restriction_date: '2024-01-08T16:45:00Z',
+          restriction_type: 'temporary',
+          restriction_duration: 30,
+          is_banned: true,
+          last_seen: '2024-01-08T15:20:00Z',
+          city: 'Austin, TX',
+          age: 29
+        },
+        {
+          id: 5,
+          username: 'david_brown',
+          first_name: 'David',
+          last_name: 'Brown',
+          email: 'david.brown@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Harassment of other users',
+          restriction_date: '2024-01-05T11:30:00Z',
+          restriction_type: 'permanent',
+          restriction_duration: 0,
+          is_banned: true,
+          last_seen: '2024-01-05T10:45:00Z',
+          city: 'Seattle, WA',
+          age: 31
+        },
+        {
+          id: 6,
+          username: 'lisa_johnson',
+          first_name: 'Lisa',
+          last_name: 'Johnson',
+          email: 'lisa.johnson@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Inappropriate profile picture',
+          restriction_date: '2024-01-03T13:20:00Z',
+          restriction_type: 'temporary',
+          restriction_duration: 3,
+          is_banned: false,
+          last_seen: '2024-01-06T14:30:00Z',
+          city: 'Miami, FL',
+          age: 27
+        },
+        {
+          id: 7,
+          username: 'alex_chen',
+          first_name: 'Alex',
+          last_name: 'Chen',
+          email: 'alex.chen@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Multiple account creation',
+          restriction_date: '2024-01-01T08:15:00Z',
+          restriction_type: 'permanent',
+          restriction_duration: 0,
+          is_banned: true,
+          last_seen: '2024-01-01T07:30:00Z',
+          city: 'San Francisco, CA',
+          age: 26
+        },
+        {
+          id: 8,
+          username: 'rachel_taylor',
+          first_name: 'Rachel',
+          last_name: 'Taylor',
+          email: 'rachel.taylor@example.com',
+          profile_photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face',
+          restriction_reason: 'Violation of age policy',
+          restriction_date: '2023-12-28T15:45:00Z',
+          restriction_type: 'temporary',
+          restriction_duration: 21,
+          is_banned: false,
+          last_seen: '2024-01-18T12:15:00Z',
+          city: 'Denver, CO',
+          age: 24
+        }
+      ];
+      
+      setUsers(dummyData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch restricted users');
       console.error('Error fetching restricted users:', err);
@@ -195,13 +327,13 @@ export default function RestrictedUsersPage() {
       if (selectedAction === 'remove') {
         if (selectedUserForAction) {
           // Remove restriction for single user
-          await apiService.removeRestriction(selectedUserForAction.id);
+          await apiService.removeRestriction(selectedUserForAction.id.toString());
           setUsers(prev => prev.filter(u => u.id !== selectedUserForAction!.id));
           setSelectedUsers(prev => prev.filter(id => id !== selectedUserForAction!.id));
         } else {
           // Remove restrictions for bulk selected users
           for (const userId of selectedUsers) {
-            await apiService.removeRestriction(userId);
+            await apiService.removeRestriction(userId.toString());
           }
           setUsers(prev => prev.filter(u => !selectedUsers.includes(u.id)));
           setSelectedUsers([]);
@@ -212,7 +344,7 @@ export default function RestrictedUsersPage() {
       } else if (selectedAction === 'permanent') {
         // Make restriction permanent
         if (selectedUserForAction) {
-          await apiService.restrictUser(selectedUserForAction.id, {
+          await apiService.restrictUser(selectedUserForAction.id.toString(), {
             restriction_type: 'permanent',
             duration: 0,
             reason: 'Made permanent by admin'
@@ -224,7 +356,7 @@ export default function RestrictedUsersPage() {
           ));
         } else {
           for (const userId of selectedUsers) {
-            await apiService.restrictUser(userId, {
+            await apiService.restrictUser(userId.toString(), {
               restriction_type: 'permanent',
               duration: 0,
               reason: 'Made permanent by admin'
