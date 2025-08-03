@@ -16,6 +16,7 @@ export default function EditQuestionPage() {
   const params = useParams();
   const questionId = Number(params.id);
 
+  const [questionNumber, setQuestionNumber] = useState(questionId);
   const [question, setQuestion] = useState('What type of relationship are you seeking?');
   const [answers, setAnswers] = useState<Answer[]>([
     { id: '1', value: '1', answer: 'Casual' },
@@ -24,12 +25,12 @@ export default function EditQuestionPage() {
     { id: '4', value: '4', answer: 'Serious Relationship' },
     { id: '5', value: '5', answer: 'Partner' }
   ]);
-  const [selectedTags, setSelectedTags] = useState<string[]>(['Value']);
+  const [selectedTag, setSelectedTag] = useState<string>('Value');
   const [isMandatory, setIsMandatory] = useState(true);
   const [skipMe, setSkipMe] = useState(true);
   const [skipLookingFor, setSkipLookingFor] = useState(false);
-  const [shareAnswer, setShareAnswer] = useState(true);
-  const [openToAll, setOpenToAll] = useState(false);
+  const [openToAllMe, setOpenToAllMe] = useState(false);
+  const [openToAllLooking, setOpenToAllLooking] = useState(false);
   const [isApproved, setIsApproved] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -96,8 +97,8 @@ export default function EditQuestionPage() {
       newErrors.answers = 'At least 2 answers are required';
     }
 
-    if (selectedTags.length === 0) {
-      newErrors.tags = 'At least one tag is required';
+    if (!selectedTag) {
+      newErrors.tags = 'A tag is required';
     }
 
     setErrors(newErrors);
@@ -139,6 +140,21 @@ export default function EditQuestionPage() {
       {/* Edit Question Form */}
       <div className="bg-white rounded-lg shadow p-6">
         <form className="space-y-8">
+          {/* Question Number Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Question Number
+            </label>
+            <input
+              type="number"
+              value={questionNumber}
+              onChange={(e) => setQuestionNumber(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+              placeholder="Enter question number"
+              min="1"
+            />
+          </div>
+
           {/* Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -175,7 +191,7 @@ export default function EditQuestionPage() {
                 />
               </button>
               <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setIsMandatory(!isMandatory)}>
-                Is Mandatory
+                Mandatory
               </label>
             </div>
             <div className="flex items-center">
@@ -217,37 +233,37 @@ export default function EditQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
-                onClick={() => setShareAnswer(!shareAnswer)}
+                onClick={() => setOpenToAllMe(!openToAllMe)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
-                  shareAnswer ? 'bg-[#672DB7]' : 'bg-gray-200'
+                  openToAllMe ? 'bg-[#672DB7]' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                    shareAnswer ? 'translate-x-6' : 'translate-x-1'
+                    openToAllMe ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
-              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setShareAnswer(!shareAnswer)}>
-                Share Answer
+              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setOpenToAllMe(!openToAllMe)}>
+                OTA Me
               </label>
             </div>
             <div className="flex items-center">
               <button
                 type="button"
-                onClick={() => setOpenToAll(!openToAll)}
+                onClick={() => setOpenToAllLooking(!openToAllLooking)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
-                  openToAll ? 'bg-[#672DB7]' : 'bg-gray-200'
+                  openToAllLooking ? 'bg-[#672DB7]' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                    openToAll ? 'translate-x-6' : 'translate-x-1'
+                    openToAllLooking ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
-              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setOpenToAll(!openToAll)}>
-                Open to All
+              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setOpenToAllLooking(!openToAllLooking)}>
+                OTA Looking
               </label>
             </div>
           </div>
@@ -302,36 +318,31 @@ export default function EditQuestionPage() {
             </div>
           </div>
 
-          {/* Tags Section */}
+          {/* Tag Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tag</label>
             <div className="relative" ref={tagsDropdownRef}>
               <div
                 onClick={() => setIsTagsOpen(!isTagsOpen)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900 flex items-center justify-between"
               >
                 <div className="flex flex-wrap gap-1">
-                  {selectedTags.length > 0 ? (
-                    selectedTags.map(tag => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#672DB7] text-white"
+                  {selectedTag ? (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300">
+                      {selectedTag}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTag('');
+                        }}
+                        className="ml-1 hover:text-red-500"
                       >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedTags(prev => prev.filter(t => t !== tag));
-                          }}
-                          className="ml-1 hover:text-red-200"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))
+                        ×
+                      </button>
+                    </span>
                   ) : (
-                    <span className="text-gray-500">Select tags...</span>
+                    <span className="text-gray-500">Select tag...</span>
                   )}
                 </div>
                 <i className={`fas fa-chevron-down transition-transform duration-200 ${isTagsOpen ? 'rotate-180' : ''}`}></i>
@@ -343,11 +354,7 @@ export default function EditQuestionPage() {
                     <div
                       key={tag}
                       onClick={() => {
-                        if (selectedTags.includes(tag)) {
-                          setSelectedTags(prev => prev.filter(t => t !== tag));
-                        } else {
-                          setSelectedTags(prev => [...prev, tag]);
-                        }
+                        setSelectedTag(tag);
                         if (errors.tags) {
                           setErrors(prev => {
                             const newErrors = { ...prev };
@@ -357,7 +364,7 @@ export default function EditQuestionPage() {
                         }
                       }}
                       className={`px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors duration-200 ${
-                        selectedTags.includes(tag) ? 'bg-[#672DB7] text-white' : 'text-gray-900'
+                        selectedTag === tag ? 'bg-[#672DB7] text-white' : 'text-gray-900'
                       }`}
                     >
                       {tag}
@@ -374,7 +381,7 @@ export default function EditQuestionPage() {
           {/* Metadata Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Is Approved</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Approved</label>
               <div className="flex items-center">
                 <button
                   type="button"
@@ -393,15 +400,30 @@ export default function EditQuestionPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Created Date</label>
-              <div className="text-gray-500">6 months ago</div>
+              <input
+                type="text"
+                value="6 months ago"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+                placeholder="Enter created date"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Created By Profile</label>
-              <div className="text-gray-500">N/A or Created By Admin</div>
+              <input
+                type="text"
+                value="N/A or Created By Admin"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+                placeholder="Enter created by profile"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Last Modified Date</label>
-              <div className="text-gray-500">4 months ago</div>
+              <input
+                type="text"
+                value="4 months ago"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+                placeholder="Enter last modified date"
+              />
             </div>
           </div>
         </form>

@@ -14,7 +14,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 89,
       isApproved: "Jan 27, 2025",
-      createdAt: "Jan 20, 2025"
+      createdAt: "Jan 20, 2025",
+      approved: "Yes"
     },
     {
       id: 2,
@@ -23,7 +24,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 92,
       isApproved: "Jan 27, 2025",
-      createdAt: "Jan 20, 2025"
+      createdAt: "Jan 20, 2025",
+      approved: "Yes"
     },
     // Relationship Questions
     {
@@ -33,7 +35,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 78,
       isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025"
+      createdAt: "Jan 19, 2025",
+      approved: "Yes"
     },
     {
       id: 4,
@@ -42,7 +45,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 65,
       isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025"
+      createdAt: "Jan 19, 2025",
+      approved: "Yes"
     },
     {
       id: 5,
@@ -51,7 +55,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 83,
       isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025"
+      createdAt: "Jan 19, 2025",
+      approved: "Yes"
     },
     {
       id: 6,
@@ -60,7 +65,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 76,
       isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025"
+      createdAt: "Jan 19, 2025",
+      approved: "Yes"
     },
     // Religion Question
     {
@@ -70,7 +76,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 71,
       isApproved: "Jan 25, 2025",
-      createdAt: "Jan 18, 2025"
+      createdAt: "Jan 18, 2025",
+      approved: "Yes"
     },
     // Faith Questions
     {
@@ -80,7 +87,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 45,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     {
       id: 9,
@@ -89,7 +97,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 38,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     {
       id: 10,
@@ -98,7 +107,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 32,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     {
       id: 11,
@@ -107,7 +117,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 28,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     {
       id: 12,
@@ -116,7 +127,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 35,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     {
       id: 13,
@@ -125,7 +137,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 52,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     {
       id: 14,
@@ -134,7 +147,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 41,
       isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025"
+      createdAt: "Jan 17, 2025",
+      approved: "Yes"
     },
     // Exercise Question
     {
@@ -144,7 +158,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 89,
       isApproved: "Jan 23, 2025",
-      createdAt: "Jan 16, 2025"
+      createdAt: "Jan 16, 2025",
+      approved: "Yes"
     },
     // Habits Questions
     {
@@ -154,7 +169,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 73,
       isApproved: "Jan 22, 2025",
-      createdAt: "Jan 15, 2025"
+      createdAt: "Jan 15, 2025",
+      approved: "Yes"
     },
     {
       id: 17,
@@ -163,7 +179,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 68,
       isApproved: "Jan 22, 2025",
-      createdAt: "Jan 15, 2025"
+      createdAt: "Jan 15, 2025",
+      approved: "Yes"
     },
     // Children Questions
     {
@@ -173,7 +190,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 84,
       isApproved: "Jan 21, 2025",
-      createdAt: "Jan 14, 2025"
+      createdAt: "Jan 14, 2025",
+      approved: "Yes"
     },
     {
       id: 19,
@@ -182,7 +200,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 79,
       isApproved: "Jan 21, 2025",
-      createdAt: "Jan 14, 2025"
+      createdAt: "Jan 14, 2025",
+      approved: "Yes"
     },
     // Education Questions
     {
@@ -192,7 +211,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 91,
       isApproved: "Jan 20, 2025",
-      createdAt: "Jan 13, 2025"
+      createdAt: "Jan 13, 2025",
+      approved: "Yes"
     },
     {
       id: 21,
@@ -201,7 +221,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 87,
       isApproved: "Jan 20, 2025",
-      createdAt: "Jan 13, 2025"
+      createdAt: "Jan 13, 2025",
+      approved: "Yes"
     },
     // Diet Questions
     {
@@ -211,7 +232,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 93,
       isApproved: "Jan 19, 2025",
-      createdAt: "Jan 12, 2025"
+      createdAt: "Jan 12, 2025",
+      approved: "Yes"
     },
     {
       id: 23,
@@ -220,7 +242,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 56,
       isApproved: "Jan 19, 2025",
-      createdAt: "Jan 12, 2025"
+      createdAt: "Jan 12, 2025",
+      approved: "Yes"
     },
     {
       id: 24,
@@ -229,7 +252,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 42,
       isApproved: "Jan 19, 2025",
-      createdAt: "Jan 12, 2025"
+      createdAt: "Jan 12, 2025",
+      approved: "Yes"
     },
     // Politics Question
     {
@@ -239,7 +263,8 @@ const generateMockQuestions = () => {
       isMandatory: true,
       timesAnswered: 67,
       isApproved: "Jan 18, 2025",
-      createdAt: "Jan 11, 2025"
+      createdAt: "Jan 11, 2025",
+      approved: "Yes"
     }
   ];
 
@@ -281,7 +306,8 @@ const generateMockQuestions = () => {
         year: 'numeric', 
         month: 'short', 
         day: '2-digit' 
-      })
+      }),
+      approved: Math.random() > 0.3 ? "Yes" : "No"
     });
   }
   
@@ -314,8 +340,8 @@ export default function QuestionsPage() {
     const matchesTag = selectedTag === 'All' || question.tags.includes(selectedTag);
     
     const matchesApproved = selectedApproved === '-' || 
-      (selectedApproved === 'Yes' && question.isApproved !== '-') ||
-      (selectedApproved === 'No' && question.isApproved === '-');
+      (selectedApproved === 'Yes' && question.approved === 'Yes') ||
+      (selectedApproved === 'No' && question.approved === 'No');
     
     const matchesMandatory = selectedMandatory === '-' || 
       (selectedMandatory === 'Yes' && question.isMandatory) ||
@@ -384,7 +410,7 @@ export default function QuestionsPage() {
   };
 
   const handleRowClick = (questionId: number) => {
-    router.push(`/dashboard/question/${questionId}`);
+    router.push(`/dashboard/questions/edit/${questionId}`);
   };
 
   return (
@@ -436,9 +462,9 @@ export default function QuestionsPage() {
             </select>
           </div>
 
-          {/* Is Approved Dropdown */}
+          {/* Approved Dropdown */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Is approved</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Approved</label>
             <select
               value={selectedApproved}
               onChange={(e) => setSelectedApproved(e.target.value)}
@@ -450,9 +476,9 @@ export default function QuestionsPage() {
             </select>
           </div>
 
-          {/* Is Mandatory Dropdown */}
+          {/* Mandatory Dropdown */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Is mandatory</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mandatory</label>
             <select
               value={selectedMandatory}
               onChange={(e) => setSelectedMandatory(e.target.value)}
@@ -515,7 +541,7 @@ export default function QuestionsPage() {
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('id')}
                 >
-                  Sr #
+                  NO.
                   <SortIcon field="id" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -525,7 +551,7 @@ export default function QuestionsPage() {
                   Tags
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Is Mandatory ?
+                  Mandatory
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -535,13 +561,13 @@ export default function QuestionsPage() {
                   <SortIcon field="timesAnswered" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Is approved
+                  Approved
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created at
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Profile
+                  Action
                 </th>
               </tr>
             </thead>
@@ -563,7 +589,7 @@ export default function QuestionsPage() {
                       {question.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#672DB7] text-white"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300"
                         >
                           {tag}
                         </span>
@@ -581,7 +607,13 @@ export default function QuestionsPage() {
                     {question.timesAnswered}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.isApproved}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      question.approved === 'Yes' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {question.approved}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {question.createdAt}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Generate mock data for 200 profiles - deterministic to prevent hydration errors
 const generateMockProfiles = () => {
@@ -23,18 +24,11 @@ const generateMockProfiles = () => {
     'designer', 'teacher', 'doctor', 'engineer', 'lawyer', 'nurse', 'pilot'
   ];
 
-  const taglines = [
-    'Living life to the fullest', 'Adventure awaits', 'Carpe Diem', 'Dream big',
-    'Stay positive', 'Love and light', 'Make it happen', 'Never give up',
-    'Life is beautiful', 'Follow your dreams', 'Be yourself', 'Stay strong',
-    'Keep smiling', 'Live laugh love', 'Chase your passion', 'Create your destiny',
-    'Embrace the journey', 'Find your purpose', 'Spread kindness', 'Stay curious'
-  ];
-
   const cities = [
-    '10001', '10002', '10003', '90210', '90211', '90212', '78701', '78702',
-    '78703', '33101', '33102', '33103', '60601', '60602', '60603', '94101',
-    '94102', '94103', '98101', '98102', '98103', '02101', '02102', '02103'
+    'New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia',
+    'San Antonio', 'San Diego', 'Dallas', 'San Jose', 'Austin', 'Jacksonville',
+    'Fort Worth', 'Columbus', 'Charlotte', 'San Francisco', 'Indianapolis',
+    'Seattle', 'Denver', 'Washington', 'Boston', 'El Paso', 'Nashville', 'Detroit'
   ];
 
   const profiles = [];
@@ -43,27 +37,30 @@ const generateMockProfiles = () => {
     // Use deterministic values based on index
     const nameIndex = (i - 1) % names.length;
     const usernameIndex = (i - 1) % usernames.length;
-    const taglineIndex = (i - 1) % taglines.length;
     const cityIndex = (i - 1) % cities.length;
     
     const name = names[nameIndex];
     const username = i <= 20 ? usernames[usernameIndex] + i : '';
-    const gender = i % 2 === 0 ? 1 : 5; // Alternating gender
     const age = 18 + (i % 40); // Age 18-57 based on index
-    const relationship = 1 + (i % 3); // 1-3 based on index
+    const city = cities[cityIndex];
     const answers = 5 + (i % 25); // 5-29 based on index
-    const tagline = i <= 50 ? taglines[taglineIndex] : '';
-    const zip = cities[cityIndex];
     
-    // Deterministic date based on index
+    // Deterministic date based on index - format as MM/DD/YYYY
     const baseDate = new Date(2023, 0, 1);
     const daysToAdd = (i * 7) % 730; // Spread over 2 years
     const creationDate = new Date(baseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
-    const formattedDate = creationDate.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: '2-digit' 
-    });
+    const month = String(creationDate.getMonth() + 1).padStart(2, '0');
+    const day = String(creationDate.getDate()).padStart(2, '0');
+    const year = creationDate.getFullYear();
+    const formattedDate = `${month}/${day}/${year}`;
+
+    // Mock data for new columns - using 1-6 scale
+    const friend = 1 + (i % 6); // 1-6 based on index
+    const hookup = 1 + ((i + 1) % 6); // 1-6 based on index
+    const date = 1 + ((i + 2) % 6); // 1-6 based on index
+    const partner = 1 + ((i + 3) % 6); // 1-6 based on index
+    const male = 1 + ((i + 4) % 6); // 1-6 based on index
+    const female = 1 + ((i + 5) % 6); // 1-6 based on index
 
     profiles.push({
       id: i,
@@ -71,11 +68,14 @@ const generateMockProfiles = () => {
       name: `${name} ${i}`,
       username,
       age,
-      gender,
-      zip,
-      relationship,
+      city,
       answers,
-      tagline
+      friend,
+      hookup,
+      date,
+      partner,
+      male,
+      female
     });
   }
   
@@ -85,18 +85,8 @@ const generateMockProfiles = () => {
 // Generate mock data once outside component
 const mockProfiles = generateMockProfiles();
 
-const genderMap = {
-  1: 'Female',
-  5: 'Male'
-};
-
-const relationshipMap = {
-  1: 'Single',
-  2: 'In Relationship',
-  3: 'Married'
-};
-
 export default function ProfilesPage() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState(mockProfiles);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,8 +101,7 @@ export default function ProfilesPage() {
   const filteredProfiles = profiles.filter(profile => {
     const matchesSearch = searchTerm === '' || 
       profile.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      profile.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      profile.tagline.toLowerCase().includes(searchTerm.toLowerCase());
+      profile.username.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesDateRange = (!startDate || profile.creationDate >= startDate) &&
                            (!endDate || profile.creationDate <= endDate);
@@ -170,6 +159,10 @@ export default function ProfilesPage() {
     return sortDirection === 'asc' 
       ? <i className="fas fa-sort-up text-blue-500 ml-1"></i>
       : <i className="fas fa-sort-down text-blue-500 ml-1"></i>;
+  };
+
+  const handleProfileClick = (profileId: number) => {
+    router.push(`/dashboard/profiles/${profileId}`);
   };
 
   return (
@@ -245,7 +238,7 @@ export default function ProfilesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Dp
+                  Photo
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -277,24 +270,10 @@ export default function ProfilesPage() {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('gender')}
+                  onClick={() => handleSort('city')}
                 >
-                  Gender
-                  <SortIcon field="gender" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('zip')}
-                >
-                  Zip
-                  <SortIcon field="zip" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('relationship')}
-                >
-                  Relationship
-                  <SortIcon field="relationship" />
+                  City
+                  <SortIcon field="city" />
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -303,27 +282,64 @@ export default function ProfilesPage() {
                   Answers
                   <SortIcon field="answers" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tag line
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('friend')}
+                >
+                  Friend
+                  <SortIcon field="friend" />
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('hookup')}
+                >
+                  Hookup
+                  <SortIcon field="hookup" />
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('date')}
+                >
+                  Date
+                  <SortIcon field="date" />
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('partner')}
+                >
+                  Partner
+                  <SortIcon field="partner" />
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('male')}
+                >
+                  Male
+                  <SortIcon field="male" />
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('female')}
+                >
+                  Female
+                  <SortIcon field="female" />
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentProfiles.map((profile) => (
-                <tr key={profile.id} className="hover:bg-gray-50">
+                <tr 
+                  key={profile.id} 
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => handleProfileClick(profile.id)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center justify-center">
-                      <div 
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          profile.gender === 1 
-                            ? 'bg-pink-100' 
-                            : 'bg-blue-100'
-                        }`}
-                      >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100">
                         <i 
                           className="fas fa-user" 
                           style={{
-                            color: profile.gender === 1 ? '#ec4899' : '#3b82f6',
+                            color: '#6b7280',
                             fontSize: '1rem'
                           }}
                         ></i>
@@ -340,22 +356,43 @@ export default function ProfilesPage() {
                     {profile.username || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.age > 0 ? `${profile.age} years` : '-'}
+                    {profile.age > 0 ? profile.age : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.gender ? genderMap[profile.gender as keyof typeof genderMap] || profile.gender : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.zip || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.relationship ? relationshipMap[profile.relationship as keyof typeof relationshipMap] || profile.relationship : '-'}
+                    {profile.city || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {profile.answers}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.tagline || '-'}
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {profile.friend}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {profile.hookup}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {profile.date}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      {profile.partner}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      {profile.male}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                      {profile.female}
+                    </span>
                   </td>
                 </tr>
               ))}
