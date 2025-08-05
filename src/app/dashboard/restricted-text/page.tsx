@@ -15,8 +15,7 @@ interface RestrictedWord {
   is_active: boolean;
 }
 
-const categories = ["All", "Profanity", "Sexual", "Violence", "Insult", "Hate Speech", "Religious"];
-const severityTypes = ["All", "Low", "Medium", "High", "Critical"];
+
 
 export default function RestrictedTextPage() {
   const [words, setWords] = useState<RestrictedWord[]>([]);
@@ -24,8 +23,6 @@ export default function RestrictedTextPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedSeverity, setSelectedSeverity] = useState('All');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -110,13 +107,7 @@ export default function RestrictedTextPage() {
     const matchesSearch = searchTerm === '' || 
       word.text.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCategory = selectedCategory === 'All' || 
-      word.category === selectedCategory;
-    
-    const matchesSeverity = selectedSeverity === 'All' || 
-      word.severity === selectedSeverity.toLowerCase();
-    
-    return matchesSearch && matchesCategory && matchesSeverity;
+    return matchesSearch;
   });
 
   // Sort words
@@ -150,8 +141,6 @@ export default function RestrictedTextPage() {
 
   const resetFilters = () => {
     setSearchTerm('');
-    setSelectedCategory('All');
-    setSelectedSeverity('All');
     setSortField('');
     setSortDirection('asc');
     setCurrentPage(1);
@@ -410,63 +399,7 @@ export default function RestrictedTextPage() {
         </div>
       </div>
 
-      {/* Filters Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-          <button
-            onClick={resetFilters}
-            className="text-red-600 hover:text-red-800 font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors duration-200 cursor-pointer"
-          >
-            Reset
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-            <div className="relative">
-              <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-              <input
-                type="text"
-                placeholder="Search words"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
-              />
-            </div>
-          </div>
 
-          {/* Category Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white"
-            >
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Severity Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Severity</label>
-            <select
-              value={selectedSeverity}
-              onChange={(e) => setSelectedSeverity(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white"
-            >
-              {severityTypes.map(severity => (
-                <option key={severity} value={severity}>{severity}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
       {/* Words Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -489,22 +422,7 @@ export default function RestrictedTextPage() {
                   Word
                   <SortIcon field="text" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Severity
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usage Count
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('added_date')}
-                >
-                  Added Date
-                  <SortIcon field="added_date" />
-                </th>
+
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
@@ -526,22 +444,6 @@ export default function RestrictedTextPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{word.text}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(word.category)}`}>
-                      {word.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(word.severity)}`}>
-                      {word.severity.charAt(0).toUpperCase() + word.severity.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {word.usage_count}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {word.added_date ? new Date(word.added_date).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

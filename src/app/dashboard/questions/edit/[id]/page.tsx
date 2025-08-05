@@ -17,6 +17,7 @@ export default function EditQuestionPage() {
   const questionId = Number(params.id);
 
   const [questionNumber, setQuestionNumber] = useState(questionId);
+  const [groupName, setGroupName] = useState('Relationship Questions');
   const [question, setQuestion] = useState('What type of relationship are you seeking?');
   const [answers, setAnswers] = useState<Answer[]>([
     { id: '1', value: '1', answer: 'Casual' },
@@ -155,6 +156,20 @@ export default function EditQuestionPage() {
             />
           </div>
 
+          {/* Group Name Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Group Name
+            </label>
+            <input
+              type="text"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+              placeholder="Enter group name"
+            />
+          </div>
+
           {/* Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -176,6 +191,24 @@ export default function EditQuestionPage() {
 
           {/* Switches Section */}
           <div className="flex flex-wrap gap-8">
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsApproved(!isApproved)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
+                  isApproved ? 'bg-[#672DB7]' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                    isApproved ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setIsApproved(!isApproved)}>
+                Approved
+              </label>
+            </div>
             <div className="flex items-center">
               <button
                 type="button"
@@ -294,27 +327,11 @@ export default function EditQuestionPage() {
                       placeholder="Enter Answer"
                     />
                   </div>
-                  {answers.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeAnswer(answer.id)}
-                      className="mt-6 text-red-500 hover:text-red-700 transition-colors duration-200 cursor-pointer"
-                    >
-                      <i className="fas fa-trash"></i>
-                    </button>
-                  )}
                 </div>
               ))}
               {errors.answers && (
                 <p className="text-red-500 text-sm mt-1">{errors.answers}</p>
               )}
-              <button
-                type="button"
-                onClick={addAnswer}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-              >
-                Add to answers
-              </button>
             </div>
           </div>
 
@@ -381,49 +398,16 @@ export default function EditQuestionPage() {
           {/* Metadata Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Approved</label>
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setIsApproved(!isApproved)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
-                    isApproved ? 'bg-[#672DB7]' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      isApproved ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Created Date</label>
-              <input
-                type="text"
-                value="6 months ago"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-                placeholder="Enter created date"
-              />
+              <div className="text-gray-500">6 months ago</div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Created By Profile</label>
-              <input
-                type="text"
-                value="N/A or Created By Admin"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-                placeholder="Enter created by profile"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Created By</label>
+              <div className="text-gray-500">Admin</div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Last Modified Date</label>
-              <input
-                type="text"
-                value="4 months ago"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-                placeholder="Enter last modified date"
-              />
+              <div className="text-gray-500">4 months ago</div>
             </div>
           </div>
         </form>

@@ -9,16 +9,16 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 1,
       question: "What's your favorite way to spend a weekend?",
-      tags: ["Lifestyle", "Interest"],
+      tag: "Lifestyle",
       submittedBy: "user123",
       submittedAt: "Jan 28, 2025",
       timesAnswered: 0,
-      status: "pending"
+      status: "approved"
     },
     {
       id: 2,
       question: "How do you handle stress in your daily life?",
-      tags: ["Trait", "Lifestyle"],
+      tag: "Trait",
       submittedBy: "user456",
       submittedAt: "Jan 27, 2025",
       timesAnswered: 0,
@@ -27,7 +27,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 3,
       question: "What's your ideal vacation destination?",
-      tags: ["Interest", "Lifestyle"],
+      tag: "Interest",
       submittedBy: "user789",
       submittedAt: "Jan 26, 2025",
       timesAnswered: 0,
@@ -36,25 +36,25 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 4,
       question: "How important is family in your life?",
-      tags: ["Value", "Family"],
+      tag: "Value",
       submittedBy: "user101",
       submittedAt: "Jan 25, 2025",
       timesAnswered: 0,
-      status: "pending"
+      status: "approved"
     },
     {
       id: 5,
       question: "What's your approach to personal finance?",
-      tags: ["Lifestyle", "Value"],
+      tag: "Lifestyle",
       submittedBy: "user202",
       submittedAt: "Jan 24, 2025",
       timesAnswered: 0,
-      status: "pending"
+      status: "approved"
     },
     {
       id: 6,
       question: "How do you prefer to communicate with others?",
-      tags: ["Trait", "Lifestyle"],
+      tag: "Trait",
       submittedBy: "user303",
       submittedAt: "Jan 23, 2025",
       timesAnswered: 0,
@@ -63,7 +63,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 7,
       question: "What's your favorite type of music?",
-      tags: ["Interest", "Lifestyle"],
+      tag: "Interest",
       submittedBy: "user404",
       submittedAt: "Jan 22, 2025",
       timesAnswered: 0,
@@ -72,7 +72,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 8,
       question: "How do you approach learning new things?",
-      tags: ["Trait", "Value"],
+      tag: "Trait",
       submittedBy: "user505",
       submittedAt: "Jan 21, 2025",
       timesAnswered: 0,
@@ -81,7 +81,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 9,
       question: "What's your ideal living environment?",
-      tags: ["Lifestyle", "Value"],
+      tag: "Lifestyle",
       submittedBy: "user606",
       submittedAt: "Jan 20, 2025",
       timesAnswered: 0,
@@ -90,7 +90,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 10,
       question: "How do you handle disagreements in relationships?",
-      tags: ["Trait", "Value"],
+      tag: "Value",
       submittedBy: "user707",
       submittedAt: "Jan 19, 2025",
       timesAnswered: 0,
@@ -99,7 +99,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 11,
       question: "What's your favorite hobby or pastime?",
-      tags: ["Interest", "Lifestyle"],
+      tag: "Interest",
       submittedBy: "user808",
       submittedAt: "Jan 18, 2025",
       timesAnswered: 0,
@@ -108,7 +108,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 12,
       question: "How do you approach decision-making?",
-      tags: ["Trait", "Value"],
+      tag: "Trait",
       submittedBy: "user909",
       submittedAt: "Jan 17, 2025",
       timesAnswered: 0,
@@ -117,7 +117,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 13,
       question: "What's your ideal work environment?",
-      tags: ["Career", "Lifestyle"],
+      tag: "Career",
       submittedBy: "user1010",
       submittedAt: "Jan 16, 2025",
       timesAnswered: 0,
@@ -126,7 +126,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 14,
       question: "How do you handle change in your life?",
-      tags: ["Trait", "Lifestyle"],
+      tag: "Trait",
       submittedBy: "user1111",
       submittedAt: "Jan 15, 2025",
       timesAnswered: 0,
@@ -135,7 +135,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 15,
       question: "What's your favorite type of food?",
-      tags: ["Interest", "Lifestyle"],
+      tag: "Interest",
       submittedBy: "user1212",
       submittedAt: "Jan 14, 2025",
       timesAnswered: 0,
@@ -144,7 +144,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 16,
       question: "How do you approach personal growth?",
-      tags: ["Value", "Trait"],
+      tag: "Value",
       submittedBy: "user1313",
       submittedAt: "Jan 13, 2025",
       timesAnswered: 0,
@@ -153,7 +153,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 17,
       question: "What's your ideal social setting?",
-      tags: ["Lifestyle", "Trait"],
+      tag: "Lifestyle",
       submittedBy: "user1414",
       submittedAt: "Jan 12, 2025",
       timesAnswered: 0,
@@ -162,7 +162,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 18,
       question: "How do you handle criticism?",
-      tags: ["Trait", "Value"],
+      tag: "Trait",
       submittedBy: "user1515",
       submittedAt: "Jan 11, 2025",
       timesAnswered: 0,
@@ -171,7 +171,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 19,
       question: "What's your favorite way to relax?",
-      tags: ["Lifestyle", "Interest"],
+      tag: "Lifestyle",
       submittedBy: "user1616",
       submittedAt: "Jan 10, 2025",
       timesAnswered: 0,
@@ -180,7 +180,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 20,
       question: "How do you approach goal-setting?",
-      tags: ["Trait", "Value"],
+      tag: "Trait",
       submittedBy: "user1717",
       submittedAt: "Jan 9, 2025",
       timesAnswered: 0,
@@ -189,7 +189,7 @@ const generateMockUnapprovedQuestions = () => {
     {
       id: 21,
       question: "What's your ideal weekend activity?",
-      tags: ["Interest", "Lifestyle"],
+      tag: "Interest",
       submittedBy: "user1818",
       submittedAt: "Jan 8, 2025",
       timesAnswered: 0,
@@ -500,7 +500,7 @@ export default function ApproveQuestionsPage() {
                   Question
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tags
+                  Tag
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Submitted By
@@ -535,16 +535,9 @@ export default function ApproveQuestionsPage() {
                     <div className="truncate">{question.question}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {question.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#672DB7] text-white"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300">
+                      {question.tag}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {question.submittedBy}
@@ -555,18 +548,15 @@ export default function ApproveQuestionsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2">
                       <button 
-                        onClick={() => handleApproveQuestion(question.id)}
-                        className="text-green-600 hover:text-green-800 transition-colors duration-200 cursor-pointer"
-                        title="Approve"
+                        onClick={() => question.status === "approved" ? handleRejectQuestion(question.id) : handleApproveQuestion(question.id)}
+                        className={`transition-colors duration-200 cursor-pointer ${
+                          question.status === "approved" 
+                            ? "text-red-600 hover:text-red-800" 
+                            : "text-green-600 hover:text-green-800"
+                        }`}
+                        title={question.status === "approved" ? "Unapprove" : "Approve"}
                       >
-                        <i className="fas fa-check"></i>
-                      </button>
-                      <button 
-                        onClick={() => handleRejectQuestion(question.id)}
-                        className="text-red-500 hover:text-red-700 transition-colors duration-200 cursor-pointer"
-                        title="Reject"
-                      >
-                        <i className="fas fa-times"></i>
+                        <i className={`fas ${question.status === "approved" ? "fa-times" : "fa-check"}`}></i>
                       </button>
                       <button 
                         onClick={() => router.push(`/dashboard/question/${question.id}`)}

@@ -6,6 +6,7 @@ import type { ApiUser, UserAnswer, Question } from '@/services/api';
 
 // Type definition for calculation result
 interface CalculationResult {
+  questionNumber: number;
   question: string;
   p1Me: number;
   p2Me: number;
@@ -180,6 +181,7 @@ export default function CalculationPage() {
       const adj = Math.max(0, max - (delta * p1Answer.looking_for_multiplier));
       
       return {
+        questionNumber: parseInt(question.id) || 0,
         question: question.text,
         p1Me: p1Answer.me_answer,
         p2Me: p2Answer.me_answer,
@@ -202,6 +204,7 @@ export default function CalculationPage() {
       const adj = Math.max(0, max - (delta * p2Answer.looking_for_multiplier));
       
       return {
+        questionNumber: parseInt(question.id) || 0,
         question: question.text,
         p1Me: p1Answer.me_answer,
         p2Me: p2Answer.me_answer,
@@ -299,7 +302,7 @@ export default function CalculationPage() {
                     className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none cursor-pointer"
                   >
                     <div className="font-medium">{user.first_name} {user.last_name}</div>
-                    <div className="text-sm text-gray-500">@{user.username} • {user.email}</div>
+                    <div className="text-sm text-gray-500">@{user.username}</div>
                   </button>
                 ))}
               </div>
@@ -327,7 +330,7 @@ export default function CalculationPage() {
                     className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none cursor-pointer"
                   >
                     <div className="font-medium">{user.first_name} {user.last_name}</div>
-                    <div className="text-sm text-gray-500">@{user.username} • {user.email}</div>
+                    <div className="text-sm text-gray-500">@{user.username}</div>
                   </button>
                 ))}
               </div>
@@ -393,6 +396,9 @@ export default function CalculationPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Question #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Question
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -418,6 +424,9 @@ export default function CalculationPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {calculationResults1.map((result, index) => (
                     <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {result.questionNumber}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                         <div className="truncate">{result.question}</div>
                       </td>
@@ -446,6 +455,7 @@ export default function CalculationPage() {
                     <td className="px-6 py-4 text-sm text-gray-900">
                       Summary
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
@@ -490,6 +500,9 @@ export default function CalculationPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Question No.
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Question
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -515,6 +528,9 @@ export default function CalculationPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {calculationResults2.map((result, index) => (
                     <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {result.questionNumber}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                         <div className="truncate">{result.question}</div>
                       </td>
@@ -543,6 +559,7 @@ export default function CalculationPage() {
                     <td className="px-6 py-4 text-sm text-gray-900">
                       Summary
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>

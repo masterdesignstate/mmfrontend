@@ -61,6 +61,9 @@ const generateMockProfiles = () => {
     const partner = 1 + ((i + 3) % 6); // 1-6 based on index
     const male = 1 + ((i + 4) % 6); // 1-6 based on index
     const female = 1 + ((i + 5) % 6); // 1-6 based on index
+    
+    // Mock restricted status - every 10th user is restricted
+    const isRestricted = i % 10 === 0;
 
     profiles.push({
       id: i,
@@ -75,7 +78,8 @@ const generateMockProfiles = () => {
       date,
       partner,
       male,
-      female
+      female,
+      isRestricted
     });
   }
   
@@ -95,18 +99,24 @@ export default function ProfilesPage() {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   const [viewMode, setViewMode] = useState('table'); // table or grid
+  const [restrictedFilter, setRestrictedFilter] = useState('all'); // all, restricted, not-restricted
   const itemsPerPage = 10;
 
-  // Filter and search profiles
+    // Filter and search profiles
   const filteredProfiles = profiles.filter(profile => {
     const matchesSearch = searchTerm === '' || 
       profile.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       profile.username.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesDateRange = (!startDate || profile.creationDate >= startDate) &&
-                           (!endDate || profile.creationDate <= endDate);
+                             (!endDate || profile.creationDate <= endDate);
     
-    return matchesSearch && matchesDateRange;
+    const matchesRestrictedFilter = 
+      restrictedFilter === 'all' ||
+      (restrictedFilter === 'restricted' && profile.isRestricted) ||
+      (restrictedFilter === 'not-restricted' && !profile.isRestricted);
+    
+    return matchesSearch && matchesDateRange && matchesRestrictedFilter;
   });
 
   // Sort profiles
@@ -147,6 +157,7 @@ export default function ProfilesPage() {
     setSearchTerm('');
     setStartDate('');
     setEndDate('');
+    setRestrictedFilter('all');
     setSortField('');
     setSortDirection('asc');
     setCurrentPage(1);
@@ -199,6 +210,20 @@ export default function ProfilesPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-text"
                 placeholder="Select Until Date"
               />
+            </div>
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Restricted Status
+              </label>
+              <select
+                value={restrictedFilter}
+                onChange={(e) => setRestrictedFilter(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-pointer"
+              >
+                <option value="all">All Users</option>
+                <option value="restricted">Restricted Users</option>
+                <option value="not-restricted">Non-Restricted Users</option>
+              </select>
             </div>
           </div>
           <button
@@ -324,6 +349,9 @@ export default function ProfilesPage() {
                   Female
                   <SortIcon field="female" />
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -393,6 +421,32 @@ export default function ProfilesPage() {
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
                       {profile.female}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        className={`transition-colors duration-200 cursor-pointer ${
+                          profile.isRestricted 
+                            ? 'text-green-600 hover:text-green-800' 
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                        title={profile.isRestricted ? 'Unrestrict User' : 'Restrict User'}
+                      >
+                        <i className={`fas ${profile.isRestricted ? 'fa-unlock' : 'fa-lock'}`}></i>
+                      </button>
+                      <button 
+                        className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
+                        title="Temporary Restriction"
+                      >
+                        <i className="fas fa-clock"></i>
+                      </button>
+                      <button 
+                        className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"
+                        title="Permanent Ban"
+                      >
+                        <i className="fas fa-ban"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

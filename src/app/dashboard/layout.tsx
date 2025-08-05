@@ -11,13 +11,12 @@ const sidebarItems = [
   { name: 'Profile', href: '/dashboard/profile', icon: 'fas fa-user' },
   { name: 'List of Questions', href: '/dashboard/questions', icon: 'fas fa-question-circle' },
   { name: 'Question', href: '/dashboard/question', icon: 'fas fa-question' },
-  { name: 'Edit Question', href: '/dashboard/edit-question', icon: 'fas fa-edit' },
   { name: 'Create Question', href: '/dashboard/questions/create', icon: 'fas fa-plus-circle' },
   { name: 'Approve Question', href: '/dashboard/approve-question', icon: 'fas fa-check-circle' },
   { name: 'Individual Calculation', href: '/dashboard/calculation', icon: 'fas fa-calculator' },
   { name: 'Picture Moderation Queue', href: '/dashboard/picture-moderation', icon: 'fas fa-images' },
-  { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },
-  { name: 'Reported Users', href: '/dashboard/reported-users', icon: 'fas fa-exclamation-triangle' },
+  // { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },
+  // { name: 'Reported Users', href: '/dashboard/reported-users', icon: 'fas fa-exclamation-triangle' },
   { name: 'Restricted Text', href: '/dashboard/restricted-text', icon: 'fas fa-shield-alt' },
 ];
 
