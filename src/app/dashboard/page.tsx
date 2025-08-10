@@ -10,21 +10,15 @@ import {
   Tooltip, 
   ResponsiveContainer,
   LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell
+  Line
 } from 'recharts';
 
 // Mock data - replace with actual API calls
 const mockStats = {
   totalUsers: 1247,
-  newUsersToday: 23,
-  newMatchesToday: 45,
   dailyActiveUsers: 892,
   weeklyActiveUsers: 1156,
-  newUsersThisWeek: 156,
-  newUsersThisMonth: 423,
+  monthlyActiveUsers: 1342,
   newUsersThisYear: 1247,
   totalMatches: 2341,
   totalLikes: 5678,
@@ -32,55 +26,29 @@ const mockStats = {
 };
 
 const weeklyData = [
-  { name: 'Mon', users: 120, matches: 45, likes: 89 },
-  { name: 'Tue', users: 135, matches: 52, likes: 94 },
-  { name: 'Wed', users: 142, matches: 48, likes: 87 },
-  { name: 'Thu', users: 128, matches: 61, likes: 102 },
-  { name: 'Fri', users: 156, matches: 67, likes: 115 },
-  { name: 'Sat', users: 178, matches: 73, likes: 128 },
-  { name: 'Sun', users: 165, matches: 58, likes: 96 },
+  { name: 'Mon', users: 120, approves: 45, likes: 89, matches: 67 },
+  { name: 'Tue', users: 135, approves: 52, likes: 94, matches: 73 },
+  { name: 'Wed', users: 142, approves: 48, likes: 87, matches: 69 },
+  { name: 'Thu', users: 128, approves: 61, likes: 102, matches: 78 },
+  { name: 'Fri', users: 156, approves: 67, likes: 115, matches: 85 },
+  { name: 'Sat', users: 178, approves: 73, likes: 128, matches: 92 },
+  { name: 'Sun', users: 165, approves: 58, likes: 96, matches: 74 },
 ];
 
 const monthlyData = [
-  { name: 'Jan', users: 423, matches: 156, likes: 234 },
-  { name: 'Feb', users: 456, matches: 178, likes: 267 },
-  { name: 'Mar', users: 489, matches: 192, likes: 289 },
-  { name: 'Apr', users: 512, matches: 201, likes: 312 },
-  { name: 'May', users: 534, matches: 215, likes: 334 },
-  { name: 'Jun', users: 567, matches: 228, likes: 356 },
+  { name: 'Jan', users: 423, approves: 156, likes: 234, matches: 189 },
+  { name: 'Feb', users: 456, approves: 178, likes: 267, matches: 203 },
+  { name: 'Mar', users: 489, approves: 192, likes: 289, matches: 217 },
+  { name: 'Apr', users: 512, approves: 201, likes: 312, matches: 231 },
+  { name: 'May', users: 534, approves: 215, likes: 334, matches: 245 },
+  { name: 'Jun', users: 567, approves: 228, likes: 356, matches: 259 },
 ];
 
-const pieData = [
-  { name: 'Total Users', value: 1247, color: 'rgb(0,136,255)' },
-  { name: 'Active Today', value: 892, color: '#10B981' },
-  { name: 'New Today', value: 23, color: 'rgb(255,45,85)' },
-];
+
 
 const COLORS = ['#672DB7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-// Color scheme for different periods
-const periodColors = {
-  today: {
-    bg: 'bg-red-100',
-    icon: 'text-red-600',
-    iconColor: '#dc2626'
-  },
-  weekly: {
-    bg: 'bg-blue-100',
-    icon: 'text-blue-600',
-    iconColor: '#2563eb'
-  },
-  monthly: {
-    bg: 'bg-green-100',
-    icon: 'text-green-600',
-    iconColor: '#059669'
-  },
-  yearly: {
-    bg: 'bg-purple-100',
-    icon: 'text-purple-600',
-    iconColor: '#7c3aed'
-  }
-};
+
 
 export default function DashboardOverview() {
   const [stats, setStats] = useState(mockStats);
@@ -111,7 +79,7 @@ export default function DashboardOverview() {
         <p className="text-gray-600 mt-2">Dashboard overview and analytics</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - First Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
@@ -127,47 +95,47 @@ export default function DashboardOverview() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.today.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-user-plus" style={{color: periodColors.today.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-green-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-check-circle" style={{color: '#10B981', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">New Users Today</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.newUsersToday}</p>
+              <p className="text-sm font-medium text-gray-600">Total Approves</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalApproves.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.today.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-heart" style={{color: periodColors.today.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-blue-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-thumbs-up" style={{color: '#2563eb', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">New Matches Today</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.newMatchesToday}</p>
+              <p className="text-sm font-medium text-gray-600">Total Likes</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalLikes.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.today.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-chart-line" style={{color: periodColors.today.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-red-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-heart" style={{color: '#dc2626', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Daily Active Users</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.dailyActiveUsers}</p>
+              <p className="text-sm font-medium text-gray-600">Total Matches</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalMatches.toLocaleString()}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Additional Stats */}
+      {/* Stats Cards - Second Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.weekly.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-calendar-week" style={{color: periodColors.weekly.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-indigo-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-calendar-week" style={{color: '#4f46e5', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Weekly Active Users</p>
@@ -177,30 +145,30 @@ export default function DashboardOverview() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.weekly.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-user-plus" style={{color: periodColors.weekly.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-teal-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-chart-line" style={{color: '#14b8a6', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">New Users This Week</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.newUsersThisWeek}</p>
+              <p className="text-sm font-medium text-gray-600">Daily Active Users</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.dailyActiveUsers}</p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.monthly.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-calendar-alt" style={{color: periodColors.monthly.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-pink-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-calendar-alt" style={{color: '#ec4899', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">New Users This Month</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.newUsersThisMonth}</p>
+              <p className="text-sm font-medium text-gray-600">Monthly Active Users</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.monthlyActiveUsers}</p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className={`p-3 rounded-full ${periodColors.yearly.bg} flex items-center justify-center w-12 h-12`}>
-              <i className="fas fa-calendar" style={{color: periodColors.yearly.iconColor, fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-orange-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-calendar" style={{color: '#ea580c', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">New Users This Year</p>
@@ -216,7 +184,7 @@ export default function DashboardOverview() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              <i className="fas fa-chart-bar mr-2"></i>
+              <i className="fas fa-chart-line mr-2"></i>
               Weekly Activity
             </h3>
             <div className="flex gap-2">
@@ -232,16 +200,46 @@ export default function DashboardOverview() {
               </select>
             </div>
           </div>
+          
+          {/* Weekly Totals */}
+          <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#672DB7]">
+                {weeklyData.reduce((sum, item) => sum + item.users, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Users</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#10B981]">
+                {weeklyData.reduce((sum, item) => sum + item.approves, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Approves</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#2563eb]">
+                {weeklyData.reduce((sum, item) => sum + item.likes, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Likes</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#dc2626]">
+                {weeklyData.reduce((sum, item) => sum + item.matches, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Matches</div>
+            </div>
+          </div>
+          
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={weeklyData}>
+            <LineChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="users" fill="rgb(0,136,255)" name="Users" />
-              <Bar dataKey="matches" fill="#10B981" name="Matches" />
-              <Bar dataKey="likes" fill="rgb(255,45,85)" name="Likes" />
-            </BarChart>
+              <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
+              <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
+              <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
+              <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
+            </LineChart>
           </ResponsiveContainer>
         </div>
 
@@ -265,98 +263,51 @@ export default function DashboardOverview() {
               </select>
             </div>
           </div>
+          
+          {/* Monthly Totals */}
+          <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#672DB7]">
+                {monthlyData.reduce((sum, item) => sum + item.users, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Users</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#10B981]">
+                {monthlyData.reduce((sum, item) => sum + item.approves, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Approves</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#2563eb]">
+                {monthlyData.reduce((sum, item) => sum + item.likes, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Likes</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#dc2626]">
+                {monthlyData.reduce((sum, item) => sum + item.matches, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Matches</div>
+            </div>
+          </div>
+          
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="users" stroke="rgb(0,136,255)" strokeWidth={2} name="Users" />
-              <Line type="monotone" dataKey="matches" stroke="#10B981" strokeWidth={2} name="Matches" />
-              <Line type="monotone" dataKey="likes" stroke="rgb(255,45,85)" strokeWidth={2} name="Likes" />
+              <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
+              <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
+              <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
+              <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* User Activity Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            <i className="fas fa-list-alt mr-2"></i>
-            User Activity Summary
-          </h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">
-                <i className="fas fa-heart mr-2 text-red-500"></i>
-                Total Matches
-              </span>
-              <span className="font-semibold">{stats.totalMatches.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">
-                <i className="fas fa-thumbs-up mr-2 text-blue-500"></i>
-                Total Likes Given
-              </span>
-              <span className="font-semibold">{stats.totalLikes.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">
-                <i className="fas fa-check-circle mr-2 text-green-500"></i>
-                Total Approves
-              </span>
-              <span className="font-semibold">{stats.totalApproves.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            <i className="fas fa-chart-pie mr-2"></i>
-            User Distribution
-          </h3>
-          <div className="flex items-center">
-            <div className="w-1/2">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={60}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="w-1/2 pl-4">
-              <div className="space-y-3">
-                {pieData.map((entry, index) => (
-                  <div key={index} className="flex items-center">
-                    <div 
-                      className="w-4 h-4 rounded-full mr-3" 
-                      style={{ backgroundColor: entry.color }}
-                    ></div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-900">{entry.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {((entry.value / pieData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 } 
