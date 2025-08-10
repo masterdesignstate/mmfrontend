@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -25,36 +23,89 @@ const mockStats = {
   totalApproves: 3456,
 };
 
-const weeklyData = [
-  { name: 'Mon', users: 120, approves: 45, likes: 89, matches: 67 },
-  { name: 'Tue', users: 135, approves: 52, likes: 94, matches: 73 },
-  { name: 'Wed', users: 142, approves: 48, likes: 87, matches: 69 },
-  { name: 'Thu', users: 128, approves: 61, likes: 102, matches: 78 },
-  { name: 'Fri', users: 156, approves: 67, likes: 115, matches: 85 },
-  { name: 'Sat', users: 178, approves: 73, likes: 128, matches: 92 },
-  { name: 'Sun', users: 165, approves: 58, likes: 96, matches: 74 },
-];
+// Labels and helpers
+const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Keeping full month names available for future use if needed
+const monthShortNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const monthlyData = [
-  { name: 'Jan', users: 423, approves: 156, likes: 234, matches: 189 },
-  { name: 'Feb', users: 456, approves: 178, likes: 267, matches: 203 },
-  { name: 'Mar', users: 489, approves: 192, likes: 289, matches: 217 },
-  { name: 'Apr', users: 512, approves: 201, likes: 312, matches: 231 },
-  { name: 'May', users: 534, approves: 215, likes: 334, matches: 245 },
-  { name: 'Jun', users: 567, approves: 228, likes: 356, matches: 259 },
-];
+function getISOWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = (d.getUTCDay() + 6) % 7; // Monday=0..Sunday=6
+  d.setUTCDate(d.getUTCDate() - dayNum + 3); // nearest Thursday
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const diff = (d.getTime() - firstThursday.getTime()) / 86400000; // days
+  return 1 + Math.floor(diff / 7);
+}
 
+function getISOWeekStartDate(year: number, week: number): Date {
+  // ISO week 1: week containing Jan 4th. Find Monday of that week.
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dayOfWeek = (jan4.getUTCDay() + 6) % 7; // Monday=0
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - dayOfWeek);
+  const monday = new Date(week1Monday);
+  monday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+  return monday;
+}
 
+function formatWeekRangeLabel(year: number, week: number): string {
+  const start = getISOWeekStartDate(year, week);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+  const startStr = `${monthShortNames[start.getUTCMonth()]} ${start.getUTCDate()}`;
+  const endStr = `${monthShortNames[end.getUTCMonth()]} ${end.getUTCDate()}`;
+  return `Week ${week} (${startStr} – ${endStr})`;
+}
 
-const COLORS = ['#672DB7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+function createSeededRandom(seed: number): () => number {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => (s = (s * 16807) % 2147483647) / 2147483647;
+}
+
+function generateWeeklyData(weekNumber: number) {
+  const rand = createSeededRandom(weekNumber * 97);
+  const len = 7;
+  const users = Array.from({ length: len }, () => Math.round(130 + (rand() - 0.5) * 80));
+  const approves = Array.from({ length: len }, () => Math.round(55 + (rand() - 0.5) * 30));
+  const likes = Array.from({ length: len }, () => Math.round(100 + (rand() - 0.5) * 60));
+  const matches = Array.from({ length: len }, () => Math.round(75 + (rand() - 0.5) * 40));
+  return dayLabels.map((name, i) => ({ name, users: users[i], approves: approves[i], likes: likes[i], matches: matches[i] }));
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function generateMonthlyData(monthIndex: number, year: number) {
+  const rand = createSeededRandom((year * 100) + monthIndex);
+  const len = daysInMonth(year, monthIndex);
+  const users = Array.from({ length: len }, () => Math.round(420 + (rand() - 0.5) * 220));
+  const approves = Array.from({ length: len }, () => Math.round(160 + (rand() - 0.5) * 90));
+  const likes = Array.from({ length: len }, () => Math.round(240 + (rand() - 0.5) * 140));
+  const matches = Array.from({ length: len }, () => Math.round(190 + (rand() - 0.5) * 100));
+  return Array.from({ length: len }, (_, i) => ({ name: String(i + 1), users: users[i], approves: approves[i], likes: likes[i], matches: matches[i] }));
+}
 
 
 
 export default function DashboardOverview() {
-  const [stats, setStats] = useState(mockStats);
+  const [stats] = useState(mockStats);
   const [loading, setLoading] = useState(true);
-  const [selectedWeek, setSelectedWeek] = useState('current');
-  const [selectedMonth, setSelectedMonth] = useState('current');
+
+  // Current calendar markers
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth(); // 0-11
+  const currentWeekNumber = getISOWeek(now); // 1-53
+
+  // Selected period
+  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeekNumber);
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonthIndex);
+
+  // Data based on selected period
+  const weeklyData = useMemo(() => generateWeeklyData(selectedWeek), [selectedWeek]);
+  const monthlyData = useMemo(() => generateMonthlyData(selectedMonth, currentYear), [selectedMonth, currentYear]);
 
   useEffect(() => {
     // Simulate API call
@@ -187,17 +238,28 @@ export default function DashboardOverview() {
               <i className="fas fa-chart-line mr-2"></i>
               Weekly Activity
             </h3>
-            <div className="flex gap-2">
-              <select
-                value={selectedWeek}
-                onChange={(e) => setSelectedWeek(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedWeek((w) => Math.max(1, w - 1))}
+                disabled={selectedWeek <= 1}
+                className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Previous week"
               >
-                <option value="current">Current Week</option>
-                <option value="previous">Previous Week</option>
-                <option value="two-weeks-ago">Two Weeks Ago</option>
-                <option value="three-weeks-ago">Three Weeks Ago</option>
-              </select>
+                <i className="fas fa-chevron-left"></i>
+              </button>
+              <span className="text-sm text-gray-700 min-w-[200px] text-center">
+                {formatWeekRangeLabel(currentYear, selectedWeek)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedWeek((w) => Math.min(currentWeekNumber, w + 1))}
+                disabled={selectedWeek >= currentWeekNumber}
+                className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Next week"
+              >
+                <i className="fas fa-chevron-right"></i>
+              </button>
             </div>
           </div>
           
@@ -245,22 +307,28 @@ export default function DashboardOverview() {
 
         {/* Monthly Growth Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              <i className="fas fa-chart-line mr-2"></i>
-              Monthly Growth
-            </h3>
-            <div className="flex gap-2">
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
-              >
-                <option value="current">Current Month</option>
-                <option value="previous">Previous Month</option>
-                <option value="two-months-ago">Two Months Ago</option>
-                <option value="three-months-ago">Three Months Ago</option>
-              </select>
+          <div className="mb-4">
+            <div className="flex items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                <i className="fas fa-chart-line mr-2"></i>
+                Monthly Growth
+              </h3>
+            </div>
+            <div className="mt-2 flex flex-nowrap gap-2 overflow-x-auto">
+              {Array.from({ length: currentMonthIndex + 1 }, (_, m) => m).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setSelectedMonth(m)}
+                  className={`px-2.5 py-1 rounded-full text-sm border transition-colors ${
+                    selectedMonth === m
+                      ? 'bg-[#672DB7] text-white border-[#672DB7]'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-[#672DB7]'
+                  }`}
+                >
+                  {monthShortNames[m]}
+                </button>
+              ))}
             </div>
           </div>
           
@@ -295,7 +363,7 @@ export default function DashboardOverview() {
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={Math.ceil(monthlyData.length / 12)} />
               <YAxis />
               <Tooltip />
               <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
