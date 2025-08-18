@@ -15,6 +15,11 @@ export default function EditQuestionPage() {
   const router = useRouter();
   const params = useParams();
   const questionId = Number(params.id);
+  // Mock metadata for display
+  const createdBy = questionId % 2 === 0 ? `user_${questionId}` : 'Admin';
+  const createdDate = new Date(2025, 1, 2); // Feb 2, 2025 as placeholder
+  const lastModifiedDate = new Date(2025, 3, 2); // Apr 2, 2025 as placeholder
+  const formatMDYY = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
 
   const [questionNumber, setQuestionNumber] = useState(questionId);
   const [groupName, setGroupName] = useState('Relationship Questions');
@@ -156,6 +161,20 @@ export default function EditQuestionPage() {
             />
           </div>
 
+          {/* Question Name Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Question Name
+            </label>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => handleQuestionChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+              placeholder="Enter question name"
+            />
+          </div>
+
           {/* Group Name Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -173,7 +192,7 @@ export default function EditQuestionPage() {
           {/* Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question *
+              Question
             </label>
             <textarea
               value={question}
@@ -260,7 +279,7 @@ export default function EditQuestionPage() {
                 />
               </button>
               <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setSkipLookingFor(!skipLookingFor)}>
-                Skip Looking For
+                Skip Looking
               </label>
             </div>
             <div className="flex items-center">
@@ -341,11 +360,11 @@ export default function EditQuestionPage() {
             <div className="relative" ref={tagsDropdownRef}>
               <div
                 onClick={() => setIsTagsOpen(!isTagsOpen)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900 flex items-center justify-between"
+                className="inline-flex max-w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900 items-center justify-between"
               >
                 <div className="flex flex-wrap gap-1">
                   {selectedTag ? (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300 mr-3 my-1">
                       {selectedTag}
                       <button
                         type="button"
@@ -355,6 +374,7 @@ export default function EditQuestionPage() {
                         }}
                         className="ml-1 hover:text-red-500"
                       >
+                        
                         ×
                       </button>
                     </span>
@@ -398,16 +418,16 @@ export default function EditQuestionPage() {
           {/* Metadata Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Created Date</label>
-              <div className="text-gray-500">6 months ago</div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Created</label>
+              <div className="text-gray-900">{formatMDYY(createdDate)}</div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Created By</label>
-              <div className="text-gray-500">Admin</div>
+              <div className="text-gray-900">{createdBy}</div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Last Modified Date</label>
-              <div className="text-gray-500">4 months ago</div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Last Modified</label>
+              <div className="text-gray-900">{formatMDYY(lastModifiedDate)}</div>
             </div>
           </div>
         </form>

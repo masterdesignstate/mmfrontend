@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,11 +16,23 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Basic validation
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (!email || !password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Make API call to authenticate user
-      const apiUrl = getApiUrl(API_ENDPOINTS.LOGIN);
+      // Make API call to create user
+      const apiUrl = getApiUrl(API_ENDPOINTS.SIGNUP);
       console.log('🌐 Making API call to:', apiUrl);
       console.log('📤 Request data:', { email, password });
       
@@ -38,43 +50,19 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Login successful, check onboarding status to determine redirect
-        console.log('✅ Login successful:', data);
-        
-        try {
-          const onboardingResponse = await fetch(getApiUrl(API_ENDPOINTS.ONBOARDING_STATUS), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email })
-          });
-
-          if (onboardingResponse.ok) {
-            const onboardingData = await onboardingResponse.json();
-            console.log('🔍 Onboarding status:', onboardingData);
-            
-            // Redirect based on onboarding step with user_id if needed
-            if (onboardingData.step === 'add_photo') {
-              const params = new URLSearchParams({
-                user_id: onboardingData.user_id
-              });
-              router.push(`/auth/add-photo?${params.toString()}`);
-            } else {
-              router.push(onboardingData.step_url);
-            }
-          } else {
-            console.log('⚠️ Could not check onboarding status, redirecting to dashboard');
-            router.push('/dashboard');
-          }
-        } catch (error) {
-          console.log('⚠️ Error checking onboarding status, redirecting to dashboard');
-          router.push('/dashboard');
-        }
+        console.log('✅ Signup successful:', data);
+        // Redirect to personal details page with user data
+        const params = new URLSearchParams({
+          user_id: data.user_id,
+          email: email
+        });
+        router.push(`/auth/personal-details?${params.toString()}`);
       } else {
-        setError(data.error || 'Invalid email or password');
+        console.error('❌ Signup failed:', response.status, data);
+        setError(data.error || `Failed to create account (${response.status})`);
       }
     } catch (error) {
+      console.error('❌ Network error:', error);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
@@ -111,7 +99,7 @@ export default function LoginPage() {
           {/* Form Card */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-lg p-8">
             <h1 className="text-2xl font-semibold text-gray-900 mb-6 text-center">
-              Login
+              Sign Up
             </h1>
 
             {error && (
@@ -132,7 +120,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
-                  placeholder="Enter your email"
+                  placeholder="Enter email"
                   required
                   disabled={loading}
                 />
@@ -150,7 +138,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
-                    placeholder="Enter your password"
+                    placeholder="Enter Password"
                     required
                     disabled={loading}
                   />
@@ -162,7 +150,7 @@ export default function LoginPage() {
                   >
                     {showPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.5 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                       </svg>
                     ) : (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,16 +162,16 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Continue Button */}
+              {/* Create Account Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#672DB7] text-white py-3 px-4 rounded-md font-medium hover:bg-[#5a2a9e] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#672DB7] text-white py-3 px-4 rounded-md font-medium hover:bg-[#5a2a9e] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Logging in...
+                    Creating account...
                   </div>
                 ) : (
                   'Continue'
@@ -193,22 +181,18 @@ export default function LoginPage() {
 
             {/* Additional Links */}
             <div className="mt-6 text-center">
-              <a href="/auth/forgot-password" className="text-sm text-[#672DB7] hover:underline">
-                Forgot password?
-              </a>
-            </div>
-            
-            <div className="mt-4 text-center">
               <span className="text-sm text-gray-600">
-                Don&apos;t have an account?{' '}
-                <a href="/auth/register" className="text-[#672DB7] hover:underline font-medium">
-                  Sign up
+                Already have an account?{' '}
+                <a href="/auth/login" className="text-[#672DB7] hover:underline font-medium">
+                  Log in
                 </a>
               </span>
             </div>
+
+
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -100,6 +100,7 @@ export default function ProfilesPage() {
   const [sortDirection, setSortDirection] = useState('asc');
   const [viewMode, setViewMode] = useState('table'); // table or grid
   const [restrictedFilter, setRestrictedFilter] = useState('all'); // all, restricted, not-restricted
+  const [restrictDays, setRestrictDays] = useState(7);
   const itemsPerPage = 10;
 
     // Filter and search profiles
@@ -189,30 +190,6 @@ export default function ProfilesPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question Created From
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-text"
-                placeholder="Select Start Date"
-              />
-            </div>
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question Created Until
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-text"
-                placeholder="Select Until Date"
-              />
-            </div>
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Restricted Status
               </label>
               <select
@@ -244,6 +221,17 @@ export default function ProfilesPage() {
         </div>
         <div className="flex items-center space-x-4">
           <div className="relative">
+            <i className="fas fa-hourglass-half absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input
+              type="number"
+              min={1}
+              value={restrictDays}
+              onChange={(e) => setRestrictDays(parseInt(e.target.value || '1', 10))}
+              placeholder="Restrict days"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent cursor-text w-36"
+            />
+          </div>
+          <div className="relative">
             <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
             <input
               type="text"
@@ -269,85 +257,113 @@ export default function ProfilesPage() {
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('creationDate')}
                 >
-                  Creation Date
-                  <SortIcon field="creationDate" />
+                  <div className="flex flex-col">
+                    <span>Created</span>
+                    <span className="mt-1"><SortIcon field="creationDate" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('name')}
                 >
-                  Name
-                  <SortIcon field="name" />
+                  <div className="flex flex-col">
+                    <span>Name</span>
+                    <span className="mt-1"><SortIcon field="name" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('username')}
                 >
-                  Uname
-                  <SortIcon field="username" />
+                  <div className="flex flex-col">
+                    <span>User</span>
+                    <span className="mt-1"><SortIcon field="username" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('age')}
                 >
-                  Age
-                  <SortIcon field="age" />
+                  <div className="flex flex-col">
+                    <span>Age</span>
+                    <span className="mt-1"><SortIcon field="age" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('city')}
                 >
-                  City
-                  <SortIcon field="city" />
+                  <div className="flex flex-col">
+                    <span>City</span>
+                    <span className="mt-1"><SortIcon field="city" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('answers')}
                 >
-                  Answers
-                  <SortIcon field="answers" />
+                  <div className="flex flex-col">
+                    <span>Answers</span>
+                    <span className="mt-1"><SortIcon field="answers" /></span>
+                  </div>
                 </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('friend')}
-                >
-                  Friend
-                  <SortIcon field="friend" />
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Restriction Type
                 </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('hookup')}
-                >
-                  Hookup
-                  <SortIcon field="hookup" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('date')}
-                >
-                  Date
-                  <SortIcon field="date" />
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('partner')}
-                >
-                  Partner
-                  <SortIcon field="partner" />
-                </th>
+                {/* Move Male/Female before Friend */}
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('male')}
                 >
-                  Male
-                  <SortIcon field="male" />
+                  <div className="flex flex-col">
+                    <span>Male</span>
+                    <span className="mt-1"><SortIcon field="male" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('female')}
                 >
-                  Female
-                  <SortIcon field="female" />
+                  <div className="flex flex-col">
+                    <span>Female</span>
+                    <span className="mt-1"><SortIcon field="female" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('friend')}
+                >
+                  <div className="flex flex-col">
+                    <span>Friend</span>
+                    <span className="mt-1"><SortIcon field="friend" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('hookup')}
+                >
+                  <div className="flex flex-col">
+                    <span>Hookup</span>
+                    <span className="mt-1"><SortIcon field="hookup" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('date')}
+                >
+                  <div className="flex flex-col">
+                    <span>Date</span>
+                    <span className="mt-1"><SortIcon field="date" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('partner')}
+                >
+                  <div className="flex flex-col">
+                    <span>Partner</span>
+                    <span className="mt-1"><SortIcon field="partner" /></span>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -393,33 +409,38 @@ export default function ProfilesPage() {
                     {profile.answers}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {profile.id % 2 === 0 ? 'Text' : 'Reported'}
+                  </td>
+                  {/* Male / Female moved before relationship columns */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {profile.friend}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                      {profile.hookup}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {profile.date}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                      {profile.partner}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                       {profile.male}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {profile.female}
+                    </span>
+                  </td>
+                  {/* Relationship columns unified color */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {profile.friend}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {profile.hookup}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {profile.date}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {profile.partner}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -427,19 +448,28 @@ export default function ProfilesPage() {
                       <button 
                         className={`transition-colors duration-200 cursor-pointer ${
                           profile.isRestricted 
-                            ? 'text-green-600 hover:text-green-800' 
-                            : 'text-gray-600 hover:text-gray-800'
+                            ? 'text-black hover:text-black' 
+                            : 'text-green-600 hover:text-green-800'
                         }`}
-                        title={profile.isRestricted ? 'Unrestrict User' : 'Restrict User'}
+                        title={profile.isRestricted ? 'Unrestrict User' : `Restrict ${restrictDays} day(s)`}
                       >
-                        <i className={`fas ${profile.isRestricted ? 'fa-unlock' : 'fa-lock'}`}></i>
+                        <i className={`fas ${profile.isRestricted ? 'fa-lock' : 'fa-unlock'}`}></i>
                       </button>
+                      {/* Non-permanent ban */}
+                      <button 
+                        className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 cursor-pointer"
+                        title="Ban User"
+                      >
+                        <i className="fas fa-user-slash"></i>
+                      </button>
+                      {/* Temporary restriction */}
                       <button 
                         className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
                         title="Temporary Restriction"
                       >
                         <i className="fas fa-clock"></i>
                       </button>
+                      {/* Permanent ban (last) */}
                       <button 
                         className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"
                         title="Permanent Ban"

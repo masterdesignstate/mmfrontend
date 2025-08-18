@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiService } from '@/services/api';
 import type { ApiUser, UserAnswer, Question } from '@/services/api';
 
@@ -19,6 +19,85 @@ interface CalculationResult {
 }
 
 export default function CalculationPage() {
+  const USE_DUMMY_DATA = true;
+
+  const dummyUsers: ApiUser[] = useMemo(() => ([
+    { id: 'u1', username: 'alice', first_name: 'Alice', last_name: 'Johnson', email: 'alice@example.com' },
+    { id: 'u2', username: 'bob', first_name: 'Bob', last_name: 'Smith', email: 'bob@example.com' },
+    { id: 'u3', username: 'carol', first_name: 'Carol', last_name: 'Lee', email: 'carol@example.com' },
+    { id: 'u4', username: 'adam', first_name: 'Adam', last_name: 'Green', email: 'adam@example.com' },
+    { id: 'u5', username: 'steve', first_name: 'Steve', last_name: 'Miller', email: 'steve@example.com' },
+    { id: 'u6', username: 'steven', first_name: 'Steven', last_name: 'Clark', email: 'steven@example.com' },
+    { id: 'u7', username: 'sara', first_name: 'Sara', last_name: 'Lopez', email: 'sara@example.com' },
+    { id: 'u8', username: 'david', first_name: 'David', last_name: 'Nguyen', email: 'david@example.com' },
+    { id: 'u9', username: 'mike', first_name: 'Michael', last_name: 'Brown', email: 'mike@example.com' },
+    { id: 'u10', username: 'jess', first_name: 'Jessica', last_name: 'Davis', email: 'jess@example.com' },
+    { id: 'u11', username: 'nate', first_name: 'Nathan', last_name: 'Kim', email: 'nate@example.com' },
+    { id: 'u12', username: 'andrew', first_name: 'Andrew', last_name: 'Moore', email: 'andrew@example.com' },
+  ]), []);
+
+  const dummyQuestions: Question[] = useMemo(() => ([
+    { id: '1', text: 'How strongly do you identify as Male?', question_type: 'scale', is_required_for_match: true },
+    { id: '2', text: 'How strongly do you identify as Female?', question_type: 'scale', is_required_for_match: true },
+    { id: '3', text: 'How much are you interested in Friendship?', question_type: 'scale', is_required_for_match: true },
+    { id: '4', text: 'How much are you interested in Hookup?', question_type: 'scale', is_required_for_match: true },
+    { id: '5', text: 'How much are you interested in Dating?', question_type: 'scale', is_required_for_match: true },
+    { id: '6', text: 'How much are you interested in a Partner?', question_type: 'scale', is_required_for_match: true },
+    { id: '7', text: 'How often do you follow religious practices?', question_type: 'scale', is_required_for_match: true },
+    { id: '8', text: 'What faith do you identify with?', question_type: 'scale', is_required_for_match: true },
+    { id: '9', text: 'How strongly do you identify as Christian?', question_type: 'scale', is_required_for_match: true },
+    { id: '10', text: 'How strongly do you identify as Muslim?', question_type: 'scale', is_required_for_match: true },
+    { id: '11', text: 'How strongly do you identify as Hindu?', question_type: 'scale', is_required_for_match: true },
+    { id: '12', text: 'How strongly do you identify as Jewish?', question_type: 'scale', is_required_for_match: true },
+    { id: '13', text: 'How strongly do you identify as Buddhist?', question_type: 'scale', is_required_for_match: true },
+    { id: '14', text: 'How strongly do you identify as Pagan?', question_type: 'scale', is_required_for_match: true },
+    { id: '15', text: 'How strongly do you identify as Other (faith)?', question_type: 'scale', is_required_for_match: true },
+    { id: '16', text: 'How strongly do you identify as Spiritual (Nonreligious)?', question_type: 'scale', is_required_for_match: true },
+    { id: '17', text: 'How strongly do you identify as Atheist?', question_type: 'scale', is_required_for_match: true },
+    { id: '18', text: 'How strongly do you identify as Agnostic?', question_type: 'scale', is_required_for_match: true },
+    { id: '19', text: 'How strongly do you identify as Nonspiritual?', question_type: 'scale', is_required_for_match: true },
+    { id: '20', text: 'How often do you exercise?', question_type: 'scale', is_required_for_match: true },
+    { id: '21', text: 'How often do you partake in Alcohol?', question_type: 'scale', is_required_for_match: true },
+    { id: '22', text: 'How often do you partake in Tobacco?', question_type: 'scale', is_required_for_match: true },
+    { id: '23', text: 'Do you have kids?', question_type: 'scale', is_required_for_match: true },
+    { id: '24', text: 'Do you want kids?', question_type: 'scale', is_required_for_match: true },
+    { id: '25', text: 'Pre-High School (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
+    { id: '26', text: 'High School (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
+    { id: '27', text: 'Trade (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
+    { id: '28', text: 'Undergraduate (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
+    { id: '29', text: 'Master (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
+    { id: '30', text: 'Doctorate (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
+    { id: '31', text: 'Do you eat meat? (Omnivore)', question_type: 'scale', is_required_for_match: true },
+    { id: '32', text: 'Do you identify as Pescatarian?', question_type: 'scale', is_required_for_match: true },
+    { id: '33', text: 'Do you identify as Vegetarian?', question_type: 'scale', is_required_for_match: true },
+    { id: '34', text: 'Do you identify as Vegan?', question_type: 'scale', is_required_for_match: true },
+    { id: '35', text: 'How politically engaged are you?', question_type: 'scale', is_required_for_match: true },
+    { id: '36', text: 'How strongly do you identify as Liberal?', question_type: 'scale', is_required_for_match: true },
+    { id: '37', text: 'How strongly do you identify as Moderate?', question_type: 'scale', is_required_for_match: true },
+    { id: '38', text: 'How strongly do you identify as Conservative?', question_type: 'scale', is_required_for_match: true },
+    { id: '39', text: 'How strongly do you identify as Non-binary (ideology)?', question_type: 'scale', is_required_for_match: true },
+    { id: '40', text: 'How strongly do you identify as Anarchist?', question_type: 'scale', is_required_for_match: true },
+  ]), []);
+
+  const dummyUserAnswers: Record<string, UserAnswer[]> = useMemo(() => {
+    const build = (userId: string, bias: number): UserAnswer[] => (
+      dummyQuestions.map((q, idx) => ({
+        id: `${userId}-${q.id}`,
+        user: dummyUsers.find(u => u.id === userId)!,
+        question: q,
+        me_answer: ((idx + 1 + bias) % 5) + 1,
+        looking_for_answer: ((idx + 3 + bias) % 5) + 1,
+        me_multiplier: 1,
+        looking_for_multiplier: ((idx % 3) + 1),
+      }))
+    );
+    const ids = dummyUsers.map(u => u.id);
+    const record: Record<string, UserAnswer[]> = {};
+    ids.forEach((id, i) => {
+      record[id] = build(id, i);
+    });
+    return record;
+  }, [dummyQuestions, dummyUsers]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer[]>>({});
   const [person1, setPerson1] = useState<string>('');
@@ -41,13 +120,13 @@ export default function CalculationPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        if (USE_DUMMY_DATA) {
+          setQuestions(dummyQuestions);
+          return;
+        }
         console.log('Fetching questions only...');
         const questionsData = await apiService.getQuestions();
-        
         console.log('Fetched questions:', questionsData.length);
-        console.log('=== QUESTION SUMMARY ===');
-        console.log('Total questions fetched:', questionsData.length);
-        
         setQuestions(questionsData);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -57,19 +136,23 @@ export default function CalculationPage() {
     };
 
     fetchData();
-  }, []);
+  }, [USE_DUMMY_DATA, dummyQuestions]);
 
   // Search users function
   const searchUsers = async (query: string, excludeIds: string[] = []): Promise<ApiUser[]> => {
     console.log('searchUsers called with query:', query, 'excludeIds:', excludeIds);
     if (!query || query.trim().length < 2) return [];
-    
+    if (USE_DUMMY_DATA) {
+      const lc = query.toLowerCase();
+      const filtered = dummyUsers
+        .filter(u => !excludeIds.includes(u.id))
+        .filter(u => `${u.first_name} ${u.last_name}`.toLowerCase().includes(lc) || u.username.toLowerCase().includes(lc));
+      return filtered;
+    }
     try {
       console.log('Calling API search...');
       const users = await apiService.searchUsers(query);
       console.log('API search results:', users.length, users);
-      
-      // Filter out excluded IDs
       const filtered = users.filter(user => !excludeIds.includes(user.id));
       console.log('After excluding IDs:', filtered.length);
       return filtered;
@@ -127,9 +210,13 @@ export default function CalculationPage() {
   useEffect(() => {
     const fetchAnswers = async (userId: string) => {
       if (!userId) return;
-      
       try {
         setLoadingAnswers(true);
+        if (USE_DUMMY_DATA) {
+          const answers = dummyUserAnswers[userId] || [];
+          setUserAnswers(prev => ({ ...prev, [userId]: answers }));
+          return;
+        }
         const answers = await apiService.getUserAnswers(userId);
         setUserAnswers(prev => ({ ...prev, [userId]: answers }));
       } catch (error) {
@@ -145,7 +232,7 @@ export default function CalculationPage() {
     if (person2 && !userAnswers[person2]) {
       fetchAnswers(person2);
     }
-  }, [person1, person2, userAnswers]);
+  }, [person1, person2, userAnswers, USE_DUMMY_DATA, dummyUserAnswers]);
 
   const calculateCompatibility = () => {
     if (!person1 || !person2) return;
@@ -278,6 +365,8 @@ export default function CalculationPage() {
         <p className="text-gray-600 mt-2">Calculate compatibility between two users</p>
       </div>
 
+      
+
       {/* Person Selection */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -290,7 +379,7 @@ export default function CalculationPage() {
               type="text"
               value={person1Search}
               onChange={(e) => handlePerson1Search(e.target.value)}
-              placeholder="Search by name, username, or email..."
+              placeholder="Search by name or username..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white text-gray-900"
             />
             {person1Results.length > 0 && (
@@ -318,7 +407,7 @@ export default function CalculationPage() {
               type="text"
               value={person2Search}
               onChange={(e) => handlePerson2Search(e.target.value)}
-              placeholder="Search by name, username, or email..."
+              placeholder="Search by name or username..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white text-gray-900"
             />
             {person2Results.length > 0 && (
@@ -360,6 +449,30 @@ export default function CalculationPage() {
         </div>
       </div>
 
+      {/* Overall Compatibility summary below inputs */}
+      {showResults && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Overall Compatibility</h3>
+            <div className="text-4xl font-extrabold text-[#672DB7] mb-4">{overallCompatibility}%</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-3 rounded border border-gray-200">
+                <div className="text-sm text-gray-600">{getPersonName(person1)} → {getPersonName(person2)}</div>
+                <div className="text-2xl font-semibold text-green-600">{compatibilityPercentage1}%</div>
+              </div>
+              <div className="p-3 rounded border border-gray-200">
+                <div className="text-sm text-gray-600">{getPersonName(person2)} → {getPersonName(person1)}</div>
+                <div className="text-2xl font-semibold text-blue-600">{compatibilityPercentage2}%</div>
+              </div>
+              <div className="p-3 rounded border border-gray-200">
+                <div className="text-sm text-gray-600">Total Questions</div>
+                <div className="text-2xl font-semibold text-gray-900">{calculationResults1.length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loading Screen for User Answers */}
       {loadingAnswers && (
         <div className="mt-4 p-6 bg-white rounded-lg shadow">
@@ -396,7 +509,7 @@ export default function CalculationPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Question #
+                      Question No.
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Question
@@ -408,7 +521,7 @@ export default function CalculationPage() {
                       P2→Me Answer Value
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P1→Looking For Multiplier
+                      P1→Looking Importance
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Delta
@@ -427,8 +540,8 @@ export default function CalculationPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {result.questionNumber}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                        <div className="truncate">{result.question}</div>
+                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-normal break-words">
+                        {result.question}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {result.p1LookingFor}
@@ -471,17 +584,7 @@ export default function CalculationPage() {
               </table>
             </div>
 
-            {/* Compatibility Result */}
-            <div className="p-6 bg-gray-50 border-t border-gray-200">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {getPersonName(person2)}&apos;s compatibility with {getPersonName(person1)}: {compatibilityPercentage1}%
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Based on {calculationResults1.length} questions
-                </p>
-              </div>
-            </div>
+            {/* Compatibility Result removed for minimalism */}
           </div>
 
           {/* Person 2's Perspective */}
@@ -512,7 +615,7 @@ export default function CalculationPage() {
                       P1→Self Answer Value
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P2→Looking For Multiplier
+                      P2→Looking Importance
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Delta
@@ -531,8 +634,8 @@ export default function CalculationPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {result.questionNumber}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                        <div className="truncate">{result.question}</div>
+                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-normal break-words">
+                        {result.question}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {result.p2LookingFor}
@@ -575,33 +678,9 @@ export default function CalculationPage() {
               </table>
             </div>
 
-            {/* Compatibility Result */}
-            <div className="p-6 bg-gray-50 border-t border-gray-200">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {getPersonName(person1)}&apos;s compatibility with {getPersonName(person2)}: {compatibilityPercentage2}%
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Based on {calculationResults2.length} questions
-                </p>
-              </div>
-            </div>
+            {/* Compatibility Result removed for minimalism */}
           </div>
-
-          {/* Overall Compatibility */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Overall Compatibility
-              </h3>
-              <div className="text-3xl font-bold text-[#672DB7] mb-2">
-                {overallCompatibility}%
-              </div>
-              <p className="text-sm text-gray-600">
-                Average compatibility between {getPersonName(person1)} and {getPersonName(person2)}
-              </p>
-            </div>
-          </div>
+            
         </>
       )}
     </div>

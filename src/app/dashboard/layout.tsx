@@ -12,7 +12,6 @@ const sidebarItems = [
   { name: 'List of Questions', href: '/dashboard/questions', icon: 'fas fa-question-circle' },
   { name: 'Question', href: '/dashboard/question', icon: 'fas fa-question' },
   { name: 'Create Question', href: '/dashboard/questions/create', icon: 'fas fa-plus-circle' },
-  { name: 'Approve Question', href: '/dashboard/approve-question', icon: 'fas fa-check-circle' },
   { name: 'Individual Calculation', href: '/dashboard/calculation', icon: 'fas fa-calculator' },
   { name: 'Picture Moderation Queue', href: '/dashboard/picture-moderation', icon: 'fas fa-images' },
   // { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },

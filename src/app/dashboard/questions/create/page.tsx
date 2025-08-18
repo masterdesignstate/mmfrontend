@@ -190,7 +190,7 @@ export default function CreateQuestionPage() {
           {/* Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question *
+              Question
             </label>
             <textarea
               value={question}
@@ -277,7 +277,7 @@ export default function CreateQuestionPage() {
                 />
               </button>
               <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setSkipLookingFor(!skipLookingFor)}>
-                Skip Looking For
+                Skip Looking
               </label>
             </div>
             <div className="flex items-center">
@@ -412,21 +412,7 @@ export default function CreateQuestionPage() {
             )}
           </div>
 
-          {/* Metadata Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Created Date</label>
-              <div className="text-gray-500">Today</div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Created By</label>
-              <div className="text-gray-500">Admin</div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Last Modified Date</label>
-              <div className="text-gray-500">Today</div>
-            </div>
-          </div>
+          {/* Removed Created/Last Modified metadata per request */}
         </form>
       </div>
 

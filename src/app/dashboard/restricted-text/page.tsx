@@ -407,24 +407,13 @@ export default function RestrictedTextPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectedWords.length === currentWords.length && currentWords.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
-                  />
-                </th>
+                {/* Checkbox column removed */}
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('text')}
                 >
                   Word
                   <SortIcon field="text" />
-                </th>
-
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -435,25 +424,15 @@ export default function RestrictedTextPage() {
               {currentWords.map((word) => (
                 <tr key={word.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={selectedWords.includes(word.id)}
-                      onChange={() => handleWordSelect(word.id)}
-                      className="rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{word.text}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      word.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {word.is_active ? 'Active' : 'Inactive'}
-                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2">
+                      {/* Status icon (no circle) */}
+                      <i
+                        title={word.is_active ? 'Active' : 'Inactive'}
+                        className={`fas ${word.is_active ? 'fa-check text-green-600' : 'fa-times text-red-600'}`}
+                      ></i>
                       <button 
                         onClick={() => handleEditWord(word)}
                         className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
@@ -461,17 +440,7 @@ export default function RestrictedTextPage() {
                       >
                         <i className="fas fa-edit"></i>
                       </button>
-                      <button 
-                        onClick={() => handleToggleActive(word)}
-                        className={`transition-colors duration-200 cursor-pointer ${
-                          word.is_active 
-                            ? 'text-orange-600 hover:text-orange-800' 
-                            : 'text-green-600 hover:text-green-800'
-                        }`}
-                        title={word.is_active ? 'Deactivate' : 'Activate'}
-                      >
-                        <i className={`fas ${word.is_active ? 'fa-pause' : 'fa-play'}`}></i>
-                      </button>
+                      {/* Pause icon removed */}
                       <button 
                         onClick={() => handleDeleteWord(word)}
                         className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"

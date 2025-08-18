@@ -23,14 +23,22 @@ interface PictureModerationItem {
 }
 
 export default function PictureModerationPage() {
+  const formatToMDYY = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'N/A';
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${m}/${day}/${yy}`;
+  };
   const [items, setItems] = useState<PictureModerationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [sortField, setSortField] = useState('');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortField, setSortField] = useState('submitted_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -55,7 +63,7 @@ export default function PictureModerationPage() {
             first_name: 'Sarah',
             last_name: 'Johnson',
             email: 'sarah.johnson@example.com',
-            profile_photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
+            profile_photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face',
             join_date: '2024-01-15',
             location: 'New York, NY',
             age: 28
@@ -196,11 +204,7 @@ export default function PictureModerationPage() {
     const matchesSearch = searchTerm === '' || 
       `${item.user.first_name} ${item.user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = selectedStatus === 'All' || 
-      item.status === selectedStatus.toLowerCase();
-    
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   // Sort items
@@ -234,9 +238,8 @@ export default function PictureModerationPage() {
 
   const resetFilters = () => {
     setSearchTerm('');
-    setSelectedStatus('All');
-    setSortField('');
-    setSortDirection('asc');
+    setSortField('submitted_date');
+    setSortDirection('desc');
     setCurrentPage(1);
     setSelectedItems([]);
     setShowBulkActions(false);
@@ -460,7 +463,7 @@ export default function PictureModerationPage() {
               <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
               <input
                 type="text"
-                placeholder="Search users or email"
+                placeholder="Search users or username"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7]"
@@ -468,20 +471,7 @@ export default function PictureModerationPage() {
             </div>
           </div>
 
-          {/* Status Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white"
-            >
-              <option value="All">All</option>
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-          </div>
+          {/* Status filter removed */}
         </div>
       </div>
 
@@ -498,11 +488,11 @@ export default function PictureModerationPage() {
                   className="w-full aspect-square object-cover"
                 />
                 <div className="absolute top-2 right-2">
-                  <input
+                    <input
                     type="checkbox"
                     checked={selectedItems.includes(item.id)}
                     onChange={() => handleItemSelect(item.id)}
-                    className="rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
+                      className="h-6 w-6 rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
                   />
                 </div>
               </div>
@@ -510,17 +500,15 @@ export default function PictureModerationPage() {
               <div className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-medium text-gray-900">
-                    {item.user.first_name} {item.user.last_name}
+                      @{(item.user.first_name + item.user.last_name).toLowerCase()}
                   </h3>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                  </span>
+                    {/* Pending label removed */}
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-3">{item.user.email}</p>
+                <p className="text-sm text-gray-600 mb-3">{item.user.first_name} {item.user.last_name}</p>
                 
                 <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                  <span>Submitted: {new Date(item.submitted_date).toLocaleDateString()}</span>
+                  <span>Submitted: {formatToMDYY(item.submitted_date)}</span>
                   <span>Rejections: {item.previous_rejections}</span>
                 </div>
                 
@@ -593,7 +581,7 @@ export default function PictureModerationPage() {
                         type="checkbox"
                         checked={selectedItems.includes(item.id)}
                         onChange={() => handleItemSelect(item.id)}
-                        className="rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
+                        className="h-5 w-5 rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -605,19 +593,13 @@ export default function PictureModerationPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {item.user.first_name} {item.user.last_name}
-                        </div>
-                        <div className="text-sm text-gray-500">{item.user.email}</div>
+                        <div className="text-sm font-medium text-gray-900">@{(item.user.first_name + item.user.last_name).toLowerCase()}</div>
+                        <div className="text-sm text-gray-500">{item.user.first_name} {item.user.last_name}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                        {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{/* Status removed */}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.submitted_date ? new Date(item.submitted_date).toLocaleDateString() : 'N/A'}
+                      {formatToMDYY(item.submitted_date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {item.previous_rejections}

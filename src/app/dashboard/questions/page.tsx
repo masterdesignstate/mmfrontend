@@ -324,13 +324,23 @@ export default function QuestionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
-  const [selectedApproved, setSelectedApproved] = useState('-');
-  const [selectedMandatory, setSelectedMandatory] = useState('-');
+  const [selectedApproved, setSelectedApproved] = useState('All');
+  const [selectedMandatory, setSelectedMandatory] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Helpers
+  const formatToMDYY = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${m}/${day}/${yy}`;
+  };
 
   // Filter questions
   const filteredQuestions = questions.filter(question => {
@@ -339,11 +349,11 @@ export default function QuestionsPage() {
     
     const matchesTag = selectedTag === 'All' || question.tags.includes(selectedTag);
     
-    const matchesApproved = selectedApproved === '-' || 
+    const matchesApproved = selectedApproved === 'All' || 
       (selectedApproved === 'Yes' && question.approved === 'Yes') ||
       (selectedApproved === 'No' && question.approved === 'No');
     
-    const matchesMandatory = selectedMandatory === '-' || 
+    const matchesMandatory = selectedMandatory === 'All' || 
       (selectedMandatory === 'Yes' && question.isMandatory) ||
       (selectedMandatory === 'No' && !question.isMandatory);
     
@@ -357,8 +367,47 @@ export default function QuestionsPage() {
   const sortedQuestions = [...filteredQuestions].sort((a, b) => {
     if (!sortField) return 0;
     
-    const aValue = a[sortField as keyof typeof a];
-    const bValue = b[sortField as keyof typeof b];
+    // Date sort (Created)
+    if (sortField === 'createdAt') {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return sortDirection === 'asc' ? aTime - bTime : bTime - aTime;
+    }
+
+    // Tag sort (alphabetical by first tag)
+    if (sortField === 'tag') {
+      const aTag = (a.tags && a.tags[0] ? a.tags[0] : '').toLowerCase();
+      const bTag = (b.tags && b.tags[0] ? b.tags[0] : '').toLowerCase();
+      if (aTag === bTag) return 0;
+      return sortDirection === 'asc' ? (aTag > bTag ? 1 : -1) : (aTag < bTag ? 1 : -1);
+    }
+
+    // Mandatory sort (booleans)
+    if (sortField === 'isMandatory') {
+      const aBool = a.isMandatory ? 1 : 0;
+      const bBool = b.isMandatory ? 1 : 0;
+      return sortDirection === 'asc' ? aBool - bBool : bBool - aBool;
+    }
+
+    // Question text sort (case-insensitive)
+    if (sortField === 'question') {
+      const aQ = (a.question || '').toLowerCase();
+      const bQ = (b.question || '').toLowerCase();
+      if (aQ === bQ) return 0;
+      return sortDirection === 'asc' ? (aQ > bQ ? 1 : -1) : (aQ < bQ ? 1 : -1);
+    }
+
+    // Created By sort (using same display logic)
+    if (sortField === 'createdBy') {
+      const getCreatedBy = (q: typeof a) => (Array.isArray(q.tags) && q.tags.length > 0 ? `user_${q.id}` : 'Admin').toLowerCase();
+      const aBy = getCreatedBy(a);
+      const bBy = getCreatedBy(b);
+      if (aBy === bBy) return 0;
+      return sortDirection === 'asc' ? (aBy > bBy ? 1 : -1) : (aBy < bBy ? 1 : -1);
+    }
+
+    const aValue = a[sortField as keyof typeof a] as unknown as string | number;
+    const bValue = b[sortField as keyof typeof b] as unknown as string | number;
     
     if (sortField === 'timesAnswered') {
       const aNum = typeof aValue === 'number' ? aValue : 0;
@@ -391,8 +440,8 @@ export default function QuestionsPage() {
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedTag('All');
-    setSelectedApproved('-');
-    setSelectedMandatory('-');
+    setSelectedApproved('All');
+    setSelectedMandatory('All');
     setStartDate('');
     setEndDate('');
     setSortField('');
@@ -447,9 +496,9 @@ export default function QuestionsPage() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {/* Tags Dropdown */}
+          {/* Tag Dropdown */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tag</label>
             <select
               value={selectedTag}
               onChange={(e) => setSelectedTag(e.target.value)}
@@ -470,7 +519,7 @@ export default function QuestionsPage() {
               onChange={(e) => setSelectedApproved(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900"
             >
-              <option value="-">-</option>
+              <option value="All">All</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
@@ -484,35 +533,13 @@ export default function QuestionsPage() {
               onChange={(e) => setSelectedMandatory(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900"
             >
-              <option value="-">-</option>
+              <option value="All">All</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
           </div>
 
-          {/* Date From */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Question Created From</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-text"
-              placeholder="Select Start Date"
-            />
-          </div>
-
-          {/* Date Until */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Question Created Until</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-text"
-              placeholder="Select Until Date"
-            />
-          </div>
+          {/* Removed created from/until filters per request */}
 
           {/* Search */}
           <div>
@@ -541,30 +568,64 @@ export default function QuestionsPage() {
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('id')}
                 >
-                  NO.
-                  <SortIcon field="id" />
+                  <div className="flex flex-col">
+                    <span>NO.</span>
+                    <span className="mt-1"><SortIcon field="id" /></span>
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Question
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('question')}
+                >
+                  <div className="flex flex-col">
+                    <span>Question</span>
+                    <span className="mt-1"><SortIcon field="question" /></span>
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tags
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('createdBy')}
+                >
+                  <div className="flex flex-col">
+                    <span>Created By</span>
+                    <span className="mt-1"><SortIcon field="createdBy" /></span>
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mandatory
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('tag')}
+                >
+                  <div className="flex flex-col">
+                    <span>Tag</span>
+                    <span className="mt-1"><SortIcon field="tag" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('isMandatory')}
+                >
+                  <div className="flex flex-col">
+                    <span>Mandatory</span>
+                    <span className="mt-1"><SortIcon field="isMandatory" /></span>
+                  </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('timesAnswered')}
                 >
-                  Times Answered
-                  <SortIcon field="timesAnswered" />
+                  <div className="flex flex-col">
+                    <span>Answered</span>
+                    <span className="mt-1"><SortIcon field="timesAnswered" /></span>
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Approved
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created at
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('createdAt')}
+                >
+                  <div className="flex flex-col">
+                    <span>Created</span>
+                    <span className="mt-1"><SortIcon field="createdAt" /></span>
+                  </div>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Action
@@ -584,47 +645,37 @@ export default function QuestionsPage() {
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                     <div className="truncate">{question.question}</div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{Array.isArray(question.tags) && question.tags.length > 0 ? 'user_' + question.id : 'Admin'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
                       {question.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-black"
                         >
                           {tag}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {question.isMandatory ? (
-                      <i className="fas fa-check text-green-500"></i>
-                    ) : (
-                      <i className="fas fa-times text-red-500"></i>
-                    )}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {question.isMandatory ? 'Yes' : '--'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {question.timesAnswered}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      question.approved === 'Yes' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {question.approved}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.createdAt}
+                    {formatToMDYY(question.createdAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                      {/* Single toggle: check if approved, x if not */}
                       <button 
-                        onClick={() => router.push(`/dashboard/questions/edit/${question.id}`)}
-                        className="text-[#672DB7] hover:text-[#5a2a9e] transition-colors duration-200 cursor-pointer"
+                        onClick={() => setQuestions(prev => prev.map(q => q.id === question.id ? { ...q, approved: q.approved === 'Yes' ? 'No' : 'Yes' } : q))}
+                        className={`transition-colors duration-200 cursor-pointer ${question.approved === 'Yes' ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
+                        title={question.approved === 'Yes' ? 'Approved' : 'Not approved'}
                       >
-                        <i className="fas fa-edit"></i>
+                        <i className={`fas ${question.approved === 'Yes' ? 'fa-check' : 'fa-times'}`}></i>
                       </button>
                       <button className="text-red-500 hover:text-red-700 transition-colors duration-200 cursor-pointer">
                         <i className="fas fa-trash"></i>
