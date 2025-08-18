@@ -150,9 +150,12 @@ export default function GenderPage() {
           >
             {/* Filling Animation Layer */}
             <div 
-              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px] transition-all duration-1500 ease-in-out"
+              className={`absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px] ${
+                isOpenToAll ? 'animate-fill-slider' : ''
+              }`}
               style={{
-                width: isOpenToAll ? '100%' : '0%'
+                width: isOpenToAll ? '100%' : '0%',
+                transition: isOpenToAll ? 'none' : 'width 0.3s ease-out'
               }}
             />
           </div>
@@ -160,9 +163,9 @@ export default function GenderPage() {
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30"
+              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30 cursor-pointer"
               style={{
-                left: value === 1 ? '4px' : value === 5 ? 'calc(100% - 20px)' : `calc(${((value - 1) / 4) * 100}% - 0px)`
+                left: value === 1 ? '4px' : value === 5 ? 'calc(100% - 20px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
               }}
             >
               {value}
@@ -349,6 +352,19 @@ export default function GenderPage() {
       </footer>
 
       <style jsx>{`
+        @keyframes fillSlider {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+        
+        .animate-fill-slider {
+          animation: fillSlider 1.5s ease-in-out forwards;
+        }
+        
         .slider {
           -webkit-appearance: none;
           appearance: none;
