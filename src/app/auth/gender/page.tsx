@@ -105,11 +105,13 @@ export default function GenderPage() {
   const SliderComponent = ({ 
     value, 
     onChange, 
-    label 
+    label,
+    isOpenToAll = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
     label: string;
+    isOpenToAll?: boolean;
   }) => {
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -129,27 +131,45 @@ export default function GenderPage() {
       <div className="mb-4 flex items-center">
         <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">{label.toUpperCase()}</span>
         <div className="flex-1 relative flex items-center">
-          <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>
+          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
           
           {/* Custom Slider Track */}
           <div 
-            className="w-full h-4 bg-[#F5F5F5] border border-[#ADADAD] rounded-[20px] relative cursor-pointer"
+            className={`w-full h-4 rounded-[20px] relative cursor-pointer transition-all duration-200 ${
+              isOpenToAll 
+                ? 'border-2 border-[#672DB7]' 
+                : 'border border-[#ADADAD]'
+            }`}
+            style={{
+              backgroundColor: isOpenToAll ? 'transparent' : '#F5F5F5',
+              boxShadow: isOpenToAll ? '0 0 15px rgba(103, 45, 183, 0.5)' : 'none'
+            }}
             onClick={handleSliderClick}
             onMouseMove={handleSliderDrag}
             onMouseDown={handleSliderDrag}
           >
-            {/* Slider Thumb */}
+            {/* Filling Animation Layer */}
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-20"
+              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px] transition-all duration-1500 ease-in-out"
               style={{
-                left: value === 1 ? '-4px' : value === 5 ? 'calc(100% - 22px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
+                width: isOpenToAll ? '100%' : '0%'
+              }}
+            />
+          </div>
+          
+          {/* Slider Thumb - OUTSIDE the track container */}
+          {!isOpenToAll && (
+            <div 
+              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30"
+              style={{
+                left: value === 1 ? '4px' : value === 5 ? 'calc(100% - 20px)' : `calc(${((value - 1) / 4) * 100}% - 0px)`
               }}
             >
               {value}
             </div>
-          </div>
+          )}
           
-          <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>
+          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
         </div>
       </div>
     );
@@ -200,12 +220,14 @@ export default function GenderPage() {
               value={myGender.male}
               onChange={(value) => handleSliderChange('myGender', 'male', value)}
               label="MALE"
+              isOpenToAll={openToAll.me}
             />
             
             <SliderComponent
               value={myGender.female}
               onChange={(value) => handleSliderChange('myGender', 'female', value)}
               label="FEMALE"
+              isOpenToAll={openToAll.me}
             />
 
             {/* Importance Slider for Me */}
@@ -213,6 +235,7 @@ export default function GenderPage() {
               value={importance.me}
               onChange={(value) => handleSliderChange('importance', 'me', value)}
               label="IMPORTANCE"
+              isOpenToAll={false}
             />
 
             {/* Open to all toggle */}
@@ -225,7 +248,7 @@ export default function GenderPage() {
                     onChange={() => handleOpenToAllToggle('me')}
                     className="sr-only"
                   />
-                  <div className={`block w-14 h-8 rounded-full ${openToAll.me ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
+                  <div className={`block w-14 h-8 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-gray-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition ${openToAll.me ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
                 </div>
                 <div className="ml-3 mr-3 text-gray-700 font-medium">
@@ -244,12 +267,14 @@ export default function GenderPage() {
               value={lookingFor.male}
               onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
               label="MALE"
+              isOpenToAll={openToAll.lookingFor}
             />
             
             <SliderComponent
               value={lookingFor.female}
               onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
               label="FEMALE"
+              isOpenToAll={openToAll.lookingFor}
             />
 
             {/* Importance Slider for Looking For */}
@@ -257,6 +282,7 @@ export default function GenderPage() {
               value={importance.lookingFor}
               onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
               label="IMPORTANCE"
+              isOpenToAll={false}
             />
 
             {/* Open to all toggle */}
@@ -269,7 +295,7 @@ export default function GenderPage() {
                     onChange={() => handleOpenToAllToggle('lookingFor')}
                     className="sr-only"
                   />
-                  <div className={`block w-14 h-8 rounded-full ${openToAll.lookingFor ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
+                  <div className={`block w-14 h-8 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-gray-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
                 </div>
                 <div className="ml-3 mr-3 text-gray-700 font-medium">
