@@ -113,6 +113,16 @@ export default function GenderPage() {
     label: string;
     isOpenToAll?: boolean;
   }) => {
+    const [fillWidth, setFillWidth] = useState('0%');
+
+    useEffect(() => {
+      if (isOpenToAll) {
+        setFillWidth('0%');
+        requestAnimationFrame(() => requestAnimationFrame(() => setFillWidth('100%')));
+      } else {
+        setFillWidth('0%');
+      }
+    }, [isOpenToAll]);
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -127,35 +137,54 @@ export default function GenderPage() {
       }
     };
 
+    const handleMouseDown = () => {
+      document.body.style.userSelect = 'none';
+      window.getSelection()?.removeAllRanges();
+    };
+
+    const handleMouseUp = () => {
+      document.body.style.userSelect = '';
+    };
+
+    const handleMouseLeave = () => {
+      document.body.style.userSelect = '';
+    };
+
+    const handleDragStart = (e: React.DragEvent) => {
+      e.preventDefault();
+    };
+
     return (
       <div className="mb-4 flex items-center">
         <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">{label.toUpperCase()}</span>
-        <div className="flex-1 relative flex items-center">
+        <div 
+          className="flex-1 relative flex items-center select-none"
+          style={{ userSelect: 'none' }}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onDragStart={handleDragStart}
+        >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
           
           {/* Custom Slider Track */}
           <div 
-            className={`w-full h-4 rounded-[20px] relative cursor-pointer transition-all duration-200 ${
-              isOpenToAll 
-                ? 'border-2 border-[#672DB7]' 
-                : 'border border-[#ADADAD]'
-            }`}
+            className="w-full h-4 rounded-[20px] relative cursor-pointer transition-all duration-200 border border-[#ADADAD]"
             style={{
-              backgroundColor: isOpenToAll ? 'transparent' : '#F5F5F5',
+              backgroundColor: '#F5F5F5',
               boxShadow: isOpenToAll ? '0 0 15px rgba(103, 45, 183, 0.5)' : 'none'
             }}
             onClick={handleSliderClick}
             onMouseMove={handleSliderDrag}
             onMouseDown={handleSliderDrag}
+            onDragStart={handleDragStart}
           >
             {/* Filling Animation Layer */}
             <div 
-              className={`absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px] ${
-                isOpenToAll ? 'animate-fill-slider' : ''
-              }`}
+              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
               style={{
-                width: isOpenToAll ? '100%' : '0%',
-                transition: isOpenToAll ? 'none' : 'width 0.3s ease-out'
+                width: fillWidth,
+                transition: 'width 0.5s ease-in-out'
               }}
             />
           </div>
@@ -165,8 +194,10 @@ export default function GenderPage() {
             <div 
               className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30 cursor-pointer"
               style={{
-                left: value === 1 ? '4px' : value === 5 ? 'calc(100% - 20px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
+                // left: `calc(${((value - 1) / 4) * 100}% - 12px)`
+                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 22px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
               }}
+              onDragStart={handleDragStart}
             >
               {value}
             </div>
@@ -352,19 +383,6 @@ export default function GenderPage() {
       </footer>
 
       <style jsx>{`
-        @keyframes fillSlider {
-          from {
-            width: 0%;
-          }
-          to {
-            width: 100%;
-          }
-        }
-        
-        .animate-fill-slider {
-          animation: fillSlider 1.5s ease-in-out forwards;
-        }
-        
         .slider {
           -webkit-appearance: none;
           appearance: none;
