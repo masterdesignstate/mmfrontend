@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
@@ -12,11 +12,53 @@ export default function AddPhotoPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   
   // Get user ID from URL parameters
   const userId = searchParams.get('user_id');
+
+  // Load questions 1 and 2 from backend when page loads
+  useEffect(() => {
+    const loadQuestions = async () => {
+      if (!userId) return;
+      
+      // Check if questions are already in URL params (when navigating back)
+      const questionsParam = searchParams.get('questions');
+      if (questionsParam) {
+        try {
+          const parsedQuestions = JSON.parse(questionsParam);
+          setQuestions(parsedQuestions);
+          console.log('📋 Loaded questions from URL params:', parsedQuestions);
+          return;
+        } catch (error) {
+          console.error('Error parsing questions from URL:', error);
+        }
+      }
+      
+      // If no questions in URL, fetch from backend
+      setLoadingQuestions(true);
+      try {
+        // Fetch questions with question_number 1 and 2
+        const response = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2`);
+        if (response.ok) {
+          const data = await response.json();
+          setQuestions(data.results || []);
+          console.log('📋 Loaded questions from backend:', data.results);
+        } else {
+          console.error('Failed to load questions');
+        }
+      } catch (error) {
+        console.error('Error loading questions:', error);
+      } finally {
+        setLoadingQuestions(false);
+      }
+    };
+
+    loadQuestions();
+  }, [userId, searchParams]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -75,8 +117,11 @@ export default function AddPhotoPage() {
           await new Promise(resolve => setTimeout(resolve, 1000 - elapsedTime));
         }
         
-        // Navigate to gender selection page
-        const params = new URLSearchParams({ user_id: userId });
+        // Navigate to gender selection page with questions data
+        const params = new URLSearchParams({ 
+          user_id: userId,
+          questions: JSON.stringify(questions)
+        });
         router.push(`/auth/gender?${params.toString()}`);
       } else {
         const data = await response.json();

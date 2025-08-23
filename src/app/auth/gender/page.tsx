@@ -3,11 +3,20 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
 export default function GenderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
+  const [questions, setQuestions] = useState<Array<{
+    id: string;
+    question_name: string;
+    question_number: number;
+    group_name: string;
+    text: string;
+    answers: Array<{ value: string; answer_text: string }>;
+  }>>([]);
 
   // Gender preference states
   const [myGender, setMyGender] = useState({
@@ -31,14 +40,55 @@ export default function GenderPage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
+    const questionsParam = searchParams.get('questions');
+    
     if (userIdParam) {
       setUserId(userIdParam);
     }
+    
+    if (questionsParam) {
+      try {
+        const parsedQuestions = JSON.parse(questionsParam);
+        setQuestions(parsedQuestions);
+        console.log('📋 Received questions:', parsedQuestions);
+      } catch (error) {
+        console.error('Error parsing questions:', error);
+      }
+    }
   }, [searchParams]);
+
+  // Fetch questions from backend if not loaded from URL params
+  useEffect(() => {
+    const fetchQuestionsIfNeeded = async () => {
+      // Only fetch if we have a userId but no questions loaded
+      if (userId && questions.length === 0) {
+        console.log('📋 No questions loaded, fetching from backend...');
+        setLoadingQuestions(true);
+        try {
+          // Fetch questions with question_number 1 and 2
+          const response = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2`);
+          if (response.ok) {
+            const data = await response.json();
+            setQuestions(data.results || []);
+            console.log('📋 Fetched questions from backend:', data.results);
+          } else {
+            console.error('Failed to fetch questions from backend');
+          }
+        } catch (error) {
+          console.error('Error fetching questions from backend:', error);
+        } finally {
+          setLoadingQuestions(false);
+        }
+      }
+    };
+
+    fetchQuestionsIfNeeded();
+  }, [userId, questions.length]);
 
   const handleSliderChange = (section: 'myGender' | 'lookingFor' | 'importance', gender: string, value: number) => {
     if (section === 'myGender') {
@@ -100,7 +150,10 @@ export default function GenderPage() {
   };
 
   const handleBack = () => {
-    const params = new URLSearchParams({ user_id: userId });
+    const params = new URLSearchParams({ 
+      user_id: userId,
+      questions: JSON.stringify(questions)
+    });
     router.push(`/auth/add-photo?${params.toString()}`);
   };
 
@@ -172,21 +225,18 @@ export default function GenderPage() {
     };
 
     return (
-      <div className="mb-4 flex items-center">
-        <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">{label.toUpperCase()}</span>
-        <div 
-          className="flex-1 relative flex items-center select-none"
-          style={{ userSelect: 'none' }}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          onDragStart={handleDragStart}
-        >
+      <div className="w-full relative flex items-center select-none"
+        style={{ userSelect: 'none' }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onDragStart={handleDragStart}
+      >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
           
           {/* Custom Slider Track */}
           <div 
-            className="w-full h-4 rounded-[20px] relative cursor-pointer transition-all duration-200 border border-[#ADADAD]"
+            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border border-[#ADADAD]"
             style={{
               backgroundColor: '#F5F5F5',
               boxShadow: isOpenToAll ? '0 0 15px rgba(103, 45, 183, 0.5)' : 'none'
@@ -210,19 +260,19 @@ export default function GenderPage() {
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30 cursor-pointer"
+              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
               style={{
-                // left: `calc(${((value - 1) / 4) * 100}% - 12px)`
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 22px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
+                backgroundColor: '#672DB7',
+                // left: `calc(${((value - 1) / 4) * 100}% - 16px)`
+                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 30px)' : `calc(${((value - 1) / 4) * 100}% - 16px)`
               }}
               onDragStart={handleDragStart}
             >
-              {value}
+              <span className="text-white">{value}</span>
             </div>
           )}
           
           {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
-        </div>
       </div>
     );
   };
@@ -254,8 +304,21 @@ export default function GenderPage() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-black mb-2">1. Gender</h1>
-            <p className="text-2xl font-bold text-black mb-12">What gender do you identify with?</p>
+            <p className="text-2xl font-bold text-black mb-12">
+              What gender do you identify with?
+              <span className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full text-[#672DB7] text-sm font-medium" style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}>?</span>
+            </p>
           </div>
+
+          {/* Questions Loading Indicator */}
+          {loadingQuestions && (
+            <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-center">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700 mr-2"></div>
+                Loading questions...
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -268,46 +331,90 @@ export default function GenderPage() {
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2">Me</h3>
             
-            <SliderComponent
-              value={myGender.male}
-              onChange={(value) => handleSliderChange('myGender', 'male', value)}
-              label="MALE"
-              isOpenToAll={openToAll.me}
-            />
+            {/* LESS and MORE labels below Me header - aligned with slider start/end */}
+            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '112px', paddingRight: '112px' }}>
+              <span>LESS</span>
+              <span>MORE</span>
+            </div>
             
-            <SliderComponent
-              value={myGender.female}
-              onChange={(value) => handleSliderChange('myGender', 'female', value)}
-              label="FEMALE"
-              isOpenToAll={openToAll.me}
-            />
+            {/* MALE Slider with switch positioned to the right */}
+            <div className="mb-4 relative flex items-center">
+              {/* Label with fixed width */}
+              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">MALE</span>
+              
+              {/* Slider container with fixed width */}
+              <div className="relative" style={{ width: '500px' }}>
+                <SliderComponent
+                  value={myGender.male}
+                  onChange={(value) => handleSliderChange('myGender', 'male', value)}
+                  label=""
+                  isOpenToAll={openToAll.me}
+                />
+              </div>
+              
+              {/* Switch positioned to the right of the slider using absolute positioning */}
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.me}
+                      onChange={() => handleOpenToAllToggle('me')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-14 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.me ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
+            {/* FEMALE Slider with switch positioned to the right */}
+            <div className="mb-4 relative flex items-center">
+              {/* Label with fixed width */}
+              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">FEMALE</span>
+              
+              {/* Slider container with fixed width */}
+              <div className="relative" style={{ width: '500px' }}>
+                <SliderComponent
+                  value={myGender.female}
+                  onChange={(value) => handleSliderChange('myGender', 'female', value)}
+                  label=""
+                  isOpenToAll={openToAll.me}
+                />
+              </div>
+              
+              {/* Switch positioned to the right of the slider using absolute positioning */}
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.me}
+                      onChange={() => handleOpenToAllToggle('me')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-14 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.me ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Importance Slider for Me */}
-            <SliderComponent
-              value={importance.me}
-              onChange={(value) => handleSliderChange('importance', 'me', value)}
-              label="IMPORTANCE"
-              isOpenToAll={false}
-            />
-
-            {/* Open to all toggle */}
-            <div className="flex items-center mb-6">
-              <label className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={openToAll.me}
-                    onChange={() => handleOpenToAllToggle('me')}
-                    className="sr-only"
-                  />
-                  <div className={`block w-14 h-8 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-gray-300'}`}></div>
-                  <div className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition ${openToAll.me ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
-                </div>
-                <div className="ml-3 mr-3 text-gray-700 font-medium">
-                  Open to all
-                  <span className="ml-3 inline-flex items-center justify-center w-4 h-4 rounded-full text-[#672DB7] text-xs font-medium" style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}>?</span>
-                </div>
-              </label>
+            <div className="mb-4 relative flex items-center">
+              {/* Label with fixed width */}
+              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">IMPORTANCE</span>
+              
+              {/* Slider container with fixed width */}
+              <div className="relative" style={{ width: '500px' }}>
+                <SliderComponent
+                  value={importance.me}
+                  onChange={(value) => handleSliderChange('importance', 'me', value)}
+                  label=""
+                  isOpenToAll={false}
+                />
+              </div>
             </div>
           </div>
 
@@ -315,46 +422,90 @@ export default function GenderPage() {
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2" style={{ color: '#672DB7' }}>Looking For</h3>
             
-            <SliderComponent
-              value={lookingFor.male}
-              onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
-              label="MALE"
-              isOpenToAll={openToAll.lookingFor}
-            />
+            {/* LESS and MORE labels below Looking For header - aligned with slider start/end */}
+            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '112px', paddingRight: '112px' }}>
+              <span>LESS</span>
+              <span>MORE</span>
+            </div>
             
-            <SliderComponent
-              value={lookingFor.female}
-              onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
-              label="FEMALE"
-              isOpenToAll={openToAll.lookingFor}
-            />
+            {/* MALE Slider with switch positioned to the right */}
+            <div className="mb-4 relative flex items-center">
+              {/* Label with fixed width */}
+              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">MALE</span>
+              
+              {/* Slider container with fixed width */}
+              <div className="relative" style={{ width: '500px' }}>
+                <SliderComponent
+                  value={lookingFor.male}
+                  onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
+                  label=""
+                  isOpenToAll={openToAll.lookingFor}
+                />
+              </div>
+              
+              {/* Switch positioned to the right of the slider using absolute positioning */}
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.lookingFor}
+                      onChange={() => handleOpenToAllToggle('lookingFor')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-14 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
+            {/* FEMALE Slider with switch positioned to the right */}
+            <div className="mb-4 relative flex items-center">
+              {/* Label with fixed width */}
+              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">FEMALE</span>
+              
+              {/* Slider container with fixed width */}
+              <div className="relative" style={{ width: '500px' }}>
+                <SliderComponent
+                  value={lookingFor.female}
+                  onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
+                  label=""
+                  isOpenToAll={openToAll.lookingFor}
+                />
+              </div>
+              
+              {/* Switch positioned to the right of the slider using absolute positioning */}
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.lookingFor}
+                      onChange={() => handleOpenToAllToggle('lookingFor')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-14 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Importance Slider for Looking For */}
-            <SliderComponent
-              value={importance.lookingFor}
-              onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
-              label="IMPORTANCE"
-              isOpenToAll={false}
-            />
-
-            {/* Open to all toggle */}
-            <div className="flex items-center mb-6">
-              <label className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={openToAll.lookingFor}
-                    onChange={() => handleOpenToAllToggle('lookingFor')}
-                    className="sr-only"
-                  />
-                  <div className={`block w-14 h-8 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-gray-300'}`}></div>
-                  <div className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
-                </div>
-                <div className="ml-3 mr-3 text-gray-700 font-medium">
-                  Open to all
-                  <span className="ml-3 inline-flex items-center justify-center w-4 h-4 rounded-full text-[#672DB7] text-xs font-medium" style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}>?</span>
-                </div>
-              </label>
+            <div className="mb-4 relative flex items-center">
+              {/* Label with fixed width */}
+              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">IMPORTANCE</span>
+              
+              {/* Slider container with fixed width */}
+              <div className="relative" style={{ width: '500px' }}>
+                <SliderComponent
+                  value={importance.lookingFor}
+                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+                  label=""
+                  isOpenToAll={false}
+                />
+              </div>
             </div>
           </div>
         </div>
