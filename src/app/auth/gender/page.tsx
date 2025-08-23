@@ -301,7 +301,7 @@ export default function GenderPage() {
 
       {/* Main Content */}
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-black mb-2">1. Gender</h1>
@@ -333,13 +333,13 @@ export default function GenderPage() {
             <h3 className="text-2xl font-bold text-center mb-2">Me</h3>
             
             {/* LESS and MORE labels below Me header - aligned with slider start/end */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '144px', paddingRight: '112px' }}>
+            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: '500px', marginLeft: '144px' }}>
               <span>LESS</span>
               <span>MORE</span>
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid grid-cols-[112px_500px_56px] gap-8 items-center">
+            <div className="grid grid-cols-[112px_500px_56px] gap-8 items-center justify-center mx-auto max-w-fit">
               
               {/* MALE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
@@ -411,13 +411,13 @@ export default function GenderPage() {
             <h3 className="text-2xl font-bold text-center mb-2" style={{ color: '#672DB7' }}>Looking For</h3>
             
             {/* LESS and MORE labels below Looking For header - aligned with slider start/end */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '144px', paddingRight: '112px' }}>
+            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: '500px', marginLeft: '144px' }}>
               <span>LESS</span>
               <span>MORE</span>
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid grid-cols-[112px_500px_56px] gap-8 items-center">
+            <div className="grid grid-cols-[112px_500px_56px] gap-8 items-center justify-center mx-auto max-w-fit">
               
               {/* MALE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
