@@ -225,7 +225,7 @@ export default function GenderPage() {
     };
 
     return (
-      <div className="w-full relative flex items-center select-none"
+      <div className="w-full h-5 relative flex items-center select-none"
         style={{ userSelect: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -238,6 +238,7 @@ export default function GenderPage() {
           <div 
             className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border border-[#ADADAD]"
             style={{
+              width: '100%',
               backgroundColor: '#F5F5F5',
               boxShadow: isOpenToAll ? '0 0 15px rgba(103, 45, 183, 0.5)' : 'none'
             }}
@@ -327,23 +328,22 @@ export default function GenderPage() {
             </div>
           )}
 
-          {/* Me Section */}
+                    {/* Me Section */}
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2">Me</h3>
             
             {/* LESS and MORE labels below Me header - aligned with slider start/end */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '112px', paddingRight: '112px' }}>
+            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '144px', paddingRight: '112px' }}>
               <span>LESS</span>
               <span>MORE</span>
             </div>
             
-            {/* MALE Slider with switch positioned to the right */}
-            <div className="mb-4 relative flex items-center">
-              {/* Label with fixed width */}
-              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">MALE</span>
+            {/* Grid container for perfect alignment */}
+            <div className="grid grid-cols-[112px_500px_56px] gap-8 items-center">
               
-              {/* Slider container with fixed width */}
-              <div className="relative" style={{ width: '500px' }}>
+              {/* MALE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">MALE</div>
+              <div className="relative">
                 <SliderComponent
                   value={myGender.male}
                   onChange={(value) => handleSliderChange('myGender', 'male', value)}
@@ -351,9 +351,7 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.me}
                 />
               </div>
-              
-              {/* Switch positioned to the right of the slider using absolute positioning */}
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+              <div>
                 <label className="flex items-center cursor-pointer">
                   <div className="relative">
                     <input
@@ -362,20 +360,15 @@ export default function GenderPage() {
                       onChange={() => handleOpenToAllToggle('me')}
                       className="sr-only"
                     />
-                    <div className={`block w-14 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.me ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.me ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
-            </div>
-            
-            {/* FEMALE Slider with switch positioned to the right */}
-            <div className="mb-4 relative flex items-center">
-              {/* Label with fixed width */}
-              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">FEMALE</span>
               
-              {/* Slider container with fixed width */}
-              <div className="relative" style={{ width: '500px' }}>
+              {/* FEMALE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">FEMALE</div>
+              <div className="relative">
                 <SliderComponent
                   value={myGender.female}
                   onChange={(value) => handleSliderChange('myGender', 'female', value)}
@@ -383,9 +376,7 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.me}
                 />
               </div>
-              
-              {/* Switch positioned to the right of the slider using absolute positioning */}
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+              <div>
                 <label className="flex items-center cursor-pointer">
                   <div className="relative">
                     <input
@@ -394,20 +385,15 @@ export default function GenderPage() {
                       onChange={() => handleOpenToAllToggle('me')}
                       className="sr-only"
                     />
-                    <div className={`block w-14 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.me ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.me ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
-            </div>
 
-            {/* Importance Slider for Me */}
-            <div className="mb-4 relative flex items-center">
-              {/* Label with fixed width */}
-              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">IMPORTANCE</span>
-              
-              {/* Slider container with fixed width */}
-              <div className="relative" style={{ width: '500px' }}>
+              {/* IMPORTANCE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="relative">
                 <SliderComponent
                   value={importance.me}
                   onChange={(value) => handleSliderChange('importance', 'me', value)}
@@ -415,6 +401,8 @@ export default function GenderPage() {
                   isOpenToAll={false}
                 />
               </div>
+              <div className="w-10 h-5"></div>
+              
             </div>
           </div>
 
@@ -423,18 +411,17 @@ export default function GenderPage() {
             <h3 className="text-2xl font-bold text-center mb-2" style={{ color: '#672DB7' }}>Looking For</h3>
             
             {/* LESS and MORE labels below Looking For header - aligned with slider start/end */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '112px', paddingRight: '112px' }}>
+            <div className="flex justify-between text-xs text-gray-500 mb-4" style={{ paddingLeft: '144px', paddingRight: '112px' }}>
               <span>LESS</span>
               <span>MORE</span>
             </div>
             
-            {/* MALE Slider with switch positioned to the right */}
-            <div className="mb-4 relative flex items-center">
-              {/* Label with fixed width */}
-              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">MALE</span>
+            {/* Grid container for perfect alignment */}
+            <div className="grid grid-cols-[112px_500px_56px] gap-8 items-center">
               
-              {/* Slider container with fixed width */}
-              <div className="relative" style={{ width: '500px' }}>
+              {/* MALE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">MALE</div>
+              <div className="relative">
                 <SliderComponent
                   value={lookingFor.male}
                   onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
@@ -442,9 +429,7 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.lookingFor}
                 />
               </div>
-              
-              {/* Switch positioned to the right of the slider using absolute positioning */}
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+              <div>
                 <label className="flex items-center cursor-pointer">
                   <div className="relative">
                     <input
@@ -453,20 +438,15 @@ export default function GenderPage() {
                       onChange={() => handleOpenToAllToggle('lookingFor')}
                       className="sr-only"
                     />
-                    <div className={`block w-14 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
-            </div>
-            
-            {/* FEMALE Slider with switch positioned to the right */}
-            <div className="mb-4 relative flex items-center">
-              {/* Label with fixed width */}
-              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">FEMALE</span>
               
-              {/* Slider container with fixed width */}
-              <div className="relative" style={{ width: '500px' }}>
+              {/* FEMALE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">FEMALE</div>
+              <div className="relative">
                 <SliderComponent
                   value={lookingFor.female}
                   onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
@@ -474,9 +454,7 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.lookingFor}
                 />
               </div>
-              
-              {/* Switch positioned to the right of the slider using absolute positioning */}
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-20">
+              <div>
                 <label className="flex items-center cursor-pointer">
                   <div className="relative">
                     <input
@@ -485,20 +463,15 @@ export default function GenderPage() {
                       onChange={() => handleOpenToAllToggle('lookingFor')}
                       className="sr-only"
                     />
-                    <div className={`block w-14 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-6 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
-            </div>
 
-            {/* Importance Slider for Looking For */}
-            <div className="mb-4 relative flex items-center">
-              {/* Label with fixed width */}
-              <span className="text-xs font-semibold text-gray-400 w-20 text-left mr-8">IMPORTANCE</span>
-              
-              {/* Slider container with fixed width */}
-              <div className="relative" style={{ width: '500px' }}>
+              {/* IMPORTANCE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="relative">
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
@@ -506,6 +479,8 @@ export default function GenderPage() {
                   isOpenToAll={false}
                 />
               </div>
+              <div className="w-10 h-5"></div>
+              
             </div>
           </div>
         </div>
