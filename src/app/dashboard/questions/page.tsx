@@ -1,326 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-// Generate mock data for questions including mandatory questions
-const generateMockQuestions = () => {
-  const questions = [
-    // Gender Questions
-    {
-      id: 1,
-      question: "How strongly do you identify as Male?",
-      tags: ["Gender"],
-      isMandatory: true,
-      timesAnswered: 89,
-      isApproved: "Jan 27, 2025",
-      createdAt: "Jan 20, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 2,
-      question: "How strongly do you identify as Female?",
-      tags: ["Gender"],
-      isMandatory: true,
-      timesAnswered: 92,
-      isApproved: "Jan 27, 2025",
-      createdAt: "Jan 20, 2025",
-      approved: "Yes"
-    },
-    // Relationship Questions
-    {
-      id: 3,
-      question: "How much are you interested in friendship?",
-      tags: ["Relationship"],
-      isMandatory: true,
-      timesAnswered: 78,
-      isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 4,
-      question: "How much are you interested in hookups?",
-      tags: ["Relationship"],
-      isMandatory: true,
-      timesAnswered: 65,
-      isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 5,
-      question: "How much are you interested in dating?",
-      tags: ["Relationship"],
-      isMandatory: true,
-      timesAnswered: 83,
-      isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 6,
-      question: "How much are you interested in a partner?",
-      tags: ["Relationship"],
-      isMandatory: true,
-      timesAnswered: 76,
-      isApproved: "Jan 26, 2025",
-      createdAt: "Jan 19, 2025",
-      approved: "Yes"
-    },
-    // Religion Question
-    {
-      id: 7,
-      question: "How often do you follow religious practices?",
-      tags: ["Religion"],
-      isMandatory: true,
-      timesAnswered: 71,
-      isApproved: "Jan 25, 2025",
-      createdAt: "Jan 18, 2025",
-      approved: "Yes"
-    },
-    // Faith Questions
-    {
-      id: 8,
-      question: "How strongly do you identify as Christian?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 45,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 9,
-      question: "How strongly do you identify as Muslim?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 38,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 10,
-      question: "How strongly do you identify as Hindu?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 32,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 11,
-      question: "How strongly do you identify as Jewish?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 28,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 12,
-      question: "How strongly do you identify as Buddhist?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 35,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 13,
-      question: "How strongly do you identify as Atheist?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 52,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 14,
-      question: "How strongly do you identify as Agnostic?",
-      tags: ["Faith"],
-      isMandatory: true,
-      timesAnswered: 41,
-      isApproved: "Jan 24, 2025",
-      createdAt: "Jan 17, 2025",
-      approved: "Yes"
-    },
-    // Exercise Question
-    {
-      id: 15,
-      question: "How often do you exercise?",
-      tags: ["Exercise"],
-      isMandatory: true,
-      timesAnswered: 89,
-      isApproved: "Jan 23, 2025",
-      createdAt: "Jan 16, 2025",
-      approved: "Yes"
-    },
-    // Habits Questions
-    {
-      id: 16,
-      question: "How often do you consume alcohol?",
-      tags: ["Habits"],
-      isMandatory: true,
-      timesAnswered: 73,
-      isApproved: "Jan 22, 2025",
-      createdAt: "Jan 15, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 17,
-      question: "How often do you use tobacco?",
-      tags: ["Habits"],
-      isMandatory: true,
-      timesAnswered: 68,
-      isApproved: "Jan 22, 2025",
-      createdAt: "Jan 15, 2025",
-      approved: "Yes"
-    },
-    // Children Questions
-    {
-      id: 18,
-      question: "Do you have kids?",
-      tags: ["Children"],
-      isMandatory: true,
-      timesAnswered: 84,
-      isApproved: "Jan 21, 2025",
-      createdAt: "Jan 14, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 19,
-      question: "Do you want kids?",
-      tags: ["Children"],
-      isMandatory: true,
-      timesAnswered: 79,
-      isApproved: "Jan 21, 2025",
-      createdAt: "Jan 14, 2025",
-      approved: "Yes"
-    },
-    // Education Questions
-    {
-      id: 20,
-      question: "What is your high school education status?",
-      tags: ["Education"],
-      isMandatory: true,
-      timesAnswered: 91,
-      isApproved: "Jan 20, 2025",
-      createdAt: "Jan 13, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 21,
-      question: "What is your undergraduate education status?",
-      tags: ["Education"],
-      isMandatory: true,
-      timesAnswered: 87,
-      isApproved: "Jan 20, 2025",
-      createdAt: "Jan 13, 2025",
-      approved: "Yes"
-    },
-    // Diet Questions
-    {
-      id: 22,
-      question: "Do you eat meat (Omnivore)?",
-      tags: ["Diet"],
-      isMandatory: true,
-      timesAnswered: 93,
-      isApproved: "Jan 19, 2025",
-      createdAt: "Jan 12, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 23,
-      question: "Do you identify as vegetarian?",
-      tags: ["Diet"],
-      isMandatory: true,
-      timesAnswered: 56,
-      isApproved: "Jan 19, 2025",
-      createdAt: "Jan 12, 2025",
-      approved: "Yes"
-    },
-    {
-      id: 24,
-      question: "Do you identify as vegan?",
-      tags: ["Diet"],
-      isMandatory: true,
-      timesAnswered: 42,
-      isApproved: "Jan 19, 2025",
-      createdAt: "Jan 12, 2025",
-      approved: "Yes"
-    },
-    // Politics Question
-    {
-      id: 25,
-      question: "How politically engaged are you?",
-      tags: ["Politics"],
-      isMandatory: true,
-      timesAnswered: 67,
-      isApproved: "Jan 18, 2025",
-      createdAt: "Jan 11, 2025",
-      approved: "Yes"
-    }
-  ];
-
-  // Generate more questions to reach 64 total
-  for (let i = 11; i <= 64; i++) {
-    const questionTemplates = [
-      "What's your opinion on {topic}?",
-      "How do you feel about {topic}?",
-      "What's your experience with {topic}?",
-      "How important is {topic} to you?",
-      "What's your approach to {topic}?"
-    ];
-    
-    const topics = [
-      "travel", "cooking", "exercise", "reading", "movies", "politics", 
-      "family", "career", "education", "social media", "technology", "nature"
-    ];
-    
-    const template = questionTemplates[i % questionTemplates.length];
-    const topic = topics[i % topics.length];
-    const question = template.replace('{topic}', topic);
-    
-    const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
-    const numTags = Math.floor(Math.random() * 3) + 1;
-    const tags = allTags.sort(() => 0.5 - Math.random()).slice(0, numTags);
-    
-    questions.push({
-      id: i,
-      question,
-      tags,
-      isMandatory: Math.random() > 0.3,
-      timesAnswered: Math.floor(Math.random() * 100) + 1,
-      isApproved: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: '2-digit' 
-      }),
-      createdAt: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: '2-digit' 
-      }),
-      approved: Math.random() > 0.3 ? "Yes" : "No"
-    });
-  }
-  
-  return questions;
-};
-
-const mockQuestions = generateMockQuestions();
-
-const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
+import { apiService, Question } from '@/services/api';
 
 export default function QuestionsPage() {
   const router = useRouter();
-  const [questions, setQuestions] = useState(mockQuestions);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
@@ -328,9 +16,36 @@ export default function QuestionsPage() {
   const [selectedMandatory, setSelectedMandatory] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [sortField, setSortField] = useState('');
+  const [sortField, setSortField] = useState('question_number');
   const [sortDirection, setSortDirection] = useState('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Fetch questions from API
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        setLoading(true);
+        const fetchedQuestions = await apiService.getQuestions();
+        // Sort by question_number by default
+        const sortedQuestions = fetchedQuestions.sort((a, b) => {
+          const aNum = a.question_number || 0;
+          const bNum = b.question_number || 0;
+          return aNum - bNum;
+        });
+        setQuestions(sortedQuestions);
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+        setError('Failed to fetch questions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, []);
+
+  // Get unique tags from questions
+  const allTags = Array.from(new Set(questions.flatMap(q => q.tags.map(tag => tag.name)))).sort();
 
   // Helpers
   const formatToMDYY = (dateStr: string) => {
@@ -345,20 +60,21 @@ export default function QuestionsPage() {
   // Filter questions
   const filteredQuestions = questions.filter(question => {
     const matchesSearch = searchTerm === '' || 
-      question.question.toLowerCase().includes(searchTerm.toLowerCase());
+      question.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (question.question_name && question.question_name.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesTag = selectedTag === 'All' || question.tags.includes(selectedTag);
+    const matchesTag = selectedTag === 'All' || question.tags.some(tag => tag.name === selectedTag);
     
     const matchesApproved = selectedApproved === 'All' || 
-      (selectedApproved === 'Yes' && question.approved === 'Yes') ||
-      (selectedApproved === 'No' && question.approved === 'No');
+      (selectedApproved === 'Yes' && question.question_type === 'mandatory') ||
+      (selectedApproved === 'No' && question.question_type !== 'mandatory');
     
     const matchesMandatory = selectedMandatory === 'All' || 
-      (selectedMandatory === 'Yes' && question.isMandatory) ||
-      (selectedMandatory === 'No' && !question.isMandatory);
+      (selectedMandatory === 'Yes' && question.is_required_for_match) ||
+      (selectedMandatory === 'No' && !question.is_required_for_match);
     
-    const matchesDateRange = (!startDate || question.createdAt >= startDate) &&
-                           (!endDate || question.createdAt <= endDate);
+    const matchesDateRange = (!startDate || question.created_at >= startDate) &&
+                           (!endDate || question.created_at <= endDate);
     
     return matchesSearch && matchesTag && matchesApproved && matchesMandatory && matchesDateRange;
   });
@@ -367,59 +83,52 @@ export default function QuestionsPage() {
   const sortedQuestions = [...filteredQuestions].sort((a, b) => {
     if (!sortField) return 0;
     
+    // Question number sort (default)
+    if (sortField === 'question_number') {
+      const aNum = a.question_number || 0;
+      const bNum = b.question_number || 0;
+      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+    }
+    
     // Date sort (Created)
-    if (sortField === 'createdAt') {
-      const aTime = new Date(a.createdAt).getTime();
-      const bTime = new Date(b.createdAt).getTime();
+    if (sortField === 'created_at') {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
       return sortDirection === 'asc' ? aTime - bTime : bTime - aTime;
     }
 
     // Tag sort (alphabetical by first tag)
     if (sortField === 'tag') {
-      const aTag = (a.tags && a.tags[0] ? a.tags[0] : '').toLowerCase();
-      const bTag = (b.tags && b.tags[0] ? b.tags[0] : '').toLowerCase();
+      const aTag = (a.tags && a.tags[0] ? a.tags[0].name : '').toLowerCase();
+      const bTag = (b.tags && b.tags[0] ? b.tags[0].name : '').toLowerCase();
       if (aTag === bTag) return 0;
       return sortDirection === 'asc' ? (aTag > bTag ? 1 : -1) : (aTag < bTag ? 1 : -1);
     }
 
     // Mandatory sort (booleans)
-    if (sortField === 'isMandatory') {
-      const aBool = a.isMandatory ? 1 : 0;
-      const bBool = b.isMandatory ? 1 : 0;
+    if (sortField === 'is_required_for_match') {
+      const aBool = a.is_required_for_match ? 1 : 0;
+      const bBool = b.is_required_for_match ? 1 : 0;
       return sortDirection === 'asc' ? aBool - bBool : bBool - aBool;
     }
 
     // Question text sort (case-insensitive)
-    if (sortField === 'question') {
-      const aQ = (a.question || '').toLowerCase();
-      const bQ = (b.question || '').toLowerCase();
+    if (sortField === 'text') {
+      const aQ = (a.text || '').toLowerCase();
+      const bQ = (b.text || '').toLowerCase();
       if (aQ === bQ) return 0;
       return sortDirection === 'asc' ? (aQ > bQ ? 1 : -1) : (aQ < bQ ? 1 : -1);
     }
 
-    // Created By sort (using same display logic)
-    if (sortField === 'createdBy') {
-      const getCreatedBy = (q: typeof a) => (Array.isArray(q.tags) && q.tags.length > 0 ? `user_${q.id}` : 'Admin').toLowerCase();
-      const aBy = getCreatedBy(a);
-      const bBy = getCreatedBy(b);
-      if (aBy === bBy) return 0;
-      return sortDirection === 'asc' ? (aBy > bBy ? 1 : -1) : (aBy < bBy ? 1 : -1);
+    // Question name sort (case-insensitive)
+    if (sortField === 'question_name') {
+      const aName = (a.question_name || '').toLowerCase();
+      const bName = (b.question_name || '').toLowerCase();
+      if (aName === bName) return 0;
+      return sortDirection === 'asc' ? (aName > bName ? 1 : -1) : (aName < bName ? 1 : -1);
     }
 
-    const aValue = a[sortField as keyof typeof a] as unknown as string | number;
-    const bValue = b[sortField as keyof typeof b] as unknown as string | number;
-    
-    if (sortField === 'timesAnswered') {
-      const aNum = typeof aValue === 'number' ? aValue : 0;
-      const bNum = typeof bValue === 'number' ? bValue : 0;
-      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-    }
-    
-    if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
+    return 0;
   });
 
   // Pagination
@@ -458,9 +167,32 @@ export default function QuestionsPage() {
       : <i className="fas fa-sort-down text-[#672DB7] ml-1"></i>;
   };
 
-  const handleRowClick = (questionId: number) => {
+  const handleRowClick = (questionId: string) => {
     router.push(`/dashboard/questions/edit/${questionId}`);
   };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading questions...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">{error}</div>;
+  }
+
+  if (currentQuestions.length === 0) {
+    return (
+      <div className="text-center py-8">
+        No questions found. <br />
+        <button 
+          onClick={() => router.push('/dashboard/questions/create')}
+          className="bg-[#672DB7] text-white px-6 py-3 rounded-lg hover:bg-[#5a2a9e] transition-colors duration-200 font-medium cursor-pointer"
+        >
+          <i className="fas fa-plus mr-2"></i>
+          New question
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -566,29 +298,29 @@ export default function QuestionsPage() {
               <tr>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('id')}
+                  onClick={() => handleSort('question_number')}
                 >
                   <div className="flex flex-col">
                     <span>NO.</span>
-                    <span className="mt-1"><SortIcon field="id" /></span>
+                    <span className="mt-1"><SortIcon field="question_number" /></span>
                   </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('question')}
+                  onClick={() => handleSort('question_name')}
+                >
+                  <div className="flex flex-col">
+                    <span>Question Name</span>
+                    <span className="mt-1"><SortIcon field="question_name" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('text')}
                 >
                   <div className="flex flex-col">
                     <span>Question</span>
-                    <span className="mt-1"><SortIcon field="question" /></span>
-                  </div>
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('createdBy')}
-                >
-                  <div className="flex flex-col">
-                    <span>Created By</span>
-                    <span className="mt-1"><SortIcon field="createdBy" /></span>
+                    <span className="mt-1"><SortIcon field="text" /></span>
                   </div>
                 </th>
                 <th 
@@ -602,29 +334,20 @@ export default function QuestionsPage() {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('isMandatory')}
+                  onClick={() => handleSort('is_required_for_match')}
                 >
                   <div className="flex flex-col">
                     <span>Mandatory</span>
-                    <span className="mt-1"><SortIcon field="isMandatory" /></span>
+                    <span className="mt-1"><SortIcon field="is_required_for_match" /></span>
                   </div>
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('timesAnswered')}
-                >
-                  <div className="flex flex-col">
-                    <span>Answered</span>
-                    <span className="mt-1"><SortIcon field="timesAnswered" /></span>
-                  </div>
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('createdAt')}
+                  onClick={() => handleSort('created_at')}
                 >
                   <div className="flex flex-col">
                     <span>Created</span>
-                    <span className="mt-1"><SortIcon field="createdAt" /></span>
+                    <span className="mt-1"><SortIcon field="created_at" /></span>
                   </div>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -640,12 +363,14 @@ export default function QuestionsPage() {
                   onClick={() => handleRowClick(question.id)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.id}
+                    {question.question_number}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {question.question_name || 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{question.question}</div>
+                    <div className="truncate">{question.text}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{Array.isArray(question.tags) && question.tags.length > 0 ? 'user_' + question.id : 'Admin'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
                       {question.tags.map((tag, index) => (
@@ -653,29 +378,26 @@ export default function QuestionsPage() {
                           key={index}
                           className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-black"
                         >
-                          {tag}
+                          {tag.name}
                         </span>
                       ))}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.isMandatory ? 'Yes' : '--'}
+                    {question.is_required_for_match ? 'Yes' : 'No'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.timesAnswered}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatToMDYY(question.createdAt)}
+                    {formatToMDYY(question.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                       {/* Single toggle: check if approved, x if not */}
                       <button 
-                        onClick={() => setQuestions(prev => prev.map(q => q.id === question.id ? { ...q, approved: q.approved === 'Yes' ? 'No' : 'Yes' } : q))}
-                        className={`transition-colors duration-200 cursor-pointer ${question.approved === 'Yes' ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
-                        title={question.approved === 'Yes' ? 'Approved' : 'Not approved'}
+                        onClick={() => setQuestions(prev => prev.map(q => q.id === question.id ? { ...q, is_required_for_match: !q.is_required_for_match } : q))}
+                        className={`transition-colors duration-200 cursor-pointer ${question.is_required_for_match ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
+                        title={question.is_required_for_match ? 'Mandatory' : 'Optional'}
                       >
-                        <i className={`fas ${question.approved === 'Yes' ? 'fa-check' : 'fa-times'}`}></i>
+                        <i className={`fas ${question.is_required_for_match ? 'fa-check' : 'fa-times'}`}></i>
                       </button>
                       <button className="text-red-500 hover:text-red-700 transition-colors duration-200 cursor-pointer">
                         <i className="fas fa-trash"></i>

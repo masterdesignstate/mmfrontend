@@ -546,7 +546,7 @@ export default function PictureModerationPage() {
                       type="checkbox"
                       checked={selectedItems.length === currentItems.length && currentItems.length > 0}
                       onChange={handleSelectAll}
-                      className="rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
+                      className="h-5 w-5 rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7]"
                     />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -555,14 +555,11 @@ export default function PictureModerationPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('submitted_date')}
                   >
-                    Submitted Date
+                    Submitted
                     <SortIcon field="submitted_date" />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -597,7 +594,6 @@ export default function PictureModerationPage() {
                         <div className="text-sm text-gray-500">{item.user.first_name} {item.user.last_name}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{/* Status removed */}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatToMDYY(item.submitted_date)}
                     </td>

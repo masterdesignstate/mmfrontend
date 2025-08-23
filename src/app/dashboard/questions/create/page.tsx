@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiService } from '@/services/api';
 
 interface Answer {
   id: string;
@@ -14,6 +15,7 @@ const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
 export default function CreateQuestionPage() {
   const router = useRouter();
   const [questionNumber, setQuestionNumber] = useState(65); // Start with next available number
+  const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
   const [question, setQuestion] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([
@@ -33,6 +35,7 @@ export default function CreateQuestionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string>('');
   const tagsDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -71,6 +74,10 @@ export default function CreateQuestionPage() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    if (!questionName.trim()) {
+      newErrors.questionName = 'Question name is required';
+    }
+
     if (!question.trim()) {
       newErrors.question = 'Question text is required';
     }
@@ -96,45 +103,115 @@ export default function CreateQuestionPage() {
     if (!validateForm()) return;
 
     setIsSaving(true);
+    setGeneralError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSaving(false);
-    
-    // Redirect to questions list
-    router.push('/dashboard/questions');
+    try {
+      // Prepare the question data
+      const questionData = {
+        text: question.trim(),
+        question_name: questionName.trim(),
+        question_number: questionNumber,
+        group_name: groupName.trim(),
+        tags: [selectedTag],
+        question_type: isMandatory ? 'mandatory' : 'unanswered',
+        is_required_for_match: isMandatory,
+        is_approved: isApproved,
+        skip_me: skipMe,
+        skip_looking_for: skipLookingFor,
+        open_to_all_me: openToAllMe,
+        open_to_all_looking_for: openToAllLooking,
+        answers: answers
+          .filter(answer => answer.value.trim() && answer.answer.trim())
+          .map(answer => ({
+            value: answer.value.trim(),
+            answer: answer.answer.trim()
+          }))
+      };
+
+      console.log('Creating question with data:', questionData);
+      
+      const response = await apiService.createQuestion(questionData);
+      
+      if (response && response.id) {
+        console.log('Question created successfully:', response.id);
+        // Redirect to questions list
+        router.push('/dashboard/questions');
+      } else {
+        setGeneralError('Failed to create question');
+      }
+    } catch (error) {
+      console.error('Error creating question:', error);
+      setGeneralError('Failed to create question. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCreateAndAnother = async () => {
     if (!validateForm()) return;
 
     setIsSaving(true);
+    setGeneralError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSaving(false);
-    
-    // Reset form for another question
-    setQuestionNumber(prev => prev + 1);
-    setGroupName('');
-    setQuestion('');
-    setAnswers([
-      { id: '1', value: '', answer: '' },
-      { id: '2', value: '', answer: '' },
-      { id: '3', value: '', answer: '' },
-      { id: '4', value: '', answer: '' },
-      { id: '5', value: '', answer: '' }
-    ]);
-    setSelectedTag('');
-    setIsMandatory(false);
-    setSkipMe(false);
-    setSkipLookingFor(false);
-    setOpenToAllMe(false);
-    setOpenToAllLooking(false);
-    setIsApproved(false);
-    setErrors({});
+    try {
+      // Prepare the question data
+      const questionData = {
+        text: question.trim(),
+        question_name: questionName.trim(),
+        question_number: questionNumber,
+        group_name: groupName.trim(),
+        tags: [selectedTag],
+        question_type: isMandatory ? 'mandatory' : 'unanswered',
+        is_required_for_match: isMandatory,
+        is_approved: isApproved,
+        skip_me: skipMe,
+        skip_looking_for: skipLookingFor,
+        open_to_all_me: openToAllMe,
+        open_to_all_looking_for: openToAllLooking,
+        answers: answers
+          .filter(answer => answer.value.trim() && answer.answer.trim())
+          .map(answer => ({
+            value: answer.value.trim(),
+            answer: answer.answer.trim()
+          }))
+      };
+
+      console.log('Creating question with data:', questionData);
+      
+      const response = await apiService.createQuestion(questionData);
+      
+      if (response && response.id) {
+        console.log('Question created successfully:', response.id);
+        
+        // Reset form for another question
+        setQuestionNumber(prev => prev + 1);
+        setQuestionName('');
+        setGroupName('');
+        setQuestion('');
+        setAnswers([
+          { id: '1', value: '', answer: '' },
+          { id: '2', value: '', answer: '' },
+          { id: '3', value: '', answer: '' },
+          { id: '4', value: '', answer: '' },
+          { id: '5', value: '', answer: '' }
+        ]);
+        setSelectedTag('');
+        setIsMandatory(false);
+        setSkipMe(false);
+        setSkipLookingFor(false);
+        setOpenToAllMe(false);
+        setOpenToAllLooking(false);
+        setIsApproved(false);
+        setErrors({});
+      } else {
+        setGeneralError('Failed to create question');
+      }
+    } catch (error) {
+      console.error('Error creating question:', error);
+      setGeneralError('Failed to create question. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -158,19 +235,42 @@ export default function CreateQuestionPage() {
       {/* Create Question Form */}
       <div className="bg-white rounded-lg shadow p-6">
         <form className="space-y-8">
+          {/* General Error Display */}
+          {generalError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {generalError}
+            </div>
+          )}
+
           {/* Question Number Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Question Number
             </label>
             <input
-              type="number"
+              type="text"
               value={questionNumber}
               onChange={(e) => setQuestionNumber(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
               placeholder="Enter question number"
-              min="1"
             />
+          </div>
+
+          {/* Question Name Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Question Name
+            </label>
+            <input
+              type="text"
+              value={questionName}
+              onChange={(e) => setQuestionName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+              placeholder="Enter question name"
+            />
+            {errors.questionName && (
+              <p className="text-red-500 text-sm mt-1">{errors.questionName}</p>
+            )}
           </div>
 
           {/* Group Name Section */}

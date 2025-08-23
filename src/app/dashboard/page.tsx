@@ -185,19 +185,8 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-indigo-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-calendar-week" style={{color: '#4f46e5', fontSize: '1.25rem'}}></i>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Weekly Active Users</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.weeklyActiveUsers}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-teal-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-chart-line" style={{color: '#14b8a6', fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-orange-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-calendar" style={{color: '#ea580c', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Daily Active Users</p>
@@ -207,8 +196,19 @@ export default function DashboardOverview() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-pink-100 flex items-center justify-center w-12 h-12">
-              <i className="fas fa-calendar-alt" style={{color: '#ec4899', fontSize: '1.25rem'}}></i>
+            <div className="p-3 rounded-full bg-orange-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-calendar" style={{color: '#ea580c', fontSize: '1.25rem'}}></i>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Weekly Active Users</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.weeklyActiveUsers}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-orange-100 flex items-center justify-center w-12 h-12">
+              <i className="fas fa-calendar" style={{color: '#ea580c', fontSize: '1.25rem'}}></i>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Monthly Active Users</p>

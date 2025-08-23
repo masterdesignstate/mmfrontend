@@ -39,6 +39,9 @@ export default function AddPhotoPage() {
     setError(null);
     setUploadProgress(0);
 
+    // Track start time to ensure minimum 1 second loading
+    const startTime = Date.now();
+
     try {
       console.log('🚀 Starting Azure upload for user:', userId);
       
@@ -65,6 +68,13 @@ export default function AddPhotoPage() {
 
       if (response.ok) {
         console.log('✅ Profile photo updated successfully');
+        
+        // Ensure minimum loading time of 1 second
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < 1000) {
+          await new Promise(resolve => setTimeout(resolve, 1000 - elapsedTime));
+        }
+        
         // Navigate to gender selection page
         const params = new URLSearchParams({ user_id: userId });
         router.push(`/auth/gender?${params.toString()}`);
@@ -76,7 +86,6 @@ export default function AddPhotoPage() {
     } catch (error) {
       console.error('❌ Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Upload failed');
-    } finally {
       setUploading(false);
       setUploadProgress(0);
     }
@@ -89,11 +98,13 @@ export default function AddPhotoPage() {
         <div className="flex justify-between items-center px-6 py-4">
           {/* Logo */}
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-              </svg>
-            </div>
+            <Image
+              src="/assets/mmlogox.png"
+              alt="Logo"
+              width={40}
+              height={40}
+              className="w-10 h-10"
+            />
           </div>
           
           {/* Hamburger Menu */}
@@ -125,21 +136,7 @@ export default function AddPhotoPage() {
             </div>
           )}
           
-          {/* Upload Progress */}
-          {uploading && (
-            <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-              <div className="flex items-center justify-between mb-2">
-                <span>Uploading photo...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
+          {/* Upload progress is now shown on the image itself */}
           
           {/* Photo Upload Area */}
           <div className="mb-8">
@@ -160,9 +157,35 @@ export default function AddPhotoPage() {
                 <div className="flex flex-col items-center justify-center h-full">
                   {previewUrl ? (
                     <div className="relative w-full h-full flex items-center justify-center">
-                      {/* Profile Picture Preview */}
+                      {/* Profile Picture Preview with Upload Progress */}
                       <div className="relative">
-                        <div className="w-64 h-64 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                        {/* Progress Ring */}
+                        {uploading && (
+                          <svg className="absolute inset-0 w-72 h-72 -top-4 -left-4 transform -rotate-90" style={{ zIndex: 10 }}>
+                            <circle
+                              cx="144"
+                              cy="144"
+                              r="132"
+                              stroke="#e5e7eb"
+                              strokeWidth="3"
+                              fill="none"
+                            />
+                            <circle
+                              cx="144"
+                              cy="144"
+                              r="132"
+                              stroke="#672DB7"
+                              strokeWidth="3"
+                              fill="none"
+                              strokeDasharray={`${2 * Math.PI * 132}`}
+                              strokeDashoffset={`${2 * Math.PI * 132 * (1 - uploadProgress / 100)}`}
+                              className="transition-all duration-500 ease-out"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        )}
+                        
+                        <div className="w-64 h-64 rounded-full overflow-hidden border-4 border-white shadow-lg relative">
                           <Image
                             src={previewUrl}
                             alt="Profile preview"
@@ -170,18 +193,30 @@ export default function AddPhotoPage() {
                             height={256}
                             className="w-full h-full object-cover"
                           />
+                          
+                          {/* Light overlay when uploading */}
+                          {uploading && (
+                            <>
+                              <div className="absolute inset-0 bg-black" style={{ opacity: 0.15, zIndex: 5 }}></div>
+                              <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 10 }}>
+                                <span className="text-white text-2xl font-bold">{uploadProgress}%</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                         
-                        {/* Edit Button (Pencil Icon) */}
-                        <button
-                          onClick={() => document.getElementById('photo-upload')?.click()}
-                          className="absolute -top-2 -right-2 w-10 h-10 bg-black rounded-full flex items-center justify-center shadow-lg hover:bg-gray-800 transition-colors cursor-pointer"
-                          title="Change photo"
-                        >
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
+                        {/* Edit Button (Pencil Icon) - Hidden during upload */}
+                        {!uploading && (
+                          <button
+                            onClick={() => document.getElementById('photo-upload')?.click()}
+                            className="absolute -top-2 -right-2 w-10 h-10 bg-black rounded-full flex items-center justify-center shadow-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                            title="Change photo"
+                          >
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ) : (

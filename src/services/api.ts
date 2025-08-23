@@ -23,9 +23,21 @@ export interface UserAnswer {
 
 export interface Question {
   id: string;
+  question_name?: string;
+  question_number?: number;
+  group_name?: string;
   text: string;
+  tags: Array<{ id: number; name: string }>;
+  answers: Array<{ id: string; value: string; answer_text: string; order: number }>;
   question_type: string;
   is_required_for_match: boolean;
+  is_approved: boolean;
+  skip_me: boolean;
+  skip_looking_for: boolean;
+  open_to_all_me: boolean;
+  open_to_all_looking_for: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CompatibilityResult {
@@ -270,6 +282,46 @@ class ApiService {
 
   async getQuestions(): Promise<Question[]> {
     return this.fetchAllPages<Question>('/questions/');
+  }
+
+  async getQuestion(id: string): Promise<Question> {
+    return this.request(`/questions/${id}/`, 'GET') as Promise<Question>;
+  }
+
+  async createQuestion(questionData: {
+    text: string;
+    question_name?: string;
+    question_number?: number;
+    group_name?: string;
+    tags: string[];
+    question_type?: string;
+    is_required_for_match?: boolean;
+    is_approved?: boolean;
+    skip_me?: boolean;
+    skip_looking_for?: boolean;
+    open_to_all_me?: boolean;
+    open_to_all_looking_for?: boolean;
+    answers: Array<{ value: string; answer: string }>;
+  }): Promise<Question> {
+    return this.request('/questions/', 'POST', questionData) as Promise<Question>;
+  }
+
+  async updateQuestion(id: string, questionData: {
+    text: string;
+    question_name?: string;
+    question_number?: number;
+    group_name?: string;
+    tags: string[];
+    question_type?: string;
+    is_required_for_match?: boolean;
+    is_approved?: boolean;
+    skip_me?: boolean;
+    skip_looking_for?: boolean;
+    open_to_all_me?: boolean;
+    open_to_all_looking_for?: boolean;
+    answers?: Array<{ value: string; answer: string }>;
+  }): Promise<Question> {
+    return this.request(`/questions/${id}/`, 'PUT', questionData) as Promise<Question>;
   }
 
   async calculateCompatibility(user1Id: string, user2Id: string): Promise<CompatibilityResult> {

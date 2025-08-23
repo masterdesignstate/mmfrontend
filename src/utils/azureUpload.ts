@@ -106,12 +106,21 @@ export const uploadToAzureBlob = async (
         blobContentDisposition: `inline; filename="${uploadFile.name}"`,
       },
       onProgress: (progress) => {
-        if (onProgress) {
-          const percentage = Math.round((progress.loadedBytes / progress.totalBytes) * 100);
-          onProgress(percentage);
+        if (onProgress && progress.loadedBytes) {
+          // Calculate percentage - just use loaded bytes as a rough estimate
+          // Since we don't have totalBytes, estimate based on typical image size
+          const estimatedTotal = uploadFile.size;
+          const percentage = Math.round((progress.loadedBytes / estimatedTotal) * 100);
+          const validPercentage = Math.min(99, Math.max(0, percentage)); // Cap at 99 until complete
+          onProgress(validPercentage);
         }
       },
     });
+
+    // Upload complete - set to 100%
+    if (onProgress) {
+      onProgress(100);
+    }
 
     // Get the public URL
     const photoUrl = blockBlobClient.url;

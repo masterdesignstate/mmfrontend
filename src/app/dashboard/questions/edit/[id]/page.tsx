@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { apiService, Question } from '@/services/api';
 
 interface Answer {
   id: string;
@@ -14,16 +15,14 @@ const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
 export default function EditQuestionPage() {
   const router = useRouter();
   const params = useParams();
-  const questionId = Number(params.id);
-  // Mock metadata for display
-  const createdBy = questionId % 2 === 0 ? `user_${questionId}` : 'Admin';
-  const createdDate = new Date(2025, 1, 2); // Feb 2, 2025 as placeholder
-  const lastModifiedDate = new Date(2025, 3, 2); // Apr 2, 2025 as placeholder
-  const formatMDYY = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
-
-  const [questionNumber, setQuestionNumber] = useState(questionId);
-  const [groupName, setGroupName] = useState('Relationship Questions');
-  const [question, setQuestion] = useState('What type of relationship are you seeking?');
+  const questionId = params.id as string;
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [questionNumber, setQuestionNumber] = useState(0);
+  const [questionName, setQuestionName] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [question, setQuestion] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([
     { id: '1', value: '1', answer: 'Casual' },
     { id: '2', value: '2', answer: 'Friendship' },
@@ -31,17 +30,88 @@ export default function EditQuestionPage() {
     { id: '4', value: '4', answer: 'Serious Relationship' },
     { id: '5', value: '5', answer: 'Partner' }
   ]);
-  const [selectedTag, setSelectedTag] = useState<string>('Value');
-  const [isMandatory, setIsMandatory] = useState(true);
-  const [skipMe, setSkipMe] = useState(true);
+  const [selectedTag, setSelectedTag] = useState<string>('');
+  const [isMandatory, setIsMandatory] = useState(false);
+  const [skipMe, setSkipMe] = useState(false);
   const [skipLookingFor, setSkipLookingFor] = useState(false);
   const [openToAllMe, setOpenToAllMe] = useState(false);
   const [openToAllLooking, setOpenToAllLooking] = useState(false);
-  const [isApproved, setIsApproved] = useState(true);
+  const [isApproved, setIsApproved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string>('');
   const tagsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch question data when component mounts
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      try {
+        setLoading(true);
+        const questionData = await apiService.getQuestion(questionId);
+        
+        // Update state with fetched data
+        setQuestionNumber(questionData.question_number || 0);
+        setQuestionName(questionData.question_name || '');
+        setGroupName(questionData.group_name || '');
+        setQuestion(questionData.text);
+        setSelectedTag(questionData.tags[0]?.name || '');
+        setIsMandatory(questionData.is_required_for_match);
+        setIsApproved(questionData.is_approved);
+        setSkipMe(questionData.skip_me);
+        setSkipLookingFor(questionData.skip_looking_for);
+        setOpenToAllMe(questionData.open_to_all_me);
+        setOpenToAllLooking(questionData.open_to_all_looking_for);
+        
+        // Update answers if they exist
+        if (questionData.answers && questionData.answers.length > 0) {
+          const formattedAnswers = questionData.answers.map((ans, index) => ({
+            id: (index + 1).toString(),
+            value: ans.value,
+            answer: ans.answer_text
+          }));
+          
+          // Ensure we always have 5 rows
+          const defaultAnswers = [
+            { id: '1', value: '', answer: '' },
+            { id: '2', value: '', answer: '' },
+            { id: '3', value: '', answer: '' },
+            { id: '4', value: '', answer: '' },
+            { id: '5', value: '', answer: '' }
+          ];
+          
+          // Merge existing answers with default structure
+          formattedAnswers.forEach(ans => {
+            const index = parseInt(ans.value) - 1;
+            if (index >= 0 && index < 5) {
+              defaultAnswers[index] = ans;
+            }
+          });
+          
+          setAnswers(defaultAnswers);
+        } else {
+          // If no answers exist, set default 5 rows
+          setAnswers([
+            { id: '1', value: '', answer: '' },
+            { id: '2', value: '', answer: '' },
+            { id: '3', value: '', answer: '' },
+            { id: '4', value: '', answer: '' },
+            { id: '5', value: '', answer: '' }
+          ]);
+        }
+        
+      } catch (err) {
+        console.error('Error fetching question:', err);
+        setError('Failed to fetch question data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (questionId) {
+      fetchQuestion();
+    }
+  }, [questionId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -90,6 +160,10 @@ export default function EditQuestionPage() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    if (!questionName.trim()) {
+      newErrors.questionName = 'Question name is required';
+    }
+
     if (!question.trim()) {
       newErrors.question = 'Question text is required';
     }
@@ -115,19 +189,61 @@ export default function EditQuestionPage() {
     if (!validateForm()) return;
 
     setIsSaving(true);
+    setGeneralError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSaving(false);
-    
-    // Redirect to questions list
-    router.push('/dashboard/questions');
+    try {
+      // Prepare the question data for update
+      const questionData = {
+        text: question.trim(),
+        question_name: questionName.trim(),
+        question_number: questionNumber,
+        group_name: groupName.trim(),
+        tags: [selectedTag],
+        question_type: isMandatory ? 'mandatory' : 'unanswered',
+        is_required_for_match: isMandatory,
+        is_approved: isApproved,
+        skip_me: skipMe,
+        skip_looking_for: skipLookingFor,
+        open_to_all_me: openToAllMe,
+        open_to_all_looking_for: openToAllLooking,
+        answers: answers
+          .filter(answer => answer.value.trim() && answer.answer.trim())
+          .map(answer => ({
+            value: answer.value.trim(),
+            answer: answer.answer.trim()
+          }))
+      };
+
+      console.log('Updating question with data:', questionData);
+      
+      const response = await apiService.updateQuestion(questionId, questionData);
+      
+      if (response && response.id) {
+        console.log('Question updated successfully:', response.id);
+        // Redirect to questions list
+        router.push('/dashboard/questions');
+      } else {
+        setGeneralError('Failed to update question');
+      }
+    } catch (error) {
+      console.error('Error updating question:', error);
+      setGeneralError('Failed to update question. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     router.push('/dashboard/questions');
   };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading question...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">{error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -146,18 +262,24 @@ export default function EditQuestionPage() {
       {/* Edit Question Form */}
       <div className="bg-white rounded-lg shadow p-6">
         <form className="space-y-8">
+          {/* General Error Display */}
+          {generalError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {generalError}
+            </div>
+          )}
+
           {/* Question Number Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Question Number
             </label>
             <input
-              type="number"
+              type="text"
               value={questionNumber}
               onChange={(e) => setQuestionNumber(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
               placeholder="Enter question number"
-              min="1"
             />
           </div>
 
@@ -168,11 +290,14 @@ export default function EditQuestionPage() {
             </label>
             <input
               type="text"
-              value={question}
-              onChange={(e) => handleQuestionChange(e.target.value)}
+              value={questionName}
+              onChange={(e) => setQuestionName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
               placeholder="Enter question name"
             />
+            {errors.questionName && (
+              <p className="text-red-500 text-sm mt-1">{errors.questionName}</p>
+            )}
           </div>
 
           {/* Group Name Section */}
@@ -415,21 +540,7 @@ export default function EditQuestionPage() {
             )}
           </div>
 
-          {/* Metadata Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Created</label>
-              <div className="text-gray-900">{formatMDYY(createdDate)}</div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Created By</label>
-              <div className="text-gray-900">{createdBy}</div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Last Modified</label>
-              <div className="text-gray-900">{formatMDYY(lastModifiedDate)}</div>
-            </div>
-          </div>
+          {/* Metadata Section - Removed since we don't have this data yet */}
         </form>
       </div>
 

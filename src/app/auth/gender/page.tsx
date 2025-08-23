@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
@@ -58,6 +58,8 @@ export default function GenderPage() {
     }
   };
 
+
+
   const handleNext = async () => {
     if (!userId) {
       setError('User ID is required');
@@ -114,12 +116,27 @@ export default function GenderPage() {
     isOpenToAll?: boolean;
   }) => {
     const [fillWidth, setFillWidth] = useState('0%');
+    const hasAnimatedRef = useRef(false);
+    const raf1Ref = useRef<number | null>(null);
+    const raf2Ref = useRef<number | null>(null);
 
-    useEffect(() => {
-      if (isOpenToAll) {
+    useLayoutEffect(() => {
+      if (isOpenToAll && !hasAnimatedRef.current) {
+        // Ensure the element paints at 0% before transitioning to 100%
         setFillWidth('0%');
-        requestAnimationFrame(() => requestAnimationFrame(() => setFillWidth('100%')));
-      } else {
+        raf1Ref.current = requestAnimationFrame(() => {
+          raf2Ref.current = requestAnimationFrame(() => {
+            setFillWidth('100%');
+            hasAnimatedRef.current = true; // mark as animated after scheduling
+          });
+        });
+        return () => {
+          if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+          if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+        };
+      }
+      if (!isOpenToAll) {
+        hasAnimatedRef.current = false; // reset guard when turned off
         setFillWidth('0%');
       }
     }, [isOpenToAll]);
@@ -184,7 +201,8 @@ export default function GenderPage() {
               className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
               style={{
                 width: fillWidth,
-                transition: 'width 0.5s ease-in-out'
+                transition: 'width 1.2s ease-in-out',
+                willChange: 'width'
               }}
             />
           </div>

@@ -38,38 +38,45 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Login successful, check onboarding status to determine redirect
+        // Login successful
         console.log('✅ Login successful:', data);
         
-        try {
-          const onboardingResponse = await fetch(getApiUrl(API_ENDPOINTS.ONBOARDING_STATUS), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email })
-          });
+        // For the specific test user, skip onboarding and go directly to dashboard
+        if (email === 'g') {
+          console.log('🎯 Test user detected, redirecting directly to dashboard');
+          router.push('/dashboard');
+        } else {
+          // For other users, check onboarding status
+          try {
+            const onboardingResponse = await fetch(getApiUrl(API_ENDPOINTS.ONBOARDING_STATUS), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ email })
+            });
 
-          if (onboardingResponse.ok) {
-            const onboardingData = await onboardingResponse.json();
-            console.log('🔍 Onboarding status:', onboardingData);
-            
-            // Redirect based on onboarding step with user_id if needed
-            if (onboardingData.step === 'add_photo') {
-              const params = new URLSearchParams({
-                user_id: onboardingData.user_id
-              });
-              router.push(`/auth/add-photo?${params.toString()}`);
+            if (onboardingResponse.ok) {
+              const onboardingData = await onboardingResponse.json();
+              console.log('🔍 Onboarding status:', onboardingData);
+              
+              // Redirect based on onboarding step with user_id if needed
+              if (onboardingData.step === 'add_photo') {
+                const params = new URLSearchParams({
+                  user_id: onboardingData.user_id
+                });
+                router.push(`/auth/add-photo?${params.toString()}`);
+              } else {
+                router.push(onboardingData.step_url);
+              }
             } else {
-              router.push(onboardingData.step_url);
+              console.log('⚠️ Could not check onboarding status, redirecting to dashboard');
+              router.push('/dashboard');
             }
-          } else {
-            console.log('⚠️ Could not check onboarding status, redirecting to dashboard');
+          } catch (error) {
+            console.log('⚠️ Error checking onboarding status, redirecting to dashboard');
             router.push('/dashboard');
           }
-        } catch (error) {
-          console.log('⚠️ Error checking onboarding status, redirecting to dashboard');
-          router.push('/dashboard');
         }
       } else {
         setError(data.error || 'Invalid email or password');

@@ -70,6 +70,36 @@ export default function PersonalDetailsPage() {
       return;
     }
     
+    // Special handling for date of birth field
+    if (name === 'dateOfBirth') {
+      // Remove all non-numeric characters
+      const numericValue = value.replace(/\D/g, '');
+      
+      // Limit to 8 digits (MMDDYYYY)
+      const limitedValue = numericValue.slice(0, 8);
+      
+      // Always format as much as we can
+      let formattedDate = '';
+      
+      if (limitedValue.length >= 1) {
+        formattedDate = limitedValue.slice(0, 2); // Month
+      }
+      
+      if (limitedValue.length >= 3) {
+        formattedDate += '/' + limitedValue.slice(2, 4); // Day
+      }
+      
+      if (limitedValue.length >= 5) {
+        formattedDate += '/' + limitedValue.slice(4, 8); // Year
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedDate
+      }));
+      return;
+    }
+    
     // Handle other fields normally
     setFormData(prev => ({
       ...prev,
@@ -93,7 +123,29 @@ export default function PersonalDetailsPage() {
       return;
     }
 
+    // Validate date of birth format (MM/DD/YYYY)
+    const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (!dateRegex.test(formData.dateOfBirth)) {
+      setError('Please enter a valid date in MM/DD/YYYY format');
+      return;
+    }
+
+    // Validate date values
+    const [month, day, year] = formData.dateOfBirth.split('/').map(Number);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > new Date().getFullYear()) {
+      setError('Please enter a valid date');
+      return;
+    }
+
     setLoading(true);
+
+    // Convert MM/DD/YYYY to YYYY-MM-DD for backend
+    const backendDateFormat = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    
+    console.log('📅 Date conversion:', {
+      original: formData.dateOfBirth,
+      converted: backendDateFormat
+    });
 
     // Prepare user data for API call
     const userData = {
@@ -101,7 +153,7 @@ export default function PersonalDetailsPage() {
       full_name: formData.fullName,
       username: formData.username,
       tagline: formData.tagline,
-      date_of_birth: formData.dateOfBirth,
+      date_of_birth: backendDateFormat,
       height: formData.height,
       city: formData.city,
       bio: formData.bio
@@ -256,15 +308,18 @@ export default function PersonalDetailsPage() {
                   Date of Birth
                 </label>
                 <input
-                  type="date"
+                  type="text"
                   id="dateOfBirth"
                   name="dateOfBirth"
                   value={formData.dateOfBirth}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
+                  placeholder="MM/DD/YYYY"
+                  maxLength={10}
                   required
                   disabled={loading}
                 />
+         
               </div>
 
               {/* Height Field */}
@@ -300,13 +355,23 @@ export default function PersonalDetailsPage() {
                   disabled={loading}
                 >
                   <option value="Austin">Austin</option>
-                  <option value="New York">New York</option>
-                  <option value="Los Angeles">Los Angeles</option>
-                  <option value="Chicago">Chicago</option>
-                  <option value="Miami">Miami</option>
-                  <option value="Seattle">Seattle</option>
-                  <option value="Denver">Denver</option>
-                  <option value="Nashville">Nashville</option>
+                  <option value="Round Rock">Round Rock</option>
+                  <option value="Cedar Park">Cedar Park</option>
+                  <option value="Georgetown">Georgetown</option>
+                  <option value="Pflugerville">Pflugerville</option>
+                  <option value="Leander">Leander</option>
+                  <option value="Buda">Buda</option>
+                  <option value="Kyle">Kyle</option>
+                  <option value="San Marcos">San Marcos</option>
+                  <option value="Dripping Springs">Dripping Springs</option>
+                  <option value="Bastrop">Bastrop</option>
+                  <option value="Lakeway">Lakeway</option>
+                  <option value="Bee Cave">Bee Cave</option>
+                  <option value="Manor">Manor</option>
+                  <option value="Taylor">Taylor</option>
+                  <option value="Elgin">Elgin</option>
+                  <option value="Wimberley">Wimberley</option>
+                  <option value="Hutto">Hutto</option>
                 </select>
               </div>
 
