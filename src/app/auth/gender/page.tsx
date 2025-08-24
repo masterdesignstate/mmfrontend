@@ -35,8 +35,10 @@ export default function GenderPage() {
   });
 
   const [openToAll, setOpenToAll] = useState({
-    me: false,
-    lookingFor: false
+    maleMeOpen: false,
+    femaleMeOpen: false,
+    maleLookingOpen: false,
+    femaleLookingOpen: false
   });
 
   const [loading, setLoading] = useState(false);
@@ -100,12 +102,8 @@ export default function GenderPage() {
     }
   };
 
-  const handleOpenToAllToggle = (section: 'me' | 'lookingFor') => {
-    if (section === 'me') {
-      setOpenToAll(prev => ({ ...prev, me: !prev.me }));
-    } else {
-      setOpenToAll(prev => ({ ...prev, lookingFor: !prev.lookingFor }));
-    }
+  const handleOpenToAllToggle = (switchType: 'maleMeOpen' | 'femaleMeOpen' | 'maleLookingOpen' | 'femaleLookingOpen') => {
+    setOpenToAll(prev => ({ ...prev, [switchType]: !prev[switchType] }));
   };
 
 
@@ -130,7 +128,12 @@ export default function GenderPage() {
           my_gender: myGender,
           looking_for: lookingFor,
           importance: importance,
-          open_to_all: openToAll
+          open_to_all: {
+            male_me: openToAll.maleMeOpen,
+            female_me: openToAll.femaleMeOpen,
+            male_looking: openToAll.maleLookingOpen,
+            female_looking: openToAll.femaleLookingOpen
+          }
         })
       });
 
@@ -332,8 +335,8 @@ export default function GenderPage() {
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2">Me</h3>
             
-            {/* LESS and MORE labels below Me header - extend across full section */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: 'calc(112px + 20px + 500px + 12px + 56px)' }}>
+            {/* LESS and MORE labels below Me header - only span slider width */}
+            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: '500px', marginLeft: 'calc(112px + 20px)' }}>
               <span>LESS</span>
               <span>MORE</span>
             </div>
@@ -348,7 +351,7 @@ export default function GenderPage() {
                   value={myGender.male}
                   onChange={(value) => handleSliderChange('myGender', 'male', value)}
                   label=""
-                  isOpenToAll={openToAll.me}
+                  isOpenToAll={openToAll.maleMeOpen}
                 />
               </div>
               <div>
@@ -356,12 +359,12 @@ export default function GenderPage() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      checked={openToAll.me}
-                      onChange={() => handleOpenToAllToggle('me')}
+                      checked={openToAll.maleMeOpen}
+                      onChange={() => handleOpenToAllToggle('maleMeOpen')}
                       className="sr-only"
                     />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.me ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.maleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.maleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
@@ -373,7 +376,7 @@ export default function GenderPage() {
                   value={myGender.female}
                   onChange={(value) => handleSliderChange('myGender', 'female', value)}
                   label=""
-                  isOpenToAll={openToAll.me}
+                  isOpenToAll={openToAll.femaleMeOpen}
                 />
               </div>
               <div>
@@ -381,12 +384,12 @@ export default function GenderPage() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      checked={openToAll.me}
-                      onChange={() => handleOpenToAllToggle('me')}
+                      checked={openToAll.femaleMeOpen}
+                      onChange={() => handleOpenToAllToggle('femaleMeOpen')}
                       className="sr-only"
                     />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.me ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.me ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.femaleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.femaleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
@@ -410,8 +413,8 @@ export default function GenderPage() {
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2" style={{ color: '#672DB7' }}>Looking For</h3>
             
-            {/* LESS and MORE labels below Looking For header - extend across full section */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: 'calc(112px + 20px + 500px + 12px + 56px)' }}>
+            {/* LESS and MORE labels below Looking For header - only span slider width */}
+            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: '500px', marginLeft: 'calc(112px + 20px)' }}>
               <span>LESS</span>
               <span>MORE</span>
             </div>
@@ -426,7 +429,7 @@ export default function GenderPage() {
                   value={lookingFor.male}
                   onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
                   label=""
-                  isOpenToAll={openToAll.lookingFor}
+                  isOpenToAll={openToAll.maleLookingOpen}
                 />
               </div>
               <div>
@@ -434,12 +437,12 @@ export default function GenderPage() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      checked={openToAll.lookingFor}
-                      onChange={() => handleOpenToAllToggle('lookingFor')}
+                      checked={openToAll.maleLookingOpen}
+                      onChange={() => handleOpenToAllToggle('maleLookingOpen')}
                       className="sr-only"
                     />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
@@ -451,7 +454,7 @@ export default function GenderPage() {
                   value={lookingFor.female}
                   onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
                   label=""
-                  isOpenToAll={openToAll.lookingFor}
+                  isOpenToAll={openToAll.femaleLookingOpen}
                 />
               </div>
               <div>
@@ -459,12 +462,12 @@ export default function GenderPage() {
                   <div className="relative">
                     <input
                       type="checkbox"
-                      checked={openToAll.lookingFor}
-                      onChange={() => handleOpenToAllToggle('lookingFor')}
+                      checked={openToAll.femaleLookingOpen}
+                      onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
                       className="sr-only"
                     />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.lookingFor ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.lookingFor ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    <div className={`block w-10 h-5 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
