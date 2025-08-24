@@ -208,7 +208,7 @@ export default function GenderPage() {
 
       // Save each user answer
       for (const userAnswer of userAnswers) {
-        const response = await fetch('/api/answers/', {
+        const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

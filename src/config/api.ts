@@ -12,6 +12,7 @@ const API_CONFIG = {
     ONBOARDING_STATUS: '/api/auth/onboarding-status/',
     UPDATE_PROFILE_PHOTO: '/api/auth/update-profile-photo/',
     QUESTIONS: '/api/questions/',
+    ANSWERS: '/api/answers/',
   }
 };
 
