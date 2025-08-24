@@ -104,7 +104,7 @@ export default function GenderPage() {
         console.log('🚀 Starting to fetch questions from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2&question_number=3&question_number=4&question_number=5&question_number=6`;
           console.log('🌐 Fetching from URL:', apiUrl);
           
           const response = await fetch(apiUrl);
@@ -222,8 +222,12 @@ export default function GenderPage() {
         }
       }
 
-      // Navigate to next step in onboarding
-      router.push('/dashboard');
+      // Navigate to relationship page with questions data
+      const params = new URLSearchParams({ 
+        user_id: userId,
+        questions: JSON.stringify(questions)
+      });
+      router.push(`/auth/relationship?${params.toString()}`);
     } catch (error) {
       console.error('Error saving gender preferences:', error);
       setError(error.message || 'Failed to save gender preferences');
@@ -508,18 +512,18 @@ export default function GenderPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                <span className="absolute" style={{ left: '0%', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                <span className="absolute" style={{ left: '0%', transform: 'translateX(0%)' }}>TRIVIAL</span>
                 <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
                 <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
                 <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                <span className="absolute" style={{ left: '100%', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                <span className="absolute" style={{ left: '100%', transform: 'translateX(-100%)' }}>ESSENTIAL</span>
               </div>
               <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
 
           {/* Looking For Section */}
-          <div className="mb-6">
+          <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
             
             {/* LESS and MORE labels below Looking For header - using same grid structure */}
@@ -613,11 +617,11 @@ export default function GenderPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                <span className="absolute" style={{ left: '0%', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                <span className="absolute" style={{ left: '0%', transform: 'translateX(0%)' }}>TRIVIAL</span>
                 <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
                 <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
                 <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                <span className="absolute" style={{ left: '100%', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                <span className="absolute" style={{ left: '100%', transform: 'translateX(-100%)' }}>ESSENTIAL</span>
               </div>
               <div></div> {/* Empty placeholder for switch column */}
             </div>
