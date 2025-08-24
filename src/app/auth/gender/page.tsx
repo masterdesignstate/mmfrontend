@@ -335,10 +335,14 @@ export default function GenderPage() {
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2">Me</h3>
             
-            {/* LESS and MORE labels below Me header - only span slider width */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: '500px', marginLeft: 'calc(112px + 20px)' }}>
-              <span>LESS</span>
-              <span>MORE</span>
+            {/* LESS and MORE labels below Me header - using same grid structure */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-4" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>LESS</span>
+                <span>MORE</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
             </div>
             
             {/* Grid container for perfect alignment */}
@@ -413,10 +417,14 @@ export default function GenderPage() {
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-center mb-2" style={{ color: '#672DB7' }}>Looking For</h3>
             
-            {/* LESS and MORE labels below Looking For header - only span slider width */}
-            <div className="flex justify-between text-xs text-gray-500 mb-4 mx-auto" style={{ width: '500px', marginLeft: 'calc(112px + 20px)' }}>
-              <span>LESS</span>
-              <span>MORE</span>
+            {/* LESS and MORE labels below Looking For header - using same grid structure */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-4" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>LESS</span>
+                <span>MORE</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
             </div>
             
             {/* Grid container for perfect alignment */}
