@@ -264,11 +264,11 @@ export default function GenderPage() {
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
+              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
               style={{
                 backgroundColor: '#672DB7',
                 // left: `calc(${((value - 1) / 4) * 100}% - 16px)`
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 30px)' : `calc(${((value - 1) / 4) * 100}% - 16px)`
+                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
               }}
               onDragStart={handleDragStart}
             >
@@ -332,11 +332,11 @@ export default function GenderPage() {
           )}
 
                     {/* Me Section */}
-          <div className="mb-8">
-            <h3 className="text-2xl font-bold text-center mb-2">Me</h3>
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* LESS and MORE labels below Me header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-4" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
@@ -414,11 +414,11 @@ export default function GenderPage() {
           </div>
 
           {/* Looking For Section */}
-          <div className="mb-8">
-            <h3 className="text-2xl font-bold text-center mb-2" style={{ color: '#672DB7' }}>Looking For</h3>
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
             
             {/* LESS and MORE labels below Looking For header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-4" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
