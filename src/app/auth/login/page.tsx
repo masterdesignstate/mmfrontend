@@ -60,12 +60,20 @@ export default function LoginPage() {
               const onboardingData = await onboardingResponse.json();
               console.log('🔍 Onboarding status:', onboardingData);
               
+              // Store user_id in localStorage for pages that need it
+              localStorage.setItem('user_id', onboardingData.user_id);
+              
               // Redirect based on onboarding step with user_id if needed
               if (onboardingData.step === 'add_photo') {
                 const params = new URLSearchParams({
                   user_id: onboardingData.user_id
                 });
                 router.push(`/auth/add-photo?${params.toString()}`);
+              } else if (onboardingData.step === 'gender') {
+                const params = new URLSearchParams({
+                  user_id: onboardingData.user_id
+                });
+                router.push(`/auth/gender?${params.toString()}`);
               } else {
                 router.push(onboardingData.step_url);
               }

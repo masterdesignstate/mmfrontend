@@ -49,40 +49,83 @@ export default function GenderPage() {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
     
+    console.log('🔍 Gender Page Load - URL Params:', {
+      userIdParam,
+      questionsParam: questionsParam ? 'present' : 'missing',
+      questionsParamLength: questionsParam?.length
+    });
+    
+    // Get userId from URL params first, then try localStorage as fallback
     if (userIdParam) {
       setUserId(userIdParam);
+      console.log('📋 Set userId from URL param:', userIdParam);
+    } else {
+      // Try to get user_id from localStorage (set during login)
+      const storedUserId = localStorage.getItem('user_id');
+      if (storedUserId) {
+        setUserId(storedUserId);
+        console.log('📋 Set userId from localStorage:', storedUserId);
+      } else {
+        console.log('❌ No userId found in URL params or localStorage');
+      }
     }
     
     if (questionsParam) {
       try {
         const parsedQuestions = JSON.parse(questionsParam);
         setQuestions(parsedQuestions);
-        console.log('📋 Received questions:', parsedQuestions);
+        console.log('📋 Received questions from URL:', parsedQuestions);
+        console.log('🔍 Question OTA settings from URL:', parsedQuestions.map(q => ({
+          number: q.question_number,
+          group: q.group_name,
+          ota_me: q.open_to_all_me,
+          ota_looking: q.open_to_all_looking_for
+        })));
       } catch (error) {
-        console.error('Error parsing questions:', error);
+        console.error('❌ Error parsing questions from URL:', error);
       }
+    } else {
+      console.log('❌ No questions parameter found in URL');
     }
   }, [searchParams]);
 
   // Fetch questions from backend if not loaded from URL params
   useEffect(() => {
     const fetchQuestionsIfNeeded = async () => {
+      console.log('🔍 Fetch Check:', { 
+        userId: !!userId, 
+        questionsLength: questions.length, 
+        loadingQuestions,
+        shouldFetch: userId && questions.length === 0
+      });
+      
       // Only fetch if we have a userId but no questions loaded
       if (userId && questions.length === 0) {
-        console.log('📋 No questions loaded, fetching from backend...');
+        console.log('🚀 Starting to fetch questions from backend...');
         setLoadingQuestions(true);
         try {
-          // Fetch questions with question_number 1 and 2
-          const response = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2`);
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2`;
+          console.log('🌐 Fetching from URL:', apiUrl);
+          
+          const response = await fetch(apiUrl);
+          console.log('📡 Response status:', response.status);
+          
           if (response.ok) {
             const data = await response.json();
+            console.log('📋 Raw API response:', data);
             setQuestions(data.results || []);
-            console.log('📋 Fetched questions from backend:', data.results);
+            console.log('📋 Set questions to state:', data.results);
+            console.log('🔍 Backend Question OTA settings:', (data.results || []).map(q => ({
+              number: q.question_number,
+              group: q.group_name,
+              ota_me: q.open_to_all_me,
+              ota_looking: q.open_to_all_looking_for
+            })));
           } else {
-            console.error('Failed to fetch questions from backend');
+            console.error('❌ Failed to fetch questions from backend. Status:', response.status);
           }
         } catch (error) {
-          console.error('Error fetching questions from backend:', error);
+          console.error('❌ Error fetching questions from backend:', error);
         } finally {
           setLoadingQuestions(false);
         }
@@ -114,39 +157,76 @@ export default function GenderPage() {
       return;
     }
 
+    if (!questions || questions.length < 2) {
+      setError('Questions not loaded properly');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch('/api/auth/gender-preferences/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          my_gender: myGender,
-          looking_for: lookingFor,
-          importance: importance,
-          open_to_all: {
-            male_me: openToAll.maleMeOpen,
-            female_me: openToAll.femaleMeOpen,
-            male_looking: openToAll.maleLookingOpen,
-            female_looking: openToAll.femaleLookingOpen
-          }
-        })
+      // Find questions 1 and 2
+      const question1 = questions.find(q => q.question_number === 1);
+      const question2 = questions.find(q => q.question_number === 2);
+
+      if (!question1 || !question2) {
+        setError('Required questions not found');
+        return;
+      }
+
+      // Prepare user answers for both questions
+      const userAnswers = [];
+
+      // Question 1 (MALE) - Me and Looking For answers
+      userAnswers.push({
+        user_id: userId,
+        question_id: question1.id,
+        me_answer: openToAll.maleMeOpen ? 6 : myGender.male,
+        me_open_to_all: openToAll.maleMeOpen,
+        me_importance: importance.me,
+        me_share: true,
+        looking_for_answer: openToAll.maleLookingOpen ? 6 : lookingFor.male,
+        looking_for_open_to_all: openToAll.maleLookingOpen,
+        looking_for_importance: importance.lookingFor,
+        looking_for_share: true
       });
 
-      if (response.ok) {
-        // Navigate to next step in onboarding
-        router.push('/dashboard');
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to save gender preferences');
+      // Question 2 (FEMALE) - Me and Looking For answers
+      userAnswers.push({
+        user_id: userId,
+        question_id: question2.id,
+        me_answer: openToAll.femaleMeOpen ? 6 : myGender.female,
+        me_open_to_all: openToAll.femaleMeOpen,
+        me_importance: importance.me,
+        me_share: true,
+        looking_for_answer: openToAll.femaleLookingOpen ? 6 : lookingFor.female,
+        looking_for_open_to_all: openToAll.femaleLookingOpen,
+        looking_for_importance: importance.lookingFor,
+        looking_for_share: true
+      });
+
+      // Save each user answer
+      for (const userAnswer of userAnswers) {
+        const response = await fetch('/api/answers/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userAnswer)
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save answer');
+        }
       }
+
+      // Navigate to next step in onboarding
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error saving gender preferences:', error);
-      setError('Failed to save gender preferences');
+      setError(error.message || 'Failed to save gender preferences');
     } finally {
       setLoading(false);
     }
@@ -324,6 +404,8 @@ export default function GenderPage() {
             </div>
           )}
 
+
+
           {/* Error Message */}
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -336,7 +418,7 @@ export default function GenderPage() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* LESS and MORE labels below Me header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
@@ -346,7 +428,7 @@ export default function GenderPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               
               {/* MALE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
@@ -359,18 +441,23 @@ export default function GenderPage() {
                 />
               </div>
               <div>
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={openToAll.maleMeOpen}
-                      onChange={() => handleOpenToAllToggle('maleMeOpen')}
-                      className="sr-only"
-                    />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.maleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.maleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                  </div>
-                </label>
+                {/* Only show switch if question 1 (MALE) has open_to_all_me enabled */}
+                {questions.find(q => q.question_number === 1)?.open_to_all_me ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.maleMeOpen}
+                        onChange={() => handleOpenToAllToggle('maleMeOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.maleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
               </div>
               
               {/* FEMALE Slider Row */}
@@ -384,18 +471,23 @@ export default function GenderPage() {
                 />
               </div>
               <div>
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={openToAll.femaleMeOpen}
-                      onChange={() => handleOpenToAllToggle('femaleMeOpen')}
-                      className="sr-only"
-                    />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.femaleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.femaleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                  </div>
-                </label>
+                {/* Only show switch if question 2 (FEMALE) has open_to_all_me enabled */}
+                {questions.find(q => q.question_number === 2)?.open_to_all_me ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.femaleMeOpen}
+                        onChange={() => handleOpenToAllToggle('femaleMeOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.femaleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
               </div>
 
               {/* IMPORTANCE Slider Row */}
@@ -408,8 +500,21 @@ export default function GenderPage() {
                   isOpenToAll={false}
                 />
               </div>
-              <div className="w-10 h-5"></div>
+              <div className="w-11 h-6"></div>
               
+            </div>
+
+            {/* Importance labels below Me section - using same grid structure */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                <span className="absolute" style={{ left: '0%', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                <span className="absolute" style={{ left: '100%', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
 
@@ -418,7 +523,7 @@ export default function GenderPage() {
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
             
             {/* LESS and MORE labels below Looking For header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
@@ -428,7 +533,7 @@ export default function GenderPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 56px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               
               {/* MALE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
@@ -441,18 +546,23 @@ export default function GenderPage() {
                 />
               </div>
               <div>
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={openToAll.maleLookingOpen}
-                      onChange={() => handleOpenToAllToggle('maleLookingOpen')}
-                      className="sr-only"
-                    />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                  </div>
-                </label>
+                {/* Only show switch if question 1 (MALE) has open_to_all_looking_for enabled */}
+                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.maleLookingOpen}
+                        onChange={() => handleOpenToAllToggle('maleLookingOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
               </div>
               
               {/* FEMALE Slider Row */}
@@ -466,18 +576,23 @@ export default function GenderPage() {
                 />
               </div>
               <div>
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={openToAll.femaleLookingOpen}
-                      onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
-                      className="sr-only"
-                    />
-                    <div className={`block w-10 h-5 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-1 top-1 w-3 h-3 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                  </div>
-                </label>
+                {/* Only show switch if question 2 (FEMALE) has open_to_all_looking_for enabled */}
+                {questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.femaleLookingOpen}
+                        onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
               </div>
 
               {/* IMPORTANCE Slider Row */}
@@ -490,8 +605,21 @@ export default function GenderPage() {
                   isOpenToAll={false}
                 />
               </div>
-              <div className="w-10 h-5"></div>
+              <div className="w-11 h-6"></div>
               
+            </div>
+
+            {/* Importance labels below Looking For section - using same grid structure */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                <span className="absolute" style={{ left: '0%', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                <span className="absolute" style={{ left: '100%', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
         </div>
