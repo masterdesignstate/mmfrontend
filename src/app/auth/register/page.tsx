@@ -8,6 +8,7 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [alphaCode, setAlphaCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,8 +24,14 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!email || !password) {
+    if (!email || !password || !alphaCode) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate alpha code
+    if (alphaCode !== '1234') {
+      setError('Invalid private alpha code');
       return;
     }
 
@@ -160,6 +167,23 @@ export default function RegisterPage() {
                     )}
                   </button>
                 </div>
+              </div>
+
+              {/* Private Alpha Code Field */}
+              <div>
+                <label htmlFor="alphaCode" className="block text-sm font-medium text-gray-900 mb-2">
+                  Closed Alpha Code
+                </label>
+                <input
+                  type="text"
+                  id="alphaCode"
+                  value={alphaCode}
+                  onChange={(e) => setAlphaCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
+                  placeholder="Enter private alpha code"
+                  required
+                  disabled={loading}
+                />
               </div>
 
               {/* Create Account Button */}

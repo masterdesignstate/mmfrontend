@@ -194,8 +194,34 @@ export default function RelationshipPage() {
         }
       }
 
-      // Navigate to dashboard or next step
-      router.push('/dashboard');
+      // Fetch gender questions and navigate to gender page
+      try {
+        const genderApiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2&question_number=3&question_number=4&question_number=5&question_number=6`;
+        console.log('🌐 Fetching gender questions from URL:', genderApiUrl);
+        
+        const genderResponse = await fetch(genderApiUrl);
+        console.log('📡 Gender questions response status:', genderResponse.status);
+        
+        if (genderResponse.ok) {
+          const genderData = await genderResponse.json();
+          console.log('📋 Fetched gender questions:', genderData.results);
+          
+          // Navigate to gender page with questions data
+          const params = new URLSearchParams({ 
+            user_id: userId,
+            questions: JSON.stringify(genderData.results || [])
+          });
+          router.push(`/auth/gender?${params.toString()}`);
+        } else {
+          console.error('❌ Failed to fetch gender questions. Status:', genderResponse.status);
+          setError('Failed to load gender questions');
+          return;
+        }
+      } catch (genderError) {
+        console.error('❌ Error fetching gender questions:', genderError);
+        setError('Failed to load gender questions');
+        return;
+      }
     } catch (error: unknown) {
       console.error('Error saving relationship preferences:', error);
       setError((error as Error).message || 'Failed to save relationship preferences');
@@ -206,10 +232,9 @@ export default function RelationshipPage() {
 
   const handleBack = () => {
     const params = new URLSearchParams({ 
-      user_id: userId,
-      questions: JSON.stringify(questions)
+      user_id: userId
     });
-    router.push(`/auth/gender?${params.toString()}`);
+    router.push(`/auth/introcard?${params.toString()}`);
   };
 
   const SliderComponent = ({ 

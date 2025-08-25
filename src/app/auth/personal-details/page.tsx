@@ -180,7 +180,7 @@ export default function PersonalDetailsPage() {
         const params = new URLSearchParams({
           user_id: userCredentials.user_id
         });
-        router.push(`/auth/add-photo?${params.toString()}`);
+        router.push(`/auth/introcard?${params.toString()}`);
       } else {
         setError(data.error || 'Failed to save personal details');
       }
@@ -325,7 +325,7 @@ export default function PersonalDetailsPage() {
               {/* Height Field */}
               <div>
                 <label htmlFor="height" className="block text-sm font-medium text-gray-900 mb-2">
-                  Height
+                  Height (Optional)
                 </label>
                 <input
                   type="text"

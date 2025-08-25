@@ -224,12 +224,8 @@ export default function GenderPage() {
         }
       }
 
-      // Navigate to relationship page with questions data
-      const params = new URLSearchParams({ 
-        user_id: userId,
-        questions: JSON.stringify(questions)
-      });
-      router.push(`/auth/relationship?${params.toString()}`);
+      // Navigate to dashboard after completing onboarding
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error saving gender preferences:', error);
       setError(error instanceof Error ? error.message : 'Failed to save gender preferences');
@@ -240,10 +236,9 @@ export default function GenderPage() {
 
   const handleBack = () => {
     const params = new URLSearchParams({ 
-      user_id: userId,
-      questions: JSON.stringify(questions)
+      user_id: userId
     });
-    router.push(`/auth/add-photo?${params.toString()}`);
+    router.push(`/auth/relationship?${params.toString()}`);
   };
 
   const SliderComponent = ({ 
