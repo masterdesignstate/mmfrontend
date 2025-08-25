@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -16,6 +16,8 @@ export default function GenderPage() {
     group_name: string;
     text: string;
     answers: Array<{ value: string; answer_text: string }>;
+    open_to_all_me: boolean;
+    open_to_all_looking_for: boolean;
   }>>([]);
 
   // Gender preference states
@@ -75,7 +77,7 @@ export default function GenderPage() {
         const parsedQuestions = JSON.parse(questionsParam);
         setQuestions(parsedQuestions);
         console.log('📋 Received questions from URL:', parsedQuestions);
-        console.log('🔍 Question OTA settings from URL:', parsedQuestions.map(q => ({
+        console.log('🔍 Question OTA settings from URL:', parsedQuestions.map((q: typeof questions[0]) => ({
           number: q.question_number,
           group: q.group_name,
           ota_me: q.open_to_all_me,
@@ -115,7 +117,7 @@ export default function GenderPage() {
             console.log('📋 Raw API response:', data);
             setQuestions(data.results || []);
             console.log('📋 Set questions to state:', data.results);
-            console.log('🔍 Backend Question OTA settings:', (data.results || []).map(q => ({
+            console.log('🔍 Backend Question OTA settings:', (data.results || []).map((q: typeof questions[0]) => ({
               number: q.question_number,
               group: q.group_name,
               ota_me: q.open_to_all_me,
@@ -124,7 +126,7 @@ export default function GenderPage() {
           } else {
             console.error('❌ Failed to fetch questions from backend. Status:', response.status);
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('❌ Error fetching questions from backend:', error);
         } finally {
           setLoadingQuestions(false);
@@ -133,7 +135,7 @@ export default function GenderPage() {
     };
 
     fetchQuestionsIfNeeded();
-  }, [userId, questions.length]);
+  }, [userId, questions.length, loadingQuestions]);
 
   const handleSliderChange = (section: 'myGender' | 'lookingFor' | 'importance', gender: string, value: number) => {
     if (section === 'myGender') {
@@ -230,7 +232,7 @@ export default function GenderPage() {
       router.push(`/auth/relationship?${params.toString()}`);
     } catch (error) {
       console.error('Error saving gender preferences:', error);
-      setError(error.message || 'Failed to save gender preferences');
+      setError(error instanceof Error ? error.message : 'Failed to save gender preferences');
     } finally {
       setLoading(false);
     }
@@ -246,41 +248,15 @@ export default function GenderPage() {
 
   const SliderComponent = ({ 
     value, 
-    onChange, 
-    label,
+    onChange,
     isOpenToAll = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
-    label: string;
     isOpenToAll?: boolean;
   }) => {
-    const [fillWidth, setFillWidth] = useState('0%');
-    const hasAnimatedRef = useRef(false);
-    const raf1Ref = useRef<number | null>(null);
-    const raf2Ref = useRef<number | null>(null);
-
-    useLayoutEffect(() => {
-      if (isOpenToAll && !hasAnimatedRef.current) {
-        // Ensure the element paints at 0% before transitioning to 100%
-        setFillWidth('0%');
-        raf1Ref.current = requestAnimationFrame(() => {
-          raf2Ref.current = requestAnimationFrame(() => {
-            setFillWidth('100%');
-            hasAnimatedRef.current = true; // mark as animated after scheduling
-          });
-        });
-        return () => {
-          if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
-          if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
-        };
-      }
-      if (!isOpenToAll) {
-        hasAnimatedRef.current = false; // reset guard when turned off
-        setFillWidth('0%');
-      }
-    }, [isOpenToAll]);
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isOpenToAll) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
@@ -289,7 +265,7 @@ export default function GenderPage() {
     };
 
     const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.buttons === 1) { // Left mouse button
+      if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
         handleSliderClick(e);
       }
     };
@@ -323,27 +299,17 @@ export default function GenderPage() {
           
           {/* Custom Slider Track */}
           <div 
-            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border border-[#ADADAD]"
+            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
-              backgroundColor: '#F5F5F5',
-              boxShadow: isOpenToAll ? '0 0 15px rgba(103, 45, 183, 0.5)' : 'none'
+              backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
+              borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
             }}
             onClick={handleSliderClick}
             onMouseMove={handleSliderDrag}
             onMouseDown={handleSliderDrag}
             onDragStart={handleDragStart}
-          >
-            {/* Filling Animation Layer */}
-            <div 
-              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
-              style={{
-                width: fillWidth,
-                transition: 'width 1.2s ease-in-out',
-                willChange: 'width'
-              }}
-            />
-          </div>
+          />
           
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
@@ -351,7 +317,6 @@ export default function GenderPage() {
               className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
               style={{
                 backgroundColor: '#672DB7',
-                // left: `calc(${((value - 1) / 4) * 100}% - 16px)`
                 left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
               }}
               onDragStart={handleDragStart}
@@ -394,7 +359,18 @@ export default function GenderPage() {
             <h1 className="text-2xl font-bold text-black mb-2">1. Gender</h1>
             <p className="text-2xl font-bold text-black mb-12">
               What gender do you identify with?
-              <span className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full text-[#672DB7] text-sm font-medium" style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}>?</span>
+              <span 
+                className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-[#672DB7] text-xs font-medium cursor-help relative group" 
+                style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}
+                title="Open to All: When enabled, this question will be marked as 'Open to All' in your profile, indicating you're open to all options for this preference."
+              >
+                ?
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200  whitespace-nowrap z-50">
+                  Open to All: When enabled, this question will be marked as &apos;Open to All&apos; in your profile, indicating you&apos;re open to all options for this preference.
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </span>
             </p>
           </div>
 
@@ -440,7 +416,7 @@ export default function GenderPage() {
                 <SliderComponent
                   value={myGender.male}
                   onChange={(value) => handleSliderChange('myGender', 'male', value)}
-                  label=""
+                  
                   isOpenToAll={openToAll.maleMeOpen}
                 />
               </div>
@@ -470,7 +446,7 @@ export default function GenderPage() {
                 <SliderComponent
                   value={myGender.female}
                   onChange={(value) => handleSliderChange('myGender', 'female', value)}
-                  label=""
+                  
                   isOpenToAll={openToAll.femaleMeOpen}
                 />
               </div>
@@ -500,7 +476,7 @@ export default function GenderPage() {
                 <SliderComponent
                   value={importance.me}
                   onChange={(value) => handleSliderChange('importance', 'me', value)}
-                  label=""
+                  
                   isOpenToAll={false}
                 />
               </div>
@@ -545,7 +521,7 @@ export default function GenderPage() {
                 <SliderComponent
                   value={lookingFor.male}
                   onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
-                  label=""
+                  
                   isOpenToAll={openToAll.maleLookingOpen}
                 />
               </div>
@@ -575,7 +551,7 @@ export default function GenderPage() {
                 <SliderComponent
                   value={lookingFor.female}
                   onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
-                  label=""
+                  
                   isOpenToAll={openToAll.femaleLookingOpen}
                 />
               </div>
@@ -605,7 +581,7 @@ export default function GenderPage() {
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
-                  label=""
+                  
                   isOpenToAll={false}
                 />
               </div>

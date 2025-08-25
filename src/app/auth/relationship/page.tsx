@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { getApiUrl, API_ENDPOINTS } from '../../../config/api';
+import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
 export default function RelationshipPage() {
   const router = useRouter();
@@ -16,17 +16,12 @@ export default function RelationshipPage() {
     group_name: string;
     text: string;
     answers: Array<{ value: string; answer_text: string }>;
+    open_to_all_me: boolean;
+    open_to_all_looking_for: boolean;
   }>>([]);
 
-  // Relationship preference states
+  // State for questions 3-6 (Me answers only)
   const [myAnswers, setMyAnswers] = useState({
-    q3: 3,
-    q4: 3,
-    q5: 3,
-    q6: 3
-  });
-
-  const [importance, setImportance] = useState({
     q3: 3,
     q4: 3,
     q5: 3,
@@ -40,6 +35,10 @@ export default function RelationshipPage() {
     q6: false
   });
 
+  const [importance, setImportance] = useState({
+    overall: 3 // Just one importance slider for this section
+  });
+
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
@@ -48,14 +47,24 @@ export default function RelationshipPage() {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
     
+    console.log('🔍 Relationship Page Load - URL Params:', {
+      userIdParam,
+      questionsParam: questionsParam ? 'present' : 'missing',
+      questionsParamLength: questionsParam?.length
+    });
+    
     // Get userId from URL params first, then try localStorage as fallback
     if (userIdParam) {
       setUserId(userIdParam);
+      console.log('📋 Set userId from URL param:', userIdParam);
     } else {
       // Try to get user_id from localStorage (set during login)
       const storedUserId = localStorage.getItem('user_id');
       if (storedUserId) {
         setUserId(storedUserId);
+        console.log('📋 Set userId from localStorage:', storedUserId);
+      } else {
+        console.log('❌ No userId found in URL params or localStorage');
       }
     }
     
@@ -63,27 +72,47 @@ export default function RelationshipPage() {
       try {
         const parsedQuestions = JSON.parse(questionsParam);
         setQuestions(parsedQuestions);
+        console.log('📋 Received questions from URL:', parsedQuestions);
+        console.log('🔍 Relationship questions:', parsedQuestions.filter((q: typeof questions[0]) => [3, 4, 5, 6].includes(q.question_number)));
       } catch (error) {
-        console.error('Error parsing questions from URL:', error);
+        console.error('❌ Error parsing questions from URL:', error);
       }
+    } else {
+      console.log('❌ No questions parameter found in URL');
     }
   }, [searchParams]);
 
   // Fetch questions from backend if not loaded from URL params
   useEffect(() => {
     const fetchQuestionsIfNeeded = async () => {
-      if (userId && questions.length === 0 && !loadingQuestions) {
+      console.log('🔍 Fetch Check:', { 
+        userId: !!userId, 
+        questionsLength: questions.length, 
+        loadingQuestions,
+        shouldFetch: userId && questions.length === 0
+      });
+      
+      // Only fetch if we have a userId but no questions loaded
+      if (userId && questions.length === 0) {
+        console.log('🚀 Starting to fetch questions from backend...');
         setLoadingQuestions(true);
         try {
-          const response = await fetch(getApiUrl(API_ENDPOINTS.QUESTIONS) + '?question_number=3&question_number=4&question_number=5&question_number=6');
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3&question_number=4&question_number=5&question_number=6`;
+          console.log('🌐 Fetching from URL:', apiUrl);
+          
+          const response = await fetch(apiUrl);
+          console.log('📡 Response status:', response.status);
+          
           if (response.ok) {
             const data = await response.json();
-            setQuestions(data.results || data);
+            console.log('📋 Raw API response:', data);
+            setQuestions(data.results || []);
+            console.log('📋 Set questions to state:', data.results);
           } else {
-            setError('Failed to fetch questions');
+            console.error('❌ Failed to fetch questions from backend. Status:', response.status);
           }
-        } catch (error) {
-          setError('Error fetching questions');
+        } catch (error: unknown) {
+          console.error('❌ Error fetching questions from backend:', error);
         } finally {
           setLoadingQuestions(false);
         }
@@ -93,29 +122,26 @@ export default function RelationshipPage() {
     fetchQuestionsIfNeeded();
   }, [userId, questions.length, loadingQuestions]);
 
-  const handleSliderChange = (type: string, key: string, value: number) => {
-    if (type === 'myAnswers') {
-      setMyAnswers(prev => ({ ...prev, [key]: value }));
-    } else if (type === 'importance') {
-      setImportance(prev => ({ ...prev, [key]: value }));
+  const handleSliderChange = (section: 'myAnswers' | 'importance', questionKey: string, value: number) => {
+    if (section === 'myAnswers') {
+      setMyAnswers(prev => ({ ...prev, [questionKey]: value }));
+    } else if (section === 'importance') {
+      setImportance(prev => ({ ...prev, [questionKey]: value }));
     }
   };
 
-  const handleOpenToAllToggle = (key: string) => {
-    setOpenToAll(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleBack = () => {
-    // Pass questions back to gender page
-    const params = new URLSearchParams();
-    if (userId) params.append('user_id', userId);
-    if (questions.length > 0) params.append('questions', JSON.stringify(questions));
-    router.push(`/auth/gender?${params.toString()}`);
+  const handleOpenToAllToggle = (questionKey: 'q3' | 'q4' | 'q5' | 'q6') => {
+    setOpenToAll(prev => ({ ...prev, [questionKey]: !prev[questionKey] }));
   };
 
   const handleNext = async () => {
     if (!userId) {
-      setError('User ID not found');
+      setError('User ID is required');
+      return;
+    }
+
+    if (!questions || questions.length < 4) {
+      setError('Questions not loaded properly');
       return;
     }
 
@@ -123,19 +149,34 @@ export default function RelationshipPage() {
     setError('');
 
     try {
-      // Create user answers for questions 3-6
-      const userAnswers = questions.map(question => ({
-        user_id: userId,
-        question_id: question.id,
-        me_answer: openToAll[`q${question.question_number}` as keyof typeof openToAll] ? 6 : myAnswers[`q${question.question_number}` as keyof typeof myAnswers],
-        me_open_to_all: openToAll[`q${question.question_number}` as keyof typeof openToAll],
-        me_importance: importance[`q${question.question_number}` as keyof typeof importance],
-        me_share: true,
-        looking_for_answer: 1, // Not applicable for relationship questions
-        looking_for_open_to_all: false, // Not applicable for relationship questions
-        looking_for_importance: 1, // Not applicable for relationship questions
-        looking_for_share: true
-      }));
+      // Find questions 3, 4, 5, 6
+      const relationshipQuestions = questions.filter(q => [3, 4, 5, 6].includes(q.question_number));
+
+      if (relationshipQuestions.length !== 4) {
+        setError('Required relationship questions not found');
+        return;
+      }
+
+      // Prepare user answers for questions 3-6
+      const userAnswers = [];
+
+      for (const question of relationshipQuestions) {
+        const questionKey = `q${question.question_number}` as keyof typeof myAnswers;
+        const openToAllKey = questionKey as keyof typeof openToAll;
+        
+        userAnswers.push({
+          user_id: userId,
+          question_id: question.id,
+          me_answer: openToAll[openToAllKey] ? 6 : myAnswers[questionKey],
+          me_open_to_all: openToAll[openToAllKey],
+          me_importance: importance.overall,
+          me_share: true,
+          looking_for_answer: 1, // Default since these questions don't have "looking for"
+          looking_for_open_to_all: false,
+          looking_for_importance: 1,
+          looking_for_share: true
+        });
+      }
 
       // Save each user answer
       for (const userAnswer of userAnswers) {
@@ -148,57 +189,84 @@ export default function RelationshipPage() {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to save answer for question ${userAnswer.question_id}`);
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save answer');
         }
       }
 
-      // Navigate to dashboard
+      // Navigate to dashboard or next step
       router.push('/dashboard');
-    } catch (error) {
-      setError(`Error saving relationship preferences: ${error}`);
+    } catch (error: unknown) {
+      console.error('Error saving relationship preferences:', error);
+      setError((error as Error).message || 'Failed to save relationship preferences');
     } finally {
       setLoading(false);
     }
   };
 
-  // Slider Component (same as gender page)
+  const handleBack = () => {
+    const params = new URLSearchParams({ 
+      user_id: userId,
+      questions: JSON.stringify(questions)
+    });
+    router.push(`/auth/gender?${params.toString()}`);
+  };
+
   const SliderComponent = ({ 
     value, 
-    onChange, 
-    label, 
-    isOpenToAll 
+    onChange,
+    isOpenToAll = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
-    label: string; 
-    isOpenToAll: boolean; 
+    isOpenToAll?: boolean;
   }) => {
-    const fillWidth = isOpenToAll ? '100%' : `${((value - 1) / 4) * 100}%`;
+    const [fillWidth, setFillWidth] = useState('0%');
+    const hasAnimatedRef = useRef(false);
+    const raf1Ref = useRef<number | null>(null);
+    const raf2Ref = useRef<number | null>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+      if (isOpenToAll && !hasAnimatedRef.current) {
+        setFillWidth('0%');
+        raf1Ref.current = requestAnimationFrame(() => {
+          raf2Ref.current = requestAnimationFrame(() => {
+            setFillWidth('100%');
+            hasAnimatedRef.current = true;
+          });
+        });
+        return () => {
+          if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+          if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+        };
+      }
+      if (!isOpenToAll) {
+        hasAnimatedRef.current = false;
+        setFillWidth('0%');
+      }
+    }, [isOpenToAll]);
+
+
 
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
-      
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1;
-      const clampedValue = Math.max(1, Math.min(5, newValue));
-      onChange(clampedValue);
+      const newValue = Math.round(percentage * 4) + 1; // 1-5 range
+      onChange(Math.max(1, Math.min(5, newValue)));
     };
 
     const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isOpenToAll) return;
-      
-      const rect = e.currentTarget.getBoundingClientRect();
-      const dragX = e.clientX - rect.left;
-      const percentage = dragX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1;
-      const clampedValue = Math.max(1, Math.min(5, newValue));
-      onChange(clampedValue);
+      if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
+        handleSliderClick(e);
+      }
     };
 
     const handleMouseDown = () => {
       document.body.style.userSelect = 'none';
+      window.getSelection()?.removeAllRanges();
     };
 
     const handleMouseUp = () => {
@@ -222,46 +290,47 @@ export default function RelationshipPage() {
         onDragStart={handleDragStart}
       >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-          
-          {/* Custom Slider Track */}
+        
+        {/* Custom Slider Track */}
+        <div 
+          ref={sliderRef}
+          className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+          style={{
+            width: '100%',
+            backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
+            borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
+          }}
+          onClick={handleSliderClick}
+          onMouseMove={handleSliderDrag}
+          onMouseDown={handleSliderDrag}
+          onDragStart={handleDragStart}
+        >
+          {/* Filling Animation Layer */}
           <div 
-            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border border-[#ADADAD]"
+            className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
             style={{
-              width: '100%',
-              backgroundColor: '#F5F5F5',
-              boxShadow: isOpenToAll ? '0 0 15px rgba(103, 45, 183, 0.5)' : 'none'
+              width: fillWidth,
+              transition: 'width 1.2s ease-in-out',
+              willChange: 'width'
             }}
-            onClick={handleSliderClick}
-            onMouseMove={handleSliderDrag}
-            onMouseDown={handleSliderDrag}
+          />
+        </div>
+        
+        {/* Slider Thumb */}
+        {!isOpenToAll && (
+          <div 
+            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
+            style={{
+              backgroundColor: '#672DB7',
+              left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
+            }}
             onDragStart={handleDragStart}
           >
-            {/* Filling Animation Layer */}
-            <div 
-              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
-              style={{
-                width: fillWidth,
-                transition: 'width 1.2s ease-in-out',
-                willChange: 'width'
-              }}
-            />
+            <span className="text-white">{value}</span>
           </div>
-          
-          {/* Slider Thumb - OUTSIDE the track container */}
-          {!isOpenToAll && (
-            <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
-              style={{
-                backgroundColor: '#672DB7',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
-              }}
-              onDragStart={handleDragStart}
-            >
-              <span className="text-white">{value}</span>
-            </div>
-          )}
-          
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
+        )}
+        
+        {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
       </div>
     );
   };
@@ -295,7 +364,18 @@ export default function RelationshipPage() {
             <h1 className="text-2xl font-bold text-black mb-2">2. Relationship</h1>
             <p className="text-2xl font-bold text-black mb-12">
               What relationship are you looking for?
-              <span className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full text-[#672DB7] text-sm font-medium" style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}>?</span>
+              <span 
+                className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-[#672DB7] text-xs font-medium cursor-help relative group" 
+                style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}
+                title="Open to All: When enabled, this question will be marked as 'Open to All' in your profile, indicating you're open to all options for this preference."
+              >
+                ?
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                  Open to All: When enabled, this question will be marked as &apos;Open to All&apos; in your profile, indicating you&apos;re open to all options for this preference.
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </span>
             </p>
           </div>
 
@@ -333,133 +413,50 @@ export default function RelationshipPage() {
             {/* Grid container for perfect alignment */}
             <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               
-              {/* Question 3 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">{questions.find(q => q.question_number === 3)?.question_name?.toUpperCase() || 'Q3'}</div>
-              <div className="relative">
-                <SliderComponent
-                  value={myAnswers.q3}
-                  onChange={(value) => handleSliderChange('myAnswers', 'q3', value)}
-                  label=""
-                  isOpenToAll={openToAll.q3}
-                />
-              </div>
-              <div>
-                {/* Only show switch if question 3 has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 3)?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
+              {/* Question Rows for Q3-Q6 */}
+              {questions.filter(q => [3, 4, 5, 6].includes(q.question_number)).map((question) => {
+                const questionKey = `q${question.question_number}` as keyof typeof myAnswers;
+                const openToAllKey = questionKey as keyof typeof openToAll;
+                
+                return (
+                  <React.Fragment key={question.id}>
+                    <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
                     <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.q3}
-                        onChange={() => handleOpenToAllToggle('q3')}
-                        className="sr-only"
+                      <SliderComponent
+                        value={myAnswers[questionKey]}
+                        onChange={(value) => handleSliderChange('myAnswers', questionKey, value)}
+                        isOpenToAll={openToAll[openToAllKey]}
                       />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.q3 ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.q3 ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                     </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-              
-              {/* Question 4 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">{questions.find(q => q.question_number === 4)?.question_name?.toUpperCase() || 'Q4'}</div>
-              <div className="relative">
-                <SliderComponent
-                  value={myAnswers.q4}
-                  onChange={(value) => handleSliderChange('myAnswers', 'q4', value)}
-                  label=""
-                  isOpenToAll={openToAll.q4}
-                />
-              </div>
-              <div>
-                {/* Only show switch if question 4 has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 4)?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.q4}
-                        onChange={() => handleOpenToAllToggle('q4')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.q4 ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.q4 ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    <div>
+                      {/* Only show switch if question has open_to_all_me enabled */}
+                      {question.open_to_all_me ? (
+                        <label className="flex items-center cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={openToAll[openToAllKey]}
+                              onChange={() => handleOpenToAllToggle(openToAllKey)}
+                              className="sr-only"
+                            />
+                            <div className={`block w-11 h-6 rounded-full ${openToAll[openToAllKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[openToAllKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                          </div>
+                        </label>
+                      ) : (
+                        <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                      )}
                     </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* Question 5 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">{questions.find(q => q.question_number === 5)?.question_name?.toUpperCase() || 'Q5'}</div>
-              <div className="relative">
-                <SliderComponent
-                  value={myAnswers.q5}
-                  onChange={(value) => handleSliderChange('myAnswers', 'q5', value)}
-                  label=""
-                  isOpenToAll={openToAll.q5}
-                />
-              </div>
-              <div>
-                {/* Only show switch if question 5 has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 5)?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.q5}
-                        onChange={() => handleOpenToAllToggle('q5')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.q5 ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.q5 ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* Question 6 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">{questions.find(q => q.question_number === 6)?.question_name?.toUpperCase() || 'Q6'}</div>
-              <div className="relative">
-                <SliderComponent
-                  value={myAnswers.q6}
-                  onChange={(value) => handleSliderChange('myAnswers', 'q6', value)}
-                  label=""
-                  isOpenToAll={openToAll.q6}
-                />
-              </div>
-              <div>
-                {/* Only show switch if question 6 has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 6)?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.q6}
-                        onChange={() => handleOpenToAllToggle('q6')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.q6 ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.q6 ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
+                  </React.Fragment>
+                );
+              })}
 
               {/* IMPORTANCE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
               <div className="relative">
                 <SliderComponent
-                  value={importance.q3}
-                  onChange={(value) => handleSliderChange('importance', 'q3', value)}
-                  label=""
+                  value={importance.overall}
+                  onChange={(value) => handleSliderChange('importance', 'overall', value)}
                   isOpenToAll={false}
                 />
               </div>
@@ -481,6 +478,7 @@ export default function RelationshipPage() {
             </div>
           </div>
         </div>
+
       </main>
 
       {/* Footer with Progress and Navigation */}
