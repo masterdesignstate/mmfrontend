@@ -82,18 +82,11 @@ export default function RelationshipPage() {
     }
   }, [searchParams]);
 
-  // Fetch questions from backend if not loaded from URL params
+  // Fetch questions from backend when userId is available (only once)
   useEffect(() => {
     const fetchQuestionsIfNeeded = async () => {
-      console.log('🔍 Fetch Check:', { 
-        userId: !!userId, 
-        questionsLength: questions.length, 
-        loadingQuestions,
-        shouldFetch: userId && questions.length === 0
-      });
-      
-      // Only fetch if we have a userId but no questions loaded
-      if (userId && questions.length === 0) {
+      // Only fetch if we have a userId and haven't fetched questions yet
+      if (userId && questions.length === 0 && !loadingQuestions) {
         console.log('🚀 Starting to fetch questions from backend...');
         setLoadingQuestions(true);
         try {
@@ -404,15 +397,7 @@ export default function RelationshipPage() {
             </p>
           </div>
 
-          {/* Questions Loading Indicator */}
-          {loadingQuestions && (
-            <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-center">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700 mr-2"></div>
-                Loading questions...
-              </div>
-            </div>
-          )}
+
 
           {/* Error Message */}
           {error && (

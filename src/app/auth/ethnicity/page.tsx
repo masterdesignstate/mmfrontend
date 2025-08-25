@@ -74,18 +74,11 @@ export default function EthnicityPage() {
     }
   }, [searchParams]);
 
-  // Fetch questions from backend if not loaded from URL params
+  // Fetch ethnicity questions from backend when userId is available (only once)
   useEffect(() => {
-    const fetchQuestionsIfNeeded = async () => {
-      console.log('🔍 Fetch Check:', { 
-        userId: !!userId, 
-        questionsLength: questions.length, 
-        loadingQuestions,
-        shouldFetch: userId && questions.length === 0
-      });
-      
-      // Only fetch if we have a userId but no questions loaded
-      if (userId && questions.length === 0) {
+    const fetchEthnicityQuestions = async () => {
+      // Only fetch if we have a userId and haven't fetched questions yet
+      if (userId && questions.length === 0 && !loadingQuestions) {
         console.log('🚀 Starting to fetch ethnicity questions from backend...');
         setLoadingQuestions(true);
         try {
@@ -117,11 +110,24 @@ export default function EthnicityPage() {
       }
     };
 
-    fetchQuestionsIfNeeded();
+    fetchEthnicityQuestions();
   }, [userId, questions.length, loadingQuestions]);
 
   const handleEthnicitySelect = (ethnicity: string) => {
     setSelectedEthnicity(ethnicity);
+    
+    // Find the index of the selected ethnicity to determine question number
+    const ethnicityIndex = ethnicityOptions.findIndex(option => option.value === ethnicity);
+    const questionNumber = 7 + ethnicityIndex; // Questions 7-12
+    
+    const params = new URLSearchParams({ 
+      user_id: userId,
+      ethnicity: ethnicity,
+      question_number: questionNumber.toString()
+    });
+    
+    // Navigate to the specific ethnicity question page
+    router.push(`/auth/question/ethnicity?${params.toString()}`);
   };
 
   const handleNext = async () => {
@@ -136,7 +142,7 @@ export default function EthnicityPage() {
     }
 
     if (!questions || questions.length < 6) {
-      setError('Questions not loaded properly');
+      setError('Ethnicity questions not loaded properly. Please wait for questions to load.');
       return;
     }
 
@@ -148,7 +154,7 @@ export default function EthnicityPage() {
       const ethnicityQuestions = questions.filter(q => [7, 8, 9, 10, 11, 12].includes(q.question_number));
 
       if (ethnicityQuestions.length !== 6) {
-        setError('Required ethnicity questions not found');
+        setError(`Found ${ethnicityQuestions.length} ethnicity questions, but need 6. Please wait for questions to load completely.`);
         return;
       }
 
@@ -235,15 +241,7 @@ export default function EthnicityPage() {
             </p>
           </div>
 
-          {/* Questions Loading Indicator */}
-          {loadingQuestions && (
-            <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-center">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700 mr-2"></div>
-                Loading questions...
-              </div>
-            </div>
-          )}
+
 
           {/* Error Message */}
           {error && (

@@ -48,17 +48,11 @@ export default function IntroCardPage() {
   }, [searchParams]);
 
   // Fetch relationship questions (3-6) from backend
+  // Fetch relationship questions from backend when userId is available (only once)
   useEffect(() => {
     const fetchRelationshipQuestions = async () => {
-      console.log('🔍 Fetch Check:', { 
-        userId: !!userId, 
-        questionsLength: questions.length, 
-        loadingQuestions,
-        shouldFetch: userId && questions.length === 0
-      });
-      
-      // Only fetch if we have a userId but no questions loaded
-      if (userId && questions.length === 0) {
+      // Only fetch if we have a userId and haven't fetched questions yet
+      if (userId && questions.length === 0 && !loadingQuestions) {
         console.log('🚀 Starting to fetch relationship questions from backend...');
         setLoadingQuestions(true);
         try {
@@ -149,15 +143,7 @@ export default function IntroCardPage() {
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
         <div className="w-full max-w-4xl flex flex-col items-center justify-center">
           
-          {/* Questions Loading Indicator */}
-          {loadingQuestions && (
-            <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-center">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700 mr-2"></div>
-                Loading questions...
-              </div>
-            </div>
-          )}
+
 
           {/* Error Message */}
           {error && (
@@ -200,9 +186,9 @@ export default function IntroCardPage() {
           {/* Next Button */}
           <button
             onClick={handleNext}
-            disabled={loading || loadingQuestions}
+            disabled={loading}
             className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading && !loadingQuestions
+              !loading
                 ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
