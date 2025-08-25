@@ -224,8 +224,12 @@ export default function GenderPage() {
         }
       }
 
-      // Navigate to dashboard after completing onboarding
-      router.push('/dashboard');
+      // Navigate to ethnicity page with questions data
+      const params = new URLSearchParams({ 
+        user_id: userId,
+        questions: JSON.stringify(questions)
+      });
+      router.push(`/auth/ethnicity?${params.toString()}`);
     } catch (error) {
       console.error('Error saving gender preferences:', error);
       setError(error instanceof Error ? error.message : 'Failed to save gender preferences');
@@ -351,8 +355,8 @@ export default function GenderPage() {
         <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-black mb-2">1. Gender</h1>
-            <p className="text-2xl font-bold text-black mb-12">
+            <h1 className="text-3xl font-bold text-black mb-2">1. Gender</h1>
+            <p className="text-3xl font-bold text-black mb-12">
               What gender do you identify with?
               <span 
                 className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-[#672DB7] text-xs font-medium cursor-help relative group" 
