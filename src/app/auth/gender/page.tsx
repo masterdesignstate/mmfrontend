@@ -348,7 +348,7 @@ export default function GenderPage() {
         <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">1. Gender</h1>
+            <h1 className="text-3xl font-bold text-black mb-2">2. Gender</h1>
             <p className="text-3xl font-bold text-black mb-12">
               What gender do you identify with?
               <span 

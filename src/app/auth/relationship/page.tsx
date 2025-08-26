@@ -379,7 +379,7 @@ export default function RelationshipPage() {
         <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">2. Relationship</h1>
+            <h1 className="text-3xl font-bold text-black mb-2">1. Relationship</h1>
             <p className="text-3xl font-bold text-black mb-12">
               What relationship are you looking for?
               <span 

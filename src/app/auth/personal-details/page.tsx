@@ -12,7 +12,8 @@ export default function PersonalDetailsPage() {
     tagline: '',
     dateOfBirth: '',
     height: '',
-    city: 'Austin',
+    from: '',
+    live: 'Austin',
     bio: ''
   });
   const [userCredentials, setUserCredentials] = useState({
@@ -118,7 +119,7 @@ export default function PersonalDetailsPage() {
     }
 
     // Basic validation
-    if (!formData.fullName || !formData.username || !formData.dateOfBirth || !formData.city) {
+    if (!formData.fullName || !formData.username || !formData.dateOfBirth || !formData.from || !formData.live) {
       setError('Please fill in all required fields');
       return;
     }
@@ -155,7 +156,8 @@ export default function PersonalDetailsPage() {
       tagline: formData.tagline,
       date_of_birth: backendDateFormat,
       height: formData.height,
-      city: formData.city,
+      from: formData.from,
+      live: formData.live,
       bio: formData.bio
     };
 
@@ -341,37 +343,47 @@ export default function PersonalDetailsPage() {
              
               </div>
 
-              {/* City Field */}
+              {/* From Field */}
               <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-900 mb-2">
-                  City
+                <label htmlFor="from" className="block text-sm font-medium text-gray-900 mb-2">
+                  From
+                </label>
+                <input
+                  type="text"
+                  id="from"
+                  name="from"
+                  value={formData.from}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
+                  placeholder="Where are you originally from?"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Live Field */}
+              <div>
+                <label htmlFor="live" className="block text-sm font-medium text-gray-900 mb-2">
+                  Live
                 </label>
                 <select
-                  id="city"
-                  name="city"
-                  value={formData.city}
+                  id="live"
+                  name="live"
+                  value={formData.live}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white"
                   disabled={loading}
                 >
                   <option value="Austin">Austin</option>
-                  <option value="Round Rock">Round Rock</option>
                   <option value="Cedar Park">Cedar Park</option>
                   <option value="Georgetown">Georgetown</option>
-                  <option value="Pflugerville">Pflugerville</option>
-                  <option value="Leander">Leander</option>
-                  <option value="Buda">Buda</option>
-                  <option value="Kyle">Kyle</option>
-                  <option value="San Marcos">San Marcos</option>
-                  <option value="Dripping Springs">Dripping Springs</option>
-                  <option value="Bastrop">Bastrop</option>
-                  <option value="Lakeway">Lakeway</option>
-                  <option value="Bee Cave">Bee Cave</option>
-                  <option value="Manor">Manor</option>
-                  <option value="Taylor">Taylor</option>
-                  <option value="Elgin">Elgin</option>
-                  <option value="Wimberley">Wimberley</option>
                   <option value="Hutto">Hutto</option>
+                  <option value="Kyle">Kyle</option>
+                  <option value="Leander">Leander</option>
+                  <option value="Manor">Manor</option>
+                  <option value="Pflugerville">Pflugerville</option>
+                  <option value="Round Rock">Round Rock</option>
+                  <option value="San Marcos">San Marcos</option>
                 </select>
               </div>
 
