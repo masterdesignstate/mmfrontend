@@ -21,6 +21,7 @@ export default function EthnicityPage() {
   }>>([]);
 
   const [selectedEthnicity, setSelectedEthnicity] = useState<string>('');
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
@@ -38,11 +39,13 @@ export default function EthnicityPage() {
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
+    const refreshParam = searchParams.get('refresh');
     
     console.log('🔍 Ethnicity Page Load - URL Params:', {
       userIdParam,
       questionsParam: questionsParam ? 'present' : 'missing',
-      questionsParamLength: questionsParam?.length
+      questionsParamLength: questionsParam?.length,
+      refreshParam
     });
     
     // Get userId from URL params first, then try localStorage as fallback
@@ -71,6 +74,12 @@ export default function EthnicityPage() {
       }
     } else {
       console.log('❌ No questions parameter found in URL');
+    }
+
+    // If refresh flag is present, force refresh of answered questions
+    if (refreshParam === 'true' && userIdParam) {
+      console.log('🔄 Refresh flag detected, forcing refresh of answered questions...');
+      setTimeout(() => checkAnsweredQuestions(), 100); // Small delay to ensure userId is set
     }
   }, [searchParams]);
 
@@ -113,6 +122,26 @@ export default function EthnicityPage() {
     fetchEthnicityQuestions();
   }, [userId, questions.length, loadingQuestions]);
 
+  // Check answered questions when userId is available
+  useEffect(() => {
+    if (userId) {
+      checkAnsweredQuestions();
+    }
+  }, [userId]);
+
+  // Check answered questions when page becomes visible (user returns from question page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && userId) {
+        console.log('🔄 Page became visible, checking answered questions...');
+        checkAnsweredQuestions();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [userId]);
+
   const handleEthnicitySelect = (ethnicity: string) => {
     setSelectedEthnicity(ethnicity);
     
@@ -136,13 +165,8 @@ export default function EthnicityPage() {
       return;
     }
 
-    if (!selectedEthnicity) {
-      setError('Please select an ethnicity');
-      return;
-    }
-
     if (!questions || questions.length < 6) {
-      setError('Ethnicity questions not loaded properly. Please wait for questions to load.');
+      setError('Questions not loaded properly');
       return;
     }
 
@@ -150,55 +174,58 @@ export default function EthnicityPage() {
     setError('');
 
     try {
-      // Find questions 7-12 (ethnicity questions)
-      const ethnicityQuestions = questions.filter(q => [7, 8, 9, 10, 11, 12].includes(q.question_number));
+      // Check if user has answered any ethnicity questions using the answeredQuestions state
+      // which is already populated by checkAnsweredQuestions function
+      console.log('🔍 Checking answered questions in handleNext:');
+      console.log('📋 Questions loaded:', questions.length);
+      console.log('📋 Answered questions set size:', answeredQuestions.size);
+      console.log('📋 Answered questions:', Array.from(answeredQuestions));
+      
+      const answeredEthnicityQuestions = questions.filter(q => 
+        [7, 8, 9, 10, 11, 12].includes(q.question_number) && answeredQuestions.has(q.id)
+      );
+      
+      console.log('📋 Ethnicity questions (7-12):', questions.filter(q => [7, 8, 9, 10, 11, 12].includes(q.question_number)).map(q => ({ id: q.id, number: q.question_number })));
+      console.log('📋 Answered ethnicity questions:', answeredEthnicityQuestions.map(q => ({ id: q.id, number: q.question_number })));
+      
+      // Removed strict validation - allow user to proceed regardless of answers
+      console.log('✅ Proceeding to next page without strict validation');
 
-      if (ethnicityQuestions.length !== 6) {
-        setError(`Found ${ethnicityQuestions.length} ethnicity questions, but need 6. Please wait for questions to load completely.`);
-        return;
-      }
-
-      // Prepare user answers for questions 7-12
-      const userAnswers = [];
-
-      for (const question of ethnicityQuestions) {
-        userAnswers.push({
-          user_id: userId,
-          question_id: question.id,
-          me_answer: selectedEthnicity,
-          me_open_to_all: false,
-          me_importance: 3, // Default importance
-          me_share: true,
-          looking_for_answer: '', // Not applicable for ethnicity
-          looking_for_open_to_all: false,
-          looking_for_importance: 3,
-          looking_for_share: false
-        });
-      }
-
-      // Save each user answer
-      for (const userAnswer of userAnswers) {
-        const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userAnswer)
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to save answer');
-        }
-      }
-
-      // Navigate to dashboard after completing ethnicity selection
-      router.push('/dashboard');
+      // Navigate to next onboarding step (education page)
+      const params = new URLSearchParams({ 
+        user_id: userId
+      });
+      router.push(`/auth/education?${params.toString()}`);
     } catch (error) {
-      console.error('Error saving ethnicity preferences:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save ethnicity preferences');
+      console.error('Error checking ethnicity answers:', error);
+      setError('Failed to check ethnicity answers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAnsweredQuestions = async () => {
+    if (!userId) return;
+    
+    console.log('🔍 checkAnsweredQuestions called for userId:', userId);
+    
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}`);
+      console.log('📡 Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 Raw answers data:', data);
+        console.log('📋 Results count:', data.results?.length || 0);
+        
+        const answeredQuestionIds = new Set<string>(data.results?.map((answer: { question_id: string }) => answer.question_id) || []);
+        console.log('📋 Answered question IDs:', Array.from(answeredQuestionIds));
+        
+        setAnsweredQuestions(answeredQuestionIds);
+        console.log('📋 Updated answeredQuestions state');
+      }
+    } catch (error) {
+      console.error('Error checking answered questions:', error);
     }
   };
 
@@ -252,31 +279,42 @@ export default function EthnicityPage() {
 
           {/* Ethnicity Options List */}
           <div className="space-y-3">
-            {ethnicityOptions.map((option) => (
-              <div
-                key={option.value}
-                onClick={() => handleEthnicitySelect(option.value)}
-                className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                  selectedEthnicity === option.value
-                    ? 'border-black bg-gray-50'
-                    : 'border-black bg-white hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Image
-                    src={option.icon}
-                    alt="Ethnicity icon"
-                    width={24}
-                    height={24}
-                    className="w-6 h-6"
-                  />
-                  <span className="text-black font-medium">{option.label}</span>
+            {ethnicityOptions.map((option, index) => {
+              const questionNumber = 7 + index; // Questions 7-12
+              const question = questions.find(q => q.question_number === questionNumber);
+              const isAnswered = question && answeredQuestions.has(question.id);
+              
+              return (
+                <div
+                  key={option.value}
+                  onClick={() => handleEthnicitySelect(option.value)}
+                  className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                    selectedEthnicity === option.value
+                      ? 'border-black bg-gray-50'
+                      : isAnswered
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-black bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Image
+                      src={option.icon}
+                      alt="Ethnicity icon"
+                      width={24}
+                      height={24}
+                      className="w-6 h-6"
+                    />
+                    <span className="text-black font-medium">{option.label}</span>
+                    {isAnswered && (
+                      <span className="text-green-600 text-sm">✓ Answered</span>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </main>
@@ -301,16 +339,16 @@ export default function EthnicityPage() {
           {/* Next Button */}
           <button
             onClick={handleNext}
-            disabled={loading || !selectedEthnicity}
+            disabled={loading}
             className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading && selectedEthnicity
+              !loading
                 ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
             {loading ? (
               <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mpr-2"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 Saving...
               </div>
             ) : (

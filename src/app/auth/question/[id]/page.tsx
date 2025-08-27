@@ -137,7 +137,8 @@ export default function QuestionPage() {
     } else if (section === 'lookingForAnswer') {
       setLookingForAnswer(value);
     } else if (section === 'importance') {
-      setImportance(prev => ({ ...prev, [section]: value }));
+      // For importance, we need to know which section (me or lookingFor)
+      // This will be handled by the individual importance sliders
     }
   };
 
@@ -183,8 +184,16 @@ export default function QuestionPage() {
         throw new Error(data.error || 'Failed to save answer');
       }
 
-      // Navigate to dashboard after completing question
-      router.push('/dashboard');
+      // For ethnicity questions, go back to ethnicity page; otherwise go to dashboard
+      if (params.id === 'ethnicity') {
+        const params = new URLSearchParams({ 
+          user_id: userId,
+          refresh: 'true' // Add refresh flag
+        });
+        router.push(`/auth/ethnicity?${params.toString()}`);
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error) {
       console.error('Error saving question answer:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answer');
@@ -365,14 +374,16 @@ export default function QuestionPage() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* LESS and MORE labels below Me header */}
+            {/* LESS, MORE, and OTA labels below Me header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div></div> {/* Empty placeholder for switch column */}
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {question?.open_to_all_me ? 'OTA' : ''}
+              </div>
             </div>
             
             {/* Grid container for perfect alignment */}
@@ -414,7 +425,7 @@ export default function QuestionPage() {
               <div className="relative">
                 <SliderComponent
                   value={importance.me}
-                  onChange={(value) => handleSliderChange('importance', value)}
+                  onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
                   isOpenToAll={false}
                 />
               </div>
@@ -422,15 +433,26 @@ export default function QuestionPage() {
               
             </div>
 
-            {/* Importance labels below Me section */}
+            {/* Importance labels below Me section - centered and dynamic */}
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                <span className="absolute" style={{ left: '0%', transform: 'translateX(0%)' }}>TRIVIAL</span>
-                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                <span className="absolute" style={{ left: '100%', transform: 'translateX(-100%)' }}>ESSENTIAL</span>
+                {/* Only show the label for the current importance value */}
+                {importance.me === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importance.me === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importance.me === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importance.me === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importance.me === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
               </div>
               <div></div> {/* Empty placeholder for switch column */}
             </div>
@@ -440,14 +462,16 @@ export default function QuestionPage() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
             
-            {/* LESS and MORE labels below Looking For header */}
+            {/* LESS, MORE, and OTA labels below Looking For header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div></div> {/* Empty placeholder for switch column */}
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {question?.open_to_all_looking_for ? 'OTA' : ''}
+              </div>
             </div>
             
             {/* Grid container for perfect alignment */}
@@ -489,7 +513,7 @@ export default function QuestionPage() {
               <div className="relative">
                 <SliderComponent
                   value={importance.lookingFor}
-                  onChange={(value) => handleSliderChange('importance', value)}
+                  onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
                   isOpenToAll={false}
                 />
               </div>
@@ -497,15 +521,26 @@ export default function QuestionPage() {
               
             </div>
 
-            {/* Importance labels below Looking For section */}
+            {/* Importance labels below Looking For section - centered and dynamic */}
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                <span className="absolute" style={{ left: '0%', transform: 'translateX(0%)' }}>TRIVIAL</span>
-                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                <span className="absolute" style={{ left: '100%', transform: 'translateX(-100%)' }}>ESSENTIAL</span>
+                {/* Only show the label for the current importance value */}
+                {importance.lookingFor === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importance.lookingFor === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importance.lookingFor === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importance.lookingFor === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importance.lookingFor === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
               </div>
               <div></div> {/* Empty placeholder for switch column */}
             </div>

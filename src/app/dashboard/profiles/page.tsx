@@ -37,12 +37,12 @@ const generateMockProfiles = () => {
     // Use deterministic values based on index
     const nameIndex = (i - 1) % names.length;
     const usernameIndex = (i - 1) % usernames.length;
-    const cityIndex = (i - 1) % cities.length;
+    const liveIndex = (i - 1) % cities.length;
     
     const name = names[nameIndex];
     const username = i <= 20 ? usernames[usernameIndex] + i : '';
     const age = 18 + (i % 40); // Age 18-57 based on index
-    const city = cities[cityIndex];
+    const live = cities[liveIndex];
     const answers = 5 + (i % 25); // 5-29 based on index
     
     // Deterministic date based on index - format as MM/DD/YYYY
@@ -71,7 +71,7 @@ const generateMockProfiles = () => {
       name: `${name} ${i}`,
       username,
       age,
-      city,
+      live,
       answers,
       friend,
       hookup,
@@ -291,11 +291,11 @@ export default function ProfilesPage() {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('city')}
+                  onClick={() => handleSort('live')}
                 >
                   <div className="flex flex-col">
-                    <span>City</span>
-                    <span className="mt-1"><SortIcon field="city" /></span>
+                    <span>Live</span>
+                    <span className="mt-1"><SortIcon field="live" /></span>
                   </div>
                 </th>
                 <th 
@@ -403,7 +403,7 @@ export default function ProfilesPage() {
                     {profile.age > 0 ? profile.age : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.city || '-'}
+                    {profile.live || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {profile.answers}

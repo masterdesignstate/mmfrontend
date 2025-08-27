@@ -27,12 +27,12 @@ const generateMockProfile = (id: string) => {
 
   const profileId = parseInt(id);
   const nameIndex = (profileId - 1) % names.length;
-  const cityIndex = (profileId - 1) % cities.length;
+  const liveIndex = (profileId - 1) % cities.length;
   
   const name = names[nameIndex];
   const username = `user${profileId}`;
   const age = 18 + (profileId % 40);
-  const city = cities[cityIndex];
+  const live = cities[liveIndex];
   const answers = 5 + (profileId % 25);
   
   // Deterministic date based on profile ID
@@ -58,7 +58,7 @@ const generateMockProfile = (id: string) => {
     name: `${name} ${profileId}`,
     username,
     age,
-    city,
+    live,
     answers,
     friend,
     hookup,
@@ -170,7 +170,7 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
                 <p className="text-gray-600 mb-2">@{profile.username}</p>
                 <p className="text-gray-700 mb-4">{profile.bio}</p>
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <span><i className="fas fa-map-marker-alt mr-1"></i>{profile.city}</span>
+                  <span><i className="fas fa-map-marker-alt mr-1"></i>{profile.live}</span>
                   <span><i className="fas fa-birthday-cake mr-1"></i>{profile.age} years old</span>
                   <span><i className="fas fa-ruler-vertical mr-1"></i>{profile.height}cm</span>
                 </div>

@@ -17,7 +17,7 @@ interface RestrictedUser {
   restriction_duration?: number;
   is_banned: boolean;
   last_seen?: string;
-  city?: string;
+  live?: string;
   age?: number;
 }
 
@@ -35,7 +35,7 @@ interface ApiUser {
   restriction_duration?: number;
   is_banned: boolean;
   last_seen?: string;
-  city?: string;
+  live?: string;
   age?: number;
 }
 
@@ -85,7 +85,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 7,
           is_banned: true,
           last_seen: '2024-01-14T18:45:00Z',
-          city: 'New York, NY',
+          live: 'New York, NY',
           age: 28
         },
         {
@@ -101,7 +101,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 0,
           is_banned: true,
           last_seen: '2024-01-12T13:15:00Z',
-          city: 'Los Angeles, CA',
+          live: 'Los Angeles, CA',
           age: 32
         },
         {
@@ -117,7 +117,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 14,
           is_banned: true,
           last_seen: '2024-01-10T08:30:00Z',
-          city: 'Chicago, IL',
+          live: 'Chicago, IL',
           age: 25
         },
         {
@@ -133,7 +133,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 30,
           is_banned: true,
           last_seen: '2024-01-08T15:20:00Z',
-          city: 'Austin, TX',
+          live: 'Austin, TX',
           age: 29
         },
         {
@@ -149,7 +149,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 0,
           is_banned: true,
           last_seen: '2024-01-05T10:45:00Z',
-          city: 'Seattle, WA',
+          live: 'Seattle, WA',
           age: 31
         },
         {
@@ -165,7 +165,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 3,
           is_banned: false,
           last_seen: '2024-01-06T14:30:00Z',
-          city: 'Miami, FL',
+          live: 'Miami, FL',
           age: 27
         },
         {
@@ -181,7 +181,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 0,
           is_banned: true,
           last_seen: '2024-01-01T07:30:00Z',
-          city: 'San Francisco, CA',
+          live: 'San Francisco, CA',
           age: 26
         },
         {
@@ -197,7 +197,7 @@ export default function RestrictedUsersPage() {
           restriction_duration: 21,
           is_banned: false,
           last_seen: '2024-01-18T12:15:00Z',
-          city: 'Denver, CO',
+          live: 'Denver, CO',
           age: 24
         }
       ];

@@ -89,12 +89,20 @@ const userModelSchema: FieldDefinition[] = [
     help_text: 'Height in cm'
   },
   {
-    name: 'city',
+    name: 'from_location',
     type: 'CharField',
     max_length: 100,
     null: true,
     blank: true,
-    help_text: 'User city'
+    help_text: 'Where the user is originally from'
+  },
+  {
+    name: 'live',
+    type: 'CharField',
+    max_length: 100,
+    null: true,
+    blank: true,
+    help_text: 'Where the user currently lives'
   },
   {
     name: 'bio',
