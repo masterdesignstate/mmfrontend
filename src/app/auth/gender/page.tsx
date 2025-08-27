@@ -351,18 +351,6 @@ export default function GenderPage() {
             <h1 className="text-3xl font-bold text-black mb-2">2. Gender</h1>
             <p className="text-3xl font-bold text-black mb-12">
               What gender do you identify with?
-              <span 
-                className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-[#672DB7] text-xs font-medium cursor-help relative group" 
-                style={{ backgroundColor: 'rgba(103, 45, 183, 0.2)' }}
-                title="Open to All: When enabled, this question will be marked as 'Open to All' in your profile, indicating you're open to all options for this preference."
-              >
-                ?
-                {/* Tooltip */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200  whitespace-nowrap z-50">
-                  Open to All: When enabled, this question will be marked as &apos;Open to All&apos; in your profile, indicating you&apos;re open to all options for this preference.
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                </div>
-              </span>
             </p>
           </div>
 
@@ -377,14 +365,16 @@ export default function GenderPage() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* LESS and MORE labels below Me header - using same grid structure */}
+            {/* LESS, MORE, and OTA labels below Me header - using same grid structure */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div></div> {/* Empty placeholder for switch column */}
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {questions.find(q => q.question_number === 1)?.open_to_all_me || questions.find(q => q.question_number === 2)?.open_to_all_me ? 'OTA' : ''}
+              </div>
             </div>
             
             {/* Grid container for perfect alignment */}
@@ -464,15 +454,26 @@ export default function GenderPage() {
               
             </div>
 
-            {/* Importance labels below Me section - using same grid structure */}
+            {/* Importance labels below Me section - centered and dynamic */}
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                <span className="absolute" style={{ left: '0%', transform: 'translateX(0%)' }}>TRIVIAL</span>
-                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                <span className="absolute" style={{ left: '100%', transform: 'translateX(-100%)' }}>ESSENTIAL</span>
+                {/* Only show the label for the current importance value */}
+                {importance.me === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importance.me === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importance.me === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importance.me === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importance.me === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
               </div>
               <div></div> {/* Empty placeholder for switch column */}
             </div>
@@ -480,16 +481,18 @@ export default function GenderPage() {
 
           {/* Looking For Section */}
           <div className="mb-6 pt-8">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
+            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
-            {/* LESS and MORE labels below Looking For header - using same grid structure */}
+            {/* LESS, MORE, and OTA labels below Looking For header - using same grid structure */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div></div> {/* Empty placeholder for switch column */}
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for || questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? 'OTA' : ''}
+              </div>
             </div>
             
             {/* Grid container for perfect alignment */}
@@ -569,15 +572,26 @@ export default function GenderPage() {
               
             </div>
 
-            {/* Importance labels below Looking For section - using same grid structure */}
+            {/* Importance labels below Looking For section - centered and dynamic */}
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                <span className="absolute" style={{ left: '0%', transform: 'translateX(0%)' }}>TRIVIAL</span>
-                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                <span className="absolute" style={{ left: '100%', transform: 'translateX(-100%)' }}>ESSENTIAL</span>
+                {/* Only show the label for the current importance value */}
+                {importance.lookingFor === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importance.lookingFor === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importance.lookingFor === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importance.lookingFor === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importance.lookingFor === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
               </div>
               <div></div> {/* Empty placeholder for switch column */}
             </div>
