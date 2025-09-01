@@ -236,12 +236,7 @@ export default function Question9Page() {
         user_id: userId
       });
       
-      // If we have kids questions loaded, pass them to avoid re-fetching
-      if (kidsQuestions.length > 0) {
-        params.set('questions', JSON.stringify(kidsQuestions));
-        console.log('📋 Passing pre-loaded kids questions to kids page');
-      }
-      
+      // Don't pass large JSON through URL - let the next page fetch its own questions
       router.push(`/auth/question/10?${params.toString()}`);
     } catch (error) {
       console.error('Error saving question 9 answers:', error);
@@ -391,8 +386,8 @@ export default function Question9Page() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
+                <span>LESS</span>
+                <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_me ? 'OTA' : ''}
@@ -479,8 +474,8 @@ export default function Question9Page() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
+                <span>LESS</span>
+                <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_looking_for ? 'OTA' : ''}

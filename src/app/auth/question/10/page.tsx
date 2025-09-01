@@ -251,12 +251,7 @@ export default function Question10Page() {
         user_id: userId
       });
       
-      // If we have faith questions loaded, pass them to avoid re-fetching
-      if (faithQuestions.length > 0) {
-        params.set('questions', JSON.stringify(faithQuestions));
-        console.log('📋 Passing pre-loaded faith questions to faith page');
-      }
-      
+      // Don't pass large JSON through URL - let the faith page fetch its own questions
       router.push(`/auth/faith?${params.toString()}`);
     } catch (error) {
       console.error('Error saving question 10 answers:', error);
@@ -406,8 +401,8 @@ export default function Question10Page() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
+                <span>NO</span>
+                <span>YES</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_me || questions[1]?.open_to_all_me ? 'OTA' : ''}
@@ -525,8 +520,8 @@ export default function Question10Page() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
+                <span>NO</span>
+                <span>YES</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_looking_for || questions[1]?.open_to_all_looking_for ? 'OTA' : ''}
