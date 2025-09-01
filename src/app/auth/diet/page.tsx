@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-export default function EthnicityPage() {
+export default function DietPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
@@ -21,7 +21,7 @@ export default function EthnicityPage() {
     open_to_all_looking_for: boolean;
   }>>([]);
 
-  const [educationQuestions, setEducationQuestions] = useState<Array<{
+  const [nextQuestions, setNextQuestions] = useState<Array<{
     id: string;
     question_name: string;
     question_number: number;
@@ -33,28 +33,18 @@ export default function EthnicityPage() {
     open_to_all_looking_for: boolean;
   }>>([]);
 
-  const [selectedEthnicity, setSelectedEthnicity] = useState<string>('');
+  const [selectedDiet, setSelectedDiet] = useState<string>('');
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
-
-  // Hardcoded ethnicity options matching the database question names exactly
-  const ethnicityOptions = [
-    { value: 'White', label: 'White', icon: '/assets/ethn.png' },
-    { value: 'Black', label: 'Black or African Descent', icon: '/assets/ethn.png' },
-    { value: 'Hawaiian', label: 'Native Hawaiian or Other Pacific Islander', icon: '/assets/ethn.png' },
-    { value: 'Native', label: 'Native American', icon: '/assets/ethn.png' },
-    { value: 'Hispanic', label: 'Hispanic/Latino', icon: '/assets/ethn.png' },
-    { value: 'Asian', label: 'Asian', icon: '/assets/ethn.png' }
-  ];
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
     const refreshParam = searchParams.get('refresh');
     
-    console.log('🔍 Ethnicity Page Load - URL Params:', {
+    console.log('🔍 Diet Page Load - URL Params:', {
       userIdParam,
       questionsParam: questionsParam ? 'present' : 'missing',
       questionsParamLength: questionsParam?.length,
@@ -81,7 +71,7 @@ export default function EthnicityPage() {
         const parsedQuestions = JSON.parse(questionsParam);
         setQuestions(parsedQuestions);
         console.log('📋 Received questions from URL:', parsedQuestions);
-        console.log('🔍 Ethnicity questions from URL:', parsedQuestions.filter((q: typeof questions[0]) => q.group_name === 'Ethnicity'));
+        console.log('🔍 Diet questions from URL:', parsedQuestions.filter((q: typeof questions[0]) => q.group_name === 'Diet'));
       } catch (error) {
         console.error('❌ Error parsing questions from URL:', error);
       }
@@ -96,19 +86,19 @@ export default function EthnicityPage() {
     }
   }, [searchParams]);
 
-  // Fetch ethnicity questions from backend when userId is available (only once)
+  // Fetch diet questions from backend when userId is available (only once)
   useEffect(() => {
-    const fetchEthnicityQuestions = async () => {
+    const fetchDietQuestions = async () => {
       // Only fetch if we have a userId, questions array is empty, and we don't have questions from URL params
       if (userId && questions.length === 0 && !searchParams.get('questions')) {
-        console.log('🚀 Starting to fetch ethnicity questions from backend...');
+        console.log('🚀 Starting to fetch diet questions from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=5`;
           console.log('🌐 Fetching from URL:', apiUrl);
           
           const response = await fetch(apiUrl);
-          console.log('�� Response status:', response.status);
+          console.log('📡 Response status:', response.status);
           
           if (response.ok) {
             const data = await response.json();
@@ -122,8 +112,8 @@ export default function EthnicityPage() {
             });
             
             setQuestions(sortedQuestions);
-            console.log('📋 Set ethnicity questions to state (sorted by group_number):', sortedQuestions);
-            console.log('🔍 Backend Ethnicity Question OTA settings:', sortedQuestions.map((q: typeof questions[0]) => ({
+            console.log('📋 Set diet questions to state (sorted by group_number):', sortedQuestions);
+            console.log('🔍 Backend Diet Question OTA settings:', sortedQuestions.map((q: typeof questions[0]) => ({
               number: q.question_number,
               group_number: q.group_number,
               group: q.group_name,
@@ -131,55 +121,55 @@ export default function EthnicityPage() {
               ota_looking: q.open_to_all_looking_for
             })));
           } else {
-            console.error('❌ Failed to fetch ethnicity questions from backend. Status:', response.status);
+            console.error('❌ Failed to fetch diet questions from backend. Status:', response.status);
           }
         } catch (error: unknown) {
-          console.error('❌ Error fetching ethnicity questions from backend:', error);
+          console.error('❌ Error fetching diet questions from backend:', error);
         } finally {
           setLoadingQuestions(false);
         }
       }
     };
 
-    fetchEthnicityQuestions();
+    fetchDietQuestions();
   }, [userId, questions.length, searchParams]);
 
-  const fetchEducationQuestions = async () => {
-    // Fetch education questions in the background
-    if (userId && educationQuestions.length === 0) {
+  const fetchNextQuestions = async () => {
+    // Fetch next questions in the background
+    if (userId && nextQuestions.length === 0) {
       try {
-        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=4`;
+        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=6`;
         const response = await fetch(apiUrl);
         
         if (response.ok) {
           const data = await response.json();
           
           // Sort questions by group_number
-          const sortedEducationQuestions = (data.results || []).sort((a: typeof educationQuestions[0], b: typeof educationQuestions[0]) => {
+          const sortedNextQuestions = (data.results || []).sort((a: typeof nextQuestions[0], b: typeof nextQuestions[0]) => {
             const groupA = a.group_number || 0;
             const groupB = b.group_number || 0;
             return groupA - groupB;
           });
           
-          setEducationQuestions(sortedEducationQuestions);
+          setNextQuestions(sortedNextQuestions);
         }
       } catch (error: unknown) {
-        // Silently fail - education page will fetch normally if needed
+        // Silently fail - next page will fetch normally if needed
       }
     }
   };
-
-  // Fetch education questions in background when userId is available
-  useEffect(() => {
-    if (userId) {
-      fetchEducationQuestions();
-    }
-  }, [userId]);
 
   // Check answered questions when userId is available
   useEffect(() => {
     if (userId) {
       checkAnsweredQuestions();
+    }
+  }, [userId]);
+
+  // Fetch next questions in background when userId is available
+  useEffect(() => {
+    if (userId) {
+      fetchNextQuestions();
     }
   }, [userId]);
 
@@ -196,31 +186,31 @@ export default function EthnicityPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userId]);
 
-  const handleEthnicitySelect = (ethnicity: string) => {
-    setSelectedEthnicity(ethnicity);
+  const handleDietSelect = (diet: string) => {
+    setSelectedDiet(diet);
     
-    // Find the selected ethnicity question to get the correct question number
-    const selectedEthnicityQuestion = questions.find(question => 
-      question.question_name === ethnicity
+    // Find the selected diet question to get the correct question number
+    const selectedDietQuestion = questions.find(question => 
+      question.question_name === diet
     );
     
-    if (!selectedEthnicityQuestion) {
-      console.error('❌ No ethnicity question found for:', ethnicity);
+    if (!selectedDietQuestion) {
+      console.error('❌ No diet question found for:', diet);
       return;
     }
     
-    const questionNumber = selectedEthnicityQuestion.question_number;
+    const questionNumber = selectedDietQuestion.question_number;
     
     // Pass the full question data to avoid re-fetching
     const params = new URLSearchParams({ 
       user_id: userId,
-      ethnicity: ethnicity,
+      diet: diet,
       question_number: questionNumber.toString(),
-      question_data: JSON.stringify(selectedEthnicityQuestion)
+      question_data: JSON.stringify(selectedDietQuestion)
     });
     
-    // Navigate to the specific ethnicity question page
-    router.push(`/auth/question/ethnicity?${params.toString()}`);
+    // Navigate to the specific diet question page
+    router.push(`/auth/question/diet?${params.toString()}`);
   };
 
   const handleNext = async () => {
@@ -229,46 +219,49 @@ export default function EthnicityPage() {
       return;
     }
 
-    // Allow navigation even if questions aren't loaded - they'll be fetched on the education page
+    // Allow navigation even if questions aren't loaded - they'll be fetched on the next page
     console.log('📋 Questions loaded:', questions.length);
-    console.log('📋 Ethnicity questions found:', questions.filter(q => q.group_name === 'Ethnicity').length);
+    console.log('📋 Diet questions found:', questions.filter(q => q.group_name === 'Diet').length);
 
     setLoading(true);
     setError('');
 
     try {
-      // Check if user has answered any ethnicity questions using the answeredQuestions state
+      // Check if user has answered any diet questions using the answeredQuestions state
       // which is already populated by checkAnsweredQuestions function
       console.log('🔍 Checking answered questions in handleNext:');
       console.log('📋 Questions loaded:', questions.length);
       console.log('📋 Answered questions set size:', answeredQuestions.size);
       console.log('📋 Answered questions:', Array.from(answeredQuestions));
       
-      const answeredEthnicityQuestions = questions.filter(q => 
-        q.group_name === 'Ethnicity' && answeredQuestions.has(q.id)
+      const answeredDietQuestions = questions.filter(q => 
+        q.group_name === 'Diet' && answeredQuestions.has(q.id)
       );
       
-      console.log('📋 Ethnicity questions:', questions.filter(q => q.group_name === 'Ethnicity').map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
-      console.log('📋 Answered ethnicity questions:', answeredEthnicityQuestions.map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
+      console.log('📋 Diet questions:', questions.filter(q => q.group_name === 'Diet').map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
+      console.log('📋 Answered diet questions:', answeredDietQuestions.map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
       
       // Removed strict validation - allow user to proceed regardless of answers
       console.log('✅ Proceeding to next page without strict validation');
 
-      // Navigate to next onboarding step (education page)
+      // Navigate to next onboarding step (single next question page)
       const params = new URLSearchParams({ 
         user_id: userId
       });
       
-      // If we have education questions loaded, pass them to avoid re-fetching
-      if (educationQuestions.length > 0) {
-        params.set('questions', JSON.stringify(educationQuestions));
-        console.log('📋 Passing pre-loaded education questions to education page');
+      // If we have next questions loaded, pass the first one to avoid re-fetching
+      if (nextQuestions.length > 0) {
+        const firstQuestion = nextQuestions[0];
+        params.set('next_question', firstQuestion.question_name);
+        params.set('question_number', firstQuestion.question_number.toString());
+        params.set('question_data', JSON.stringify(firstQuestion));
+        console.log('📋 Passing pre-loaded next question to single question page');
       }
       
-      router.push(`/auth/education?${params.toString()}`);
+      router.push(`/auth/question/next-question?${params.toString()}`);
     } catch (error) {
-      console.error('Error checking ethnicity answers:', error);
-      setError('Failed to check ethnicity answers');
+      console.error('Error checking diet answers:', error);
+      setError('Failed to check diet answers');
     } finally {
       setLoading(false);
     }
@@ -303,7 +296,7 @@ export default function EthnicityPage() {
     const params = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/gender?${params.toString()}`);
+    router.push(`/auth/education?${params.toString()}`);
   };
 
   return (
@@ -332,13 +325,11 @@ export default function EthnicityPage() {
         <div className="w-full max-w-2xl">
           {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">3. Ethnicity</h1>
+            <h1 className="text-3xl font-bold text-black mb-2">5. Diet</h1>
             <p className="text-3xl font-bold text-black mb-12">
-              What ethnicity do you identify with?
+              Which diet best describes you?
             </p>
           </div>
-
-
 
           {/* Error Message */}
           {error && (
@@ -347,24 +338,24 @@ export default function EthnicityPage() {
             </div>
           )}
 
-
-
-          {/* Ethnicity Options List */}
+          {/* Diet Options List */}
           <div className="space-y-3">
-            {ethnicityOptions.map((option, index) => {
-              // Find the corresponding question by matching the ethnicity name exactly
-              const question = questions.find(q => 
-                q.group_name === 'Ethnicity' && 
-                q.question_name === option.value
-              );
-              const isAnswered = question && answeredQuestions.has(question.id);
+            {!loadingQuestions && questions.filter(q => q.group_name === 'Diet').length === 0 && (
+              <div className="text-center text-gray-500 p-4">
+                <p>No diet questions found.</p>
+                <p className="text-sm mt-2">Please check if diet questions exist in the database.</p>
+              </div>
+            )}
+            
+            {questions.filter(q => q.group_name === 'Diet').reverse().map((question) => {
+              const isAnswered = answeredQuestions.has(question.id);
               
               return (
                 <div
-                  key={option.value}
-                  onClick={() => handleEthnicitySelect(option.value)}
+                  key={question.id}
+                  onClick={() => handleDietSelect(question.question_name)}
                   className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                    selectedEthnicity === option.value
+                    selectedDiet === question.question_name
                       ? 'border-black bg-gray-50'
                       : isAnswered
                       ? 'border-green-500 bg-green-50'
@@ -373,13 +364,13 @@ export default function EthnicityPage() {
                 >
                   <div className="flex items-center space-x-3">
                     <Image
-                      src={option.icon}
-                      alt="Ethnicity icon"
+                      src="/assets/lf2.png"
+                      alt="Diet icon"
                       width={24}
                       height={24}
                       className="w-6 h-6"
                     />
-                    <span className="text-black font-medium">{option.label}</span>
+                    <span className="text-black font-medium">{question.question_name}</span>
                     {isAnswered && (
                       <span className="text-green-600 text-sm">✓ Answered</span>
                     )}
@@ -398,7 +389,7 @@ export default function EthnicityPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '75%' }}></div>
+          <div className="h-full bg-black" style={{ width: '100%' }}></div>
         </div>
         
         {/* Navigation Buttons */}

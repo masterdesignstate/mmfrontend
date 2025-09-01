@@ -15,15 +15,16 @@ const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
 export default function CreateQuestionPage() {
   const router = useRouter();
   const [questionNumber, setQuestionNumber] = useState(65); // Start with next available number
+  const [groupNumber, setGroupNumber] = useState<number | null>(null);
   const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
   const [question, setQuestion] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([
-    { id: '1', value: '', answer: '' },
-    { id: '2', value: '', answer: '' },
-    { id: '3', value: '', answer: '' },
-    { id: '4', value: '', answer: '' },
-    { id: '5', value: '', answer: '' }
+    { id: '1', value: '1', answer: '' },
+    { id: '2', value: '2', answer: '' },
+    { id: '3', value: '3', answer: '' },
+    { id: '4', value: '4', answer: '' },
+    { id: '5', value: '5', answer: '' }
   ]);
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [isMandatory, setIsMandatory] = useState(false);
@@ -31,12 +32,21 @@ export default function CreateQuestionPage() {
   const [skipLookingFor, setSkipLookingFor] = useState(false);
   const [openToAllMe, setOpenToAllMe] = useState(false);
   const [openToAllLooking, setOpenToAllLooking] = useState(false);
+  const [isGroup, setIsGroup] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string>('');
   const tagsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to get answer text for a specific value
+  const getAnswerText = (value: string): string => {
+    const answer = answers.find(a => a.value === value);
+    const result = answer?.answer.trim() || '';
+    console.log(`🔍 getAnswerText(${value}): found=${!!answer}, result="${result}"`);
+    return result;
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -63,10 +73,10 @@ export default function CreateQuestionPage() {
     }
   };
 
-  const handleAnswerChange = (id: string, field: 'value' | 'answer', value: string) => {
+  const handleAnswerChange = (id: string, value: string) => {
     setAnswers(prev => 
       prev.map(answer => 
-        answer.id === id ? { ...answer, [field]: value } : answer
+        answer.id === id ? { ...answer, answer: value } : answer
       )
     );
   };
@@ -86,9 +96,9 @@ export default function CreateQuestionPage() {
       newErrors.question = 'Question text must be less than 1000 characters';
     }
 
-    const validAnswers = answers.filter(answer => answer.value.trim() && answer.answer.trim());
+    const validAnswers = answers.filter(answer => answer.value.trim());
     if (validAnswers.length < 2) {
-      newErrors.answers = 'At least 2 answers are required';
+      newErrors.answers = 'At least 2 answer values are required';
     }
 
     if (!selectedTag) {
@@ -120,15 +130,18 @@ export default function CreateQuestionPage() {
         skip_looking_for: skipLookingFor,
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
-        answers: answers
-          .filter(answer => answer.value.trim() && answer.answer.trim())
-          .map(answer => ({
-            value: answer.value.trim(),
-            answer: answer.answer.trim()
-          }))
+        is_group: isGroup,
+        answers: [
+          { value: '1', answer: getAnswerText('1') },
+          { value: '2', answer: getAnswerText('2') },
+          { value: '3', answer: getAnswerText('3') },
+          { value: '4', answer: getAnswerText('4') },
+          { value: '5', answer: getAnswerText('5') }
+        ]
       };
 
-      console.log('Creating question with data:', questionData);
+      console.log('📤 Creating question with data:', questionData);
+      console.log('🔢 Group number being sent:', groupNumber);
       
       const response = await apiService.createQuestion(questionData);
       
@@ -159,6 +172,7 @@ export default function CreateQuestionPage() {
         text: question.trim(),
         question_name: questionName.trim(),
         question_number: questionNumber,
+        group_number: groupNumber,
         group_name: groupName.trim(),
         tags: [selectedTag],
         question_type: isMandatory ? 'mandatory' : 'unanswered',
@@ -168,15 +182,18 @@ export default function CreateQuestionPage() {
         skip_looking_for: skipLookingFor,
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
-        answers: answers
-          .filter(answer => answer.value.trim() && answer.answer.trim())
-          .map(answer => ({
-            value: answer.value.trim(),
-            answer: answer.answer.trim()
-          }))
+        is_group: isGroup,
+        answers: [
+          { value: '1', answer: getAnswerText('1') },
+          { value: '2', answer: getAnswerText('2') },
+          { value: '3', answer: getAnswerText('3') },
+          { value: '4', answer: getAnswerText('4') },
+          { value: '5', answer: getAnswerText('5') }
+        ]
       };
 
-      console.log('Creating question with data:', questionData);
+      console.log('📤 Creating question with data:', questionData);
+      console.log('🔢 Group number being sent:', groupNumber);
       
       const response = await apiService.createQuestion(questionData);
       
@@ -185,15 +202,16 @@ export default function CreateQuestionPage() {
         
         // Reset form for another question
         setQuestionNumber(prev => prev + 1);
+        setGroupNumber(null);
         setQuestionName('');
         setGroupName('');
         setQuestion('');
         setAnswers([
-          { id: '1', value: '', answer: '' },
-          { id: '2', value: '', answer: '' },
-          { id: '3', value: '', answer: '' },
-          { id: '4', value: '', answer: '' },
-          { id: '5', value: '', answer: '' }
+          { id: '1', value: '1', answer: '' },
+          { id: '2', value: '2', answer: '' },
+          { id: '3', value: '3', answer: '' },
+          { id: '4', value: '4', answer: '' },
+          { id: '5', value: '5', answer: '' }
         ]);
         setSelectedTag('');
         setIsMandatory(false);
@@ -201,6 +219,7 @@ export default function CreateQuestionPage() {
         setSkipLookingFor(false);
         setOpenToAllMe(false);
         setOpenToAllLooking(false);
+        setIsGroup(false);
         setIsApproved(false);
         setErrors({});
       } else {
@@ -253,6 +272,20 @@ export default function CreateQuestionPage() {
               onChange={(e) => setQuestionNumber(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
               placeholder="Enter question number"
+            />
+          </div>
+
+          {/* Group Number Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Group Number
+            </label>
+            <input
+              type="text"
+              value={groupNumber || ''}
+              onChange={(e) => setGroupNumber(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+              placeholder="Enter group number"
             />
           </div>
 
@@ -416,6 +449,24 @@ export default function CreateQuestionPage() {
                 OTA Looking
               </label>
             </div>
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsGroup(!isGroup)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
+                  isGroup ? 'bg-[#672DB7]' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                    isGroup ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setIsGroup(!isGroup)}>
+                isGroup
+              </label>
+            </div>
           </div>
 
           {/* Answers Section */}
@@ -429,9 +480,9 @@ export default function CreateQuestionPage() {
                     <input
                       type="text"
                       value={answer.value}
-                      onChange={(e) => handleAnswerChange(answer.id, 'value', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
-                      placeholder="Enter Value"
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                      placeholder="Value"
                     />
                   </div>
                   <div className="flex-1">
@@ -439,7 +490,7 @@ export default function CreateQuestionPage() {
                     <input
                       type="text"
                       value={answer.answer}
-                      onChange={(e) => handleAnswerChange(answer.id, 'answer', e.target.value)}
+                      onChange={(e) => handleAnswerChange(answer.id, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
                       placeholder="Enter Answer"
                     />

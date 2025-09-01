@@ -20,6 +20,7 @@ export default function EditQuestionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [questionNumber, setQuestionNumber] = useState(0);
+  const [groupNumber, setGroupNumber] = useState<number | null>(null);
   const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
   const [question, setQuestion] = useState('');
@@ -36,12 +37,21 @@ export default function EditQuestionPage() {
   const [skipLookingFor, setSkipLookingFor] = useState(false);
   const [openToAllMe, setOpenToAllMe] = useState(false);
   const [openToAllLooking, setOpenToAllLooking] = useState(false);
+  const [isGroup, setIsGroup] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string>('');
   const tagsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to get answer text for a specific value
+  const getAnswerText = (value: string): string => {
+    const answer = answers.find(a => a.value === value);
+    const result = answer?.answer.trim() || '';
+    console.log(`🔍 getAnswerText(${value}): found=${!!answer}, result="${result}"`);
+    return result;
+  };
 
   // Fetch question data when component mounts
   useEffect(() => {
@@ -51,7 +61,10 @@ export default function EditQuestionPage() {
         const questionData = await apiService.getQuestion(questionId);
         
         // Update state with fetched data
+        console.log('📋 Fetched question data:', questionData);
+        console.log('🔢 Group number from API:', questionData.group_number);
         setQuestionNumber(questionData.question_number || 0);
+        setGroupNumber(questionData.group_number || null);
         setQuestionName(questionData.question_name || '');
         setGroupName(questionData.group_name || '');
         setQuestion(questionData.text);
@@ -62,41 +75,52 @@ export default function EditQuestionPage() {
         setSkipLookingFor(questionData.skip_looking_for);
         setOpenToAllMe(questionData.open_to_all_me);
         setOpenToAllLooking(questionData.open_to_all_looking_for);
+        setIsGroup(questionData.is_group);
         
         // Update answers if they exist
         if (questionData.answers && questionData.answers.length > 0) {
+          console.log('🔍 BACKEND SENT ANSWERS:', questionData.answers);
+          console.log('🔍 ANSWERS COUNT:', questionData.answers.length);
+          
           const formattedAnswers = questionData.answers.map((ans, index) => ({
             id: (index + 1).toString(),
             value: ans.value,
             answer: ans.answer_text
           }));
           
-          // Ensure we always have 5 rows
+          console.log('🔍 FORMATTED ANSWERS:', formattedAnswers);
+          
+          // Ensure we always have 5 rows with proper values
           const defaultAnswers = [
-            { id: '1', value: '', answer: '' },
-            { id: '2', value: '', answer: '' },
-            { id: '3', value: '', answer: '' },
-            { id: '4', value: '', answer: '' },
-            { id: '5', value: '', answer: '' }
+            { id: '1', value: '1', answer: '' },
+            { id: '2', value: '2', answer: '' },
+            { id: '3', value: '3', answer: '' },
+            { id: '4', value: '4', answer: '' },
+            { id: '5', value: '5', answer: '' }
           ];
+          
+          console.log('🔍 DEFAULT ANSWERS BEFORE MERGE:', defaultAnswers);
           
           // Merge existing answers with default structure
           formattedAnswers.forEach(ans => {
             const index = parseInt(ans.value) - 1;
+            console.log(`🔍 MERGING: value=${ans.value}, index=${index}, answer=${ans.answer}`);
             if (index >= 0 && index < 5) {
               defaultAnswers[index] = ans;
+              console.log(`🔍 UPDATED defaultAnswers[${index}]:`, defaultAnswers[index]);
             }
           });
           
+          console.log('🔍 FINAL ANSWERS AFTER MERGE:', defaultAnswers);
           setAnswers(defaultAnswers);
         } else {
-          // If no answers exist, set default 5 rows
+          // If no answers exist, set default 5 rows with proper values
           setAnswers([
-            { id: '1', value: '', answer: '' },
-            { id: '2', value: '', answer: '' },
-            { id: '3', value: '', answer: '' },
-            { id: '4', value: '', answer: '' },
-            { id: '5', value: '', answer: '' }
+            { id: '1', value: '1', answer: '' },
+            { id: '2', value: '2', answer: '' },
+            { id: '3', value: '3', answer: '' },
+            { id: '4', value: '4', answer: '' },
+            { id: '5', value: '5', answer: '' }
           ]);
         }
         
@@ -138,17 +162,17 @@ export default function EditQuestionPage() {
     }
   };
 
-  const handleAnswerChange = (id: string, field: 'value' | 'answer', value: string) => {
+  const handleAnswerChange = (id: string, value: string) => {
     setAnswers(prev => 
       prev.map(answer => 
-        answer.id === id ? { ...answer, [field]: value } : answer
+        answer.id === id ? { ...answer, answer: value } : answer
       )
     );
   };
 
   const addAnswer = () => {
     const newId = (answers.length + 1).toString();
-    setAnswers(prev => [...prev, { id: newId, value: '', answer: '' }]);
+    setAnswers(prev => [...prev, { id: newId, value: newId, answer: '' }]);
   };
 
   const removeAnswer = (id: string) => {
@@ -172,9 +196,9 @@ export default function EditQuestionPage() {
       newErrors.question = 'Question text must be less than 1000 characters';
     }
 
-    const validAnswers = answers.filter(answer => answer.value.trim() && answer.answer.trim());
+    const validAnswers = answers.filter(answer => answer.value.trim());
     if (validAnswers.length < 2) {
-      newErrors.answers = 'At least 2 answers are required';
+      newErrors.answers = 'At least 2 answer values are required';
     }
 
     if (!selectedTag) {
@@ -192,11 +216,20 @@ export default function EditQuestionPage() {
     setGeneralError('');
     
     try {
+      console.log('🔍 CURRENT ANSWERS STATE:', answers);
+      console.log('🔍 GET ANSWER TEXT RESULTS:');
+      console.log('  - Value 1:', getAnswerText('1'));
+      console.log('  - Value 2:', getAnswerText('2'));
+      console.log('  - Value 3:', getAnswerText('3'));
+      console.log('  - Value 4:', getAnswerText('4'));
+      console.log('  - Value 5:', getAnswerText('5'));
+      
       // Prepare the question data for update
       const questionData = {
         text: question.trim(),
         question_name: questionName.trim(),
         question_number: questionNumber,
+        group_number: groupNumber,
         group_name: groupName.trim(),
         tags: [selectedTag],
         question_type: isMandatory ? 'mandatory' : 'unanswered',
@@ -206,15 +239,21 @@ export default function EditQuestionPage() {
         skip_looking_for: skipLookingFor,
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
-        answers: answers
-          .filter(answer => answer.value.trim() && answer.answer.trim())
-          .map(answer => ({
-            value: answer.value.trim(),
-            answer: answer.answer.trim()
-          }))
+        is_group: isGroup,
+        answers: [
+          { value: '1', answer: getAnswerText('1') },
+          { value: '2', answer: getAnswerText('2') },
+          { value: '3', answer: getAnswerText('3') },
+          { value: '4', answer: getAnswerText('4') },
+          { value: '5', answer: getAnswerText('5') }
+        ]
       };
+      
+      console.log('🔍 SENDING TO BACKEND:', questionData);
+      console.log('🔍 ANSWERS BEING SENT:', questionData.answers);
 
-      console.log('Updating question with data:', questionData);
+      console.log('📤 Updating question with data:', questionData);
+      console.log('🔢 Group number being sent:', groupNumber);
       
       const response = await apiService.updateQuestion(questionId, questionData);
       
@@ -280,6 +319,20 @@ export default function EditQuestionPage() {
               onChange={(e) => setQuestionNumber(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
               placeholder="Enter question number"
+            />
+          </div>
+
+          {/* Group Number Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Group Number
+            </label>
+            <input
+              type="text"
+              value={groupNumber || ''}
+              onChange={(e) => setGroupNumber(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+              placeholder="Enter group number"
             />
           </div>
 
@@ -443,6 +496,24 @@ export default function EditQuestionPage() {
                 OTA Looking
               </label>
             </div>
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsGroup(!isGroup)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
+                  isGroup ? 'bg-[#672DB7]' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                    isGroup ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setIsGroup(!isGroup)}>
+                isGroup
+              </label>
+            </div>
           </div>
 
           {/* Answers Section */}
@@ -456,9 +527,9 @@ export default function EditQuestionPage() {
                     <input
                       type="text"
                       value={answer.value}
-                      onChange={(e) => handleAnswerChange(answer.id, 'value', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
-                      placeholder="Enter Value"
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                      placeholder="Value"
                     />
                   </div>
                   <div className="flex-1">
@@ -466,7 +537,7 @@ export default function EditQuestionPage() {
                     <input
                       type="text"
                       value={answer.answer}
-                      onChange={(e) => handleAnswerChange(answer.id, 'answer', e.target.value)}
+                      onChange={(e) => handleAnswerChange(answer.id, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
                       placeholder="Enter Answer"
                     />

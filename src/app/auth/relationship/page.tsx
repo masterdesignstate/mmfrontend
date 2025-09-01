@@ -13,6 +13,7 @@ export default function RelationshipPage() {
     id: string;
     question_name: string;
     question_number: number;
+    group_number?: number;
     group_name: string;
     text: string;
     answers: Array<{ value: string; answer_text: string }>;
@@ -20,19 +21,19 @@ export default function RelationshipPage() {
     open_to_all_looking_for: boolean;
   }>>([]);
 
-  // State for questions 3-6 (Me answers only)
+  // State for relationship questions (group numbers 1-4)
   const [myAnswers, setMyAnswers] = useState({
+    q1: 3,
+    q2: 3,
     q3: 3,
-    q4: 3,
-    q5: 3,
-    q6: 3
+    q4: 3
   });
 
   const [openToAll, setOpenToAll] = useState({
+    q1: false,
+    q2: false,
     q3: false,
-    q4: false,
-    q5: false,
-    q6: false
+    q4: false
   });
 
   const [importance, setImportance] = useState({
@@ -72,8 +73,8 @@ export default function RelationshipPage() {
       try {
         const parsedQuestions = JSON.parse(questionsParam);
         setQuestions(parsedQuestions);
-        console.log('📋 Received questions from URL:', parsedQuestions);
-        console.log('🔍 Relationship questions:', parsedQuestions.filter((q: typeof questions[0]) => [3, 4, 5, 6].includes(q.question_number)));
+        console.log('�� Received questions from URL:', parsedQuestions);
+        console.log('🔍 Relationship questions:', parsedQuestions.filter((q: typeof questions[0]) => q.question_number === 1));
       } catch (error) {
         console.error('❌ Error parsing questions from URL:', error);
       }
@@ -90,17 +91,25 @@ export default function RelationshipPage() {
         console.log('🚀 Starting to fetch questions from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3&question_number=4&question_number=5&question_number=6`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1`;
           console.log('🌐 Fetching from URL:', apiUrl);
           
           const response = await fetch(apiUrl);
-          console.log('📡 Response status:', response.status);
+          console.log('�� Response status:', response.status);
           
           if (response.ok) {
             const data = await response.json();
             console.log('📋 Raw API response:', data);
-            setQuestions(data.results || []);
-            console.log('📋 Set questions to state:', data.results);
+            
+            // Sort questions by group_number
+            const sortedQuestions = (data.results || []).sort((a: typeof questions[0], b: typeof questions[0]) => {
+              const groupA = a.group_number || 0;
+              const groupB = b.group_number || 0;
+              return groupA - groupB;
+            });
+            
+            setQuestions(sortedQuestions);
+            console.log('📋 Set questions to state (sorted by group_number):', sortedQuestions);
           } else {
             console.error('❌ Failed to fetch questions from backend. Status:', response.status);
           }
@@ -123,7 +132,7 @@ export default function RelationshipPage() {
     }
   };
 
-  const handleOpenToAllToggle = (questionKey: 'q3' | 'q4' | 'q5' | 'q6') => {
+  const handleOpenToAllToggle = (questionKey: 'q1' | 'q2' | 'q3' | 'q4') => {
     setOpenToAll(prev => ({ ...prev, [questionKey]: !prev[questionKey] }));
   };
 
@@ -142,19 +151,19 @@ export default function RelationshipPage() {
     setError('');
 
     try {
-      // Find questions 3, 4, 5, 6
-      const relationshipQuestions = questions.filter(q => [3, 4, 5, 6].includes(q.question_number));
+      // Find relationship questions (question_number = 1)
+      const relationshipQuestions = questions.filter(q => q.question_number === 1);
 
       if (relationshipQuestions.length !== 4) {
         setError('Required relationship questions not found');
         return;
       }
 
-      // Prepare user answers for questions 3-6
+      // Prepare user answers for relationship questions
       const userAnswers = [];
 
       for (const question of relationshipQuestions) {
-        const questionKey = `q${question.question_number}` as keyof typeof myAnswers;
+        const questionKey = `q${question.group_number}` as keyof typeof myAnswers;
         const openToAllKey = questionKey as keyof typeof openToAll;
         
         userAnswers.push({
@@ -182,42 +191,23 @@ export default function RelationshipPage() {
         });
 
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to save answer');
+          throw new Error(`Failed to save answer for question ${userAnswer.question_id}`);
         }
       }
 
-      // Fetch gender questions and navigate to gender page
-      try {
-        const genderApiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2&question_number=3&question_number=4&question_number=5&question_number=6`;
-        console.log('🌐 Fetching gender questions from URL:', genderApiUrl);
-        
-        const genderResponse = await fetch(genderApiUrl);
-        console.log('📡 Gender questions response status:', genderResponse.status);
-        
-        if (genderResponse.ok) {
-          const genderData = await genderResponse.json();
-          console.log('📋 Fetched gender questions:', genderData.results);
-          
-          // Navigate to gender page with questions data
-          const params = new URLSearchParams({ 
-            user_id: userId,
-            questions: JSON.stringify(genderData.results || [])
-          });
-          router.push(`/auth/gender?${params.toString()}`);
-        } else {
-          console.error('❌ Failed to fetch gender questions. Status:', genderResponse.status);
-          setError('Failed to load gender questions');
-          return;
-        }
-      } catch (genderError) {
-        console.error('❌ Error fetching gender questions:', genderError);
-        setError('Failed to load gender questions');
-        return;
-      }
+      console.log('✅ All relationship answers saved successfully');
+
+      // Navigate to next onboarding step (gender page)
+      const params = new URLSearchParams({ 
+        user_id: userId,
+        questions: JSON.stringify(questions)
+      });
+      
+      router.push(`/auth/gender?${params.toString()}`);
+
     } catch (error: unknown) {
-      console.error('Error saving relationship preferences:', error);
-      setError((error as Error).message || 'Failed to save relationship preferences');
+      console.error('❌ Error saving relationship answers:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save answers');
     } finally {
       setLoading(false);
     }
@@ -415,9 +405,9 @@ export default function RelationshipPage() {
             {/* Grid container for perfect alignment */}
             <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               
-              {/* Question Rows for Q3-Q6 */}
-              {questions.filter(q => [3, 4, 5, 6].includes(q.question_number)).map((question) => {
-                const questionKey = `q${question.question_number}` as keyof typeof myAnswers;
+              {/* Question Rows for Relationship Questions (question_number = 1) */}
+              {questions.filter(q => q.question_number === 1).map((question) => {
+                const questionKey = `q${question.group_number}` as keyof typeof myAnswers;
                 const openToAllKey = questionKey as keyof typeof openToAll;
                 
                 return (

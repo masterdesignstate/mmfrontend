@@ -47,7 +47,7 @@ export default function IntroCardPage() {
     }
   }, [searchParams]);
 
-  // Fetch relationship questions (3-6) from backend
+  // Fetch relationship questions (question_number = 1) from backend
   // Fetch relationship questions from backend when userId is available (only once)
   useEffect(() => {
     const fetchRelationshipQuestions = async () => {
@@ -56,7 +56,7 @@ export default function IntroCardPage() {
         console.log('🚀 Starting to fetch relationship questions from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3&question_number=4&question_number=5&question_number=6`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1`;
           console.log('🌐 Fetching from URL:', apiUrl);
           
           const response = await fetch(apiUrl);
@@ -65,10 +65,19 @@ export default function IntroCardPage() {
           if (response.ok) {
             const data = await response.json();
             console.log('📋 Raw API response:', data);
-            setQuestions(data.results || []);
-            console.log('📋 Set relationship questions to state:', data.results);
-            console.log('🔍 Backend Relationship Question OTA settings:', (data.results || []).map((q: typeof questions[0]) => ({
+            
+            // Sort questions by group_number
+            const sortedQuestions = (data.results || []).sort((a: any, b: any) => {
+              const groupA = a.group_number || 0;
+              const groupB = b.group_number || 0;
+              return groupA - groupB;
+            });
+            
+            setQuestions(sortedQuestions);
+            console.log('📋 Set relationship questions to state (sorted by group_number):', sortedQuestions);
+            console.log('🔍 Backend Relationship Question OTA settings:', sortedQuestions.map((q: typeof questions[0]) => ({
               number: q.question_number,
+              group_number: q.group_number,
               group: q.group_name,
               ota_me: q.open_to_all_me,
               ota_looking: q.open_to_all_looking_for

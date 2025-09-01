@@ -36,17 +36,38 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [error, setError] = useState<string>('');
+  
+  // For habits page (question 7) - 3 questions + importance
+  const [habitsQuestions, setHabitsQuestions] = useState<Array<{
+    id: string;
+    question_name: string;
+    question_number: number;
+    group_number?: number;
+    group_name: string;
+    text: string;
+    answers: Array<{ value: string; answer_text: string }>;
+    open_to_all_me: boolean;
+    open_to_all_looking_for: boolean;
+  }>>([]);
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
     const ethnicityParam = searchParams.get('ethnicity');
+    const educationParam = searchParams.get('education');
+    const dietParam = searchParams.get('diet');
+    const nextQuestionParam = searchParams.get('next_question');
     const questionNumberParam = searchParams.get('question_number');
+    const questionDataParam = searchParams.get('question_data');
     const questionId = params.id as string;
     
     console.log('🔍 Question Page Load - URL Params:', {
       userIdParam,
       ethnicityParam,
+      educationParam,
+      dietParam,
+      nextQuestionParam,
       questionNumberParam,
+      questionDataParam: questionDataParam ? 'present' : 'missing',
       questionId
     });
     
@@ -67,12 +88,73 @@ export default function QuestionPage() {
     
     // Handle special case for ethnicity questions
     if (questionId === 'ethnicity' && ethnicityParam && questionNumberParam) {
-      fetchEthnicityQuestion(ethnicityParam, parseInt(questionNumberParam));
-    } else if (questionId && questionId !== 'ethnicity') {
+      // Use passed question data if available, otherwise fetch
+      if (questionDataParam) {
+        try {
+          const parsedQuestionData = JSON.parse(questionDataParam);
+          console.log('📋 Using passed ethnicity question data:', parsedQuestionData);
+          setQuestion(parsedQuestionData);
+        } catch (error) {
+          console.error('❌ Error parsing passed ethnicity question data:', error);
+          fetchEthnicityQuestion(ethnicityParam, parseInt(questionNumberParam));
+        }
+      } else {
+        fetchEthnicityQuestion(ethnicityParam, parseInt(questionNumberParam));
+      }
+    } else if (questionId === 'education' && educationParam && questionNumberParam) {
+      // Use passed question data if available, otherwise fetch
+      if (questionDataParam) {
+        try {
+          const parsedQuestionData = JSON.parse(questionDataParam);
+          console.log('📋 Using passed question data:', parsedQuestionData);
+          setQuestion(parsedQuestionData);
+        } catch (error) {
+          console.error('❌ Error parsing passed question data:', error);
+          fetchEducationQuestion(educationParam, parseInt(questionNumberParam));
+        }
+      } else {
+        fetchEducationQuestion(educationParam, parseInt(questionNumberParam));
+      }
+    } else if (questionId === 'diet' && dietParam && questionNumberParam) {
+      // Use passed question data if available, otherwise fetch
+      if (questionDataParam) {
+        try {
+          const parsedQuestionData = JSON.parse(questionDataParam);
+          console.log('📋 Using passed diet question data:', parsedQuestionData);
+          setQuestion(parsedQuestionData);
+        } catch (error) {
+          console.error('❌ Error parsing passed diet question data:', error);
+          fetchDietQuestion(dietParam, parseInt(questionNumberParam));
+        }
+      } else {
+        fetchDietQuestion(dietParam, parseInt(questionNumberParam));
+      }
+    } else if (questionId === 'next-question' && nextQuestionParam && questionNumberParam) {
+      // Use passed question data if available, otherwise fetch
+      if (questionDataParam) {
+        try {
+          const parsedQuestionData = JSON.parse(questionDataParam);
+          console.log('📋 Using passed next question data:', parsedQuestionData);
+          setQuestion(parsedQuestionData);
+        } catch (error) {
+          console.error('❌ Error parsing passed next question data:', error);
+          fetchNextQuestion(nextQuestionParam, parseInt(questionNumberParam));
+        }
+      } else {
+        fetchNextQuestion(nextQuestionParam, parseInt(questionNumberParam));
+      }
+    } else if (questionId && questionId !== 'ethnicity' && questionId !== 'education' && questionId !== 'diet' && questionId !== 'next-question') {
       // Fetch the specific question by ID
       fetchQuestion(questionId);
     }
   }, [params.id, searchParams]);
+
+  // Fetch habits questions in background when userId is available
+  useEffect(() => {
+    if (userId) {
+      fetchHabitsQuestions();
+    }
+  }, [userId]);
 
   const fetchQuestion = async (questionId: string) => {
     console.log('🚀 Fetching question:', questionId);
@@ -104,7 +186,7 @@ export default function QuestionPage() {
     console.log('🚀 Fetching ethnicity question for:', ethnicity, 'question number:', questionNumber);
     setLoadingQuestion(true);
     try {
-      // Fetch the specific ethnicity question by number
+      // Fetch all ethnicity questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
       console.log('🌐 Fetching from URL:', apiUrl);
       
@@ -115,7 +197,18 @@ export default function QuestionPage() {
         const data = await response.json();
         console.log('📋 Ethnicity question data:', data);
         if (data.results && data.results.length > 0) {
-          setQuestion(data.results[0]);
+          // Find the specific ethnicity question by matching the ethnicity name exactly
+          const specificQuestion = data.results.find((q: any) => 
+            q.question_name === ethnicity
+          );
+          
+          if (specificQuestion) {
+            setQuestion(specificQuestion);
+            console.log('✅ Found specific ethnicity question:', specificQuestion.question_name);
+          } else {
+            console.error('❌ No matching ethnicity question found for:', ethnicity);
+            setError(`No ethnicity question found for ${ethnicity}`);
+          }
         } else {
           setError(`No ethnicity question ${questionNumber} found`);
         }
@@ -128,6 +221,157 @@ export default function QuestionPage() {
       setError('Failed to load ethnicity question');
     } finally {
       setLoadingQuestion(false);
+    }
+  };
+
+  const fetchEducationQuestion = async (education: string, questionNumber: number) => {
+    console.log('🚀 Fetching education question for:', education, 'question number:', questionNumber);
+    setLoadingQuestion(true);
+    try {
+      // Fetch all education questions and find the specific one
+      const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
+      console.log('🌐 Fetching from URL:', apiUrl);
+      
+      const response = await fetch(apiUrl);
+      console.log('📡 Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 Education question data:', data);
+        if (data.results && data.results.length > 0) {
+          // Find the specific education question by matching the education name exactly
+          const specificQuestion = data.results.find((q: any) => 
+            q.question_name === education
+          );
+          
+          if (specificQuestion) {
+            setQuestion(specificQuestion);
+            console.log('✅ Found specific education question:', specificQuestion.question_name);
+          } else {
+            console.error('❌ No matching education question found for:', education);
+            setError(`No education question found for ${education}`);
+          }
+        } else {
+          setError(`No education question ${questionNumber} found`);
+        }
+      } else {
+        console.error('❌ Failed to fetch education question. Status:', response.status);
+        setError('Failed to load education question');
+      }
+    } catch (error: unknown) {
+      console.error('❌ Error fetching education question:', error);
+      setError('Failed to load education question');
+    } finally {
+      setLoadingQuestion(false);
+    }
+  };
+
+  const fetchDietQuestion = async (diet: string, questionNumber: number) => {
+    console.log('🚀 Fetching diet question for:', diet, 'question number:', questionNumber);
+    setLoadingQuestion(true);
+    try {
+      // Fetch all diet questions and find the specific one
+      const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
+      console.log('🌐 Fetching from URL:', apiUrl);
+      
+      const response = await fetch(apiUrl);
+      console.log('📡 Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 Diet question data:', data);
+        if (data.results && data.results.length > 0) {
+          // Find the specific diet question by matching the diet name exactly
+          const specificQuestion = data.results.find((q: any) => 
+            q.question_name === diet
+          );
+          
+          if (specificQuestion) {
+            setQuestion(specificQuestion);
+            console.log('✅ Found specific diet question:', specificQuestion.question_name);
+          } else {
+            console.error('❌ No matching diet question found for:', diet);
+            setError(`No diet question found for ${diet}`);
+          }
+        } else {
+          setError(`No diet question ${questionNumber} found`);
+        }
+      } else {
+        console.error('❌ Failed to fetch diet question. Status:', response.status);
+        setError('Failed to load diet question');
+      }
+    } catch (error: unknown) {
+      console.error('❌ Error fetching diet question:', error);
+      setError('Failed to load diet question');
+    } finally {
+      setLoadingQuestion(false);
+    }
+  };
+
+  const fetchNextQuestion = async (nextQuestion: string, questionNumber: number) => {
+    console.log('🚀 Fetching next question for:', nextQuestion, 'question number:', questionNumber);
+    setLoadingQuestion(true);
+    try {
+      // Fetch all next questions and find the specific one
+      const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
+      console.log('🌐 Fetching from URL:', apiUrl);
+      
+      const response = await fetch(apiUrl);
+      console.log('📡 Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 Next question data:', data);
+        if (data.results && data.results.length > 0) {
+          // Find the specific next question by matching the question name exactly
+          const specificQuestion = data.results.find((q: any) => 
+            q.question_name === nextQuestion
+          );
+          
+          if (specificQuestion) {
+            setQuestion(specificQuestion);
+            console.log('✅ Found specific next question:', specificQuestion.question_name);
+          } else {
+            console.error('❌ No matching next question found for:', nextQuestion);
+            setError(`No next question found for ${nextQuestion}`);
+          }
+        } else {
+          setError(`No next question ${questionNumber} found`);
+        }
+      } else {
+        console.error('❌ Failed to fetch next question. Status:', response.status);
+        setError('Failed to load next question');
+      }
+    } catch (error: unknown) {
+      console.error('❌ Error fetching next question:', error);
+      setError('Failed to load next question');
+    } finally {
+      setLoadingQuestion(false);
+    }
+  };
+
+  const fetchHabitsQuestions = async () => {
+    // Fetch habits questions in the background
+    if (userId && habitsQuestions.length === 0) {
+      try {
+        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=7`;
+        const response = await fetch(apiUrl);
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Sort questions by group_number
+          const sortedHabitsQuestions = (data.results || []).sort((a: typeof habitsQuestions[0], b: typeof habitsQuestions[0]) => {
+            const groupA = a.group_number || 0;
+            const groupB = b.group_number || 0;
+            return groupA - groupB;
+          });
+          
+          setHabitsQuestions(sortedHabitsQuestions);
+        }
+      } catch (error: unknown) {
+        // Silently fail - habits page will fetch normally if needed
+      }
     }
   };
 
@@ -184,13 +428,37 @@ export default function QuestionPage() {
         throw new Error(data.error || 'Failed to save answer');
       }
 
-      // For ethnicity questions, go back to ethnicity page; otherwise go to dashboard
+      // For ethnicity questions, go back to ethnicity page; for education questions, go back to education page; for diet questions, go back to diet page; for next questions, go back to next question page; otherwise go to dashboard
       if (params.id === 'ethnicity') {
         const params = new URLSearchParams({ 
           user_id: userId,
           refresh: 'true' // Add refresh flag
         });
         router.push(`/auth/ethnicity?${params.toString()}`);
+      } else if (params.id === 'education') {
+        const params = new URLSearchParams({ 
+          user_id: userId,
+          refresh: 'true' // Add refresh flag
+        });
+        router.push(`/auth/education?${params.toString()}`);
+      } else if (params.id === 'diet') {
+        const params = new URLSearchParams({ 
+          user_id: userId,
+          refresh: 'true' // Add refresh flag
+        });
+        router.push(`/auth/diet?${params.toString()}`);
+      } else if (params.id === 'next-question') {
+        const params = new URLSearchParams({ 
+          user_id: userId
+        });
+        
+        // If we have habits questions loaded, pass them to avoid re-fetching
+        if (habitsQuestions.length > 0) {
+          params.set('questions', JSON.stringify(habitsQuestions));
+          console.log('📋 Passing pre-loaded habits questions to habits page');
+        }
+        
+        router.push(`/auth/habits?${params.toString()}`);
       } else {
         router.push('/dashboard');
       }
@@ -218,10 +486,19 @@ export default function QuestionPage() {
   };
 
   const handleBack = () => {
-    const params = new URLSearchParams({ 
+    const urlParams = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/ethnicity?${params.toString()}`);
+    
+    if (params.id === 'next-question') {
+      router.push(`/auth/next-question?${urlParams.toString()}`);
+    } else if (params.id === 'diet') {
+      router.push(`/auth/diet?${urlParams.toString()}`);
+    } else if (params.id === 'education') {
+      router.push(`/auth/education?${urlParams.toString()}`);
+    } else {
+      router.push(`/auth/ethnicity?${urlParams.toString()}`);
+    }
   };
 
   const SliderComponent = ({ 
@@ -356,7 +633,11 @@ export default function QuestionPage() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-black mb-2">
-              {params.id === 'ethnicity' ? `${question?.question_number || 3}. Ethnicity` : `${question.question_number}. ${question.group_name}`}
+              {params.id === 'ethnicity' ? `${question?.question_number || 3}. Ethnicity` : 
+               params.id === 'education' ? `${question?.question_number || 4}. Education` :
+               params.id === 'diet' ? `${question?.question_number || 5}. Diet` :
+               params.id === 'next-question' ? `${question?.question_number || 6}. ${question?.question_name || 'Next Question'}` :
+               `${question?.question_number}. ${question?.group_name}`}
             </h1>
             <p className="text-3xl font-bold text-black mb-12">
               {question?.text || 'What ethnicity do you identify with?'}
@@ -374,12 +655,12 @@ export default function QuestionPage() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* LESS, MORE, and OTA labels below Me header */}
+            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
+                <span>NEVER</span>
+                <span>VERY OFTEN</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {question?.open_to_all_me ? 'OTA' : ''}
@@ -391,7 +672,7 @@ export default function QuestionPage() {
               
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
-                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 'ANSWER'}
+                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : (question?.question_name || 'ANSWER').toUpperCase()}
               </div>
               <div className="relative">
                 <SliderComponent
@@ -462,12 +743,12 @@ export default function QuestionPage() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
             
-            {/* LESS, MORE, and OTA labels below Looking For header */}
+            {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
+                <span>NEVER</span>
+                <span>VERY OFTEN</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {question?.open_to_all_looking_for ? 'OTA' : ''}
@@ -479,7 +760,7 @@ export default function QuestionPage() {
               
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
-                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 'ANSWER'}
+                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : (question?.question_name || 'ANSWER').toUpperCase()}
               </div>
               <div className="relative">
                 <SliderComponent

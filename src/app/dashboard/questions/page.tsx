@@ -19,6 +19,9 @@ export default function QuestionsPage() {
   const [sortField, setSortField] = useState('question_number');
   const [sortDirection, setSortDirection] = useState('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
 
   // Fetch questions from API
   useEffect(() => {
@@ -46,6 +49,34 @@ export default function QuestionsPage() {
 
   // Get unique tags from questions
   const allTags = Array.from(new Set(questions.flatMap(q => q.tags.map(tag => tag.name)))).sort();
+
+  // Show delete confirmation modal
+  const showDeleteConfirmModal = (question: Question) => {
+    setQuestionToDelete(question);
+    setShowDeleteConfirm(true);
+  };
+
+  // Delete question function
+  const handleDeleteQuestion = async () => {
+    if (!questionToDelete) return;
+
+    try {
+      setDeletingQuestionId(questionToDelete.id);
+      await apiService.deleteQuestion(questionToDelete.id);
+      
+      // Remove the deleted question from the local state
+      setQuestions(prev => prev.filter(q => q.id !== questionToDelete.id));
+      
+      console.log('Question deleted successfully');
+      setShowDeleteConfirm(false);
+      setQuestionToDelete(null);
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      alert('Failed to delete question. Please try again.');
+    } finally {
+      setDeletingQuestionId(null);
+    }
+  };
 
   // Helpers
   const formatToMDYY = (dateStr: string) => {
@@ -399,8 +430,21 @@ export default function QuestionsPage() {
                       >
                         <i className={`fas ${question.is_required_for_match ? 'fa-check' : 'fa-times'}`}></i>
                       </button>
-                      <button className="text-red-500 hover:text-red-700 transition-colors duration-200 cursor-pointer">
-                        <i className="fas fa-trash"></i>
+                      <button 
+                        onClick={() => showDeleteConfirmModal(question)}
+                        disabled={deletingQuestionId === question.id}
+                        className={`transition-colors duration-200 cursor-pointer ${
+                          deletingQuestionId === question.id 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-red-500 hover:text-red-700'
+                        }`}
+                        title="Delete question"
+                      >
+                        {deletingQuestionId === question.id ? (
+                          <i className="fas fa-spinner fa-spin"></i>
+                        ) : (
+                          <i className="fas fa-trash"></i>
+                        )}
                       </button>
                     </div>
                   </td>
@@ -481,6 +525,64 @@ export default function QuestionsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && questionToDelete && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowDeleteConfirm(false);
+            setQuestionToDelete(null);
+          }}
+        >
+                    <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <i className="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">Delete Question</h3>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete the question &ldquo;{questionToDelete.text}&rdquo;? 
+                This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setQuestionToDelete(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteQuestion}
+                disabled={deletingQuestionId === questionToDelete.id}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingQuestionId === questionToDelete.id ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

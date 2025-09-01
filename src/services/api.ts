@@ -25,6 +25,7 @@ export interface Question {
   id: string;
   question_name?: string;
   question_number?: number;
+  group_number?: number;
   group_name?: string;
   text: string;
   tags: Array<{ id: number; name: string }>;
@@ -36,6 +37,7 @@ export interface Question {
   skip_looking_for: boolean;
   open_to_all_me: boolean;
   open_to_all_looking_for: boolean;
+  is_group: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -292,6 +294,7 @@ class ApiService {
     text: string;
     question_name?: string;
     question_number?: number;
+    group_number?: number;
     group_name?: string;
     tags: string[];
     question_type?: string;
@@ -310,6 +313,7 @@ class ApiService {
     text: string;
     question_name?: string;
     question_number?: number;
+    group_number?: number;
     group_name?: string;
     tags: string[];
     question_type?: string;
@@ -322,6 +326,10 @@ class ApiService {
     answers?: Array<{ value: string; answer: string }>;
   }): Promise<Question> {
     return this.request(`/questions/${id}/`, 'PUT', questionData) as Promise<Question>;
+  }
+
+  async deleteQuestion(id: string): Promise<void> {
+    return this.request(`/questions/${id}/delete/`, 'DELETE') as Promise<void>;
   }
 
   async calculateCompatibility(user1Id: string, user2Id: string): Promise<CompatibilityResult> {
