@@ -347,6 +347,15 @@ export default function QuestionsPage() {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('group_number')}
+                >
+                  <div className="flex flex-col">
+                    <span>Group No.</span>
+                    <span className="mt-1"><SortIcon field="group_number" /></span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('text')}
                 >
                   <div className="flex flex-col">
@@ -398,6 +407,9 @@ export default function QuestionsPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {question.question_name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {question.group_number || 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                     <div className="truncate">{question.text}</div>

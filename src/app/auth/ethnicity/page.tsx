@@ -51,13 +51,10 @@ export default function EthnicityPage() {
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
-    const questionsParam = searchParams.get('questions');
     const refreshParam = searchParams.get('refresh');
     
     console.log('🔍 Ethnicity Page Load - URL Params:', {
       userIdParam,
-      questionsParam: questionsParam ? 'present' : 'missing',
-      questionsParamLength: questionsParam?.length,
       refreshParam
     });
     
@@ -76,18 +73,8 @@ export default function EthnicityPage() {
       }
     }
     
-    if (questionsParam) {
-      try {
-        const parsedQuestions = JSON.parse(questionsParam);
-        setQuestions(parsedQuestions);
-        console.log('📋 Received questions from URL:', parsedQuestions);
-        console.log('🔍 Ethnicity questions from URL:', parsedQuestions.filter((q: typeof questions[0]) => q.group_name === 'Ethnicity'));
-      } catch (error) {
-        console.error('❌ Error parsing questions from URL:', error);
-      }
-    } else {
-      console.log('❌ No questions parameter found in URL');
-    }
+    // Don't parse questions from URL - we'll fetch ethnicity questions from backend
+    console.log('📋 Will fetch ethnicity questions from backend');
 
     // If refresh flag is present, force refresh of answered questions
     if (refreshParam === 'true' && userIdParam) {
@@ -99,8 +86,8 @@ export default function EthnicityPage() {
   // Fetch ethnicity questions from backend when userId is available (only once)
   useEffect(() => {
     const fetchEthnicityQuestions = async () => {
-      // Only fetch if we have a userId, questions array is empty, and we don't have questions from URL params
-      if (userId && questions.length === 0 && !searchParams.get('questions')) {
+      // Always fetch ethnicity questions from backend - don't rely on questions from URL params
+      if (userId && questions.length === 0) {
         console.log('🚀 Starting to fetch ethnicity questions from backend...');
         setLoadingQuestions(true);
         try {

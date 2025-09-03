@@ -229,10 +229,9 @@ export default function GenderPage() {
         }
       }
 
-      // Navigate to ethnicity page with questions data
+      // Navigate to ethnicity page
       const params = new URLSearchParams({ 
-        user_id: userId,
-        questions: JSON.stringify(questions)
+        user_id: userId
       });
       router.push(`/auth/ethnicity?${params.toString()}`);
     } catch (error) {

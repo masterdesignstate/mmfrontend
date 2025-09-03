@@ -172,67 +172,15 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
                   <span><i className="fas fa-map-marker-alt mr-1"></i>{profile.live}</span>
                   <span><i className="fas fa-birthday-cake mr-1"></i>{profile.age} years old</span>
-                  <span><i className="fas fa-ruler-vertical mr-1"></i>{profile.height}cm</span>
+                  <span><i className="fas fa-envelope mr-1"></i>{profile.email}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Personal Details */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              <i className="fas fa-user-circle mr-2"></i>
-              Personal Details
-            </h3>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                 <p className="text-gray-900">{profile.email}</p>
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Education</label>
-                 <p className="text-gray-900">{profile.education}</p>
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Interests</label>
-                 <p className="text-gray-900">{profile.interests}</p>
-               </div>
-             </div>
-          </div>
 
-          {/* Relationship Preferences */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              <i className="fas fa-heart mr-2"></i>
-              Relationship Preferences
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{profile.friend}</div>
-                <div className="text-sm text-blue-800">Friend</div>
-              </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{profile.hookup}</div>
-                <div className="text-sm text-purple-800">Hookup</div>
-              </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{profile.date}</div>
-                <div className="text-sm text-green-800">Date</div>
-              </div>
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">{profile.partner}</div>
-                <div className="text-sm text-red-800">Partner</div>
-              </div>
-              <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                <div className="text-2xl font-bold text-indigo-600">{profile.male}</div>
-                <div className="text-sm text-indigo-800">Male</div>
-              </div>
-              <div className="text-center p-3 bg-pink-50 rounded-lg">
-                <div className="text-2xl font-bold text-pink-600">{profile.female}</div>
-                <div className="text-sm text-pink-800">Female</div>
-              </div>
-            </div>
-          </div>
+
+
         </div>
 
         {/* Sidebar */}
@@ -263,7 +211,7 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
                 <span className="font-semibold">{profile.photos}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Member Since</span>
+                <span className="text-gray-600">Created</span>
                 <span className="font-semibold">{profile.creationDate}</span>
               </div>
               <div className="flex justify-between">
@@ -273,19 +221,7 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-                     {/* Quick Actions */}
-           <div className="bg-white rounded-lg shadow p-6">
-             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-               <i className="fas fa-bolt mr-2"></i>
-               Quick Actions
-             </h3>
-             <div className="space-y-2">
-               <button className="w-full px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors">
-                 <i className="fas fa-ban mr-2"></i>
-                 Restrict Profile
-               </button>
-             </div>
-           </div>
+
         </div>
       </div>
     </div>
