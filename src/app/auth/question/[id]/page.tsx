@@ -659,8 +659,8 @@ export default function QuestionPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
+                <span>{params.id === 'diet' ? 'NO' : 'LESS'}</span>
+                <span>{params.id === 'diet' ? 'YES' : 'MORE'}</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {question?.open_to_all_looking_for ? 'OTA' : ''}
@@ -747,8 +747,8 @@ export default function QuestionPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
+                <span>{params.id === 'diet' ? 'NO' : 'LESS'}</span>
+                <span>{params.id === 'diet' ? 'YES' : 'MORE'}</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {question?.open_to_all_me ? 'OTA' : ''}

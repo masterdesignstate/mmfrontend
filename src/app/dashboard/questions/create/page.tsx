@@ -40,12 +40,9 @@ export default function CreateQuestionPage() {
   const [generalError, setGeneralError] = useState<string>('');
   const tagsDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Helper function to get answer text for a specific value
-  const getAnswerText = (value: string): string => {
-    const answer = answers.find(a => a.value === value);
-    const result = answer?.answer.trim() || '';
-    console.log(`🔍 getAnswerText(${value}): found=${!!answer}, result="${result}"`);
-    return result;
+  // Helper function to get all valid answers (non-empty values and answers)
+  const getValidAnswers = () => {
+    return answers.filter(answer => answer.value.trim() && answer.answer.trim());
   };
 
   // Close dropdown when clicking outside
@@ -81,6 +78,14 @@ export default function CreateQuestionPage() {
     );
   };
 
+  const handleValueChange = (id: string, value: string) => {
+    setAnswers(prev => 
+      prev.map(answer => 
+        answer.id === id ? { ...answer, value: value } : answer
+      )
+    );
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -96,9 +101,9 @@ export default function CreateQuestionPage() {
       newErrors.question = 'Question text must be less than 1000 characters';
     }
 
-    const validAnswers = answers.filter(answer => answer.value.trim());
+    const validAnswers = answers.filter(answer => answer.value.trim() && answer.answer.trim());
     if (validAnswers.length < 2) {
-      newErrors.answers = 'At least 2 answer values are required';
+      newErrors.answers = 'At least 2 complete answers (with both value and answer text) are required';
     }
 
     if (!selectedTag) {
@@ -131,13 +136,10 @@ export default function CreateQuestionPage() {
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
         is_group: isGroup,
-        answers: [
-          { value: '1', answer: getAnswerText('1') },
-          { value: '2', answer: getAnswerText('2') },
-          { value: '3', answer: getAnswerText('3') },
-          { value: '4', answer: getAnswerText('4') },
-          { value: '5', answer: getAnswerText('5') }
-        ]
+        answers: getValidAnswers().map(answer => ({
+          value: answer.value,
+          answer: answer.answer
+        }))
       };
 
       console.log('📤 Creating question with data:', questionData);
@@ -172,7 +174,7 @@ export default function CreateQuestionPage() {
         text: question.trim(),
         question_name: questionName.trim(),
         question_number: questionNumber,
-        group_number: groupNumber,
+        group_number: groupNumber || undefined,
         group_name: groupName.trim(),
         tags: [selectedTag],
         question_type: isMandatory ? 'mandatory' : 'unanswered',
@@ -183,13 +185,10 @@ export default function CreateQuestionPage() {
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
         is_group: isGroup,
-        answers: [
-          { value: '1', answer: getAnswerText('1') },
-          { value: '2', answer: getAnswerText('2') },
-          { value: '3', answer: getAnswerText('3') },
-          { value: '4', answer: getAnswerText('4') },
-          { value: '5', answer: getAnswerText('5') }
-        ]
+        answers: getValidAnswers().map(answer => ({
+          value: answer.value,
+          answer: answer.answer
+        }))
       };
 
       console.log('📤 Creating question with data:', questionData);
@@ -480,9 +479,9 @@ export default function CreateQuestionPage() {
                     <input
                       type="text"
                       value={answer.value}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                      placeholder="Value"
+                      onChange={(e) => handleValueChange(answer.id, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
+                      placeholder=""
                     />
                   </div>
                   <div className="flex-1">

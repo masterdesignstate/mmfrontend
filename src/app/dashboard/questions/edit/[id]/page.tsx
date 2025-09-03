@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { apiService, Question } from '@/services/api';
+import { apiService } from '@/services/api';
 
 interface Answer {
   id: string;
@@ -53,6 +53,11 @@ export default function EditQuestionPage() {
     return result;
   };
 
+  // Helper function to get all valid answers (non-empty values and answers)
+  const getValidAnswers = () => {
+    return answers.filter(answer => answer.value.trim() && answer.answer.trim());
+  };
+
   // Fetch question data when component mounts
   useEffect(() => {
     const fetchQuestion = async () => {
@@ -83,44 +88,51 @@ export default function EditQuestionPage() {
           console.log('🔍 ANSWERS COUNT:', questionData.answers.length);
           
           const formattedAnswers = questionData.answers.map((ans, index) => ({
-            id: (index + 1).toString(),
+            id: ans.value, // Use the actual value as ID to ensure uniqueness
             value: ans.value,
             answer: ans.answer_text
           }));
           
           console.log('🔍 FORMATTED ANSWERS:', formattedAnswers);
           
-          // Ensure we always have 5 rows with proper values
+          // Always show 5 rows - populate positions based on backend data
           const defaultAnswers = [
-            { id: '1', value: '1', answer: '' },
-            { id: '2', value: '2', answer: '' },
-            { id: '3', value: '3', answer: '' },
-            { id: '4', value: '4', answer: '' },
-            { id: '5', value: '5', answer: '' }
+            { id: '1', value: '', answer: '' },
+            { id: '2', value: '', answer: '' },
+            { id: '3', value: '', answer: '' },
+            { id: '4', value: '', answer: '' },
+            { id: '5', value: '', answer: '' }
           ];
           
-          console.log('🔍 DEFAULT ANSWERS BEFORE MERGE:', defaultAnswers);
-          
-          // Merge existing answers with default structure
+          // Populate existing answers into the correct positions
           formattedAnswers.forEach(ans => {
-            const index = parseInt(ans.value) - 1;
-            console.log(`🔍 MERGING: value=${ans.value}, index=${index}, answer=${ans.answer}`);
-            if (index >= 0 && index < 5) {
-              defaultAnswers[index] = ans;
-              console.log(`🔍 UPDATED defaultAnswers[${index}]:`, defaultAnswers[index]);
+            const backendValue = ans.value; // Value from backend ("1", "2", "3", "4", "5")
+            const targetIndex = parseInt(backendValue) - 1; // Convert to 0-based index (0, 1, 2, 3, 4)
+            
+            console.log(`🔍 MAPPING: backendValue="${backendValue}", targetIndex=${targetIndex}, answer="${ans.answer}"`);
+            
+            if (targetIndex >= 0 && targetIndex < 5) {
+              // Fill the row with both the value and the answer text
+              defaultAnswers[targetIndex] = {
+                id: (targetIndex + 1).toString(),
+                value: backendValue, // Use the actual value from backend
+                answer: ans.answer
+              };
+              console.log(`✅ MAPPED: Row ${targetIndex + 1} = value:"${backendValue}", answer:"${ans.answer}"`);
+            } else {
+              console.log(`❌ SKIPPED: Invalid targetIndex ${targetIndex} for backendValue "${backendValue}"`);
             }
           });
           
-          console.log('🔍 FINAL ANSWERS AFTER MERGE:', defaultAnswers);
           setAnswers(defaultAnswers);
         } else {
-          // If no answers exist, set default 5 rows with proper values
+          // If no answers exist, show empty 5-row structure
           setAnswers([
-            { id: '1', value: '1', answer: '' },
-            { id: '2', value: '2', answer: '' },
-            { id: '3', value: '3', answer: '' },
-            { id: '4', value: '4', answer: '' },
-            { id: '5', value: '5', answer: '' }
+            { id: '1', value: '', answer: '' },
+            { id: '2', value: '', answer: '' },
+            { id: '3', value: '', answer: '' },
+            { id: '4', value: '', answer: '' },
+            { id: '5', value: '', answer: '' }
           ]);
         }
         
@@ -170,16 +182,17 @@ export default function EditQuestionPage() {
     );
   };
 
-  const addAnswer = () => {
-    const newId = (answers.length + 1).toString();
-    setAnswers(prev => [...prev, { id: newId, value: newId, answer: '' }]);
+  const handleValueChange = (id: string, value: string) => {
+    setAnswers(prev => 
+      prev.map(answer => 
+        answer.id === id ? { ...answer, value: value } : answer
+      )
+    );
   };
 
-  const removeAnswer = (id: string) => {
-    if (answers.length > 1) {
-      setAnswers(prev => prev.filter(answer => answer.id !== id));
-    }
-  };
+
+
+
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -196,9 +209,9 @@ export default function EditQuestionPage() {
       newErrors.question = 'Question text must be less than 1000 characters';
     }
 
-    const validAnswers = answers.filter(answer => answer.value.trim());
+    const validAnswers = answers.filter(answer => answer.value.trim() && answer.answer.trim());
     if (validAnswers.length < 2) {
-      newErrors.answers = 'At least 2 answer values are required';
+      newErrors.answers = 'At least 2 complete answers (with both value and answer text) are required';
     }
 
     if (!selectedTag) {
@@ -229,7 +242,7 @@ export default function EditQuestionPage() {
         text: question.trim(),
         question_name: questionName.trim(),
         question_number: questionNumber,
-        group_number: groupNumber,
+        group_number: groupNumber || undefined,
         group_name: groupName.trim(),
         tags: [selectedTag],
         question_type: isMandatory ? 'mandatory' : 'unanswered',
@@ -240,13 +253,10 @@ export default function EditQuestionPage() {
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
         is_group: isGroup,
-        answers: [
-          { value: '1', answer: getAnswerText('1') },
-          { value: '2', answer: getAnswerText('2') },
-          { value: '3', answer: getAnswerText('3') },
-          { value: '4', answer: getAnswerText('4') },
-          { value: '5', answer: getAnswerText('5') }
-        ]
+        answers: getValidAnswers().map(answer => ({
+          value: answer.value,
+          answer: answer.answer
+        }))
       };
       
       console.log('🔍 SENDING TO BACKEND:', questionData);
@@ -527,9 +537,9 @@ export default function EditQuestionPage() {
                     <input
                       type="text"
                       value={answer.value}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                      placeholder="Value"
+                      onChange={(e) => handleValueChange(answer.id, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
+                      placeholder=""
                     />
                   </div>
                   <div className="flex-1">
@@ -542,8 +552,10 @@ export default function EditQuestionPage() {
                       placeholder="Enter Answer"
                     />
                   </div>
+
                 </div>
               ))}
+
               {errors.answers && (
                 <p className="text-red-500 text-sm mt-1">{errors.answers}</p>
               )}
