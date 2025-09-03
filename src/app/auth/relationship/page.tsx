@@ -36,9 +36,7 @@ export default function RelationshipPage() {
     q4: false
   });
 
-  const [importance, setImportance] = useState({
-    overall: 3 // Just one importance slider for this section
-  });
+
 
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
@@ -124,11 +122,9 @@ export default function RelationshipPage() {
     fetchQuestionsIfNeeded();
   }, [userId, questions.length, loadingQuestions]);
 
-  const handleSliderChange = (section: 'myAnswers' | 'importance', questionKey: string, value: number) => {
+  const handleSliderChange = (section: 'myAnswers', questionKey: string, value: number) => {
     if (section === 'myAnswers') {
       setMyAnswers(prev => ({ ...prev, [questionKey]: value }));
-    } else if (section === 'importance') {
-      setImportance(prev => ({ ...prev, [questionKey]: value }));
     }
   };
 
@@ -171,7 +167,7 @@ export default function RelationshipPage() {
           question_id: question.id,
           me_answer: openToAll[openToAllKey] ? 6 : myAnswers[questionKey],
           me_open_to_all: openToAll[openToAllKey],
-          me_importance: importance.overall,
+          me_importance: 1,
           me_share: true,
           looking_for_answer: 1, // Default since these questions don't have "looking for"
           looking_for_open_to_all: false,
@@ -443,41 +439,6 @@ export default function RelationshipPage() {
                 );
               })}
 
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.overall}
-                  onChange={(value) => handleSliderChange('importance', 'overall', value)}
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
-            </div>
-
-            {/* Importance labels below Me section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {/* Only show the label for the current importance value */}
-                {importance.overall === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.overall === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.overall === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.overall === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.overall === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
         </div>

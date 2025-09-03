@@ -25,7 +25,7 @@ export default function QuestionPage() {
   const [meAnswer, setMeAnswer] = useState(3);
   const [lookingForAnswer, setLookingForAnswer] = useState(3);
   const [importance, setImportance] = useState({
-    me: 3,
+    me: 1,
     lookingFor: 3
   });
   const [openToAll, setOpenToAll] = useState({
@@ -651,97 +651,9 @@ export default function QuestionPage() {
             </div>
           )}
 
-          {/* Me Section */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-            
-            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>NEVER</span>
-                <span>VERY OFTEN</span>
-              </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {question?.open_to_all_me ? 'OTA' : ''}
-              </div>
-            </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              
-              {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : (question?.question_name || 'ANSWER').toUpperCase()}
-              </div>
-              <div className="relative">
-                <SliderComponent
-                  value={meAnswer}
-                  onChange={(value) => handleSliderChange('meAnswer', value)}
-                  isOpenToAll={openToAll.meOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if question has open_to_all_me enabled */}
-                {question.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.meOpen}
-                        onChange={() => handleOpenToAllToggle('meOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.meOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.meOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.me}
-                  onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
-            </div>
-
-            {/* Importance labels below Me section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {/* Only show the label for the current importance value */}
-                {importance.me === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.me === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.me === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.me === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.me === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
-            </div>
-          </div>
-
           {/* Looking For Section */}
-          <div className="mb-6 pt-8">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Looking For</h3>
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
@@ -824,6 +736,59 @@ export default function QuestionPage() {
                 )}
               </div>
               <div></div> {/* Empty placeholder for switch column */}
+            </div>
+          </div>
+
+          {/* Me Section */}
+          <div className="mb-6 pt-8">
+            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+            
+            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>NEVER</span>
+                <span>VERY OFTEN</span>
+              </div>
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {question?.open_to_all_me ? 'OTA' : ''}
+              </div>
+            </div>
+            
+            {/* Grid container for perfect alignment */}
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              
+              {/* Question Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">
+                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : (question?.question_name || 'ANSWER').toUpperCase()}
+              </div>
+              <div className="relative">
+                <SliderComponent
+                  value={meAnswer}
+                  onChange={(value) => handleSliderChange('meAnswer', value)}
+                  isOpenToAll={openToAll.meOpen}
+                />
+              </div>
+              <div>
+                {/* Only show switch if question has open_to_all_me enabled */}
+                {question.open_to_all_me ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.meOpen}
+                        onChange={() => handleOpenToAllToggle('meOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.meOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.meOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
+              </div>
+              
             </div>
           </div>
         </div>

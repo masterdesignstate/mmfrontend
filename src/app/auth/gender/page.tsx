@@ -40,7 +40,7 @@ export default function GenderPage() {
   });
 
   const [importance, setImportance] = useState({
-    me: 3,
+    me: 1,
     lookingFor: 3
   });
 
@@ -372,8 +372,126 @@ export default function GenderPage() {
             </div>
           )}
 
-          {/* Me Section */}
+          {/* Looking For Section */}
           <div className="mb-6">
+            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+            
+            {/* LESS, MORE, and OTA labels below Looking For header - using same grid structure */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>LESS</span>
+                <span>MORE</span>
+              </div>
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for || questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? 'OTA' : ''}
+              </div>
+            </div>
+            
+            {/* Grid container for perfect alignment */}
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              
+              {/* MALE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">MALE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={lookingFor.male}
+                  onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
+                  
+                  isOpenToAll={openToAll.maleLookingOpen}
+                />
+              </div>
+              <div>
+                {/* Only show switch if Male question has open_to_all_looking_for enabled */}
+                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.maleLookingOpen}
+                        onChange={() => handleOpenToAllToggle('maleLookingOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
+              </div>
+              
+              {/* FEMALE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">FEMALE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={lookingFor.female}
+                  onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
+                  
+                  isOpenToAll={openToAll.femaleLookingOpen}
+                />
+              </div>
+              <div>
+                {/* Only show switch if Female question has open_to_all_looking_for enabled */}
+                {questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.femaleLookingOpen}
+                        onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
+              </div>
+
+              {/* IMPORTANCE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={importance.lookingFor}
+                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+                  
+                  isOpenToAll={false}
+                />
+              </div>
+              <div className="w-11 h-6"></div>
+              
+            </div>
+
+            {/* Importance labels below Looking For section - centered and dynamic */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                {/* Only show the label for the current importance value */}
+                {importance.lookingFor === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importance.lookingFor === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importance.lookingFor === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importance.lookingFor === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importance.lookingFor === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
+            </div>
+          </div>
+
+          {/* Me Section */}
+          <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* LESS, MORE, and OTA labels below Me header - using same grid structure */}
@@ -450,161 +568,7 @@ export default function GenderPage() {
                   <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
                 )}
               </div>
-
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.me}
-                  onChange={(value) => handleSliderChange('importance', 'me', value)}
-                  
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
               
-            </div>
-
-            {/* Importance labels below Me section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {/* Only show the label for the current importance value */}
-                {importance.me === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.me === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.me === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.me === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.me === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
-            </div>
-          </div>
-
-          {/* Looking For Section */}
-          <div className="mb-6 pt-8">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-            
-            {/* LESS, MORE, and OTA labels below Looking For header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for || questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? 'OTA' : ''}
-              </div>
-            </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              
-              {/* MALE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">MALE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={lookingFor.male}
-                  onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
-                  
-                  isOpenToAll={openToAll.maleLookingOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Male question has open_to_all_looking_for enabled */}
-                {questions.find(q => q.group_number === 1)?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.maleLookingOpen}
-                        onChange={() => handleOpenToAllToggle('maleLookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-              
-              {/* FEMALE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">FEMALE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={lookingFor.female}
-                  onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
-                  
-                  isOpenToAll={openToAll.femaleLookingOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Female question has open_to_all_looking_for enabled */}
-                {questions.find(q => q.group_number === 2)?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.femaleLookingOpen}
-                        onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
-                  
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
-            </div>
-
-            {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {/* Only show the label for the current importance value */}
-                {importance.lookingFor === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.lookingFor === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.lookingFor === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.lookingFor === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.lookingFor === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
         </div>

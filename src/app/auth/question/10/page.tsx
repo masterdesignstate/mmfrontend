@@ -40,7 +40,7 @@ export default function Question10Page() {
   });
 
   const [importance, setImportance] = useState({
-    me: 3,
+    me: 1,
     lookingFor: 3
   });
 
@@ -246,13 +246,12 @@ export default function Question10Page() {
         }
       }
 
-      // Navigate to next onboarding step (faith question page)
+      // Navigate to dashboard (skipping faith page)
       const params = new URLSearchParams({ 
         user_id: userId
       });
       
-      // Don't pass large JSON through URL - let the faith page fetch its own questions
-      router.push(`/auth/faith?${params.toString()}`);
+      router.push(`/dashboard?${params.toString()}`);
     } catch (error) {
       console.error('Error saving question 10 answers:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answers');
@@ -393,127 +392,8 @@ export default function Question10Page() {
             </div>
           )}
 
-          {/* Me Section */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-            
-            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>NO</span>
-                <span>YES</span>
-              </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions[0]?.open_to_all_me || questions[1]?.open_to_all_me ? 'OTA' : ''}
-              </div>
-            </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              
-              {/* KIDS QUESTION 1 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[0]?.question_name || 'KIDS 1').toUpperCase()}
-              </div>
-              <div className="relative">
-                <SliderComponent
-                  value={myAnswers.answer1}
-                  onChange={(value) => handleSliderChange('myAnswers', 0, value)}
-                  isOpenToAll={openToAll.answer1MeOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if first kids question has open_to_all_me enabled */}
-                {questions[0]?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.answer1MeOpen}
-                        onChange={() => handleOpenToAllToggle('answer1MeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.answer1MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.answer1MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* KIDS QUESTION 2 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[1]?.question_name || 'KIDS 2').toUpperCase()}
-              </div>
-              <div className="relative">
-                <SliderComponent
-                  value={myAnswers.answer2}
-                  onChange={(value) => handleSliderChange('myAnswers', 1, value)}
-                  isOpenToAll={openToAll.answer2MeOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if second kids question has open_to_all_me enabled */}
-                {questions[1]?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.answer2MeOpen}
-                        onChange={() => handleOpenToAllToggle('answer2MeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.answer2MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.answer2MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.me}
-                  onChange={(value) => handleSliderChange('importance', undefined, value)}
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
-            </div>
-
-            {/* Importance labels below Me section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {/* Only show the label for the current importance value */}
-                {importance.me === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.me === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.me === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.me === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.me === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
-            </div>
-          </div>
-
           {/* Looking For Section */}
-          <div className="mb-6 pt-8">
+          <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
@@ -628,6 +508,90 @@ export default function Question10Page() {
                 )}
               </div>
               <div></div> {/* Empty placeholder for switch column */}
+            </div>
+          </div>
+
+          {/* Me Section */}
+          <div className="mb-6 pt-8">
+            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+            
+            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>NO</span>
+                <span>YES</span>
+              </div>
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {questions[0]?.open_to_all_me || questions[1]?.open_to_all_me ? 'OTA' : ''}
+              </div>
+            </div>
+            
+            {/* Grid container for perfect alignment */}
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              
+              {/* KIDS QUESTION 1 Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">
+                {(questions[0]?.question_name || 'KIDS 1').toUpperCase()}
+              </div>
+              <div className="relative">
+                <SliderComponent
+                  value={myAnswers.answer1}
+                  onChange={(value) => handleSliderChange('myAnswers', 0, value)}
+                  isOpenToAll={openToAll.answer1MeOpen}
+                />
+              </div>
+              <div>
+                {/* Only show switch if first kids question has open_to_all_me enabled */}
+                {questions[0]?.open_to_all_me ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.answer1MeOpen}
+                        onChange={() => handleOpenToAllToggle('answer1MeOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.answer1MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.answer1MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
+              </div>
+
+              {/* KIDS QUESTION 2 Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">
+                {(questions[1]?.question_name || 'KIDS 2').toUpperCase()}
+              </div>
+              <div className="relative">
+                <SliderComponent
+                  value={myAnswers.answer2}
+                  onChange={(value) => handleSliderChange('myAnswers', 1, value)}
+                  isOpenToAll={openToAll.answer2MeOpen}
+                />
+              </div>
+              <div>
+                {/* Only show switch if second kids question has open_to_all_me enabled */}
+                {questions[1]?.open_to_all_me ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAll.answer2MeOpen}
+                        onChange={() => handleOpenToAllToggle('answer2MeOpen')}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAll.answer2MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.answer2MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                )}
+              </div>
+              
             </div>
           </div>
         </div>

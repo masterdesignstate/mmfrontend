@@ -408,6 +408,7 @@ export default function QuestionsPage() {
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {question.question_name || 'N/A'}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {question.group_number || 'N/A'}
                   </td>
