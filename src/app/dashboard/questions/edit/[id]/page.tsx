@@ -53,9 +53,9 @@ export default function EditQuestionPage() {
     return result;
   };
 
-  // Helper function to get all valid answers (non-empty values and answers)
+  // Helper function to get all valid answers (any answer with a value, even if answer text is empty)
   const getValidAnswers = () => {
-    return answers.filter(answer => answer.value.trim() && answer.answer.trim());
+    return answers.filter(answer => answer.value.trim()); // Only filter by value, not answer text
   };
 
   // Fetch question data when component mounts
@@ -209,9 +209,13 @@ export default function EditQuestionPage() {
       newErrors.question = 'Question text must be less than 1000 characters';
     }
 
-    const validAnswers = answers.filter(answer => answer.value.trim() && answer.answer.trim());
-    if (validAnswers.length < 2) {
-      newErrors.answers = 'At least 2 complete answers (with both value and answer text) are required';
+    const answersWithValues = answers.filter(answer => answer.value.trim());
+    const answersWithText = answers.filter(answer => answer.value.trim() && answer.answer.trim());
+    
+    if (answersWithValues.length < 2) {
+      newErrors.answers = 'At least 2 answer values are required';
+    } else if (answersWithText.length < 2) {
+      newErrors.answers = 'At least 2 answers must have both value and answer text';
     }
 
     if (!selectedTag) {

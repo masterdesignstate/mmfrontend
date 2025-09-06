@@ -36,6 +36,10 @@ export default function RelationshipPage() {
     q4: false
   });
 
+  const [importance, setImportance] = useState({
+    me: 3
+  });
+
 
 
   const [loading, setLoading] = useState(false);
@@ -167,7 +171,7 @@ export default function RelationshipPage() {
           question_id: question.id,
           me_answer: openToAll[openToAllKey] ? 6 : myAnswers[questionKey],
           me_open_to_all: openToAll[openToAllKey],
-          me_importance: 1,
+          me_importance: importance.me,
           me_share: true,
           looking_for_answer: 1, // Default since these questions don't have "looking for"
           looking_for_open_to_all: false,
@@ -439,6 +443,41 @@ export default function RelationshipPage() {
                 );
               })}
 
+              {/* IMPORTANCE Slider Row */}
+              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={importance.me}
+                  onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
+                  isOpenToAll={false}
+                />
+              </div>
+              <div className="w-11 h-6"></div>
+
+            </div>
+
+            {/* Importance labels below Me section - centered and dynamic */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                {/* Only show the label for the current importance value */}
+                {importance.me === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importance.me === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importance.me === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importance.me === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importance.me === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
         </div>

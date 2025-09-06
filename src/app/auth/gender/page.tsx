@@ -403,7 +403,7 @@ export default function GenderPage() {
               </div>
               <div>
                 {/* Only show switch if Male question has open_to_all_looking_for enabled */}
-                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for ? (
+                {questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input
@@ -521,7 +521,7 @@ export default function GenderPage() {
               </div>
               <div>
                 {/* Only show switch if Male question has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 1)?.open_to_all_me ? (
+                {questions.find(q => q.question_number === 2)?.open_to_all_me ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input

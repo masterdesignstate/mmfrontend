@@ -434,8 +434,8 @@ export default function HabitsPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Less</span>
-                <span>More</span>
+                <span>LESS</span>
+                <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_looking_for ? 'OTA' : ''}
@@ -543,7 +543,7 @@ export default function HabitsPage() {
               <div className="relative">
                 <SliderComponent
                   value={importance.lookingFor}
-                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+                  onChange={handleLookingForImportanceChange}
                   isOpenToAll={false}
                 />
               </div>
@@ -584,8 +584,8 @@ export default function HabitsPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Less</span>
-                <span>More</span>
+                <span>LESS</span>
+                <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_me ? 'OTA' : ''}
