@@ -515,8 +515,22 @@ export default function QuestionPage() {
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-      onChange(Math.max(1, Math.min(5, newValue)));
+      
+      // For education questions, only allow positions 1, 3, 5
+      if (params.id === 'education') {
+        // Map percentage to nearest valid position (1, 3, 5)
+        if (percentage < 0.25) {
+          onChange(1);
+        } else if (percentage < 0.75) {
+          onChange(3);
+        } else {
+          onChange(5);
+        }
+      } else {
+        // Default behavior for other question types
+        const newValue = Math.round(percentage * 4) + 1; // 1-5 range
+        onChange(Math.max(1, Math.min(5, newValue)));
+      }
     };
 
     const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -552,6 +566,11 @@ export default function QuestionPage() {
       >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
           
+          {/* Middle label for education questions */}
+          {!isOpenToAll && params.id === 'education' && (
+            <span className="absolute left-1/2 transform -translate-x-1/2 text-xs text-gray-500 pointer-events-none z-10">3</span>
+          )}
+          
           {/* Custom Slider Track */}
           <div 
             className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
@@ -572,7 +591,9 @@ export default function QuestionPage() {
               className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
               style={{
                 backgroundColor: '#672DB7',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
+                left: params.id === 'education' 
+                  ? (value === 1 ? '0px' : value === 3 ? 'calc(50% - 14px)' : 'calc(100% - 28px)')
+                  : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
               }}
               onDragStart={handleDragStart}
             >
@@ -580,7 +601,11 @@ export default function QuestionPage() {
             </div>
           )}
           
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
+          {!isOpenToAll && (
+            <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">
+              {params.id === 'education' ? '5' : '5'}
+            </span>
+          )}
       </div>
     );
   };
