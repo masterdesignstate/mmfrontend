@@ -504,11 +504,13 @@ export default function QuestionPage() {
   const SliderComponent = ({ 
     value, 
     onChange,
-    isOpenToAll = false
+    isOpenToAll = false,
+    isImportance = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
     isOpenToAll?: boolean;
+    isImportance?: boolean;
   }) => {
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
@@ -516,13 +518,24 @@ export default function QuestionPage() {
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
       
-      // For education questions, only allow positions 1, 3, 5
-      if (params.id === 'education') {
-        // Map percentage to nearest valid position (1, 3, 5)
+      // Skip position restrictions for importance sliders
+      if (isImportance) {
+        // Importance sliders always use full 1-5 range
+        const newValue = Math.round(percentage * 4) + 1; // 1-5 range
+        onChange(Math.max(1, Math.min(5, newValue)));
+      } else if (params.id === 'education') {
+        // For education questions, only allow positions 1, 3, 5
         if (percentage < 0.25) {
           onChange(1);
         } else if (percentage < 0.75) {
           onChange(3);
+        } else {
+          onChange(5);
+        }
+      } else if (params.id === 'diet') {
+        // For diet questions, only allow positions 1, 5
+        if (percentage < 0.5) {
+          onChange(1);
         } else {
           onChange(5);
         }
@@ -591,8 +604,12 @@ export default function QuestionPage() {
               className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
               style={{
                 backgroundColor: '#672DB7',
-                left: params.id === 'education' 
+                left: isImportance
+                  ? (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
+                  : params.id === 'education' 
                   ? (value === 1 ? '0px' : value === 3 ? 'calc(50% - 14px)' : 'calc(100% - 28px)')
+                  : params.id === 'diet'
+                  ? (value === 1 ? '0px' : 'calc(100% - 28px)')
                   : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
               }}
               onDragStart={handleDragStart}
@@ -707,6 +724,7 @@ export default function QuestionPage() {
                   value={lookingForAnswer}
                   onChange={(value) => handleSliderChange('lookingForAnswer', value)}
                   isOpenToAll={openToAll.lookingForOpen}
+                  isImportance={false}
                 />
               </div>
               <div>
@@ -736,6 +754,7 @@ export default function QuestionPage() {
                   value={importance.lookingFor}
                   onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
                   isOpenToAll={false}
+                  isImportance={true}
                 />
               </div>
               <div className="w-11 h-6"></div>
@@ -798,6 +817,7 @@ export default function QuestionPage() {
                   value={meAnswer}
                   onChange={(value) => handleSliderChange('meAnswer', value)}
                   isOpenToAll={openToAll.meOpen}
+                  isImportance={false}
                 />
               </div>
               <div>

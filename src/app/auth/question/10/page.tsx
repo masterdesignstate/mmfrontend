@@ -396,20 +396,25 @@ export default function Question10Page() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            {/* OTA labels below Looking For header */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '8px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>NO</span>
-                <span>YES</span>
-              </div>
+              <div></div> {/* Empty placeholder for slider column */}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_looking_for || questions[1]?.open_to_all_looking_for ? 'OTA' : ''}
               </div>
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '8px 12px' }}>
+              
+              {/* Less, More labels for first slider (WANT) */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500 mb-0">
+                <span>LESS</span>
+                <span>MORE</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
               
               {/* KIDS QUESTION 1 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
@@ -441,6 +446,14 @@ export default function Question10Page() {
                   <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
                 )}
               </div>
+
+              {/* Yes, No labels for second slider (Have) */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500 mb-0">
+                <span>YES</span>
+                <span>NO</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
 
               {/* KIDS QUESTION 2 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
@@ -487,7 +500,7 @@ export default function Question10Page() {
             </div>
 
             {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '8px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
               <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
                 {/* Only show the label for the current importance value */}
@@ -515,20 +528,25 @@ export default function Question10Page() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            {/* OTA labels below Me header */}
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '8px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>NO</span>
-                <span>YES</span>
-              </div>
+              <div></div> {/* Empty placeholder for slider column */}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_me || questions[1]?.open_to_all_me ? 'OTA' : ''}
               </div>
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '8px 12px' }}>
+              
+              {/* Less, More labels for first slider (WANT) */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500 mb-0">
+                <span>LESS</span>
+                <span>MORE</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
               
               {/* KIDS QUESTION 1 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
@@ -560,6 +578,14 @@ export default function Question10Page() {
                   <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
                 )}
               </div>
+
+              {/* Yes, No labels for second slider (Have) */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-500 0">
+                <span>YES</span>
+                <span>NO</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
 
               {/* KIDS QUESTION 2 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
