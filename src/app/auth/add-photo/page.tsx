@@ -117,12 +117,12 @@ export default function AddPhotoPage() {
           await new Promise(resolve => setTimeout(resolve, 1000 - elapsedTime));
         }
         
-        // Navigate to gender selection page with questions data
+        // Navigate to introcard page with questions data
         const params = new URLSearchParams({ 
           user_id: userId,
           questions: JSON.stringify(questions)
         });
-        router.push(`/auth/gender?${params.toString()}`);
+        router.push(`/auth/introcard?${params.toString()}`);
       } else {
         const data = await response.json();
         throw new Error(data.error || 'Failed to update profile photo');

@@ -246,12 +246,8 @@ export default function Question10Page() {
         }
       }
 
-      // Navigate to dashboard (skipping faith page)
-      const params = new URLSearchParams({ 
-        user_id: userId
-      });
-      
-      router.push(`/dashboard?${params.toString()}`);
+      // Navigate to profile page
+      router.push(`/profile`);
     } catch (error) {
       console.error('Error saving question 10 answers:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answers');

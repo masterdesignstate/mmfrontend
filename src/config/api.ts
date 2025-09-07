@@ -11,6 +11,8 @@ const API_CONFIG = {
     CHECK_USER: '/api/auth/check-user/',
     ONBOARDING_STATUS: '/api/auth/onboarding-status/',
     UPDATE_PROFILE_PHOTO: '/api/auth/update-profile-photo/',
+    USERS: '/api/users/',
+    USERS_ME: '/api/users/me/',
     QUESTIONS: '/api/questions/',
     ANSWERS: '/api/answers/',
   }

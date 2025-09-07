@@ -1,497 +1,448 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-// Profile model schema based on models.py
-interface FieldDefinition {
-  name: string;
-  type: string;
-  max_length?: number;
-  choices?: Array<{ value: string; label: string }>;
-  default?: string | boolean | number;
-  null?: boolean;
-  blank?: boolean;
-  help_text?: string;
-  related_name?: string;
-  on_delete?: string;
-  auto_now?: boolean;
-  auto_now_add?: boolean;
-  editable?: boolean;
-  unique?: boolean;
-  primary_key?: boolean;
-  upload_to?: string;
-  validators?: string[];
+// Types for user profile and answers
+interface UserProfile {
+  id: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  age?: number;
+  profile_photo?: string;
+  bio?: string;
+  height?: number;
+  live?: string;
+  from_location?: string;
 }
 
-const userModelSchema: FieldDefinition[] = [
-  {
-    name: 'id',
-    type: 'UUIDField',
-    primary_key: true,
-    default: 'uuid.uuid4',
-    editable: false,
-    help_text: 'Primary key using UUID'
-  },
-  {
-    name: 'username',
-    type: 'CharField',
-    max_length: 150,
-    unique: true,
-    help_text: 'Username for login'
-  },
-  {
-    name: 'email',
-    type: 'EmailField',
-    unique: true,
-    help_text: 'User email address'
-  },
-  {
-    name: 'first_name',
-    type: 'CharField',
-    max_length: 150,
-    blank: true,
-    help_text: 'User first name'
-  },
-  {
-    name: 'last_name',
-    type: 'CharField',
-    max_length: 150,
-    blank: true,
-    help_text: 'User last name'
-  },
-  {
-    name: 'profile_photo',
-    type: 'ImageField',
-    upload_to: 'profile_photos/',
-    null: true,
-    blank: true,
-    help_text: 'User profile picture'
-  },
-  {
-    name: 'age',
-    type: 'PositiveIntegerField',
-    null: true,
-    blank: true,
-    help_text: 'User age'
-  },
-  {
-    name: 'date_of_birth',
-    type: 'DateField',
-    null: true,
-    blank: true,
-    help_text: 'User date of birth'
-  },
-  {
-    name: 'height',
-    type: 'PositiveIntegerField',
-    null: true,
-    blank: true,
-    help_text: 'Height in cm'
-  },
-  {
-    name: 'from_location',
-    type: 'CharField',
-    max_length: 100,
-    null: true,
-    blank: true,
-    help_text: 'Where the user is originally from'
-  },
-  {
-    name: 'live',
-    type: 'CharField',
-    max_length: 100,
-    null: true,
-    blank: true,
-    help_text: 'Where the user currently lives'
-  },
-  {
-    name: 'bio',
-    type: 'TextField',
-    max_length: 500,
-    blank: true,
-    help_text: 'User biography'
-  },
-  {
-    name: 'is_online',
-    type: 'BooleanField',
-    default: false,
-    help_text: 'Whether user is currently online'
-  },
-  {
-    name: 'last_seen',
-    type: 'DateTimeField',
-    default: 'timezone.now',
-    help_text: 'Last time user was active'
-  },
-  {
-    name: 'is_banned',
-    type: 'BooleanField',
-    default: false,
-    help_text: 'Whether user is banned'
-  },
-  {
-    name: 'ban_reason',
-    type: 'TextField',
-    blank: true,
-    help_text: 'Reason for ban if applicable'
-  },
-  {
-    name: 'ban_date',
-    type: 'DateTimeField',
-    null: true,
-    blank: true,
-    help_text: 'Date when user was banned'
-  },
-  {
-    name: 'questions_answered_count',
-    type: 'PositiveIntegerField',
-    default: 0,
-    help_text: 'Number of questions answered by user'
-  },
-  {
-    name: 'is_active',
-    type: 'BooleanField',
-    default: true,
-    help_text: 'Whether user account is active'
-  },
-  {
-    name: 'is_staff',
-    type: 'BooleanField',
-    default: false,
-    help_text: 'Whether user has staff permissions'
-  },
-  {
-    name: 'is_superuser',
-    type: 'BooleanField',
-    default: false,
-    help_text: 'Whether user has superuser permissions'
-  },
-  {
-    name: 'date_joined',
-    type: 'DateTimeField',
-    auto_now_add: true,
-    help_text: 'When user account was created'
-  },
-  {
-    name: 'last_login',
-    type: 'DateTimeField',
-    null: true,
-    blank: true,
-    help_text: 'Last time user logged in'
-  }
-];
+interface UserAnswer {
+  id: string;
+  question: {
+    id: string;
+    question_name: string;
+    question_number: number;
+    group_number?: number;
+    text: string;
+  };
+  me_answer: number;
+  looking_for_answer: number;
+}
 
-const userAnswerModelSchema: FieldDefinition[] = [
-  {
-    name: 'id',
-    type: 'UUIDField',
-    primary_key: true,
-    default: 'uuid.uuid4',
-    editable: false,
-    help_text: 'Primary key using UUID'
-  },
-  {
-    name: 'user',
-    type: 'ForeignKey',
-    related_name: 'answers',
-    on_delete: 'CASCADE',
-    help_text: 'User who answered the question'
-  },
-  {
-    name: 'question',
-    type: 'ForeignKey',
-    related_name: 'user_answers',
-    on_delete: 'CASCADE',
-    help_text: 'Question that was answered'
-  },
-  {
-    name: 'me_answer',
-    type: 'PositiveIntegerField',
-    validators: ['MinValueValidator(1)', 'MaxValueValidator(6)'],
-    help_text: '1-5 for specific answers, 6 for open to all'
-  },
-  {
-    name: 'me_open_to_all',
-    type: 'BooleanField',
-    default: false,
-    help_text: 'Whether user is open to all options'
-  },
-  {
-    name: 'me_multiplier',
-    type: 'PositiveIntegerField',
-    default: 1,
-    help_text: 'Weight multiplier for this answer'
-  },
-  {
-    name: 'me_share',
-    type: 'BooleanField',
-    default: true,
-    help_text: 'Whether to share this answer'
-  },
-  {
-    name: 'looking_for_answer',
-    type: 'PositiveIntegerField',
-    validators: ['MinValueValidator(1)', 'MaxValueValidator(6)'],
-    help_text: '1-5 for specific answers, 6 for open to all'
-  },
-  {
-    name: 'looking_for_open_to_all',
-    type: 'BooleanField',
-    default: false,
-    help_text: 'Whether user is open to all options for partner'
-  },
-  {
-    name: 'looking_for_multiplier',
-    type: 'PositiveIntegerField',
-    default: 1,
-    help_text: 'Weight multiplier for partner preference'
-  },
-  {
-    name: 'looking_for_share',
-    type: 'BooleanField',
-    default: true,
-    help_text: 'Whether to share this preference'
-  },
-  {
-    name: 'created_at',
-    type: 'DateTimeField',
-    auto_now_add: true,
-    help_text: 'When the answer was created'
-  },
-  {
-    name: 'updated_at',
-    type: 'DateTimeField',
-    auto_now: true,
-    help_text: 'When the answer was last updated'
-  }
-];
+interface ProfileIcon {
+  image: string;
+  label: string;
+  show: boolean;
+}
 
-export default function ProfileModelPage() {
-  const [selectedModel, setSelectedModel] = useState<'user' | 'user_answer'>('user');
+export default function ProfilePage() {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
-  const currentSchema = selectedModel === 'user' ? userModelSchema : userAnswerModelSchema;
+  // Fetch user profile and answers
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        // Get user ID from localStorage
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          setError('User ID not found');
+          return;
+        }
 
-  const getFieldTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      'UUIDField': 'bg-purple-100 text-purple-800',
-      'CharField': 'bg-green-100 text-green-800',
-      'EmailField': 'bg-blue-100 text-blue-800',
-      'TextField': 'bg-indigo-100 text-indigo-800',
-      'PositiveIntegerField': 'bg-yellow-100 text-yellow-800',
-      'DateField': 'bg-red-100 text-red-800',
-      'DateTimeField': 'bg-orange-100 text-orange-800',
-      'BooleanField': 'bg-pink-100 text-pink-800',
-      'ImageField': 'bg-teal-100 text-teal-800',
-      'ForeignKey': 'bg-gray-100 text-gray-800',
-      'AutoField': 'bg-gray-100 text-gray-800'
+        // Fetch user profile
+        const userResponse = await fetch(`${getApiUrl('/users')}/${userId}/`);
+        if (!userResponse.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+        const userData = await userResponse.json();
+        setUser(userData);
+
+        // Fetch user answers
+        const answersResponse = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}`);
+        if (!answersResponse.ok) {
+          throw new Error('Failed to fetch user answers');
+        }
+        const answersData = await answersResponse.json();
+        setUserAnswers(answersData.results || []);
+
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
     };
-    return colors[type] || 'bg-gray-100 text-gray-800';
+
+    fetchProfile();
+  }, []);
+
+  // Helper function to get answer value for specific question
+  const getAnswerValue = (questionNumber: number, groupNumber?: number, answerType: 'me_answer' | 'looking_for_answer' = 'me_answer') => {
+    const answer = userAnswers.find(a => 
+      a.question.question_number === questionNumber && 
+      (groupNumber === undefined || a.question.group_number === groupNumber)
+    );
+    return answer ? answer[answerType] : null;
   };
 
-  const getFieldIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      'UUIDField': 'fas fa-fingerprint',
-      'CharField': 'fas fa-font',
-      'EmailField': 'fas fa-envelope',
-      'TextField': 'fas fa-align-left',
-      'PositiveIntegerField': 'fas fa-hashtag',
-      'DateField': 'fas fa-calendar',
-      'DateTimeField': 'fas fa-clock',
-      'BooleanField': 'fas fa-toggle-on',
-      'ImageField': 'fas fa-image',
-      'ForeignKey': 'fas fa-link',
-      'AutoField': 'fas fa-hashtag'
-    };
-    return icons[type] || 'fas fa-cube';
+  // Helper function to get question with highest answer value
+  const getHighestAnswer = (questionNumber: number) => {
+    const answers = userAnswers.filter(a => a.question.question_number === questionNumber);
+    if (answers.length === 0) return null;
+
+    // Find the highest me_answer value
+    const maxValue = Math.max(...answers.map(a => a.me_answer));
+    const highestAnswers = answers.filter(a => a.me_answer === maxValue);
+
+    // If tie, use highest group_number
+    return highestAnswers.reduce((prev, curr) => 
+      (curr.question.group_number || 0) > (prev.question.group_number || 0) ? curr : prev
+    );
   };
+
+  // Generate profile icons based on user answers
+  const getProfileIcons = (): ProfileIcon[] => {
+    const icons: ProfileIcon[] = [];
+
+    // Exercise icon (question_number === 6)
+    const exerciseValue = getAnswerValue(6);
+    if (exerciseValue) {
+      const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Very often' };
+      icons.push({
+        image: '/assets/exercise.png',
+        label: labels[exerciseValue as keyof typeof labels] || '',
+        show: true
+      });
+    }
+
+    // Education icon (question_number === 4, highest value)
+    const educationAnswer = getHighestAnswer(4);
+    if (educationAnswer) {
+      icons.push({
+        image: '/assets/cap.png',
+        label: educationAnswer.question.question_name || '',
+        show: true
+      });
+    }
+
+    // Alcohol icon (question_number === 7, group_number === 1)
+    const alcoholValue = getAnswerValue(7, 1);
+    if (alcoholValue) {
+      const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
+      icons.push({
+        image: '/assets/drink.png',
+        label: labels[alcoholValue as keyof typeof labels] || '',
+        show: true
+      });
+    }
+
+    // Diet icon (question_number === 5, highest value)
+    const dietAnswer = getHighestAnswer(5);
+    if (dietAnswer) {
+      const isVegan = dietAnswer.question.question_name === 'Vegan' || dietAnswer.question.question_name === 'Vegetarian';
+      icons.push({
+        image: isVegan ? '/assets/leaf.png' : '/assets/carnivore.png',
+        label: dietAnswer.question.question_name || '',
+        show: true
+      });
+    }
+
+    // Smoking icon (question_number === 7, group_number === 2)
+    const smokingValue = getAnswerValue(7, 2);
+    if (smokingValue) {
+      const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
+      icons.push({
+        image: '/assets/smk.png',
+        label: labels[smokingValue as keyof typeof labels] || '',
+        show: true
+      });
+    }
+
+    // Have Children icon (question_number === 10, group_number === 1)
+    const haveChildrenValue = getAnswerValue(10, 1);
+    if (haveChildrenValue) {
+      const labels = { 1: "Don't have children", 5: "Have children" };
+      icons.push({
+        image: '/assets/pacifier.png',
+        label: labels[haveChildrenValue as keyof typeof labels] || '',
+        show: true
+      });
+    }
+
+    // Want Children icon (question_number === 10, group_number === 2)
+    const wantChildrenValue = getAnswerValue(10, 2);
+    if (wantChildrenValue) {
+      const labels = { 1: "Don't want kids", 2: "Not sure", 3: "Not right now", 4: "Maybe", 5: "Want kids" };
+      icons.push({
+        image: '/assets/pacifier.png',
+        label: labels[wantChildrenValue as keyof typeof labels] || '',
+        show: true
+      });
+    }
+
+    return icons.filter(icon => icon.show);
+  };
+
+  // Slider component for gender and looking for sections
+  const SliderDisplay = ({ value, max = 5 }: { value: number | null; max?: number }) => {
+    if (!value) return <div className="w-full h-5 bg-gray-200 rounded-full" />;
+    
+    const percentage = ((value - 1) / (max - 1)) * 100;
+    
+    return (
+      <div className="w-full h-5 relative flex items-center">
+        <div className="w-full h-5 bg-gray-200 rounded-full relative">
+          <div 
+            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 bg-[#672DB7] border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold text-white shadow-sm z-10"
+            style={{
+              left: value === 1 ? '0px' : value === max ? 'calc(100% - 28px)' : `calc(${percentage}% - 14px)`
+            }}
+          >
+            {value}
+          </div>
+        </div>
+        <span className="absolute left-2 text-xs text-gray-500 z-0">1</span>
+        <span className="absolute right-2 text-xs text-gray-500 z-0">{max}</span>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-[#672DB7] text-white rounded-md hover:bg-purple-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const profileIcons = getProfileIcons();
+  const displayName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.username;
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <nav className="text-sm text-gray-500 mb-2">
-            <span>Profile</span>
-            <span className="mx-2">{'>'}</span>
-            <span className="text-gray-900">Model Schema</span>
-          </nav>
-          <h1 className="text-3xl font-bold text-gray-900">Profile Model Schema</h1>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center">
+          <Image
+            src="/assets/mmlogox.png"
+            alt="Logo"
+            width={32}
+            height={32}
+            className="mr-2"
+          />
         </div>
+        <button className="p-2">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5 5-5m-5 5H9m6 0H3" />
+          </svg>
+        </button>
       </div>
 
-      {/* Model Selection */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => setSelectedModel('user')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 cursor-pointer ${
-              selectedModel === 'user'
-                ? 'bg-[#672DB7] text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            User Model
-          </button>
-          <button
-            onClick={() => setSelectedModel('user_answer')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 cursor-pointer ${
-              selectedModel === 'user_answer'
-                ? 'bg-[#672DB7] text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            UserAnswer Model
-          </button>
+      {/* Profile Content */}
+      <div className="max-w-2xl mx-auto px-6 py-4">
+        {/* Profile Photo and Name */}
+        <div className="relative mb-6">
+          <div className="w-full h-96 bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative">
+            {user.profile_photo ? (
+              <Image
+                src={user.profile_photo}
+                alt={displayName}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white text-6xl font-bold">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="absolute bottom-4 left-4">
+              <h1 className="text-2xl font-bold text-white mb-1">
+                {displayName}{user.age ? `, ${user.age}` : ''}
+              </h1>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-center space-x-4 mt-4">
+            <button className="px-6 py-2 bg-black text-white rounded-full font-medium">
+              Answers
+            </button>
+            <button className="px-6 py-2 bg-red-500 text-white rounded-full font-medium">
+              Matches
+            </button>
+            <button className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-full font-medium">
+              Edit
+            </button>
+          </div>
         </div>
 
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            {selectedModel === 'user' ? 'User' : 'UserAnswer'} Model Fields
-          </h2>
-          <p className="text-sm text-gray-600">
-            Database schema for the {selectedModel === 'user' ? 'User' : 'UserAnswer'} model. This is a read-only view of the model structure.
-          </p>
+        {/* Profile Icons */}
+        {profileIcons.length > 0 && (
+          <div className="flex justify-center space-x-6 mb-8">
+            {profileIcons.map((icon, index) => (
+              <div key={index} className="flex flex-col items-center">
+                <div className="w-12 h-12 mb-2">
+                  <Image
+                    src={icon.image}
+                    alt={icon.label}
+                    width={48}
+                    height={48}
+                    className="object-contain"
+                  />
+                </div>
+                <span className="text-xs text-gray-600 text-center">{icon.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* User Info */}
+        <div className="grid grid-cols-2 gap-4 mb-8 text-center">
+          <div>
+            <h3 className="font-semibold">Username</h3>
+            <p className="text-gray-600">{user.username}</p>
+          </div>
+          <div>
+            <h3 className="font-semibold">City</h3>
+            <p className="text-gray-600">{user.live || 'Austin'}</p>
+          </div>
+          <div>
+            <h3 className="font-semibold">Tag line</h3>
+            <p className="text-gray-600">Carpe Diem</p>
+          </div>
+          <div>
+            <h3 className="font-semibold">Height</h3>
+            <p className="text-gray-600">{user.height ? `${Math.floor(user.height / 12)}'${user.height % 12}"` : `5'3"`}</p>
+          </div>
         </div>
 
-        {/* Fields Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Field Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Properties
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Default
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Help Text
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentSchema.map((field, index) => (
-                <tr key={field.name} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium text-gray-900">{field.name}</span>
-                      {field.primary_key && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                          PK
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <i className={`${getFieldIcon(field.type)} mr-2 text-gray-400`}></i>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getFieldTypeColor(field.type)}`}>
-                        {field.type}
-                      </span>
-                      {field.max_length && (
-                        <span className="ml-2 text-xs text-gray-500">
-                          ({field.max_length})
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {field.null && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                          null
-                        </span>
-                      )}
-                      {field.blank && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                          blank
-                        </span>
-                      )}
-                      {field.unique && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                          unique
-                        </span>
-                      )}
-                      {field.auto_now && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                          auto_now
-                        </span>
-                      )}
-                      {field.auto_now_add && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                          auto_now_add
-                        </span>
-                      )}
-                      {field.editable === false && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          not editable
-                        </span>
-                      )}
-                      {field.upload_to && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800">
-                          upload_to
-                        </span>
-                      )}
-                      {field.validators && field.validators.length > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
-                          validators
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {field.default ? (
-                      <code className="bg-gray-100 px-2 py-1 rounded text-xs">
-                        {field.default}
-                      </code>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{field.help_text || '-'}</div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* Bio */}
+        {user.bio && (
+          <div className="mb-8">
+            <h3 className="font-semibold mb-2">Bio</h3>
+            <p className="text-gray-600">{user.bio}</p>
+          </div>
+        )}
 
-      {/* Model Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Model Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Database Table</h3>
-            <code className="bg-gray-100 px-3 py-2 rounded text-sm font-mono">
-              {selectedModel === 'user' ? 'users' : 'api_useranswer'}
-            </code>
+        {/* My Gender Section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-4">My Gender</h3>
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <h4 className="font-semibold mb-2 text-center">Me</h4>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">FEMALE</span>
+                    <span className="text-sm text-gray-600">{getAnswerValue(2, 2) || 3}</span>
+                  </div>
+                  <SliderDisplay value={getAnswerValue(2, 2)} />
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">MALE</span>
+                    <span className="text-sm text-gray-600">{getAnswerValue(2, 1) || 3}</span>
+                  </div>
+                  <SliderDisplay value={getAnswerValue(2, 1)} />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2 text-center" style={{ color: '#672DB7' }}>Them</h4>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">FEMALE</span>
+                    <span className="text-sm text-gray-600">{getAnswerValue(2, 2, 'looking_for_answer') || 3}</span>
+                  </div>
+                  <SliderDisplay value={getAnswerValue(2, 2, 'looking_for_answer')} />
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">MALE</span>
+                    <span className="text-sm text-gray-600">{getAnswerValue(2, 1, 'looking_for_answer') || 3}</span>
+                  </div>
+                  <SliderDisplay value={getAnswerValue(2, 1, 'looking_for_answer')} />
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Python Class</h3>
-            <code className="bg-gray-100 px-3 py-2 rounded text-sm font-mono">
-              {selectedModel === 'user' ? 'User' : 'UserAnswer'}
-            </code>
+        </div>
+
+        {/* I'm Looking For Section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-4">I'm Looking For</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">FRIEND</span>
+                <span className="text-sm text-gray-600">{getAnswerValue(1, 1, 'looking_for_answer') || 3}</span>
+              </div>
+              <SliderDisplay value={getAnswerValue(1, 1, 'looking_for_answer')} />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">HOOK UP</span>
+                <span className="text-sm text-gray-600">{getAnswerValue(1, 2, 'looking_for_answer') || 3}</span>
+              </div>
+              <SliderDisplay value={getAnswerValue(1, 2, 'looking_for_answer')} />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">DATE</span>
+                <span className="text-sm text-gray-600">{getAnswerValue(1, 3, 'looking_for_answer') || 3}</span>
+              </div>
+              <SliderDisplay value={getAnswerValue(1, 3, 'looking_for_answer')} />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">LIFE PARTNER</span>
+                <span className="text-sm text-gray-600">{getAnswerValue(1, 4, 'looking_for_answer') || 3}</span>
+              </div>
+              <SliderDisplay value={getAnswerValue(1, 4, 'looking_for_answer')} />
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Total Fields</h3>
-            <span className="text-2xl font-bold text-[#672DB7]">{currentSchema.length}</span>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Required Fields</h3>
-            <span className="text-2xl font-bold text-green-600">
-              {currentSchema.filter(f => !f.null && !f.blank).length}
-            </span>
+        </div>
+
+        {/* Tags Section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-4">Tags</h3>
+          <div className="flex flex-wrap gap-2">
+            <span className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">Approve</span>
+            <span className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">Hot</span>
+            <span className="px-3 py-1 border border-gray-300 text-gray-700 rounded-full text-sm">Maybe</span>
+            <span className="px-3 py-1 border border-gray-300 text-gray-700 rounded-full text-sm">Save</span>
+            <span className="px-3 py-1 border border-gray-300 text-gray-700 rounded-full text-sm">Hide</span>
+            <span className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">Like</span>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

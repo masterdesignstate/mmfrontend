@@ -182,7 +182,7 @@ export default function PersonalDetailsPage() {
         const params = new URLSearchParams({
           user_id: userCredentials.user_id
         });
-        router.push(`/auth/introcard?${params.toString()}`);
+        router.push(`/auth/add-photo?${params.toString()}`);
       } else {
         setError(data.error || 'Failed to save personal details');
       }
