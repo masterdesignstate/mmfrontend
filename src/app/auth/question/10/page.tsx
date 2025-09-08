@@ -23,13 +23,13 @@ export default function Question10Page() {
 
   // State for two questions sliders
   const [myAnswers, setMyAnswers] = useState({
-    answer1: 3,
-    answer2: 3
+    answer1: 3,  // WANT: default middle value
+    answer2: 1   // HAVE: default to NO (1)
   });
 
   const [lookingForAnswers, setLookingForAnswers] = useState({
-    answer1: 3,
-    answer2: 3
+    answer1: 3,  // WANT: default middle value
+    answer2: 1   // HAVE: default to NO (1)
   });
 
   const [openToAll, setOpenToAll] = useState({
@@ -123,11 +123,11 @@ export default function Question10Page() {
             const data = await response.json();
             console.log('📋 Raw API response:', data);
             
-            // Sort questions by group_number
+            // Sort questions by group_number in DESCENDING order so WANT (group 2) comes first
             const sortedQuestions = (data.results || []).sort((a: typeof questions[0], b: typeof questions[0]) => {
               const groupA = a.group_number || 0;
               const groupB = b.group_number || 0;
-              return groupA - groupB;
+              return groupB - groupA;  // Reversed to show group 2 first, then group 1
             });
             
             setQuestions(sortedQuestions);
@@ -263,23 +263,32 @@ export default function Question10Page() {
     router.push(`/auth/question/9?${params.toString()}`);
   };
 
-  // Slider component - EXACT COPY from politics/religion page
+  // Slider component - Modified to support binary YES/NO
   const SliderComponent = ({ 
     value, 
     onChange,
-    isOpenToAll = false
+    isOpenToAll = false,
+    isBinary = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
     isOpenToAll?: boolean;
+    isBinary?: boolean;
   }) => {
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-      onChange(Math.max(1, Math.min(5, newValue)));
+      
+      if (isBinary) {
+        // For binary sliders, only allow 1 or 5
+        const newValue = percentage < 0.5 ? 1 : 5;
+        onChange(newValue);
+      } else {
+        const newValue = Math.round(percentage * 4) + 1; // 1-5 range
+        onChange(Math.max(1, Math.min(5, newValue)));
+      }
     };
 
     const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -335,7 +344,9 @@ export default function Question10Page() {
               className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
               style={{
                 backgroundColor: '#672DB7',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
+                left: isBinary 
+                  ? (value === 1 ? '0px' : 'calc(100% - 28px)')  // Binary: only left or right
+                  : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
               }}
               onDragStart={handleDragStart}
             >
@@ -443,11 +454,11 @@ export default function Question10Page() {
                 )}
               </div>
 
-              {/* Yes, No labels for second slider (Have) */}
+              {/* No, Yes labels for second slider (Have) */}
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500 mb-0">
-                <span>YES</span>
                 <span>NO</span>
+                <span>YES</span>
               </div>
               <div></div> {/* Empty placeholder for switch column */}
 
@@ -460,6 +471,7 @@ export default function Question10Page() {
                   value={lookingForAnswers.answer2}
                   onChange={(value) => handleSliderChange('lookingForAnswers', 1, value)}
                   isOpenToAll={openToAll.answer2LookingOpen}
+                  isBinary={true}
                 />
               </div>
               <div>
@@ -575,11 +587,11 @@ export default function Question10Page() {
                 )}
               </div>
 
-              {/* Yes, No labels for second slider (Have) */}
+              {/* No, Yes labels for second slider (Have) */}
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500 0">
-                <span>YES</span>
                 <span>NO</span>
+                <span>YES</span>
               </div>
               <div></div> {/* Empty placeholder for switch column */}
 
@@ -592,6 +604,7 @@ export default function Question10Page() {
                   value={myAnswers.answer2}
                   onChange={(value) => handleSliderChange('myAnswers', 1, value)}
                   isOpenToAll={openToAll.answer2MeOpen}
+                  isBinary={true}
                 />
               </div>
               <div>

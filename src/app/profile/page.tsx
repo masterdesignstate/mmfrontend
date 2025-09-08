@@ -194,10 +194,13 @@ export default function ProfilePage() {
       });
     }
 
-    // Have Children icon (question_number === 10, group_number === 1)
-    const haveChildrenValue = getAnswerValue(10, 1);
-    if (haveChildrenValue) {
-      const labels = { 1: "Don't have children", 5: "Have children" };
+    // Have Children icon (question_number === 10, group_number === 2) - HAVE is second on page
+    const haveChildrenValue = getAnswerValue(10, 2);
+    if (haveChildrenValue && (haveChildrenValue === 1 || haveChildrenValue === 5)) {
+      const labels = { 
+        1: "Don't have kids",  // NO = 1
+        5: "Have kids"         // YES = 5
+      };
       icons.push({
         image: '/assets/pacifier.png',
         label: labels[haveChildrenValue as keyof typeof labels] || '',
@@ -205,10 +208,16 @@ export default function ProfilePage() {
       });
     }
 
-    // Want Children icon (question_number === 10, group_number === 2)
-    const wantChildrenValue = getAnswerValue(10, 2);
+    // Want Children icon (question_number === 10, group_number === 1) - WANT is first on page
+    const wantChildrenValue = getAnswerValue(10, 1);
     if (wantChildrenValue) {
-      const labels = { 1: "Don't want kids", 2: "Not sure", 3: "Not right now", 4: "Maybe", 5: "Want kids" };
+      const labels = { 
+        1: "Don't want kids", 
+        2: "Probably not", 
+        3: "Maybe want kids", 
+        4: "Probably want", 
+        5: "Want kids" 
+      };
       icons.push({
         image: '/assets/pacifier.png',
         label: labels[wantChildrenValue as keyof typeof labels] || '',
@@ -343,8 +352,8 @@ export default function ProfilePage() {
                 <Image
                   src="/assets/edit-profile.png"
                   alt="Edit Profile"
-                  width={28}
-                  height={28}
+                  width={32}
+                  height={32}
                 />
                 <span className="text-gray-700">Edit Profile</span>
               </div>
@@ -353,8 +362,8 @@ export default function ProfilePage() {
                 <Image
                   src="/assets/answered.png"
                   alt="Answers"
-                  width={28}
-                  height={28}
+                  width={32}
+                  height={32}
                 />
                 <span className="text-gray-700">Answers</span>
               </div>
@@ -363,8 +372,8 @@ export default function ProfilePage() {
                 <Image
                   src="/assets/heart.png"
                   alt="Matches"
-                  width={28}
-                  height={28}
+                  width={32}
+                  height={32}
                 />
                 <span className="text-gray-700">Matches</span>
               </div>
@@ -376,7 +385,7 @@ export default function ProfilePage() {
         <div className="flex-1 lg:max-w-4xl lg:mx-auto px-6 py-4">
           {/* Profile Photo and Name */}
           <div className="relative mb-6">
-            <div className="w-80 aspect-[3/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative mx-auto">
+            <div className="w-full sm:w-95 aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative mx-auto">
               {user.profile_photo ? (
                 <Image
                   src={user.profile_photo}
@@ -390,21 +399,21 @@ export default function ProfilePage() {
                 </div>
               )}
               <div className="absolute bottom-4 left-4">
-                <h1 className="text-2xl font-bold text-white mb-1">
+                <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
                   {displayName}{user.age ? `, ${user.age}` : ''}
                 </h1>
               </div>
             </div>
 
             {/* Mobile Action Buttons - only show on mobile */}
-            <div className="flex justify-center space-x-4 mt-4 lg:hidden">
-              <button className="px-6 py-2 bg-black text-white rounded-full font-medium">
+            <div className="flex justify-end space-x-3 mt-4 lg:hidden">
+              <button className="px-4 py-1.5 bg-black text-white rounded-full text-sm font-medium">
                 Answers
               </button>
-              <button className="px-6 py-2 bg-red-500 text-white rounded-full font-medium">
+              <button className="px-4 py-1.5 bg-black text-white rounded-full text-sm font-medium">
                 Matches
               </button>
-              <button className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-full font-medium">
+              <button className="px-4 py-1.5 border border-black text-gray-700 rounded-full text-sm font-medium">
                 Edit
               </button>
             </div>
@@ -412,7 +421,7 @@ export default function ProfilePage() {
 
           {/* Profile Icons - horizontal layout with containers */}
           {profileIcons.length > 0 && (
-            <div className="flex justify-start flex-wrap gap-3 mb-2">
+            <div className="flex justify-start flex-wrap gap-3 mb-6">
               {profileIcons.map((icon, index) => (
                 <div key={index} className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1">
                   <div className="w-7 h-7 mr-3">
@@ -430,8 +439,8 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* User Info - single row layout left aligned */}
-          <div className="flex items-center space-x-24 mb-6">
+          {/* User Info - responsive layout */}
+          <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-12 lg:space-x-24 mb-6">
             <div>
               <h3 className="font-semibold text-gray-900">Username</h3>
               <p className="text-gray-600">{user.username}</p>
@@ -469,7 +478,7 @@ export default function ProfilePage() {
                 </div>
                 
                 {/* LESS, MORE labels above sliders - aligned with slider start */}
-                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20">
+                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
                   <span>LESS</span>
                   <span>MORE</span>
                 </div>
@@ -508,7 +517,7 @@ export default function ProfilePage() {
                   <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Them</h4>
                 </div>
                 {/* LESS, MORE labels above sliders - aligned with slider start */}
-                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20">
+                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
                   <span>LESS</span>
                   <span>MORE</span>
                 </div>
@@ -546,7 +555,7 @@ export default function ProfilePage() {
             
             <div className="max-w-md">
               {/* LESS, MORE labels above sliders - aligned with slider start */}
-              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-24">
+              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20 sm:ml-24">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>

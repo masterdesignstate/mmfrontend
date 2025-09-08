@@ -304,7 +304,7 @@ export default function ProfilePage() {
 
         {/* Profile Icons */}
         {profileIcons.length > 0 && (
-          <div className="flex justify-center space-x-6 mb-8">
+          <div className="flex justify-center space-x-6 mb-16">
             {profileIcons.map((icon, index) => (
               <div key={index} className="flex flex-col items-center">
                 <div className="w-12 h-12 mb-2">
