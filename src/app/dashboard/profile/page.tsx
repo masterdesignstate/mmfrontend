@@ -296,7 +296,10 @@ export default function ProfilePage() {
             <button className="px-6 py-2 bg-red-500 text-white rounded-full font-medium">
               Matches
             </button>
-            <button className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-full font-medium">
+            <button
+              onClick={() => (window.location.href = '/profile/edit')}
+              className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-full font-medium"
+            >
               Edit
             </button>
           </div>

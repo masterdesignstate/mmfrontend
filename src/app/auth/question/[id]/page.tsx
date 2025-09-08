@@ -638,11 +638,28 @@ export default function QuestionPage() {
     );
   }
 
+  if (loadingQuestion) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading question...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!question) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">Question not found</p>
+          <button 
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-black text-white rounded-md"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
 // Types for user profile and answers
@@ -38,6 +39,7 @@ interface ProfileIcon {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,13 @@ export default function ProfilePage() {
         } catch (meError) {
           console.warn('Failed to use /users/me/ endpoint, falling back to direct user ID:', meError);
           
+          // Clear localStorage if user ID is invalid and redirect to login
+          if (!userId) {
+            console.error('No user ID available, redirecting to login');
+            router.push('/auth/login');
+            return;
+          }
+          
           // Fallback: fetch user by ID
           const userByIdResponse = await fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
             credentials: 'include',
@@ -81,7 +90,10 @@ export default function ProfilePage() {
           });
           
           if (!userByIdResponse.ok) {
-            throw new Error('Failed to fetch user profile');
+            console.error('User not found, clearing localStorage and redirecting to login');
+            localStorage.removeItem('user_id');
+            router.push('/auth/login');
+            return;
           }
           userData = await userByIdResponse.json();
         }
@@ -118,6 +130,22 @@ export default function ProfilePage() {
       a.question.question_number === questionNumber && 
       (groupNumber === undefined || a.question.group_number === groupNumber)
     );
+    
+    // Debug for question 1 (I'm Looking For section)
+    if (questionNumber === 1) {
+      console.log(`🔍 Looking for Q${questionNumber} G${groupNumber} (${answerType}):`, {
+        found: !!answer,
+        value: answer ? answer[answerType] : null,
+        question: answer?.question.question_name,
+        allQ1Answers: userAnswers.filter(a => a.question.question_number === 1).map(a => ({
+          group: a.question.group_number,
+          name: a.question.question_name,
+          me: a.me_answer,
+          looking: a.looking_for_answer
+        }))
+      });
+    }
+    
     return answer ? answer[answerType] : null;
   };
 
@@ -348,7 +376,10 @@ export default function ProfilePage() {
                 <span className="text-gray-900 font-medium">About me</span>
               </div>
               
-              <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <div
+                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                onClick={() => router.push('/profile/edit')}
+              >
                 <Image
                   src="/assets/edit-profile.png"
                   alt="Edit Profile"
@@ -413,7 +444,10 @@ export default function ProfilePage() {
               <button className="px-4 py-1.5 bg-black text-white rounded-full text-sm font-medium">
                 Matches
               </button>
-              <button className="px-4 py-1.5 border border-black text-gray-700 rounded-full text-sm font-medium">
+              <button
+                onClick={() => router.push('/profile/edit')}
+                className="px-4 py-1.5 border border-black text-gray-700 rounded-full text-sm font-medium"
+              >
                 Edit
               </button>
             </div>
@@ -455,7 +489,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Height</h3>
-              <p className="text-gray-600">{user.height ? `${Math.floor(user.height / 12)}'${user.height % 12}"` : `5'3"`}</p>
+              <p className="text-gray-600">{user.height || `5'3"`}</p>
             </div>
           </div>
 
@@ -490,7 +524,8 @@ export default function ProfilePage() {
                     <div className="flex-1">
                       <SliderComponent
                         value={getAnswerValue(2, 2) || 3}
-                        onChange={() => {}} 
+                        onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 2) === 6}
                       />
                     </div>
                   </div>
@@ -502,6 +537,7 @@ export default function ProfilePage() {
                       <SliderComponent
                         value={getAnswerValue(2, 1) || 3}
                         onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 1) === 6}
                       />
                     </div>
                   </div>
@@ -530,6 +566,7 @@ export default function ProfilePage() {
                       <SliderComponent
                         value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
                         onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
                       />
                     </div>
                   </div>
@@ -541,6 +578,7 @@ export default function ProfilePage() {
                       <SliderComponent
                         value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
                         onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
                       />
                     </div>
                   </div>
@@ -568,6 +606,7 @@ export default function ProfilePage() {
                     <SliderComponent
                       value={getAnswerValue(1, 1, 'looking_for_answer') || 3}
                       onChange={() => {}}
+                      isOpenToAll={getAnswerValue(1, 1, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
@@ -579,6 +618,7 @@ export default function ProfilePage() {
                     <SliderComponent
                       value={getAnswerValue(1, 2, 'looking_for_answer') || 3}
                       onChange={() => {}}
+                      isOpenToAll={getAnswerValue(1, 2, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
@@ -590,6 +630,7 @@ export default function ProfilePage() {
                     <SliderComponent
                       value={getAnswerValue(1, 3, 'looking_for_answer') || 3}
                       onChange={() => {}}
+                      isOpenToAll={getAnswerValue(1, 3, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
@@ -601,6 +642,7 @@ export default function ProfilePage() {
                     <SliderComponent
                       value={getAnswerValue(1, 4, 'looking_for_answer') || 3}
                       onChange={() => {}}
+                      isOpenToAll={getAnswerValue(1, 4, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
