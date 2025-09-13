@@ -449,7 +449,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 lg:max-w-4xl lg:mx-auto px-6 py-4">
+        <div className="flex-1 lg:max-w-4xl lg:mx-auto px-6 lg:px-12 xl:px-20 py-4">
           {/* Profile Photo and Name */}
           <div className="relative mb-6">
             <div className="w-full sm:w-95 aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative mx-auto">

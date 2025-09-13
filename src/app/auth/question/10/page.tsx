@@ -61,6 +61,92 @@ export default function Question10Page() {
     open_to_all_looking_for: boolean;
   }>>([]);
 
+  // Helper function to render all available answer labels for the first question (WANT)
+  const renderTopLabelsForWant = () => {
+    if (!questions || questions.length === 0 || !questions[0]?.answers || questions[0].answers.length === 0) {
+      return (
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>LESS</span>
+          <span>MORE</span>
+        </div>
+      );
+    }
+    
+    const sortedAnswers = questions[0].answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    
+    return (
+      <div className="relative text-xs text-gray-500" style={{ width: '500px', height: '14px' }}>
+        {sortedAnswers.map((answer, index) => {
+          const value = parseInt(answer.value);
+          let leftPosition;
+          
+          // Position labels to center on slider thumb positions
+          if (value === 1) {
+            leftPosition = '14px'; // Left edge of thumb (14px from left)
+          } else if (value === 2) {
+            leftPosition = '25%';
+          } else if (value === 3) {
+            leftPosition = '50%';
+          } else if (value === 4) {
+            leftPosition = '75%';
+          } else if (value === 5) {
+            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
+          }
+          
+          return (
+            <span 
+              key={value}
+              className="absolute text-xs text-gray-500" 
+              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
+            >
+              {answer.answer_text.toUpperCase()}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Helper function to render all available answer labels for the second question (HAVE)
+  const renderTopLabelsForHave = () => {
+    if (!questions || questions.length < 2 || !questions[1]?.answers || questions[1].answers.length === 0) {
+      return (
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>NO</span>
+          <span>YES</span>
+        </div>
+      );
+    }
+    
+    const sortedAnswers = questions[1].answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    
+    return (
+      <div className="relative text-xs text-gray-500" style={{ width: '500px', height: '14px' }}>
+        {sortedAnswers.map((answer, index) => {
+          const value = parseInt(answer.value);
+          let leftPosition;
+          
+          // Binary slider - only positions 1 and 5
+          if (value === 1) {
+            leftPosition = '14px'; // Left edge
+          } else if (value === 5) {
+            leftPosition = 'calc(100% - 14px)'; // Right edge
+          }
+          
+          return (
+            <span 
+              key={value}
+              className="absolute text-xs text-gray-500" 
+              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
+            >
+              {answer.answer_text.toUpperCase()}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
@@ -431,10 +517,7 @@ export default function Question10Page() {
               
               {/* Less, More labels for first slider (WANT) */}
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500 mb-0">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
+              {renderTopLabelsForWant()}
               <div></div> {/* Empty placeholder for switch column */}
               
               {/* Value labels for WANT slider */}
@@ -481,10 +564,7 @@ export default function Question10Page() {
 
               {/* No, Yes labels for second slider (Have) */}
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500 mb-0">
-                <span>NO</span>
-                <span>YES</span>
-              </div>
+              {renderTopLabelsForHave()}
               <div></div> {/* Empty placeholder for switch column */}
 
               {/* KIDS QUESTION 2 Slider Row */}
@@ -575,10 +655,7 @@ export default function Question10Page() {
               
               {/* Less, More labels for first slider (WANT) */}
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500 mb-0">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
+              {renderTopLabelsForWant()}
               <div></div> {/* Empty placeholder for switch column */}
               
               {/* Value labels for WANT slider */}
@@ -625,10 +702,7 @@ export default function Question10Page() {
 
               {/* No, Yes labels for second slider (Have) */}
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500 0">
-                <span>NO</span>
-                <span>YES</span>
-              </div>
+              {renderTopLabelsForHave()}
               <div></div> {/* Empty placeholder for switch column */}
               
               {/* Value labels for HAVE slider */}

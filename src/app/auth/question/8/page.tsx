@@ -53,6 +53,53 @@ export default function Question8Page() {
     open_to_all_looking_for: boolean;
   }>>([]);
 
+  // Helper function to render all available answer labels at the top
+  const renderTopLabels = () => {
+    if (!questions || questions.length === 0 || !questions[0]?.answers || questions[0].answers.length === 0) {
+      return (
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>LESS</span>
+          <span>MORE</span>
+        </div>
+      );
+    }
+    
+    const sortedAnswers = questions[0].answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    
+    return (
+      <div className="relative text-xs text-gray-500" style={{ width: '500px', height: '14px' }}>
+        {sortedAnswers.map((answer, index) => {
+          const value = parseInt(answer.value);
+          let leftPosition;
+          
+          // Position labels to center on slider thumb positions
+          if (value === 1) {
+            leftPosition = '14px'; // Left edge of thumb (14px from left)
+          } else if (value === 2) {
+            leftPosition = '25%';
+          } else if (value === 3) {
+            leftPosition = '50%';
+          } else if (value === 4) {
+            leftPosition = '75%';
+          } else if (value === 5) {
+            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
+          }
+          
+          return (
+            <span 
+              key={value}
+              className="absolute text-xs text-gray-500" 
+              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
+            >
+              {answer.answer_text.toUpperCase()}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
@@ -382,13 +429,10 @@ export default function Question8Page() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
+            {/* Dynamic answer labels above sliders */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
+              {renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_looking_for ? 'OTA' : ''}
               </div>
@@ -472,13 +516,10 @@ export default function Question8Page() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
+            {/* Dynamic answer labels above sliders */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
+              {renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {questions[0]?.open_to_all_me ? 'OTA' : ''}
               </div>

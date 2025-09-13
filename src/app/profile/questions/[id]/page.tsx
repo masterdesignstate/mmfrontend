@@ -49,6 +49,15 @@ export default function QuestionEditPage() {
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 
+  // Static importance labels for importance sliders
+  const IMPORTANCE_LABELS = [
+    { value: "1", answer_text: "TRIVIAL" },
+    { value: "2", answer_text: "MINOR" },
+    { value: "3", answer_text: "AVERAGE" },
+    { value: "4", answer_text: "SIGNIFICANT" },
+    { value: "5", answer_text: "ESSENTIAL" }
+  ];
+
   // Question display names
   const questionTitles: Record<number, string> = {
     1: 'Relationship',
@@ -376,11 +385,13 @@ export default function QuestionEditPage() {
   const SliderComponent = ({ 
     value, 
     onChange,
-    isOpenToAll = false
+    isOpenToAll = false,
+    labels = []
   }: { 
     value: number; 
     onChange: (value: number) => void; 
     isOpenToAll?: boolean;
+    labels?: Array<{ value: string; answer_text: string }>;
   }) => {
     const [fillWidth, setFillWidth] = useState('0%');
     const hasAnimatedRef = useRef(false);
@@ -409,53 +420,128 @@ export default function QuestionEditPage() {
 
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
+      
+      // Get min and max values from labels, fallback to 1 and 5
+      const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+      const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
+      const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+      
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1;
-      onChange(Math.max(1, Math.min(5, newValue)));
+      const newValue = Math.round(percentage * (maxValue - minValue)) + minValue;
+      onChange(Math.max(minValue, Math.min(maxValue, newValue)));
     };
 
     return (
       <div className="w-full h-5 relative flex items-center select-none">
-        {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-        
-        <div 
-          className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
-          style={{
-            backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-            borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-          }}
-          onClick={handleSliderClick}
-        >
-          <div 
-            className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
-            style={{
-              width: fillWidth,
-              transition: 'width 1.2s ease-in-out'
-            }}
-          />
-        </div>
-        
-        {!isOpenToAll && (
-          <div 
-            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30"
-            style={{
-              backgroundColor: '#672DB7',
-              left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
-            }}
-          >
-            <span className="text-white">{value}</span>
-          </div>
-        )}
-        
-        {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
+        {(() => {
+          // Get min and max values from labels, fallback to 1 and 5
+          const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+          const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
+          const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+          
+          
+          return (
+            <>
+              {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
+              
+              <div 
+                className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+                style={{
+                  backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
+                  borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
+                }}
+                onClick={handleSliderClick}
+              >
+                <div 
+                  className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
+                  style={{
+                    width: fillWidth,
+                    transition: 'width 1.2s ease-in-out'
+                  }}
+                />
+              </div>
+              
+              {!isOpenToAll && (
+                <div 
+                  className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30"
+                  style={{
+                    backgroundColor: '#672DB7',
+                    left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`
+                  }}
+                >
+                  <span className="text-white">{value}</span>
+                </div>
+              )}
+              
+              {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">{maxValue}</span>}
+            </>
+          );
+        })()}
       </div>
     );
   };
 
+  const SliderLabels = ({ 
+    labels, 
+    currentValue 
+  }: { 
+    labels: Array<{ value: string; answer_text: string }>; 
+    currentValue: number;
+  }) => {
+    if (labels.length === 0) return null;
+    
+    // Sort labels by value
+    const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const minValue = parseInt(sortedLabels[0].value);
+    const maxValue = parseInt(sortedLabels[sortedLabels.length - 1].value);
+    
+    // Find the current label
+    const currentLabel = sortedLabels.find(label => parseInt(label.value) === currentValue);
+    
+    
+    return (
+      <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+        {currentLabel && (
+          <span 
+            className="absolute" 
+            style={{ 
+              left: currentValue === minValue 
+                ? '14px' 
+                : currentValue === maxValue 
+                  ? 'calc(100% - 14px)' 
+                  : `${((currentValue - minValue) / (maxValue - minValue)) * 100}%`,
+              transform: 'translateX(-50%)' 
+            }}
+          >
+            {currentLabel.answer_text.toUpperCase()}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // Helper function to get min/max labels from questions
+  const getMinMaxLabels = () => {
+    if (!questions || questions.length === 0) return { minLabel: 'LESS', maxLabel: 'MORE' };
+    
+    // Get all answers from all questions and find global min/max
+    const allAnswers = questions.flatMap(q => q.answers || []);
+    if (allAnswers.length === 0) return { minLabel: 'LESS', maxLabel: 'MORE' };
+    
+    const sortedAnswers = allAnswers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const minLabel = sortedAnswers[0]?.answer_text?.toUpperCase() || 'LESS';
+    const maxLabel = sortedAnswers[sortedAnswers.length - 1]?.answer_text?.toUpperCase() || 'MORE';
+    
+    return { minLabel, maxLabel };
+  };
+
   const renderQuestionContent = () => {
     if (!questions || questions.length === 0) return null;
+    
+    
+    const { minLabel, maxLabel } = getMinMaxLabels();
 
     // Relationship, Gender, Exercise, Habits, Kids, Religion, Politics - Slider questions
     if ([1, 2, 6, 7, 8, 9, 10].includes(questionNumber)) {
@@ -476,8 +562,8 @@ export default function QuestionEditPage() {
                    style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                 <div></div>
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>LESS</span>
-                  <span>MORE</span>
+                  <span>{minLabel}</span>
+                  <span>{maxLabel}</span>
                 </div>
                 <div className="text-xs text-gray-500 text-center">
                   {questions[0]?.open_to_all_looking_for ? 'OTA' : ''}
@@ -500,6 +586,7 @@ export default function QuestionEditPage() {
                           value={sliderAnswers[lookingKey] || 3}
                           onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
                           isOpenToAll={openToAllStates[lookingKey] || false}
+                          labels={question.answers}
                         />
                       </div>
                       <div>
@@ -538,32 +625,21 @@ export default function QuestionEditPage() {
                     value={importanceValues.lookingFor}
                     onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
                     isOpenToAll={false}
+                    labels={IMPORTANCE_LABELS}
                   />
                 </div>
                 <div className="w-11 h-6"></div>
               </div>
               
+              
               {/* Importance labels */}
               <div className="grid items-center justify-center mx-auto max-w-fit mt-2" 
                    style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                 <div></div>
-                <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                  {importanceValues.lookingFor === 1 && (
-                    <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                  )}
-                  {importanceValues.lookingFor === 2 && (
-                    <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                  )}
-                  {importanceValues.lookingFor === 3 && (
-                    <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                  )}
-                  {importanceValues.lookingFor === 4 && (
-                    <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                  )}
-                  {importanceValues.lookingFor === 5 && (
-                    <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                  )}
-                </div>
+                <SliderLabels 
+                  labels={IMPORTANCE_LABELS} 
+                  currentValue={importanceValues.lookingFor} 
+                />
                 <div></div>
               </div>
             </div>
@@ -608,6 +684,7 @@ export default function QuestionEditPage() {
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                         isOpenToAll={openToAllStates[meKey] || false}
+                        labels={question.answers}
                       />
                     </div>
                     <div>
@@ -646,6 +723,7 @@ export default function QuestionEditPage() {
                   value={importanceValues.me}
                   onChange={(value) => setImportanceValues(prev => ({ ...prev, me: value }))}
                   isOpenToAll={false}
+                  labels={questions[0]?.answers || []}
                 />
               </div>
               <div className="w-11 h-6"></div>
@@ -655,23 +733,10 @@ export default function QuestionEditPage() {
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" 
                  style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div>
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {importanceValues.me === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importanceValues.me === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importanceValues.me === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importanceValues.me === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importanceValues.me === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
+              <SliderLabels 
+                labels={IMPORTANCE_LABELS} 
+                currentValue={importanceValues.me} 
+              />
               <div></div>
             </div>
           </div>
@@ -685,8 +750,8 @@ export default function QuestionEditPage() {
                    style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                 <div></div>
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>LESS</span>
-                  <span>MORE</span>
+                  <span>{minLabel}</span>
+                  <span>{maxLabel}</span>
                 </div>
                 <div className="text-xs text-gray-500 text-center">
                   {questions[0]?.open_to_all_looking_for ? 'OTA' : ''}
@@ -747,6 +812,7 @@ export default function QuestionEditPage() {
                     value={importanceValues.lookingFor}
                     onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
                     isOpenToAll={false}
+                    labels={IMPORTANCE_LABELS}
                   />
                 </div>
                 <div className="w-11 h-6"></div>

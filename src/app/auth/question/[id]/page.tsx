@@ -36,6 +36,53 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // Helper function to render ALL answer labels at the top
+  const renderTopLabels = () => {
+    if (!question?.answers || question.answers.length === 0) {
+      return (
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>LESS</span>
+          <span>MORE</span>
+        </div>
+      );
+    }
+    
+    const sortedAnswers = question.answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    
+    return (
+      <div className="relative text-xs text-gray-500" style={{ width: '500px', height: '14px' }}>
+        {sortedAnswers.map((answer, index) => {
+          const value = parseInt(answer.value);
+          let leftPosition;
+          
+          // Position labels to center on slider thumb positions
+          if (value === 1) {
+            leftPosition = '14px'; // Left edge of thumb (14px from left)
+          } else if (value === 2) {
+            leftPosition = '25%';
+          } else if (value === 3) {
+            leftPosition = '50%';
+          } else if (value === 4) {
+            leftPosition = '75%';
+          } else if (value === 5) {
+            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
+          }
+          
+          return (
+            <span 
+              key={value}
+              className="absolute text-xs text-gray-500" 
+              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
+            >
+              {answer.answer_text.toUpperCase()}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   
   // For habits page (question 7) - 3 questions + importance
   const [habitsQuestions, setHabitsQuestions] = useState<Array<{
@@ -717,13 +764,7 @@ export default function QuestionPage() {
             {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500 relative">
-                <span>{params.id === 'diet' ? 'NO' : params.id === 'education' ? 'NONE' : 'LESS'}</span>
-                {params.id === 'education' && (
-                  <span className="absolute left-1/2 transform -translate-x-1/2">SOME</span>
-                )}
-                <span>{params.id === 'diet' ? 'YES' : params.id === 'education' ? 'COMPLETED' : 'MORE'}</span>
-              </div>
+{renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {question?.open_to_all_looking_for ? 'OTA' : ''}
               </div>
@@ -778,6 +819,7 @@ export default function QuestionPage() {
               
             </div>
 
+
             {/* Importance labels below Looking For section - centered and dynamic */}
             <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
@@ -810,13 +852,7 @@ export default function QuestionPage() {
             {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
             <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500 relative">
-                <span>{params.id === 'diet' ? 'NO' : params.id === 'education' ? 'NONE' : 'LESS'}</span>
-                {params.id === 'education' && (
-                  <span className="absolute left-1/2 transform -translate-x-1/2">SOME</span>
-                )}
-                <span>{params.id === 'diet' ? 'YES' : params.id === 'education' ? 'COMPLETED' : 'MORE'}</span>
-              </div>
+{renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {question?.open_to_all_me ? 'OTA' : ''}
               </div>
@@ -858,6 +894,7 @@ export default function QuestionPage() {
               </div>
               
             </div>
+
           </div>
         </div>
       </main>
