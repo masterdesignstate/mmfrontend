@@ -17,6 +17,7 @@ interface UserProfile {
   height?: number;
   live?: string;
   from_location?: string;
+  tagline?: string;
 }
 
 interface UserAnswer {
@@ -44,6 +45,7 @@ export default function ProfilePage() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [showMenu, setShowMenu] = useState(false);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -162,6 +164,20 @@ export default function ProfilePage() {
     return highestAnswers.reduce((prev, curr) => 
       (curr.question.group_number || 0) > (prev.question.group_number || 0) ? curr : prev
     );
+  };
+
+  // Helper function to format height from centimeters to feet and inches
+  const formatHeight = (heightCm: number | null | undefined): string => {
+    if (!heightCm) return `5'3"`;
+    
+    // Convert cm to inches
+    const totalInches = Math.round(heightCm / 2.54);
+    
+    // Calculate feet and inches
+    const feet = Math.floor(totalInches / 12);
+    const inches = totalInches % 12;
+    
+    return `${feet}'${inches}"`;
   };
 
   // Generate profile icons based on user answers
@@ -343,11 +359,31 @@ export default function ProfilePage() {
             className="mr-2"
           />
         </div>
-        <button className="p-2">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <div className="relative">
+          <button 
+            className="p-2 cursor-pointer"
+            onClick={() => setShowMenu(!showMenu)}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          
+          {/* Dropdown Menu */}
+          {showMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+              <button
+                onClick={() => {
+                  router.push('/profile/questions');
+                  setShowMenu(false);
+                }}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Questions
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex">
@@ -485,11 +521,11 @@ export default function ProfilePage() {
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Tag line</h3>
-              <p className="text-gray-600">Carpe Diem</p>
+              <p className="text-gray-600">{user.tagline || 'Carpe Diem'}</p>
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Height</h3>
-              <p className="text-gray-600">{user.height || `5'3"`}</p>
+              <p className="text-gray-600">{formatHeight(user.height)}</p>
             </div>
           </div>
 

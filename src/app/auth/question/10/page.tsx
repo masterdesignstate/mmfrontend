@@ -202,9 +202,18 @@ export default function Question10Page() {
   };
 
   const handleNext = async () => {
-    if (!userId) {
-      setError('User ID is required');
-      return;
+    // Ensure we have a userId
+    let currentUserId = userId;
+    if (!currentUserId) {
+      // Try to get from localStorage as final fallback
+      const storedUserId = localStorage.getItem('user_id');
+      if (storedUserId) {
+        currentUserId = storedUserId;
+        setUserId(storedUserId);
+      } else {
+        setError('User ID is required. Please log in again.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -213,7 +222,7 @@ export default function Question10Page() {
     try {
       // Prepare user answers for both questions
       const userAnswers = questions.map((question, index) => ({
-        user_id: userId,
+        user_id: currentUserId,
         question_id: question.id,
         me_answer: openToAll[`answer${index + 1}MeOpen` as keyof typeof openToAll] ? 6 : myAnswers[`answer${index + 1}` as keyof typeof myAnswers],
         me_open_to_all: openToAll[`answer${index + 1}MeOpen` as keyof typeof openToAll],
@@ -246,6 +255,11 @@ export default function Question10Page() {
         }
       }
 
+      // Ensure user_id is in localStorage before navigating to profile
+      if (currentUserId) {
+        localStorage.setItem('user_id', currentUserId);
+      }
+      
       // Navigate to profile page
       router.push(`/profile`);
     } catch (error) {
@@ -423,6 +437,17 @@ export default function Question10Page() {
               </div>
               <div></div> {/* Empty placeholder for switch column */}
               
+              {/* Value labels for WANT slider */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span style={{ marginLeft: '0px' }}>DON&apos;T WANT</span>
+                <span style={{ marginLeft: '-10px' }}>DOUBTFUL</span>
+                <span>UNSURE</span>
+                <span style={{ marginRight: '-10px' }}>EVENTUALLY</span>
+                <span style={{ marginRight: '0px' }}>WANT</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
+              
               {/* KIDS QUESTION 1 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
                 {(questions[0]?.question_name || 'KIDS 1').toUpperCase()}
@@ -556,6 +581,17 @@ export default function Question10Page() {
               </div>
               <div></div> {/* Empty placeholder for switch column */}
               
+              {/* Value labels for WANT slider */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span style={{ marginLeft: '0px' }}>DON&apos;T WANT</span>
+                <span style={{ marginLeft: '-10px' }}>DOUBTFUL</span>
+                <span>UNSURE</span>
+                <span style={{ marginRight: '-10px' }}>EVENTUALLY</span>
+                <span style={{ marginRight: '0px' }}>WANT</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
+              
               {/* KIDS QUESTION 1 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
                 {(questions[0]?.question_name || 'KIDS 1').toUpperCase()}
@@ -592,6 +628,17 @@ export default function Question10Page() {
               <div className="flex justify-between text-xs text-gray-500 0">
                 <span>NO</span>
                 <span>YES</span>
+              </div>
+              <div></div> {/* Empty placeholder for switch column */}
+              
+              {/* Value labels for HAVE slider */}
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span style={{ marginLeft: '0px' }}>DON&apos;T HAVE</span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span style={{ marginRight: '0px' }}>HAVE</span>
               </div>
               <div></div> {/* Empty placeholder for switch column */}
 
