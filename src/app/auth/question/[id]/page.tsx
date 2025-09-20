@@ -105,6 +105,7 @@ export default function QuestionPage() {
     const nextQuestionParam = searchParams.get('next_question');
     const questionNumberParam = searchParams.get('question_number');
     const questionDataParam = searchParams.get('question_data');
+    const contextParam = searchParams.get('context');
     const questionId = params.id as string;
     
     console.log('🔍 Question Page Load - URL Params:', {
@@ -191,8 +192,19 @@ export default function QuestionPage() {
         fetchNextQuestion(nextQuestionParam, parseInt(questionNumberParam));
       }
     } else if (questionId && questionId !== 'ethnicity' && questionId !== 'education' && questionId !== 'diet' && questionId !== 'next-question') {
-      // Fetch the specific question by ID
-      fetchQuestion(questionId);
+      // Use passed question data if available, otherwise fetch the specific question by ID
+      if (questionDataParam) {
+        try {
+          const parsedQuestionData = JSON.parse(questionDataParam);
+          console.log('📋 Using passed question data for ID:', questionId, parsedQuestionData);
+          setQuestion(parsedQuestionData);
+        } catch (error) {
+          console.error('❌ Error parsing passed question data:', error);
+          fetchQuestion(questionId);
+        }
+      } else {
+        fetchQuestion(questionId);
+      }
     }
   }, [params.id, searchParams]);
 
@@ -422,6 +434,37 @@ export default function QuestionPage() {
     }
   };
 
+  const getProgressPercentage = () => {
+    if (!question) return 60; // default fallback
+    
+    // Progressive onboarding steps:
+    // Relationship (1): 10%
+    // Gender (2): 20%
+    // Ethnicity (3): 30%
+    // Education (4): 40%
+    // Diet (5): 50%
+    // Exercise (6): 60%
+    // Habits (7): 70%
+    // Religion (8): 80%
+    // Politics (9): 90%
+    // Kids (10): 100%
+    
+    const progressMap: { [key: number]: number } = {
+      1: 10,  // Relationship
+      2: 20,  // Gender
+      3: 30,  // Ethnicity
+      4: 40,  // Education
+      5: 50,  // Diet
+      6: 60,  // Exercise
+      7: 70,  // Habits
+      8: 80,  // Religion
+      9: 90,  // Politics
+      10: 100 // Kids
+    };
+    
+    return progressMap[question.question_number] || 60;
+  };
+
   const handleSliderChange = (section: 'meAnswer' | 'lookingForAnswer' | 'importance', value: number) => {
     if (section === 'meAnswer') {
       setMeAnswer(value);
@@ -447,6 +490,15 @@ export default function QuestionPage() {
     setError('');
 
     try {
+      // IMMEDIATELY save to localStorage for instant UI feedback
+      const answeredQuestionsKey = `answered_questions_${userId}`;
+      const existingAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+      if (!existingAnswered.includes(question.id)) {
+        existingAnswered.push(question.id);
+        localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
+        console.log('✅ Immediately saved question to localStorage:', question.id);
+      }
+
       // Prepare user answer
       const userAnswer = {
         user_id: userId,
@@ -461,7 +513,7 @@ export default function QuestionPage() {
         looking_for_share: true
       };
 
-      // Save user answer
+      // Save user answer to backend (async, don't wait for UI)
       const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
         method: 'POST',
         headers: {
@@ -475,39 +527,51 @@ export default function QuestionPage() {
         throw new Error(data.error || 'Failed to save answer');
       }
 
-      // For ethnicity questions, go back to ethnicity page; for education questions, go back to education page; for diet questions, go back to diet page; for next questions, go back to next question page; otherwise go to dashboard
-      if (params.id === 'ethnicity') {
-        const params = new URLSearchParams({ 
-          user_id: userId,
-          refresh: 'true' // Add refresh flag
-        });
-        router.push(`/auth/ethnicity?${params.toString()}`);
-      } else if (params.id === 'education') {
-        const params = new URLSearchParams({ 
-          user_id: userId,
-          refresh: 'true' // Add refresh flag
-        });
-        router.push(`/auth/education?${params.toString()}`);
-      } else if (params.id === 'diet') {
-        const params = new URLSearchParams({ 
-          user_id: userId,
-          refresh: 'true' // Add refresh flag
-        });
-        router.push(`/auth/diet?${params.toString()}`);
-      } else if (params.id === 'next-question') {
-        const params = new URLSearchParams({ 
-          user_id: userId
-        });
-        
-        // If we have habits questions loaded, pass them to avoid re-fetching
-        if (habitsQuestions.length > 0) {
-          params.set('questions', JSON.stringify(habitsQuestions));
-          console.log('📋 Passing pre-loaded habits questions to habits page');
-        }
-        
-        router.push(`/auth/habits?${params.toString()}`);
+      // Check if we're in profile context
+      const contextParam = searchParams.get('context');
+      
+      if (contextParam === 'profile') {
+        // Navigate back to profile questions page when in profile context
+        router.push('/profile/questions');
       } else {
-        router.push('/dashboard');
+        // Normal onboarding flow
+        // For ethnicity questions, go back to ethnicity page; for education questions, go back to education page; for diet questions, go back to diet page; for next questions, go back to next question page; otherwise go to dashboard
+        if (params.id === 'ethnicity') {
+          const params = new URLSearchParams({ 
+            user_id: userId,
+            refresh: 'true', // Add refresh flag
+            just_answered: question.id // Pass the question ID that was just answered for immediate UI update
+          });
+          router.push(`/auth/ethnicity?${params.toString()}`);
+        } else if (params.id === 'education') {
+          const params = new URLSearchParams({ 
+            user_id: userId,
+            refresh: 'true', // Add refresh flag
+            just_answered: question.id // Pass the question ID that was just answered for immediate UI update
+          });
+          router.push(`/auth/education?${params.toString()}`);
+        } else if (params.id === 'diet') {
+          const params = new URLSearchParams({ 
+            user_id: userId,
+            refresh: 'true', // Add refresh flag
+            just_answered: question.id // Pass the question ID that was just answered for immediate UI update
+          });
+          router.push(`/auth/diet?${params.toString()}`);
+        } else if (params.id === 'next-question') {
+          const params = new URLSearchParams({ 
+            user_id: userId
+          });
+          
+          // If we have habits questions loaded, pass them to avoid re-fetching
+          if (habitsQuestions.length > 0) {
+            params.set('questions', JSON.stringify(habitsQuestions));
+            console.log('📋 Passing pre-loaded habits questions to habits page');
+          }
+          
+          router.push(`/auth/habits?${params.toString()}`);
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (error) {
       console.error('Error saving question answer:', error);
@@ -533,18 +597,29 @@ export default function QuestionPage() {
   };
 
   const handleBack = () => {
-    const urlParams = new URLSearchParams({ 
-      user_id: userId
-    });
+    // Check if we're in profile context
+    const contextParam = searchParams.get('context');
     
-    if (params.id === 'next-question') {
-      router.push(`/auth/next-question?${urlParams.toString()}`);
-    } else if (params.id === 'diet') {
-      router.push(`/auth/diet?${urlParams.toString()}`);
-    } else if (params.id === 'education') {
-      router.push(`/auth/education?${urlParams.toString()}`);
+    if (contextParam === 'profile') {
+      // Navigate back to profile questions page
+      router.push('/profile/questions');
     } else {
-      router.push(`/auth/ethnicity?${urlParams.toString()}`);
+      // Normal onboarding flow
+      const urlParams = new URLSearchParams({ 
+        user_id: userId,
+        refresh: 'true'  // Add refresh parameter to trigger answered questions check
+      });
+      
+      if (params.id === 'next-question' || params.id === '6') {
+        // Question 6 (exercise) goes back to question 5 (diet)
+        router.push(`/auth/diet?${urlParams.toString()}`);
+      } else if (params.id === 'diet') {
+        router.push(`/auth/education?${urlParams.toString()}`);
+      } else if (params.id === 'education') {
+        router.push(`/auth/ethnicity?${urlParams.toString()}`);
+      } else {
+        router.push(`/auth/ethnicity?${urlParams.toString()}`);
+      }
     }
   };
 
@@ -648,9 +723,10 @@ export default function QuestionPage() {
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
+              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
               style={{
-                backgroundColor: '#672DB7',
+                backgroundColor: isImportance ? 'white' : '#672DB7',
+                boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
                 left: isImportance
                   ? (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
                   : params.id === 'education' 
@@ -661,7 +737,7 @@ export default function QuestionPage() {
               }}
               onDragStart={handleDragStart}
             >
-              <span className="text-white">{value}</span>
+              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
             </div>
           )}
           
@@ -901,10 +977,12 @@ export default function QuestionPage() {
 
       {/* Footer with Progress and Navigation */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '100%' }}></div>
-        </div>
+        {/* Progress Bar - Only show in onboarding context, not profile context */}
+        {searchParams.get('context') !== 'profile' && (
+          <div className="w-full h-1 bg-gray-200">
+            <div className="h-full bg-black" style={{ width: `${getProgressPercentage()}%` }}></div>
+          </div>
+        )}
         
         {/* Navigation Buttons */}
         <div className="flex justify-between items-center px-6 py-4">

@@ -51,6 +51,16 @@ export default function HabitsPage() {
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
+  const [exerciseQuestion, setExerciseQuestion] = useState<{
+    id: string;
+    question_name: string;
+    question_number: number;
+    group_name: string;
+    text: string;
+    answers: Array<{ value: string; answer_text: string }>;
+    open_to_all_me: boolean;
+    open_to_all_looking_for: boolean;
+  } | null>(null);
 
   // Helper function to render all available answer labels at the top
   const renderTopLabels = () => {
@@ -233,6 +243,39 @@ export default function HabitsPage() {
     fetchNextQuestions();
   }, [userId]);
 
+  const fetchExerciseQuestion = async () => {
+    // Fetch exercise question (question_number = 6) in the background for back navigation
+    if (userId && !exerciseQuestion) {
+      try {
+        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=6`;
+        console.log('🌐 Fetching exercise question from URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('📋 Exercise question data:', data);
+          
+          if (data.results && data.results.length > 0) {
+            // Get the first exercise question
+            setExerciseQuestion(data.results[0]);
+            console.log('✅ Exercise question loaded for back navigation:', data.results[0]);
+          }
+        }
+      } catch (error: unknown) {
+        console.log('⚠️ Failed to fetch exercise question for back navigation:', error);
+        // Silently fail - back navigation will work without passed data
+      }
+    }
+  };
+
+  // Fetch exercise question in background when userId is available
+  useEffect(() => {
+    if (userId) {
+      fetchExerciseQuestion();
+    }
+  }, [userId]);
+
   const handleSliderChange = (section: 'myHabits' | 'lookingFor' | 'importance', habitKey?: string, value?: number) => {
     if (section === 'myHabits' && habitKey && value !== undefined) {
       setMyHabits(prev => ({ ...prev, [habitKey]: value }));
@@ -346,18 +389,30 @@ export default function HabitsPage() {
     const params = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/question/next-question?${params.toString()}`);
+    
+    // Use the exercise question data we loaded in the background
+    if (exerciseQuestion) {
+      // Pass the question data to avoid re-fetching and ensure proper loading
+      params.set('question_data', JSON.stringify(exerciseQuestion));
+      console.log('📋 Passing exercise question data for back navigation:', exerciseQuestion);
+    } else {
+      console.log('⚠️ No exercise question data available, navigation may need to fetch from backend');
+    }
+    
+    router.push(`/auth/question/6?${params.toString()}`);
   };
 
   // Slider component - EXACT COPY from gender page
   const SliderComponent = ({ 
     value, 
     onChange,
-    isOpenToAll = false
+    isOpenToAll = false,
+    isImportance = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
     isOpenToAll?: boolean;
+    isImportance?: boolean;
   }) => {
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
@@ -418,14 +473,15 @@ export default function HabitsPage() {
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
+              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
               style={{
-                backgroundColor: '#672DB7',
+                backgroundColor: isImportance ? 'white' : '#672DB7',
+                boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
                 left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
               }}
               onDragStart={handleDragStart}
             >
-              <span className="text-white">{value}</span>
+              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
             </div>
           )}
           
@@ -588,6 +644,7 @@ export default function HabitsPage() {
                   value={importance.lookingFor}
                   onChange={handleLookingForImportanceChange}
                   isOpenToAll={false}
+                  isImportance={true}
                 />
               </div>
               <div className="w-11 h-6"></div>
@@ -737,7 +794,7 @@ export default function HabitsPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '100%' }}></div>
+          <div className="h-full bg-black" style={{ width: '70%' }}></div>
         </div>
         
         {/* Navigation Buttons */}

@@ -27,10 +27,11 @@ export interface Question {
   question_number?: number;
   group_number?: number;
   group_name?: string;
+  group_name_text?: string;
+  question_type?: 'basic' | 'four' | 'grouped' | 'double' | 'triple';
   text: string;
   tags: Array<{ id: number; name: string }>;
   answers: Array<{ id: string; value: string; answer_text: string; order: number }>;
-  question_type: string;
   is_required_for_match: boolean;
   is_approved: boolean;
   skip_me: boolean;

@@ -23,6 +23,8 @@ export default function EditQuestionPage() {
   const [groupNumber, setGroupNumber] = useState<number | null>(null);
   const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
+  const [groupNameText, setGroupNameText] = useState('');
+  const [questionType, setQuestionType] = useState<'basic' | 'four' | 'grouped' | 'double' | 'triple'>('basic');
   const [question, setQuestion] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([
     { id: '1', value: '1', answer: 'Casual' },
@@ -72,6 +74,8 @@ export default function EditQuestionPage() {
         setGroupNumber(questionData.group_number || null);
         setQuestionName(questionData.question_name || '');
         setGroupName(questionData.group_name || '');
+        setGroupNameText(questionData.group_name_text || '');
+        setQuestionType(questionData.question_type || 'basic');
         setQuestion(questionData.text);
         setSelectedTag(questionData.tags[0]?.name || '');
         setIsMandatory(questionData.is_required_for_match);
@@ -248,8 +252,9 @@ export default function EditQuestionPage() {
         question_number: questionNumber,
         group_number: groupNumber || undefined,
         group_name: groupName.trim(),
+        group_name_text: groupNameText.trim(),
+        question_type: questionType,
         tags: [selectedTag],
-        question_type: isMandatory ? 'mandatory' : 'unanswered',
         is_required_for_match: isMandatory,
         is_approved: isApproved,
         skip_me: skipMe,
@@ -379,6 +384,37 @@ export default function EditQuestionPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
               placeholder="Enter group name"
             />
+          </div>
+
+          {/* Group Name Text Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Group Name Text
+            </label>
+            <input
+              type="text"
+              value={groupNameText}
+              onChange={(e) => setGroupNameText(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
+            />
+          </div>
+
+          {/* Question Type Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Question Type
+            </label>
+            <select
+              value={questionType}
+              onChange={(e) => setQuestionType(e.target.value as 'basic' | 'four' | 'grouped' | 'double' | 'triple')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer"
+            >
+              <option value="basic">Basic</option>
+              <option value="four">Four</option>
+              <option value="grouped">Grouped</option>
+              <option value="double">Double</option>
+              <option value="triple">Triple</option>
+            </select>
           </div>
 
           {/* Question Section */}

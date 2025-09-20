@@ -126,13 +126,14 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
+
   // Helper function to get answer value for specific question
   const getAnswerValue = (questionNumber: number, groupNumber?: number, answerType: 'me_answer' | 'looking_for_answer' = 'me_answer') => {
-    const answer = userAnswers.find(a => 
-      a.question.question_number === questionNumber && 
+    const answer = userAnswers.find(a =>
+      a.question.question_number === questionNumber &&
       (groupNumber === undefined || a.question.group_number === groupNumber)
     );
-    
+
     // Debug for question 1 (I'm Looking For section)
     if (questionNumber === 1) {
       console.log(`🔍 Looking for Q${questionNumber} G${groupNumber} (${answerType}):`, {
@@ -147,8 +148,50 @@ export default function ProfilePage() {
         }))
       });
     }
-    
+
     return answer ? answer[answerType] : null;
+  };
+
+  // Helper function to get answer text for specific question (returns the question name/text as the answer)
+  const getAnswerText = (questionNumber: number, groupNumber?: number, answerType: 'me_answer' | 'looking_for_answer' = 'me_answer') => {
+    const answer = userAnswers.find(a =>
+      a.question.question_number === questionNumber &&
+      (groupNumber === undefined || a.question.group_number === groupNumber)
+    );
+
+    return answer ? answer.question.question_name : null;
+  };
+
+  // Helper function to get the actual answer label based on user's answer value
+  const getAnswerLabel = (questionNumber: number, groupNumber?: number, answerType: 'me_answer' | 'looking_for_answer' = 'me_answer') => {
+    const answer = userAnswers.find(a =>
+      a.question.question_number === questionNumber &&
+      (groupNumber === undefined || a.question.group_number === groupNumber)
+    );
+
+    if (!answer) return null;
+
+    // For kids questions, use predefined labels
+    if (questionNumber === 10) {
+      if (groupNumber === 1) {
+        // Have kids question
+        const haveLabels = { 1: "Don't Have", 5: "Have" };
+        return haveLabels[answer[answerType] as keyof typeof haveLabels] || null;
+      } else if (groupNumber === 2) {
+        // Want kids question
+        const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
+        return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
+      }
+    }
+
+    // For politics question (question 9)
+    if (questionNumber === 9) {
+      const politicsLabels = { 1: "Uninvolved", 2: "Observant", 3: "Active", 4: "Fervent", 5: "Radical" };
+      return politicsLabels[answer[answerType] as keyof typeof politicsLabels] || null;
+    }
+
+    // For other questions, could extend this function to get labels from question.answers field
+    return null;
   };
 
   // Helper function to get question with highest answer value
@@ -238,35 +281,44 @@ export default function ProfilePage() {
       });
     }
 
-    // Have Children icon (question_number === 10, group_number === 2) - HAVE is second on page
-    const haveChildrenValue = getAnswerValue(10, 2);
-    if (haveChildrenValue && (haveChildrenValue === 1 || haveChildrenValue === 5)) {
-      const labels = { 
-        1: "Don't have kids",  // NO = 1
-        5: "Have kids"         // YES = 5
-      };
+    // Have Children icon (question_number === 10, group_number === 1)
+    const haveChildrenLabel = getAnswerLabel(10, 1);
+    if (haveChildrenLabel) {
       icons.push({
         image: '/assets/pacifier.png',
-        label: labels[haveChildrenValue as keyof typeof labels] || '',
+        label: haveChildrenLabel,
         show: true
       });
     }
 
-    // Want Children icon (question_number === 10, group_number === 1) - WANT is first on page
-    const wantChildrenValue = getAnswerValue(10, 1);
-    if (wantChildrenValue) {
-      const labels = { 
-        1: "Don't want kids", 
-        2: "Probably not", 
-        3: "Maybe want kids", 
-        4: "Probably want", 
-        5: "Want kids" 
-      };
+    // Want Children icon (question_number === 10, group_number === 2)
+    const wantChildrenLabel = getAnswerLabel(10, 2);
+    if (wantChildrenLabel) {
       icons.push({
         image: '/assets/pacifier.png',
-        label: labels[wantChildrenValue as keyof typeof labels] || '',
+        label: wantChildrenLabel,
         show: true
       });
+    }
+
+    // Politics icon (question_number === 9)
+    const politicsValue = getAnswerValue(9);
+    if (politicsValue) {
+      const politicsLabels = {
+        1: 'Uninvolved',
+        2: 'Observant',
+        3: 'Active',
+        4: 'Fervent',
+        5: 'Radical'
+      };
+      const label = politicsLabels[politicsValue as keyof typeof politicsLabels];
+      if (label) {
+        icons.push({
+          image: '/assets/politics.png',
+          label: label,
+          show: true
+        });
+      }
     }
 
     return icons.filter(icon => icon.show);
@@ -374,12 +426,21 @@ export default function ProfilePage() {
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
               <button
                 onClick={() => {
-                  router.push('/profile/questions');
+                  router.push('/profile');
                   setShowMenu(false);
                 }}
                 className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >
-                Questions
+                My Profile
+              </button>
+              <button
+                onClick={() => {
+                  router.push('/questions');
+                  setShowMenu(false);
+                }}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                All Questions
               </button>
             </div>
           )}
@@ -409,7 +470,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </div>
-                <span className="text-gray-900 font-medium">About me</span>
+                <span className="font-medium text-gray-900">About me</span>
               </div>
               
               <div
@@ -425,15 +486,6 @@ export default function ProfilePage() {
                 <span className="text-gray-700">Edit Profile</span>
               </div>
               
-              <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <Image
-                  src="/assets/answered.png"
-                  alt="Answers"
-                  width={32}
-                  height={32}
-                />
-                <span className="text-gray-700">Answers</span>
-              </div>
               
               <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                 <Image
@@ -474,9 +526,6 @@ export default function ProfilePage() {
 
             {/* Mobile Action Buttons - only show on mobile */}
             <div className="flex justify-end space-x-3 mt-4 lg:hidden">
-              <button className="px-4 py-1.5 bg-black text-white rounded-full text-sm font-medium">
-                Answers
-              </button>
               <button className="px-4 py-1.5 bg-black text-white rounded-full text-sm font-medium">
                 Matches
               </button>

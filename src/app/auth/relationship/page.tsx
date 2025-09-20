@@ -223,11 +223,13 @@ export default function RelationshipPage() {
   const SliderComponent = ({ 
     value, 
     onChange,
-    isOpenToAll = false
+    isOpenToAll = false,
+    isImportance = false
   }: { 
     value: number; 
     onChange: (value: number) => void; 
     isOpenToAll?: boolean;
+    isImportance?: boolean;
   }) => {
     const [fillWidth, setFillWidth] = useState('0%');
     const hasAnimatedRef = useRef(false);
@@ -327,14 +329,15 @@ export default function RelationshipPage() {
         {/* Slider Thumb */}
         {!isOpenToAll && (
           <div 
-            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
+            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
             style={{
-              backgroundColor: '#672DB7',
+              backgroundColor: isImportance ? 'white' : '#672DB7',
+              boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
               left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
             }}
             onDragStart={handleDragStart}
           >
-            <span className="text-white">{value}</span>
+            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
           </div>
         )}
         
@@ -450,6 +453,7 @@ export default function RelationshipPage() {
                   value={importance.me}
                   onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
                   isOpenToAll={false}
+                  isImportance={true}
                 />
               </div>
               <div className="w-11 h-6"></div>
@@ -488,7 +492,7 @@ export default function RelationshipPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '50%' }}></div>
+          <div className="h-full bg-black" style={{ width: '30%' }}></div>
         </div>
         
         {/* Navigation Buttons */}

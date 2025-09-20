@@ -43,6 +43,7 @@ export default function EducationPage() {
     const userIdParam = searchParams.get('user_id');
     const questionsParam = searchParams.get('questions');
     const refreshParam = searchParams.get('refresh');
+    const justAnsweredParam = searchParams.get('just_answered');
     
     console.log('🔍 Education Page Load - URL Params:', {
       userIdParam,
@@ -79,10 +80,17 @@ export default function EducationPage() {
       console.log('❌ No questions parameter found in URL');
     }
 
-    // If refresh flag is present, force refresh of answered questions
+    // If a question was just answered, immediately add it to the answered set for instant feedback
+    if (justAnsweredParam) {
+      console.log('✅ Question just answered:', justAnsweredParam);
+      setAnsweredQuestions(prev => new Set([...prev, justAnsweredParam]));
+    }
+
+    // If refresh flag is present, sync with backend (but don't wait for UI update)
     if (refreshParam === 'true' && userIdParam) {
-      console.log('🔄 Refresh flag detected, forcing refresh of answered questions...');
-      setTimeout(() => checkAnsweredQuestions(), 100); // Small delay to ensure userId is set
+      console.log('🔄 Refresh flag detected, syncing with backend in background...');
+      // Don't wait for this - UI is already updated optimistically
+      checkAnsweredQuestions();
     }
   }, [searchParams]);
 
@@ -166,9 +174,16 @@ export default function EducationPage() {
     }
   }, [userId]);
 
-  // Check answered questions when userId is available
+  // IMMEDIATELY load answered questions from localStorage for instant UI
   useEffect(() => {
     if (userId) {
+      const answeredQuestionsKey = `answered_questions_${userId}`;
+      const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+      if (localAnswered.length > 0) {
+        setAnsweredQuestions(new Set(localAnswered));
+        console.log('⚡ Loaded answered questions from localStorage:', localAnswered);
+      }
+      // Also check backend (but don't wait for it)
       checkAnsweredQuestions();
     }
   }, [userId]);
@@ -242,8 +257,13 @@ export default function EducationPage() {
       console.log('📋 Education questions:', questions.filter(q => q.group_name === 'Education').map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
       console.log('📋 Answered education questions:', answeredEducationQuestions.map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
       
-      // Removed strict validation - allow user to proceed regardless of answers
-      console.log('✅ Proceeding to next page without strict validation');
+      // Require at least 1 answered education question
+      if (answeredEducationQuestions.length === 0) {
+        setError('Please answer at least one education question before proceeding.');
+        return;
+      }
+      
+      console.log('✅ User has answered', answeredEducationQuestions.length, 'education question(s), proceeding to next page');
 
       // Navigate to next onboarding step (diet page)
       const params = new URLSearchParams({ 
@@ -271,20 +291,46 @@ export default function EducationPage() {
     console.log('🔍 checkAnsweredQuestions called for userId:', userId);
     
     try {
-      const response = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}`);
-      console.log('📡 Response status:', response.status);
+      // Fetch ALL pages of answers (handle pagination)
+      let allAnswers: any[] = [];
+      let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}&page_size=100`;
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📋 Raw answers data:', data);
-        console.log('📋 Results count:', data.results?.length || 0);
+      while (nextUrl) {
+        const response = await fetch(nextUrl);
+        console.log('📡 Fetching answers page:', nextUrl);
         
-        const answeredQuestionIds = new Set<string>(data.results?.map((answer: { question_id: string }) => answer.question_id) || []);
-        console.log('📋 Answered question IDs:', Array.from(answeredQuestionIds));
-        
-        setAnsweredQuestions(answeredQuestionIds);
-        console.log('📋 Updated answeredQuestions state');
+        if (response.ok) {
+          const data = await response.json();
+          allAnswers = [...allAnswers, ...(data.results || [])];
+          nextUrl = data.next;
+        } else {
+          nextUrl = null;
+        }
       }
+      
+      console.log('📋 Total answers fetched:', allAnswers.length);
+      
+      // Extract question IDs - the 'question' field contains an object with an 'id' property
+      const answeredQuestionIds = new Set<string>(
+        allAnswers.map((answer: any) => {
+          if (answer.question_id) {
+            return answer.question_id;
+          } else if (answer.question && typeof answer.question === 'object' && answer.question.id) {
+            return answer.question.id;
+          }
+          return null;
+        }).filter(id => id != null)
+      );
+      
+      console.log('📋 Answered question IDs:', Array.from(answeredQuestionIds));
+      
+      // Merge with localStorage (localStorage takes precedence for recent answers)
+      const answeredQuestionsKey = `answered_questions_${userId}`;
+      const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+      const mergedAnswered = new Set([...answeredQuestionIds, ...localAnswered]);
+      
+      setAnsweredQuestions(mergedAnswered);
+      console.log('📋 Updated answeredQuestions state with', mergedAnswered.size, 'questions (backend:', answeredQuestionIds.size, '+ localStorage:', localAnswered.length, ')');
     } catch (error) {
       console.error('Error checking answered questions:', error);
     }
@@ -366,7 +412,7 @@ export default function EducationPage() {
                     selectedEducation === question.question_name
                       ? 'border-black bg-gray-50'
                       : isAnswered
-                      ? 'border-green-500 bg-green-50'
+                      ? 'border-[#672DB7] bg-purple-50'
                       : 'border-black bg-white hover:bg-gray-50'
                   }`}
                 >
@@ -380,7 +426,7 @@ export default function EducationPage() {
                     />
                     <span className="text-black font-medium">{question.question_name}</span>
                     {isAnswered && (
-                      <span className="text-green-600 text-sm">✓ Answered</span>
+                      <span className="text-[#672DB7] text-sm">✓ Answered</span>
                     )}
                   </div>
                   <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -397,7 +443,7 @@ export default function EducationPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '100%' }}></div>
+          <div className="h-full bg-black" style={{ width: '40%' }}></div>
         </div>
         
         {/* Navigation Buttons */}

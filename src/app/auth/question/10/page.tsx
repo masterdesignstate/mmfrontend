@@ -520,16 +520,6 @@ export default function Question10Page() {
               {renderTopLabelsForWant()}
               <div></div> {/* Empty placeholder for switch column */}
               
-              {/* Value labels for WANT slider */}
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span style={{ marginLeft: '0px' }}>DON&apos;T WANT</span>
-                <span style={{ marginLeft: '-10px' }}>DOUBTFUL</span>
-                <span>UNSURE</span>
-                <span style={{ marginRight: '-10px' }}>EVENTUALLY</span>
-                <span style={{ marginRight: '0px' }}>WANT</span>
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
               
               {/* KIDS QUESTION 1 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
@@ -658,16 +648,6 @@ export default function Question10Page() {
               {renderTopLabelsForWant()}
               <div></div> {/* Empty placeholder for switch column */}
               
-              {/* Value labels for WANT slider */}
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span style={{ marginLeft: '0px' }}>DON&apos;T WANT</span>
-                <span style={{ marginLeft: '-10px' }}>DOUBTFUL</span>
-                <span>UNSURE</span>
-                <span style={{ marginRight: '-10px' }}>EVENTUALLY</span>
-                <span style={{ marginRight: '0px' }}>WANT</span>
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
               
               {/* KIDS QUESTION 1 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
@@ -705,16 +685,6 @@ export default function Question10Page() {
               {renderTopLabelsForHave()}
               <div></div> {/* Empty placeholder for switch column */}
               
-              {/* Value labels for HAVE slider */}
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span style={{ marginLeft: '0px' }}>DON&apos;T HAVE</span>
-                <span></span>
-                <span></span>
-                <span></span>
-                <span style={{ marginRight: '0px' }}>HAVE</span>
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
 
               {/* KIDS QUESTION 2 Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
