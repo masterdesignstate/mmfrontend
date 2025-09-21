@@ -631,7 +631,7 @@ export default function QuestionsPage() {
             {/* Dropdown Menu */}
             {showMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
-                <button 
+                <button
                   onClick={() => {
                     router.push('/profile');
                     setShowMenu(false);
@@ -640,7 +640,16 @@ export default function QuestionsPage() {
                 >
                   My Profile
                 </button>
-                <button 
+                <button
+                  onClick={() => {
+                    router.push('/results');
+                    setShowMenu(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                >
+                  Results
+                </button>
+                <button
                   onClick={() => {
                     router.push('/questions');
                     setShowMenu(false);
@@ -662,8 +671,7 @@ export default function QuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold">All Questions</h1>
             <p className="text-gray-600">
-              Showing {Object.keys(groupedQuestions).length} question groups
-              (Page {currentPage} of {totalPages}, {totalQuestionGroups} total groups)
+              Showing {Object.keys(groupedQuestions).length} questions
             </p>
           </div>
           <button 
@@ -1022,13 +1030,37 @@ export default function QuestionsPage() {
                 </div>
               </div>
 
+              {/* Value Labels */}
+              <div className="mb-3">
+                <div className="flex items-center justify-center">
+                  <div className="flex gap-8" style={{ width: '500px' }}>
+                    <div className="w-32">
+                      <input
+                        type="text"
+                        value={valueLabel1}
+                        onChange={(e) => setValueLabel1(e.target.value)}
+                        placeholder="Label 1"
+                        className="w-full py-1.5 px-3 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-black focus:border-black text-sm"
+                        style={{ borderRadius: '24px' }}
+                      />
+                    </div>
+                    <div className="flex-1"></div>
+                    <div className="w-32">
+                      <input
+                        type="text"
+                        value={valueLabel5}
+                        onChange={(e) => setValueLabel5(e.target.value)}
+                        placeholder="Label 5"
+                        className="w-full py-1.5 px-3 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-black focus:border-black text-sm text-right"
+                        style={{ borderRadius: '24px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Slider */}
               <div className="mb-6">
-                {/* LESS and MORE labels above slider */}
-                <div className="flex justify-between text-xs text-gray-500 mb-2 px-2">
-                  <span>LESS</span>
-                  <span>MORE</span>
-                </div>
                 <div className="flex items-center justify-center">
                   <div
                     className="w-full h-6 relative flex items-center select-none"
@@ -1083,35 +1115,6 @@ export default function QuestionsPage() {
 
                     {/* Right number inside track */}
                     <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Value Labels */}
-              <div className="mb-6 -mt-2">
-                <div className="flex items-center justify-center">
-                  <div className="flex gap-8" style={{ width: '500px' }}>
-                    <div className="w-32">
-                      <input
-                        type="text"
-                        value={valueLabel1}
-                        onChange={(e) => setValueLabel1(e.target.value)}
-                        placeholder="Label 1"
-                        className="w-full py-1.5 px-3 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-black focus:border-black text-sm"
-                        style={{ borderRadius: '24px' }}
-                      />
-                    </div>
-                    <div className="flex-1"></div>
-                    <div className="w-32">
-                      <input
-                        type="text"
-                        value={valueLabel5}
-                        onChange={(e) => setValueLabel5(e.target.value)}
-                        placeholder="Label 5"
-                        className="w-full py-1.5 px-3 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-black focus:border-black text-sm text-right"
-                        style={{ borderRadius: '24px' }}
-                      />
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1172,8 +1175,6 @@ export default function QuestionsPage() {
                       body: JSON.stringify({
                         text: questionText.trim(),
                         tags: selectedTags.map(tag => tag.toLowerCase()),
-                        value_label_1: valueLabel1.trim(),
-                        value_label_5: valueLabel5.trim(),
                         is_approved: false,  // User-submitted questions need approval
                         is_mandatory: false,
                         is_required_for_match: isRequiredForMatch,

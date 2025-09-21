@@ -305,9 +305,14 @@ class ApiService {
     skip_looking_for?: boolean;
     open_to_all_me?: boolean;
     open_to_all_looking_for?: boolean;
+    value_label_1?: string;
+    value_label_5?: string;
     answers: Array<{ value: string; answer: string }>;
   }): Promise<Question> {
-    return this.request('/questions/', 'POST', questionData) as Promise<Question>;
+    // Remove answers from the data sent to backend since Question model doesn't have answers field
+    // Backend expects value_label_1 and value_label_5 instead
+    const { answers, ...questionPayload } = questionData;
+    return this.request('/questions/', 'POST', questionPayload) as Promise<Question>;
   }
 
   async updateQuestion(id: string, questionData: {

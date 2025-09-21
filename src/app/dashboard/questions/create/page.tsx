@@ -99,17 +99,23 @@ export default function CreateQuestionPage() {
       newErrors.question = 'Question text is required';
     }
 
-    if (question.length > 1000) {
-      newErrors.question = 'Question text must be less than 1000 characters';
+    if (question.length > 100) {
+      newErrors.question = 'Question text must be less than 100 characters';
     }
 
     const answersWithValues = answers.filter(answer => answer.value.trim());
     const answersWithText = answers.filter(answer => answer.value.trim() && answer.answer.trim());
-    
-    if (answersWithValues.length < 2) {
+
+    // Check specifically for value 1 and value 5
+    const answer1 = answers.find(a => a.value === '1');
+    const answer5 = answers.find(a => a.value === '5');
+
+    if (!answer1?.answer.trim()) {
+      newErrors.answers = 'Answer text for value 1 is required';
+    } else if (!answer5?.answer.trim()) {
+      newErrors.answers = 'Answer text for value 5 is required';
+    } else if (answersWithValues.length < 2) {
       newErrors.answers = 'At least 2 answer values are required';
-    } else if (answersWithText.length < 2) {
-      newErrors.answers = 'At least 2 answers must have both value and answer text';
     }
 
     if (!selectedTag) {
@@ -127,11 +133,17 @@ export default function CreateQuestionPage() {
     setGeneralError('');
     
     try {
+      // Get the first and last answer texts for value_label_1 and value_label_5
+      const validAnswers = getValidAnswers();
+      const value_label_1 = validAnswers.find(a => a.value === '1')?.answer || '';
+      const value_label_5 = validAnswers.find(a => a.value === '5')?.answer || '';
+
       // Prepare the question data
       const questionData = {
         text: question.trim(),
         question_name: questionName.trim(),
         question_number: questionNumber,
+        group_number: groupNumber || undefined,
         group_name: groupName.trim(),
         group_name_text: groupNameText.trim(),
         question_type: questionType,
@@ -143,6 +155,8 @@ export default function CreateQuestionPage() {
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
         is_group: isGroup,
+        value_label_1: value_label_1,
+        value_label_5: value_label_5,
         answers: getValidAnswers().map(answer => ({
           value: answer.value,
           answer: answer.answer
@@ -176,6 +190,11 @@ export default function CreateQuestionPage() {
     setGeneralError('');
     
     try {
+      // Get the first and last answer texts for value_label_1 and value_label_5
+      const validAnswers = getValidAnswers();
+      const value_label_1 = validAnswers.find(a => a.value === '1')?.answer || '';
+      const value_label_5 = validAnswers.find(a => a.value === '5')?.answer || '';
+
       // Prepare the question data
       const questionData = {
         text: question.trim(),
@@ -193,6 +212,8 @@ export default function CreateQuestionPage() {
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
         is_group: isGroup,
+        value_label_1: value_label_1,
+        value_label_5: value_label_5,
         answers: getValidAnswers().map(answer => ({
           value: answer.value,
           answer: answer.answer

@@ -281,6 +281,17 @@ export default function ProfilePage() {
       });
     }
 
+    // Vaping icon (question_number === 7, group_number === 3)
+    const vapingValue = getAnswerValue(7, 3);
+    if (vapingValue) {
+      const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
+      icons.push({
+        image: '/assets/vape.png',
+        label: labels[vapingValue as keyof typeof labels] || '',
+        show: true
+      });
+    }
+
     // Have Children icon (question_number === 10, group_number === 1)
     const haveChildrenLabel = getAnswerLabel(10, 1);
     if (haveChildrenLabel) {
@@ -435,6 +446,15 @@ export default function ProfilePage() {
               </button>
               <button
                 onClick={() => {
+                  router.push('/results');
+                  setShowMenu(false);
+                }}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Results
+              </button>
+              <button
+                onClick={() => {
                   router.push('/questions');
                   setShowMenu(false);
                 }}
@@ -543,7 +563,7 @@ export default function ProfilePage() {
             <div className="flex justify-start flex-wrap gap-3 mb-6">
               {profileIcons.map((icon, index) => (
                 <div key={index} className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1">
-                  <div className="w-7 h-7 mr-3">
+                  <div className="w-7 h-7 mr-1">
                     <Image
                       src={icon.image}
                       alt={icon.label}
@@ -559,13 +579,17 @@ export default function ProfilePage() {
           )}
 
           {/* User Info - responsive layout */}
-          <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-12 lg:space-x-24 mb-6">
+          <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-16 mb-6">
             <div>
               <h3 className="font-semibold text-gray-900">Username</h3>
               <p className="text-gray-600">{user.username}</p>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">City</h3>
+              <h3 className="font-semibold text-gray-900">From</h3>
+              <p className="text-gray-600">{user.from_location || 'Austin'}</p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Live</h3>
               <p className="text-gray-600">{user.live || 'Austin'}</p>
             </div>
             <div>
@@ -591,8 +615,8 @@ export default function ProfilePage() {
             {/* Me Section */}
             <div className="mb-6">
               <div className="max-w-md">
-                {/* Me label centered above sliders */}
-                <div className="flex justify-center mb-2">
+                {/* Me label aligned with middle of slider */}
+                <div className="flex justify-center mb-2" style={{ marginLeft: '4rem', marginRight: '0', transform: 'translateX(calc(50% - 12px))' }}>
                   <h4 className="font-semibold text-lg">Me</h4>
                 </div>
                 
@@ -630,12 +654,12 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Them Section */}
+            {/* Interested In Section */}
             <div className="mb-6">
               <div className="max-w-md">
-                {/* Them label centered above sliders */}
-                <div className="flex justify-center mb-2">
-                  <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Them</h4>
+                {/* Interested In label aligned with middle of slider */}
+                <div className="flex justify-center mb-2" style={{ marginLeft: '4rem', marginRight: '0', transform: 'translateX(calc(50% - 50px))' }}>
+                  <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Interested In</h4>
                 </div>
                 {/* LESS, MORE labels above sliders - aligned with slider start */}
                 <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
