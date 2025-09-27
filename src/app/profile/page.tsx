@@ -616,8 +616,12 @@ export default function ProfilePage() {
             <div className="mb-6">
               <div className="max-w-md">
                 {/* Me label aligned with middle of slider */}
-                <div className="flex justify-center mb-2" style={{ marginLeft: '4rem', marginRight: '0', transform: 'translateX(calc(50% - 12px))' }}>
-                  <h4 className="font-semibold text-lg">Me</h4>
+                <div className="mb-2 flex" style={{ paddingLeft: '5rem' }}>
+                  <div className="flex-1 relative">
+                    <div className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+                      <h4 className="font-semibold text-lg">Me</h4>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* LESS, MORE labels above sliders - aligned with slider start */}
@@ -658,8 +662,12 @@ export default function ProfilePage() {
             <div className="mb-6">
               <div className="max-w-md">
                 {/* Interested In label aligned with middle of slider */}
-                <div className="flex justify-center mb-2" style={{ marginLeft: '4rem', marginRight: '0', transform: 'translateX(calc(50% - 50px))' }}>
-                  <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Interested In</h4>
+                <div className="mb-2 flex" style={{ paddingLeft: '5rem' }}>
+                  <div className="flex-1 relative">
+                    <div className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+                      <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Interested In</h4>
+                    </div>
+                  </div>
                 </div>
                 {/* LESS, MORE labels above sliders - aligned with slider start */}
                 <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
@@ -698,7 +706,7 @@ export default function ProfilePage() {
 
           {/* I'm Looking For Section */}
           <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4">I'm Looking For</h3>
+            <h3 className="text-xl font-bold mb-4">I&apos;m Looking For</h3>
             
             <div className="max-w-md">
               {/* LESS, MORE labels above sliders - aligned with slider start */}
@@ -713,45 +721,45 @@ export default function ProfilePage() {
                   <div className="text-xs font-semibold text-gray-400 w-20">FRIEND</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(1, 1, 'looking_for_answer') || 3}
+                      value={getAnswerValue(1, 1, 'me_answer') || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(1, 1, 'looking_for_answer') === 6}
+                      isOpenToAll={getAnswerValue(1, 1, 'me_answer') === 6}
                     />
                   </div>
                 </div>
-                
+
                 {/* HOOK UP Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-20">HOOK UP</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(1, 2, 'looking_for_answer') || 3}
+                      value={getAnswerValue(1, 2, 'me_answer') || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(1, 2, 'looking_for_answer') === 6}
+                      isOpenToAll={getAnswerValue(1, 2, 'me_answer') === 6}
                     />
                   </div>
                 </div>
-                
+
                 {/* DATE Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-20">DATE</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(1, 3, 'looking_for_answer') || 3}
+                      value={getAnswerValue(1, 3, 'me_answer') || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(1, 3, 'looking_for_answer') === 6}
+                      isOpenToAll={getAnswerValue(1, 3, 'me_answer') === 6}
                     />
                   </div>
                 </div>
-                
+
                 {/* LIFE PARTNER Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-20">PARTNER</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(1, 4, 'looking_for_answer') || 3}
+                      value={getAnswerValue(1, 4, 'me_answer') || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(1, 4, 'looking_for_answer') === 6}
+                      isOpenToAll={getAnswerValue(1, 4, 'me_answer') === 6}
                     />
                   </div>
                 </div>
