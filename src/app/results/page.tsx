@@ -112,6 +112,7 @@ export default function ResultsPage() {
   const [visibleCount, setVisibleCount] = useState(15); // Show 3 rows initially (5 columns x 3 rows)
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filtersApplied, setFiltersApplied] = useState(false);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -285,11 +286,76 @@ export default function ResultsPage() {
       tags: [],
       requiredOnly: false
     });
+    setFiltersApplied(false);
   };
 
-  const applyFiltersAndClose = () => {
-    // TODO: Apply filters to profile data
-    setShowFilterModal(false);
+  const applyFiltersAndClose = async () => {
+    try {
+      // Build query parameters based on filters
+      const queryParams = new URLSearchParams();
+
+      // Add basic filters
+      if (filters.age.min > 18) queryParams.append('age_min', filters.age.min.toString());
+      if (filters.age.max < 80) queryParams.append('age_max', filters.age.max.toString());
+      if (filters.distance.min > 1) queryParams.append('distance_min', filters.distance.min.toString());
+      if (filters.distance.max < 100) queryParams.append('distance_max', filters.distance.max.toString());
+
+      // Add compatibility filters
+      if (filters.compatibility.min > 0) queryParams.append('compatibility_min', filters.compatibility.min.toString());
+      if (filters.compatibility.max < 100) queryParams.append('compatibility_max', filters.compatibility.max.toString());
+      queryParams.append('compatibility_type', filters.compatibilityType);
+
+      // Add required only flag
+      if (filters.requiredOnly) queryParams.append('required_only', 'true');
+
+      // Add tags filter
+      if (filters.tags.length > 0) {
+        queryParams.append('tags', filters.tags.join(','));
+      }
+
+      // For now, we'll filter the dummy data based on the filters
+      // In production, this would be an API call to fetch filtered users
+      const filteredProfiles = generateDummyProfiles().filter(profile => {
+        // Age filter
+        if (profile.age < filters.age.min || profile.age > filters.age.max) return false;
+
+        // Compatibility filter
+        if (profile.compatibility < filters.compatibility.min || profile.compatibility > filters.compatibility.max) return false;
+
+        // Tags filter
+        if (filters.tags.length > 0) {
+          const profileTags = [];
+          if (profile.status === 'approved') profileTags.push('Approved');
+          if (profile.isLiked) profileTags.push('Liked');
+          if (profile.isMatched) profileTags.push('Matched');
+
+          // Check if profile has at least one of the selected tags
+          const hasTag = filters.tags.some(tag => profileTags.includes(tag));
+          if (!hasTag) return false;
+        }
+
+        return true;
+      });
+
+      // Update profiles with filtered results
+      setProfiles(filteredProfiles);
+      setVisibleCount(15); // Reset to initial visible count
+
+      // Mark that filters have been applied
+      setFiltersApplied(true);
+
+      // Close the modal
+      setShowFilterModal(false);
+
+      // TODO: When backend is ready, replace with actual API call:
+      // const response = await fetch(`/api/users/search?${queryParams.toString()}`);
+      // const data = await response.json();
+      // setProfiles(data.results);
+
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      // Handle error appropriately
+    }
   };
 
   return (
@@ -325,12 +391,19 @@ export default function ResultsPage() {
 
             <button
               onClick={() => setShowFilterModal(true)}
-              className="ml-4 px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
+              className={`ml-4 px-4 py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
+                filtersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
+              }`}
             >
-              <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
-              </svg>
-              Filter
+              {filtersApplied && (
+                <div className="absolute inset-0 bg-black opacity-[0.05]"></div>
+              )}
+              <span className="relative z-10 flex items-center">
+                <svg className="w-4 h-4 mr-1 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
+                </svg>
+                Filter
+              </span>
             </button>
 
             <button className="ml-2 px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
