@@ -492,7 +492,7 @@ export default function ResultsPage() {
           onClick={() => setShowFilterModal(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-lg w-full max-w-2xl mx-4 h-[70vh] flex flex-col"
+            className="bg-white rounded-3xl shadow-lg w-full max-w-xl mx-4 h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -514,8 +514,24 @@ export default function ResultsPage() {
               <div className="mb-8">
                 <div className="flex items-center gap-2 mb-4">
                   <h3 className="text-lg font-semibold text-black">Compatibility Type</h3>
-                  <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
-                    <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                  <div className="relative group">
+                    <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
+                      <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                    </div>
+                    <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                      <div className="space-y-2">
+                        <div>
+                          <span className="font-semibold">Compatible with Me:</span> How well they match what you&apos;re looking for
+                        </div>
+                        <div>
+                          <span className="font-semibold">I&apos;m Compatible with:</span> How well you match what they&apos;re looking for
+                        </div>
+                        <div>
+                          <span className="font-semibold">Overall:</span> The combined score of both compatibilities
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    </div>
                   </div>
                 </div>
                 <div className="inline-flex items-center bg-white rounded-lg p-1.5 border border-gray-300">
@@ -557,8 +573,14 @@ export default function ResultsPage() {
               <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h4 className="text-base font-semibold text-black">Required</h4>
-                  <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
-                    <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                  <div className="relative group">
+                    <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
+                      <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                    </div>
+                    <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                      When enabled, compatibility scores will be calculated using only the required questions instead of all questions you&apos;ve answered.
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    </div>
                   </div>
                 </div>
                 <button
