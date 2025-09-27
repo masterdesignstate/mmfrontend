@@ -128,7 +128,8 @@ export default function ResultsPage() {
       min: 18,
       max: 35
     },
-    tags: [] as string[]
+    tags: [] as string[],
+    requiredOnly: false
   });
 
   useEffect(() => {
@@ -138,62 +139,6 @@ export default function ResultsPage() {
   const handleShowMore = () => {
     setVisibleCount(profiles.length); // Show all profiles
   };
-
-  const DemoSlider = () => (
-    <div className="mb-10">
-      <h3 className="text-lg font-semibold text-black mb-3">Demo Slider</h3>
-      <ReactSlider
-        className="horizontal-slider"
-        thumbClassName="example-thumb"
-        trackClassName="example-track"
-        defaultValue={[0, 100]}
-        ariaLabel={['Lower thumb', 'Upper thumb']}
-        ariaValuetext={(state) => `Thumb value ${state.valueNow}`}
-        renderThumb={(props, state) => (
-          <div {...props}>{state.valueNow}</div>
-        )}
-        pearling
-        minDistance={10}
-      />
-      <style jsx global>{`
-        .horizontal-slider {
-          width: 100%;
-          height: 25px;
-        }
-
-        .horizontal-slider .example-track {
-          top: 50%;
-          height: 8px;
-          margin-top: -4px;
-          border-radius: 9999px;
-          background: #e5e7eb;
-        }
-
-        .horizontal-slider .example-track.example-track-1 {
-          background: #7C3AED;
-        }
-
-        .horizontal-slider .example-thumb {
-          height: 24px;
-          width: 24px;
-          border-radius: 50%;
-          background: #ffffff;
-          border: 2px solid #7C3AED;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          color: #7C3AED;
-          cursor: grab;
-          margin-top: -12px;
-        }
-
-        .horizontal-slider .example-thumb:active {
-          cursor: grabbing;
-        }
-      `}</style>
-    </div>
-  );
 
   const toggleLike = (profileId: string) => {
     setProfiles(prevProfiles =>
@@ -324,13 +269,21 @@ export default function ResultsPage() {
     }));
   };
 
+  const toggleRequiredOnly = () => {
+    setFilters(prev => ({
+      ...prev,
+      requiredOnly: !prev.requiredOnly
+    }));
+  };
+
   const clearAllFilters = () => {
     setFilters({
       compatibilityType: 'overall',
       compatibility: { min: 0, max: 100 },
       distance: { min: 1, max: 50 },
       age: { min: 18, max: 35 },
-      tags: []
+      tags: [],
+      requiredOnly: false
     });
   };
 
@@ -557,15 +510,12 @@ export default function ResultsPage() {
 
             {/* Content */}
             <div className="p-8 flex-1 overflow-y-auto">
-              <DemoSlider />
               {/* Compatibility Type Picker */}
               <div className="mb-8">
                 <div className="flex items-center gap-2 mb-4">
                   <h3 className="text-lg font-semibold text-black">Compatibility Type</h3>
                   <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-[#672DB7]" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                    </svg>
+                    <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                   </div>
                 </div>
                 <div className="inline-flex items-center bg-white rounded-lg p-1.5 border border-gray-300">
@@ -603,6 +553,28 @@ export default function ResultsPage() {
                 </div>
               </div>
 
+              {/* Required Toggle */}
+              <div className="mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-semibold text-black">Required</h4>
+                  <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
+                    <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleRequiredOnly}
+                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                  style={{ backgroundColor: filters.requiredOnly ? '#672DB7' : '#ADADAD' }}
+                  aria-pressed={filters.requiredOnly}
+                >
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                    style={{ transform: filters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
+                  />
+                </button>
+              </div>
+
               {/* Compatibility Slider */}
               <DualRangeSlider
                 min={0}
@@ -638,10 +610,8 @@ export default function ResultsPage() {
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Tags</h3>
                 <div className="flex flex-wrap gap-3">
                   {[
-                    'Exercise', 'Diet', 'Drinking', 'Smoking', 'Children',
-                    'Politics', 'Religion', 'Education', 'Music', 'Travel',
-                    'Pets', 'Cooking', 'Books', 'Movies', 'Sports', 'Art',
-                    'Gaming', 'Nature', 'Technology', 'Fashion'
+                    'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
+                    'Liked Me', 'Matched', 'Saved', 'Not Approved', 'Hidden'
                   ].map((tag) => (
                     <button
                       key={tag}
