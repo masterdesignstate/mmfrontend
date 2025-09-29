@@ -4,20 +4,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
+import { apiService, type ApiUser, type CompatibilityResult } from '@/services/api';
 
 interface ResultProfile {
   id: string;
-  name: string;
-  age: number;
-  location: string;
-  photo: string;
-  compatibility: number; // 0-100
+  user: ApiUser;
+  compatibility: CompatibilityResult;
   status: 'approved' | 'liked' | 'matched';
   isLiked: boolean;
   isMatched: boolean;
 }
 
-// Generate dummy profiles
+// Generate dummy profiles (fallback only)
 const generateDummyProfiles = (): ResultProfile[] => {
   const names = ['Amber', 'Sarah', 'Emily', 'Jessica', 'Ashley', 'Megan', 'Rachel', 'Lauren', 'Brittany', 'Taylor',
                   'Madison', 'Olivia', 'Emma', 'Sophia', 'Isabella', 'Charlotte', 'Amelia', 'Harper', 'Evelyn', 'Abigail'];
@@ -59,13 +57,29 @@ const generateDummyProfiles = (): ResultProfile[] => {
       isMatched = false;
     }
 
+    const name = names[i % names.length];
+    const age = 23 + (i % 10);
+    const compatibilityScore = 65 + (i * 5) % 35;
+
     profiles.push({
       id: `profile-${i}`,
-      name: names[i % names.length],
-      age: 23 + (i % 10),
-      location: locations[i % locations.length],
-      photo: `/assets/girls/${girlImages[i % girlImages.length]}`, // Local high-quality images
-      compatibility: 65 + (i * 5) % 35, // Random compatibility between 65-100
+      user: {
+        id: `profile-${i}`,
+        username: name.toLowerCase(),
+        first_name: name,
+        last_name: '',
+        email: `${name.toLowerCase()}@example.com`,
+        age: age,
+        city: locations[i % locations.length],
+        profile_photo: `/assets/girls/${girlImages[i % girlImages.length]}`,
+        bio: `Hi, I'm ${name}!`
+      },
+      compatibility: {
+        overall_compatibility: compatibilityScore,
+        compatible_with_me: compatibilityScore + Math.random() * 10 - 5,
+        im_compatible_with: compatibilityScore + Math.random() * 10 - 5,
+        mutual_questions_count: Math.floor(Math.random() * 20) + 10
+      },
       status,
       isLiked,
       isMatched,
@@ -113,6 +127,11 @@ export default function ResultsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filtersApplied, setFiltersApplied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(true);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -133,12 +152,83 @@ export default function ResultsPage() {
     requiredOnly: false
   });
 
+  // Fetch compatible users from API
+  const fetchCompatibleUsers = async (page = 1, applyFilters = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params: {
+        page: number;
+        page_size: number;
+        compatibility_type?: string;
+        min_compatibility?: number;
+        max_compatibility?: number;
+      } = {
+        page,
+        page_size: 15
+      };
+
+      if (applyFilters) {
+        // Map compatibility type names to API format
+        const compatibilityTypeMap: Record<string, string> = {
+          'overall': 'overall_compatibility',
+          'compatible_with_me': 'compatible_with_me',
+          'im_compatible_with': 'im_compatible_with'
+        };
+
+        params.compatibility_type = compatibilityTypeMap[filters.compatibilityType] || 'overall_compatibility';
+        params.min_compatibility = filters.compatibility.min;
+        params.max_compatibility = filters.compatibility.max;
+      }
+
+      const response = await apiService.getCompatibleUsers(params);
+
+      // Transform API response to match ResultProfile interface
+      const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
+        id: item.user.id,
+        user: item.user,
+        compatibility: item.compatibility,
+        status: 'approved', // Default status - could be determined by user tags/reactions
+        isLiked: false, // Could be determined by user tags
+        isMatched: false // Could be determined by user tags
+      }));
+
+      if (page === 1) {
+        setProfiles(transformedProfiles);
+      } else {
+        setProfiles(prev => [...prev, ...transformedProfiles]);
+      }
+
+      setTotalCount(response.total_count || response.count);
+      setHasNextPage(response.has_next || false);
+      setCurrentPage(page);
+
+    } catch (error) {
+      console.error('Error fetching compatible users:', error);
+      setError('Failed to load compatible users. Please try again.');
+
+      // Fallback to dummy data if API fails
+      if (page === 1) {
+        setProfiles(generateDummyProfiles());
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setProfiles(generateDummyProfiles());
-  }, []);
+    fetchCompatibleUsers(1, false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleShowMore = () => {
-    setVisibleCount(profiles.length); // Show all profiles
+    if (visibleCount < profiles.length) {
+      // Show all current profiles
+      setVisibleCount(profiles.length);
+    } else if (hasNextPage) {
+      // Load next page
+      fetchCompatibleUsers(currentPage + 1, filtersApplied);
+    }
   };
 
   const toggleLike = (profileId: string) => {
@@ -291,70 +381,20 @@ export default function ResultsPage() {
 
   const applyFiltersAndClose = async () => {
     try {
-      // Build query parameters based on filters
-      const queryParams = new URLSearchParams();
-
-      // Add basic filters
-      if (filters.age.min > 18) queryParams.append('age_min', filters.age.min.toString());
-      if (filters.age.max < 80) queryParams.append('age_max', filters.age.max.toString());
-      if (filters.distance.min > 1) queryParams.append('distance_min', filters.distance.min.toString());
-      if (filters.distance.max < 100) queryParams.append('distance_max', filters.distance.max.toString());
-
-      // Add compatibility filters
-      if (filters.compatibility.min > 0) queryParams.append('compatibility_min', filters.compatibility.min.toString());
-      if (filters.compatibility.max < 100) queryParams.append('compatibility_max', filters.compatibility.max.toString());
-      queryParams.append('compatibility_type', filters.compatibilityType);
-
-      // Add required only flag
-      if (filters.requiredOnly) queryParams.append('required_only', 'true');
-
-      // Add tags filter
-      if (filters.tags.length > 0) {
-        queryParams.append('tags', filters.tags.join(','));
-      }
-
-      // For now, we'll filter the dummy data based on the filters
-      // In production, this would be an API call to fetch filtered users
-      const filteredProfiles = generateDummyProfiles().filter(profile => {
-        // Age filter
-        if (profile.age < filters.age.min || profile.age > filters.age.max) return false;
-
-        // Compatibility filter
-        if (profile.compatibility < filters.compatibility.min || profile.compatibility > filters.compatibility.max) return false;
-
-        // Tags filter
-        if (filters.tags.length > 0) {
-          const profileTags = [];
-          if (profile.status === 'approved') profileTags.push('Approved');
-          if (profile.isLiked) profileTags.push('Liked');
-          if (profile.isMatched) profileTags.push('Matched');
-
-          // Check if profile has at least one of the selected tags
-          const hasTag = filters.tags.some(tag => profileTags.includes(tag));
-          if (!hasTag) return false;
-        }
-
-        return true;
-      });
-
-      // Update profiles with filtered results
-      setProfiles(filteredProfiles);
-      setVisibleCount(15); // Reset to initial visible count
-
       // Mark that filters have been applied
       setFiltersApplied(true);
+
+      // Reset to first page and fetch with filters
+      setCurrentPage(1);
+      setVisibleCount(15);
+      await fetchCompatibleUsers(1, true);
 
       // Close the modal
       setShowFilterModal(false);
 
-      // TODO: When backend is ready, replace with actual API call:
-      // const response = await fetch(`/api/users/search?${queryParams.toString()}`);
-      // const data = await response.json();
-      // setProfiles(data.results);
-
     } catch (error) {
       console.error('Error applying filters:', error);
-      // Handle error appropriately
+      setError('Failed to apply filters. Please try again.');
     }
   };
 
@@ -467,91 +507,123 @@ export default function ResultsPage() {
         {/* Title and Count */}
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
-          <p className="text-base text-gray-500">Showing {profiles.length} people</p>
+          <p className="text-base text-gray-500">
+            Showing {profiles.length} of {totalCount > 0 ? totalCount : 'many'} people
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {profiles.slice(0, visibleCount).map(profile => (
-            <div key={profile.id} className="relative">
-              <CardWithProgressBorder percentage={profile.compatibility}>
-                <div className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                  {/* Status Indicator */}
-                  <div className="absolute top-0 left-0 z-20">
-                    {profile.status === 'approved' && !profile.isLiked && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLike(profile.id);
-                        }}
-                        className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow"
-                      >
-                        <i className="far fa-heart text-[#672DB7] text-sm"></i>
-                      </button>
-                    )}
-                    {profile.status === 'liked' && !profile.isMatched && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLike(profile.id);
-                        }}
-                        className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow"
-                      >
-                        <i className="fas fa-heart text-red-500 text-sm"></i>
-                      </button>
-                    )}
-                    {profile.isMatched && (
-                      <div className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow">
-                        <Image
-                          src="/assets/purplecheck.png"
-                          alt="Matched"
-                          width={16}
-                          height={16}
-                        />
+        {loading && profiles.length === 0 ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-gray-500">Loading compatible users...</div>
+          </div>
+        ) : error && profiles.length === 0 ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-red-500">{error}</div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {profiles.slice(0, visibleCount).map(profile => {
+              // Get the appropriate compatibility score based on selected type
+              const getCompatibilityScore = () => {
+                switch (filters.compatibilityType) {
+                  case 'compatible_with_me':
+                    return profile.compatibility.compatible_with_me;
+                  case 'im_compatible_with':
+                    return profile.compatibility.im_compatible_with;
+                  default:
+                    return profile.compatibility.overall_compatibility;
+                }
+              };
+
+              const compatibilityScore = getCompatibilityScore();
+              const firstName = profile.user.first_name || profile.user.username;
+              const age = profile.user.age || 25;
+              const profilePhoto = profile.user.profile_photo || '/assets/default-avatar.png';
+
+              return (
+                <div key={profile.id} className="relative">
+                  <CardWithProgressBorder percentage={compatibilityScore}>
+                    <div className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                      {/* Status Indicator */}
+                      <div className="absolute top-0 left-0 z-20">
+                        {profile.status === 'approved' && !profile.isLiked && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLike(profile.id);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow"
+                          >
+                            <i className="far fa-heart text-[#672DB7] text-sm"></i>
+                          </button>
+                        )}
+                        {profile.status === 'liked' && !profile.isMatched && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLike(profile.id);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow"
+                          >
+                            <i className="fas fa-heart text-red-500 text-sm"></i>
+                          </button>
+                        )}
+                        {profile.isMatched && (
+                          <div className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow">
+                            <Image
+                              src="/assets/purplecheck.png"
+                              alt="Matched"
+                              width={16}
+                              height={16}
+                            />
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Profile Image */}
-                  <div
-                    className="relative aspect-square bg-gray-200"
-                    onClick={() => router.push(`/profile/${profile.id}`)}
-                  >
-                    <Image
-                      src={profile.photo}
-                      alt={profile.name}
-                      fill
-                      className="object-cover"
-                    />
+                      {/* Profile Image */}
+                      <div
+                        className="relative aspect-square bg-gray-200"
+                        onClick={() => router.push(`/profile/${profile.id}`)}
+                      >
+                        <Image
+                          src={profilePhoto}
+                          alt={firstName}
+                          fill
+                          className="object-cover"
+                        />
 
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                        {/* Gradient Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                    {/* Profile Info */}
-                    <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                      <h3 className="font-semibold text-xl">
-                        {profile.name}, {profile.age}
-                      </h3>
+                        {/* Profile Info */}
+                        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                          <h3 className="font-semibold text-xl">
+                            {firstName}, {age}
+                          </h3>
+                        </div>
+
+                        {/* Active Indicator - Green circle at bottom right */}
+                        <div className="absolute bottom-2 right-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Active Indicator - Green circle at bottom right */}
-                    <div className="absolute bottom-2 right-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    </div>
-                  </div>
+                  </CardWithProgressBorder>
                 </div>
-              </CardWithProgressBorder>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Show More Button */}
-        {visibleCount < profiles.length && (
+        {(visibleCount < profiles.length || hasNextPage) && (
           <div className="flex justify-center mt-8">
             <button
               onClick={handleShowMore}
-              className="px-8 py-3 bg-[#ECECEC] text-black rounded-full hover:bg-gray-300 transition-colors duration-200 font-medium"
+              disabled={loading}
+              className="px-8 py-3 bg-[#ECECEC] text-black rounded-full hover:bg-gray-300 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Show More
+              {loading ? 'Loading...' : 'Show More'}
             </button>
           </div>
         )}
