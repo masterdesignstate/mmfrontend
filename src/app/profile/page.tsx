@@ -262,10 +262,23 @@ export default function ProfilePage() {
     // Diet icon (question_number === 5, highest value)
     const dietAnswer = getHighestAnswer(5);
     if (dietAnswer) {
-      const isVegan = dietAnswer.question.question_name === 'Vegan' || dietAnswer.question.question_name === 'Vegetarian';
+      const dietLabel = dietAnswer.question.question_name || '';
+      const normalizedLabel = dietLabel.toLowerCase();
+      const dietGroup = dietAnswer.question.group_number;
+
+      const isPescatarian = (dietGroup === 2) || normalizedLabel.includes('pesca');
+      const isPlantBased = (dietGroup === 1) || normalizedLabel.includes('vegan') || normalizedLabel.includes('vegetarian');
+
+      let dietIcon = '/assets/carnivore.png';
+      if (isPescatarian) {
+        dietIcon = '/assets/fish.png';
+      } else if (isPlantBased) {
+        dietIcon = '/assets/leaf.png';
+      }
+
       icons.push({
-        image: isVegan ? '/assets/leaf.png' : '/assets/carnivore.png',
-        label: dietAnswer.question.question_name || '',
+        image: dietIcon,
+        label: dietLabel,
         show: true
       });
     }

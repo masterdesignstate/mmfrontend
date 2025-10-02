@@ -221,13 +221,15 @@ export default function ResultsPage() {
     fetchCompatibleUsers(1, false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleShowMore = () => {
+  const handleShowMore = async () => {
     if (visibleCount < profiles.length) {
       // Show all current profiles
       setVisibleCount(profiles.length);
     } else if (hasNextPage) {
       // Load next page
-      fetchCompatibleUsers(currentPage + 1, filtersApplied);
+      await fetchCompatibleUsers(currentPage + 1, filtersApplied);
+      // After loading, update visibleCount to show the new profiles
+      setVisibleCount(prev => prev + 15);
     }
   };
 

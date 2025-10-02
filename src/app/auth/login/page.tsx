@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { isAdminEmail } from '@/config/admin';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,9 +41,26 @@ export default function LoginPage() {
       if (response.ok) {
         // Login successful
         console.log('✅ Login successful:', data);
-        
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const userId = data?.user_id || data?.user_data?.id;
+        const isAdminLogin = isAdminEmail(normalizedEmail) || data?.is_admin || data?.user_data?.is_admin;
+
+        if (userId) {
+          localStorage.setItem('user_id', userId);
+        }
+
+        if (isAdminLogin) {
+          console.log('🛡️ Admin login detected, redirecting directly to dashboard');
+          localStorage.setItem('is_admin', 'true');
+          router.push('/dashboard');
+          return;
+        }
+
+        localStorage.removeItem('is_admin');
+
         // For the specific test user, skip onboarding and go directly to dashboard
-        if (email === 'g') {
+        if (normalizedEmail === 'g') {
           console.log('🎯 Test user detected, redirecting directly to dashboard');
           router.push('/dashboard');
         } else {
@@ -59,10 +77,19 @@ export default function LoginPage() {
             if (onboardingResponse.ok) {
               const onboardingData = await onboardingResponse.json();
               console.log('🔍 Onboarding status:', onboardingData);
-              
+
               // Store user_id in localStorage for pages that need it
-              localStorage.setItem('user_id', onboardingData.user_id);
-              
+              if (onboardingData?.user_id) {
+                localStorage.setItem('user_id', onboardingData.user_id);
+              }
+
+              if (onboardingData?.is_admin) {
+                console.log('🛡️ Onboarding identifies admin access, redirecting directly to dashboard');
+                localStorage.setItem('is_admin', 'true');
+                router.push('/dashboard');
+                return;
+              }
+
               // Redirect based on onboarding step with user_id if needed
               if (onboardingData.step === 'add_photo') {
                 const params = new URLSearchParams({
@@ -88,6 +115,8 @@ export default function LoginPage() {
         }
       } else {
         setError(data.error || 'Invalid email or password');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('is_admin');
       }
     } catch (error) {
       setError('Network error. Please try again.');
