@@ -345,6 +345,26 @@ export default function ProfilePage() {
       }
     }
 
+    // Religion icon (question_number === 8, highest value)
+    const religionAnswer = getHighestAnswer(8);
+    if (religionAnswer) {
+      icons.push({
+        image: '/assets/prayin.png',
+        label: religionAnswer.question.question_name || '',
+        show: true
+      });
+    }
+
+    // Faith icon (question_number === 11, highest value)
+    const faithAnswer = getHighestAnswer(11);
+    if (faithAnswer) {
+      icons.push({
+        image: '/assets/prayin.png',
+        label: faithAnswer.question.question_name || '',
+        show: true
+      });
+    }
+
     return icons.filter(icon => icon.show);
   };
 
@@ -576,13 +596,14 @@ export default function ProfilePage() {
             <div className="flex justify-start flex-wrap gap-3 mb-6">
               {profileIcons.map((icon, index) => (
                 <div key={index} className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1">
-                  <div className="w-7 h-7 mr-1">
+                  <div className="w-7 h-7 mr-1 relative">
                     <Image
                       src={icon.image}
                       alt={icon.label}
                       width={icon.image.includes('drink.png') ? 25 : 28}
                       height={icon.image.includes('drink.png') ? 25 : 28}
                       className="object-contain"
+                      style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-4px' } : {}}
                     />
                   </div>
                   <span className="text-base text-black font-medium">{icon.label}</span>
