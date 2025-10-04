@@ -985,13 +985,13 @@ export default function QuestionPage() {
 
       {/* Footer with Progress and Navigation */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {/* Progress Bar - Only show in onboarding context, not profile context */}
-        {searchParams.get('context') !== 'profile' && (
+        {/* Progress Bar - Only show in onboarding context, not profile or questions page context */}
+        {searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true' && (
           <div className="w-full h-1 bg-gray-200">
             <div className="h-full bg-black" style={{ width: `${getProgressPercentage()}%` }}></div>
           </div>
         )}
-        
+
         {/* Navigation Buttons */}
         <div className="flex justify-between items-center px-6 py-4">
           {/* Back Button */}
@@ -1001,8 +1001,8 @@ export default function QuestionPage() {
           >
             Back
           </button>
-          
-          {/* Next Button */}
+
+          {/* Next/Save Button */}
           <button
             onClick={handleNext}
             disabled={loading}
@@ -1018,7 +1018,7 @@ export default function QuestionPage() {
                 Saving...
               </div>
             ) : (
-              'Next'
+              searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'
             )}
           </button>
         </div>

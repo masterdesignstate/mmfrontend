@@ -449,11 +449,13 @@ export default function EthnicityPage() {
 
       {/* Footer with Progress and Navigation */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '30%' }}></div>
-        </div>
-        
+        {/* Progress Bar - Only show in onboarding, not when from questions page */}
+        {searchParams.get('from_questions_page') !== 'true' && (
+          <div className="w-full h-1 bg-gray-200">
+            <div className="h-full bg-black" style={{ width: '30%' }}></div>
+          </div>
+        )}
+
         {/* Navigation Buttons */}
         <div className="flex justify-between items-center px-6 py-4">
           {/* Back Button */}
@@ -463,8 +465,8 @@ export default function EthnicityPage() {
           >
             Back
           </button>
-          
-          {/* Next Button */}
+
+          {/* Next/Save Button */}
           <button
             onClick={handleNext}
             disabled={loading}
@@ -480,7 +482,7 @@ export default function EthnicityPage() {
                 Saving...
               </div>
             ) : (
-              'Next'
+              searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'
             )}
           </button>
         </div>
