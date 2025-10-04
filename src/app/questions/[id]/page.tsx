@@ -37,20 +37,27 @@ const CardSelectionTemplate = ({
   selectedOptions,
   setSelectedOptions,
   onSave,
-  saving
+  saving,
+  router,
+  userId
 }: {
   questions: Question[];
   selectedOptions: string[];
   setSelectedOptions: (options: string[]) => void;
   onSave: () => void;
   saving: boolean;
+  router: ReturnType<typeof useRouter>;
+  userId: string;
 }) => {
-  const handleCardClick = (questionName: string) => {
-    if (selectedOptions.includes(questionName)) {
-      setSelectedOptions(selectedOptions.filter(opt => opt !== questionName));
-    } else {
-      setSelectedOptions([...selectedOptions, questionName]);
-    }
+  const handleCardClick = (question: Question) => {
+    // Navigate to slider page for this specific question (like onboarding)
+    const params = new URLSearchParams({
+      user_id: userId,
+      question_data: JSON.stringify(question),
+      from_questions_page: 'true'  // Flag to return to questions page after answering
+    });
+
+    router.push(`/auth/question/${question.question_number}?${params.toString()}`);
   };
 
   return (
@@ -62,16 +69,11 @@ const CardSelectionTemplate = ({
 
         <div className="grid grid-cols-2 gap-4 mb-8">
           {questions.map((question) => {
-            const isSelected = selectedOptions.includes(question.question_name);
             return (
               <div
                 key={question.id}
-                onClick={() => handleCardClick(question.question_name)}
-                className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
-                  isSelected
-                    ? 'border-black bg-gray-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
+                onClick={() => handleCardClick(question)}
+                className="relative p-6 rounded-2xl border-2 cursor-pointer transition-all duration-200 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
               >
                 <div className="flex flex-col items-center text-center">
                   <div className="w-12 h-12 mb-3 flex items-center justify-center">
@@ -87,26 +89,9 @@ const CardSelectionTemplate = ({
                     {question.question_name}
                   </span>
                 </div>
-                {isSelected && (
-                  <div className="absolute top-2 right-2 w-5 h-5 bg-black rounded-full flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
               </div>
             );
           })}
-        </div>
-
-        <div className="flex space-x-4">
-          <button
-            onClick={onSave}
-            disabled={saving || selectedOptions.length === 0}
-            className="flex-1 py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
         </div>
       </div>
     </div>
@@ -656,6 +641,13 @@ export default function QuestionEditPage() {
           console.log('📋 Fetched questions from API:', questionsList);
         }
         
+        console.log('✅ Setting questions state:', {
+          questionNumber,
+          questionsList,
+          count: questionsList.length,
+          firstQuestionType: questionsList[0]?.question_type,
+          allTypes: questionsList.map((q: Question) => q.question_type)
+        });
         setQuestions(questionsList);
 
         // Use answers from URL params if available, otherwise fetch from API
@@ -748,27 +740,40 @@ export default function QuestionEditPage() {
   };
 
   const handleSingleOptionClick = (question: Question) => {
+    console.log('🔵 handleSingleOptionClick called', { questionNumber, questionName: question.question_name });
     setSelectedOption(question.question_name);
-    
-    // Navigate to individual question slider page, similar to onboarding
-    const questionTypeMap: Record<number, string> = {
-      3: 'ethnicity',
-      4: 'education', 
-      5: 'diet'
-    };
-    
-    const pageType = questionTypeMap[questionNumber];
-    if (!pageType) return;
-    
+
+    // Navigate to individual question slider page for this specific sub-question
     const params = new URLSearchParams();
     params.set('user_id', userId);
-    params.set(pageType, question.question_name);
     params.set('question_number', questionNumber.toString());
     params.set('question_data', JSON.stringify(question));
-    params.set('context', 'profile'); // Add context to indicate this is from profile, not onboarding
-    
-    // Navigate back to auth-style individual question page for this option
-    router.push(`/auth/question/${pageType}?${params.toString()}`);
+    params.set('from_questions_page', 'true'); // Add flag to return to questions page after answering
+
+    // Map question numbers to their page routes (for special named routes like ethnicity, education, diet)
+    const namedRoutes: Record<number, string> = {
+      3: 'ethnicity',
+      4: 'education',
+      5: 'diet'
+    };
+
+    // For ethnicity/education/diet, also set the selection parameter
+    if (questionNumber === 3) {
+      params.set('ethnicity', question.question_name);
+    } else if (questionNumber === 4) {
+      params.set('education', question.question_name);
+    } else if (questionNumber === 5) {
+      params.set('diet', question.question_name);
+    }
+
+    // Use named route if available, otherwise use question number
+    const route = namedRoutes[questionNumber] || questionNumber.toString();
+    const fullUrl = `/auth/question/${route}?${params.toString()}`;
+
+    console.log('🔵 Navigating to:', fullUrl);
+
+    // Navigate to auth-style individual question page for this option
+    router.push(fullUrl);
   };
 
   const handleSave = async () => {
@@ -1259,6 +1264,7 @@ export default function QuestionEditPage() {
   };
 
   const renderQuestionContent = () => {
+    console.log('🔴 renderQuestionContent called', { questionNumber, questionsCount: questions?.length, firstQuestionType: questions?.[0]?.question_type });
     if (!questions || questions.length === 0) return null;
 
     // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
@@ -1420,7 +1426,7 @@ export default function QuestionEditPage() {
       );
     }
 
-    // Basic multi-slider questions like Exercise/Habits (question_number === 6, 7, 8, etc.)
+    // Basic multi-slider questions like Exercise/Habits/Religion (question_number === 6, 7, 8, 9, 10, etc.)
     if ([6, 7, 8, 9, 10].includes(questionNumber)) {
       const isKidsQuestion = questionNumber === 10;
 
@@ -1599,6 +1605,13 @@ export default function QuestionEditPage() {
     }
 
     // Grouped questions (question_type === 'grouped') - Card selection UI like ethnicity
+    console.log('🟡 About to check grouped at line 1601:', {
+      questionNumber,
+      questionsLength: questions.length,
+      firstQuestion: questions[0],
+      questionType: questions[0]?.question_type,
+      isGrouped: questions.length > 0 && questions[0].question_type === 'grouped'
+    });
     if (questions.length > 0 && questions[0].question_type === 'grouped') {
       const visibleQuestions = showAllGroupedOptions ? questions : questions.slice(0, 6);
       const hasMoreQuestions = questions.length > 6;
@@ -1612,18 +1625,8 @@ export default function QuestionEditPage() {
               return (
                 <div
                   key={question.id}
-                  onClick={() => {
-                    if (isSelected) {
-                      setSelectedOptions(prev => prev.filter(opt => opt !== question.question_name));
-                    } else {
-                      setSelectedOptions(prev => [...prev, question.question_name]);
-                    }
-                  }}
-                  className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                    isSelected
-                      ? 'border-black bg-gray-50'
-                      : 'border-black bg-white hover:bg-gray-50'
-                  }`}
+                  onClick={() => handleSingleOptionClick(question)}
+                  className="flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 border-black bg-white hover:bg-gray-50"
                 >
                   <div className="flex items-center space-x-3">
                     <Image
@@ -1634,9 +1637,6 @@ export default function QuestionEditPage() {
                       className="w-6 h-6"
                     />
                     <span className="text-black font-medium">{question.question_name}</span>
-                    {isSelected && (
-                      <span className="text-[#672DB7] text-sm">✓ Selected</span>
-                    )}
                   </div>
                   <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1669,12 +1669,19 @@ export default function QuestionEditPage() {
       );
     }
 
-    // Single-choice questions (Ethnicity, Education, Diet)
-    if ([3, 4, 5].includes(questionNumber)) {
+    // Grouped questions - show as card selection (Ethnicity, Education, Diet, Faith, Ideology)
+    // Check if this is a grouped question type
+    const isGroupedQuestion = questions.length > 0 && questions[0].question_type === 'grouped';
+    console.log('🟢 Checking if grouped:', { questionNumber, isGroupedQuestion, questionType: questions[0]?.question_type, questionsCount: questions.length });
+
+    if (isGroupedQuestion) {
+      console.log('🟢 Rendering grouped question cards for question', questionNumber);
       const optionIcons: Record<number, string> = {
         3: '/assets/ethn.png',
         4: '/assets/cpx.png',
-        5: '/assets/lf2.png'  // Using lf2 icon for diet
+        5: '/assets/lf2.png',
+        11: '/assets/prayin.png',  // Faith icon
+        12: '/assets/ethn.png'  // Ideology icon (using ethn as placeholder)
       };
 
       return (

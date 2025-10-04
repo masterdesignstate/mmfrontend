@@ -81,11 +81,28 @@ export default function QuestionsPage() {
     }
   });
 
-  // Fetch answer counts from backend
-  const fetchAnswerCounts = async () => {
+  // Fetch question metadata (question numbers and answer counts) from backend in single optimized request
+  const fetchQuestionMetadata = async () => {
     try {
+      // Check sessionStorage cache first (5 min TTL)
+      const cacheKey = 'questions_metadata';
+      const cachedData = sessionStorage.getItem(cacheKey);
+      const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+      const now = Date.now();
+
+      if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 300000) { // 5 min cache
+        console.log('Using cached question metadata');
+        const metadata = JSON.parse(cachedData);
+        setAllQuestionNumbers(metadata.distinct_question_numbers);
+        setTotalQuestionGroups(metadata.total_question_groups);
+        setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
+        setAnswerCounts(metadata.answer_counts);
+        return metadata.distinct_question_numbers;
+      }
+
+      // Fetch from new optimized metadata endpoint
       const response = await fetch(
-        `${getApiUrl(API_ENDPOINTS.QUESTIONS)}answer_counts/`,
+        `${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`,
         {
           credentials: 'include',
           headers: {
@@ -95,59 +112,26 @@ export default function QuestionsPage() {
       );
 
       if (response.ok) {
-        const counts = await response.json();
-        setAnswerCounts(counts);
+        const metadata = await response.json();
+
+        // Cache the metadata
+        sessionStorage.setItem(cacheKey, JSON.stringify(metadata));
+        sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+
+        // Set state
+        setAllQuestionNumbers(metadata.distinct_question_numbers);
+        setTotalQuestionGroups(metadata.total_question_groups);
+        setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
+        setAnswerCounts(metadata.answer_counts);
+
+        console.log(`Fetched metadata: ${metadata.total_question_groups} question groups`);
+        return metadata.distinct_question_numbers;
       } else {
-        console.error('Failed to fetch answer counts');
+        console.error('Failed to fetch question metadata');
+        return [];
       }
     } catch (error) {
-      console.error('Error fetching answer counts:', error);
-    }
-  };
-
-  // Fetch distinct question numbers for pagination
-  const fetchQuestionNumbers = async () => {
-    try {
-      // First, get all distinct question numbers
-      let allQuestionNumbers: number[] = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const response = await fetch(
-          `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page=${page}&page_size=100`,
-          {
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const pageQuestions = data.results || [];
-
-          // Extract unique question numbers
-          const questionNumbers = pageQuestions.map((q: Question) => q.question_number);
-          allQuestionNumbers = [...allQuestionNumbers, ...questionNumbers];
-
-          hasMore = data.next !== null;
-          page++;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      // Get unique question numbers and sort them
-      const uniqueNumbers = Array.from(new Set(allQuestionNumbers)).sort((a, b) => a - b);
-      setAllQuestionNumbers(uniqueNumbers);
-      setTotalQuestionGroups(uniqueNumbers.length);
-      setTotalPages(Math.ceil(uniqueNumbers.length / ROWS_PER_PAGE));
-
-      return uniqueNumbers;
-    } catch (error) {
-      console.error('Error fetching question numbers:', error);
+      console.error('Error fetching question metadata:', error);
       return [];
     }
   };
@@ -165,11 +149,8 @@ export default function QuestionsPage() {
         }
         setUserId(storedUserId);
 
-        // Fetch all question numbers first
-        const questionNumbers = await fetchQuestionNumbers();
-
-        // Fetch answer counts
-        await fetchAnswerCounts();
+        // Fetch question metadata (question numbers + answer counts) in single optimized request
+        const questionNumbers = await fetchQuestionMetadata();
 
         // Questions will be fetched by the useEffect for pagination
 
@@ -199,7 +180,7 @@ export default function QuestionsPage() {
     fetchQuestionsAndAnswers();
   }, [router]);
 
-  // Check for refresh parameter and refetch answer counts
+  // Check for refresh parameter and refetch metadata
   useEffect(() => {
     const refresh = searchParams.get('refresh');
     if (refresh === 'true') {
@@ -208,8 +189,10 @@ export default function QuestionsPage() {
       url.searchParams.delete('refresh');
       window.history.replaceState({}, '', url.toString());
 
-      // Refetch answer counts
-      fetchAnswerCounts();
+      // Clear cache and refetch metadata
+      sessionStorage.removeItem('questions_metadata');
+      sessionStorage.removeItem('questions_metadata_timestamp');
+      fetchQuestionMetadata();
     }
   }, [searchParams]);
 
@@ -483,7 +466,7 @@ export default function QuestionsPage() {
     sessionStorage.setItem('questionsData', JSON.stringify(questions));
     sessionStorage.setItem('userAnswersData', JSON.stringify(userAnswers));
     sessionStorage.setItem('questionsDataTimestamp', Date.now().toString());
-    
+
     router.push(`/questions/${questionNumber}`);
   };
 

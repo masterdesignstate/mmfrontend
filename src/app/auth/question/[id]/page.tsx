@@ -527,47 +527,51 @@ export default function QuestionPage() {
         throw new Error(data.error || 'Failed to save answer');
       }
 
-      // Check if we're in profile context
+      // Check if we're in profile context or coming from questions page
       const contextParam = searchParams.get('context');
-      
+      const fromQuestionsPage = searchParams.get('from_questions_page');
+
       if (contextParam === 'profile') {
         // Navigate back to profile questions page when in profile context
         router.push('/profile/questions');
+      } else if (fromQuestionsPage === 'true') {
+        // Return to questions page with refresh flag
+        router.push('/questions?refresh=true');
       } else {
         // Normal onboarding flow
         // For ethnicity questions, go back to ethnicity page; for education questions, go back to education page; for diet questions, go back to diet page; for next questions, go back to next question page; otherwise go to dashboard
         if (params.id === 'ethnicity') {
-          const params = new URLSearchParams({ 
+          const params = new URLSearchParams({
             user_id: userId,
             refresh: 'true', // Add refresh flag
             just_answered: question.id // Pass the question ID that was just answered for immediate UI update
           });
           router.push(`/auth/ethnicity?${params.toString()}`);
         } else if (params.id === 'education') {
-          const params = new URLSearchParams({ 
+          const params = new URLSearchParams({
             user_id: userId,
             refresh: 'true', // Add refresh flag
             just_answered: question.id // Pass the question ID that was just answered for immediate UI update
           });
           router.push(`/auth/education?${params.toString()}`);
         } else if (params.id === 'diet') {
-          const params = new URLSearchParams({ 
+          const params = new URLSearchParams({
             user_id: userId,
             refresh: 'true', // Add refresh flag
             just_answered: question.id // Pass the question ID that was just answered for immediate UI update
           });
           router.push(`/auth/diet?${params.toString()}`);
         } else if (params.id === 'next-question') {
-          const params = new URLSearchParams({ 
+          const params = new URLSearchParams({
             user_id: userId
           });
-          
+
           // If we have habits questions loaded, pass them to avoid re-fetching
           if (habitsQuestions.length > 0) {
             params.set('questions', JSON.stringify(habitsQuestions));
             console.log('📋 Passing pre-loaded habits questions to habits page');
           }
-          
+
           router.push(`/auth/habits?${params.toString()}`);
         } else {
           router.push('/dashboard');
@@ -597,19 +601,23 @@ export default function QuestionPage() {
   };
 
   const handleBack = () => {
-    // Check if we're in profile context
+    // Check if we're in profile context or coming from questions page
     const contextParam = searchParams.get('context');
-    
+    const fromQuestionsPage = searchParams.get('from_questions_page');
+
     if (contextParam === 'profile') {
       // Navigate back to profile questions page
       router.push('/profile/questions');
+    } else if (fromQuestionsPage === 'true') {
+      // Return to questions page
+      router.push('/questions');
     } else {
       // Normal onboarding flow
-      const urlParams = new URLSearchParams({ 
+      const urlParams = new URLSearchParams({
         user_id: userId,
         refresh: 'true'  // Add refresh parameter to trigger answered questions check
       });
-      
+
       if (params.id === 'next-question' || params.id === '6') {
         // Question 6 (exercise) goes back to question 5 (diet)
         router.push(`/auth/diet?${urlParams.toString()}`);

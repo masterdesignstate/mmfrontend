@@ -204,9 +204,26 @@ export default function ProfilePage() {
     const highestAnswers = answers.filter(a => a.me_answer === maxValue);
 
     // If tie, use highest group_number
-    return highestAnswers.reduce((prev, curr) => 
+    return highestAnswers.reduce((prev, curr) =>
       (curr.question.group_number || 0) > (prev.question.group_number || 0) ? curr : prev
     );
+  };
+
+  // Helper function to get ranked ideology questions (question_number === 12)
+  // Returns them sorted by: 1) highest value, 2) answered first (lowest group_number as tie-breaker)
+  const getRankedIdeologyQuestions = () => {
+    const ideologyAnswers = userAnswers.filter(a => a.question.question_number === 12);
+    if (ideologyAnswers.length === 0) return [];
+
+    // Sort by highest me_answer value first, then by group_number (answered first) as tie-breaker
+    return ideologyAnswers.sort((a, b) => {
+      // First, sort by highest value (descending)
+      if (b.me_answer !== a.me_answer) {
+        return b.me_answer - a.me_answer;
+      }
+      // If values are equal, sort by group_number (ascending - answered first)
+      return (a.question.group_number || 0) - (b.question.group_number || 0);
+    });
   };
 
   // Helper function to format height from centimeters to feet and inches
@@ -800,6 +817,44 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Ideology Section */}
+          {getRankedIdeologyQuestions().length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-4">Ideology</h3>
+
+              <div className="max-w-md">
+                {/* LESS, MORE labels above sliders - aligned with slider start */}
+                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20 sm:ml-24">
+                  <span>LESS</span>
+                  <span>MORE</span>
+                </div>
+
+                <div className="space-y-3">
+                  {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {
+                    const questionName = ideologyAnswer.question.question_name || 'Unknown';
+                    const answerValue = ideologyAnswer.me_answer;
+                    const isOpenToAll = answerValue === 6;
+
+                    return (
+                      <div key={index} className="flex items-center gap-4">
+                        <div className="text-xs font-semibold text-gray-400 w-20 uppercase">
+                          {questionName}
+                        </div>
+                        <div className="flex-1">
+                          <SliderComponent
+                            value={answerValue}
+                            onChange={() => {}}
+                            isOpenToAll={isOpenToAll}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

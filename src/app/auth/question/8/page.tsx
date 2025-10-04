@@ -278,13 +278,21 @@ export default function Question8Page() {
         throw new Error(data.error || 'Failed to save answer');
       }
 
-      // Navigate to next onboarding step (politics question page)
-      const params = new URLSearchParams({ 
-        user_id: userId
-      });
-      
-      // Don't pass large JSON through URL - let the next page fetch its own questions
-      router.push(`/auth/question/9?${params.toString()}`);
+      // Check if user came from questions page
+      const fromQuestionsPage = searchParams.get('from_questions_page');
+
+      if (fromQuestionsPage === 'true') {
+        // Return to questions page with refresh flag
+        router.push('/questions?refresh=true');
+      } else {
+        // Navigate to next onboarding step (politics question page)
+        const params = new URLSearchParams({
+          user_id: userId
+        });
+
+        // Don't pass large JSON through URL - let the next page fetch its own questions
+        router.push(`/auth/question/9?${params.toString()}`);
+      }
     } catch (error) {
       console.error('Error saving question 8 answers:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answers');
@@ -294,10 +302,19 @@ export default function Question8Page() {
   };
 
   const handleBack = () => {
-    const params = new URLSearchParams({ 
-      user_id: userId
-    });
-    router.push(`/auth/habits?${params.toString()}`);
+    // Check if user came from questions page
+    const fromQuestionsPage = searchParams.get('from_questions_page');
+
+    if (fromQuestionsPage === 'true') {
+      // Return to questions page
+      router.push('/questions');
+    } else {
+      // Return to previous onboarding step (habits)
+      const params = new URLSearchParams({
+        user_id: userId
+      });
+      router.push(`/auth/habits?${params.toString()}`);
+    }
   };
 
   // Slider component - EXACT COPY from habits page

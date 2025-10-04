@@ -43,6 +43,12 @@ export interface Question {
   updated_at: string;
 }
 
+export interface QuestionMetadata {
+  distinct_question_numbers: number[];
+  total_question_groups: number;
+  answer_counts: Record<number, number>;
+}
+
 export interface CompatibilityResult {
   overall_compatibility: number;
   compatible_with_me: number;
@@ -361,6 +367,10 @@ class ApiService {
 
   async deleteQuestion(id: string): Promise<void> {
     return this.request(`/questions/${id}/delete/`, 'DELETE') as Promise<void>;
+  }
+
+  async getQuestionMetadata(): Promise<QuestionMetadata> {
+    return this.request('/questions/metadata/', 'GET') as Promise<QuestionMetadata>;
   }
 
   async calculateCompatibility(user1Id: string, user2Id: string): Promise<CompatibilityResult> {
