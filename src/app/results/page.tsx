@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
 import { apiService, type ApiUser, type CompatibilityResult } from '@/services/api';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 interface ResultProfile {
   id: string;
@@ -122,7 +123,6 @@ const CardWithProgressBorder = ({ percentage, children }: { percentage: number; 
 export default function ResultsPage() {
   const router = useRouter();
   const [profiles, setProfiles] = useState<ResultProfile[]>([]);
-  const [showMenu, setShowMenu] = useState(false);
   const [visibleCount, setVisibleCount] = useState(15); // Show 3 rows initially (5 columns x 3 rows)
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -132,6 +132,11 @@ export default function ResultsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(true);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [sortOption, setSortOption] = useState<'compatibility' | 'distance' | 'age-asc' | 'age-desc' | 'recent'>('compatibility');
+  const [sortedProfiles, setSortedProfiles] = useState<ResultProfile[]>([]);
+  const sortButtonRef = useRef<HTMLButtonElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -154,6 +159,8 @@ export default function ResultsPage() {
 
   // Fetch compatible users from API
   const fetchCompatibleUsers = async (page = 1, applyFilters = false) => {
+    console.log(`🚀 fetchCompatibleUsers called: page=${page}, applyFilters=${applyFilters}`);
+
     try {
       setLoading(true);
       setError(null);
@@ -164,6 +171,7 @@ export default function ResultsPage() {
         compatibility_type?: string;
         min_compatibility?: number;
         max_compatibility?: number;
+        required_only?: boolean;
       } = {
         page,
         page_size: 15
@@ -180,9 +188,16 @@ export default function ResultsPage() {
         params.compatibility_type = compatibilityTypeMap[filters.compatibilityType] || 'overall_compatibility';
         params.min_compatibility = filters.compatibility.min;
         params.max_compatibility = filters.compatibility.max;
+        params.required_only = filters.requiredOnly;
+
+        console.log('📊 API params with filters:', params);
+      } else {
+        console.log('📊 API params (no filters):', params);
       }
 
+      console.log('🌐 Calling apiService.getCompatibleUsers...');
       const response = await apiService.getCompatibleUsers(params);
+      console.log('✅ API response received:', response);
 
       // Transform API response to match ResultProfile interface
       const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
@@ -220,6 +235,33 @@ export default function ResultsPage() {
   useEffect(() => {
     fetchCompatibleUsers(1, false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply sorting whenever profiles or sortOption changes
+  useEffect(() => {
+    if (profiles.length > 0) {
+      setSortedProfiles(sortProfiles(profiles));
+    }
+  }, [profiles, sortOption]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Click outside detection for sort dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showSortDropdown &&
+        sortDropdownRef.current &&
+        sortButtonRef.current &&
+        !sortDropdownRef.current.contains(event.target as Node) &&
+        !sortButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSortDropdown]);
 
   const handleShowMore = async () => {
     if (visibleCount < profiles.length) {
@@ -382,6 +424,8 @@ export default function ResultsPage() {
   };
 
   const applyFiltersAndClose = async () => {
+    console.log('🔍 Applying filters:', filters);
+
     try {
       // Mark that filters have been applied
       setFiltersApplied(true);
@@ -389,15 +433,59 @@ export default function ResultsPage() {
       // Reset to first page and fetch with filters
       setCurrentPage(1);
       setVisibleCount(15);
+
+      console.log('📡 Calling fetchCompatibleUsers with filters...');
       await fetchCompatibleUsers(1, true);
+      console.log('✅ Fetch completed successfully');
 
       // Close the modal
       setShowFilterModal(false);
 
     } catch (error) {
-      console.error('Error applying filters:', error);
+      console.error('❌ Error applying filters:', error);
       setError('Failed to apply filters. Please try again.');
+      // Still close the modal even on error to avoid stuck state
+      setShowFilterModal(false);
     }
+  };
+
+  // Sort profiles based on selected sort option
+  const sortProfiles = (profilesToSort: ResultProfile[]) => {
+    const sorted = [...profilesToSort];
+
+    switch (sortOption) {
+      case 'compatibility':
+        // Sort by overall compatibility (highest first)
+        sorted.sort((a, b) => b.compatibility.overall_compatibility - a.compatibility.overall_compatibility);
+        break;
+      case 'distance':
+        // Sort by distance (closest first) - Note: distance field not yet in API
+        // For now, sort by a placeholder or random
+        sorted.sort(() => Math.random() - 0.5);
+        break;
+      case 'age-asc':
+        // Sort by age (youngest to oldest)
+        sorted.sort((a, b) => (a.user.age || 25) - (b.user.age || 25));
+        break;
+      case 'age-desc':
+        // Sort by age (oldest to youngest)
+        sorted.sort((a, b) => (b.user.age || 25) - (a.user.age || 25));
+        break;
+      case 'recent':
+        // Sort by recent activity - using profile ID as proxy for now
+        // In production, would use last_seen or online_status
+        sorted.sort(() => Math.random() - 0.5);
+        break;
+      default:
+        break;
+    }
+
+    return sorted;
+  };
+
+  const handleSortOptionSelect = (option: typeof sortOption) => {
+    setSortOption(option);
+    setShowSortDropdown(false);
   };
 
   return (
@@ -448,59 +536,71 @@ export default function ResultsPage() {
               </span>
             </button>
 
-            <button className="ml-2 px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-              <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-              </svg>
-              Sort
-            </button>
+            <div className="relative ml-2">
+              <button
+                ref={sortButtonRef}
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                className="px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+              >
+                <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                Sort
+              </button>
+
+              {/* Sort Dropdown */}
+              {showSortDropdown && (
+                <div
+                  ref={sortDropdownRef}
+                  className="absolute top-full mt-2 right-0 w-64 bg-white rounded-2xl shadow-lg border border-gray-200 py-2 z-50"
+                >
+                  <button
+                    onClick={() => handleSortOptionSelect('compatibility')}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="font-semibold text-black">Compatibility</div>
+                    <div className="text-sm text-gray-500">Most compatible</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleSortOptionSelect('distance')}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="font-semibold text-black">Distance</div>
+                    <div className="text-sm text-gray-500">Closest to you</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleSortOptionSelect('age-asc')}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="font-semibold text-black">Age</div>
+                    <div className="text-sm text-gray-500">From youngest to oldest</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleSortOptionSelect('age-desc')}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="font-semibold text-black">Age</div>
+                    <div className="text-sm text-gray-500">From oldest to youngest</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleSortOptionSelect('recent')}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="font-semibold text-black">Recent</div>
+                    <div className="text-sm text-gray-500">Recently online</div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="absolute right-4">
-          <div className="relative">
-            <button
-              className="p-2 cursor-pointer"
-              onClick={() => setShowMenu(!showMenu)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
-            {/* Dropdown Menu */}
-            {showMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
-              <button
-                onClick={() => {
-                  router.push('/profile');
-                  setShowMenu(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                My Profile
-              </button>
-              <button
-                onClick={() => {
-                  router.push('/results');
-                  setShowMenu(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 bg-gray-50"
-              >
-                Results
-              </button>
-              <button
-                onClick={() => {
-                  router.push('/questions');
-                  setShowMenu(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                All Questions
-              </button>
-            </div>
-          )}
-          </div>
+          <HamburgerMenu />
         </div>
       </div>
 
@@ -524,7 +624,7 @@ export default function ResultsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {profiles.slice(0, visibleCount).map(profile => {
+            {sortedProfiles.slice(0, visibleCount).map(profile => {
               // Get the appropriate compatibility score based on selected type
               const getCompatibilityScore = () => {
                 switch (filters.compatibilityType) {

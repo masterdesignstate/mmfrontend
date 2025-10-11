@@ -101,6 +101,10 @@ export default function LoginPage() {
                   user_id: onboardingData.user_id
                 });
                 router.push(`/auth/gender?${params.toString()}`);
+              } else if (onboardingData.step === 'complete') {
+                // Onboarding complete - redirect to results page for regular users
+                console.log('✅ Onboarding complete, redirecting to results');
+                router.push('/results');
               } else {
                 router.push(onboardingData.step_url);
               }

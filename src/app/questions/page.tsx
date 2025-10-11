@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 interface Question {
   id: string;
@@ -39,7 +40,6 @@ export default function QuestionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
-  const [showMenu, setShowMenu] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAskQuestionModal, setShowAskQuestionModal] = useState(false);
   const [answerCounts, setAnswerCounts] = useState<Record<number, number>>({});
@@ -196,6 +196,20 @@ export default function QuestionsPage() {
     }
   }, [searchParams]);
 
+  // Check for filter parameter and apply submitted filter
+  useEffect(() => {
+    const filter = searchParams.get('filter');
+    if (filter === 'submitted' && !filters.questions.submitted) {
+      setFilters(prev => ({
+        ...prev,
+        questions: {
+          ...prev.questions,
+          submitted: true
+        }
+      }));
+    }
+  }, [searchParams, filters.questions.submitted]);
+
   // Fetch questions for current page
   const fetchQuestionsForCurrentPage = React.useCallback(async () => {
     if (allQuestionNumbers.length === 0) return;
@@ -214,21 +228,19 @@ export default function QuestionsPage() {
         return;
       }
 
-      // Fetch all questions for these question numbers
-      const questionPromises = pageQuestionNumbers.map(questionNumber =>
-        fetch(
-          `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}&page_size=100`,
-          {
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        ).then(res => res.json()).then(data => data.results || [])
-      );
+      // Build single batch API call with multiple question_number params
+      const questionNumberParams = pageQuestionNumbers.map(num => `question_number=${num}`).join('&');
+      const url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=100`;
 
-      const questionArrays = await Promise.all(questionPromises);
-      const pageQuestions = questionArrays.flat();
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      const pageQuestions = data.results || [];
 
       // Sort by question_number and group_number
       pageQuestions.sort((a, b) => {
@@ -253,17 +265,17 @@ export default function QuestionsPage() {
     fetchQuestionsForCurrentPage();
   }, [fetchQuestionsForCurrentPage]);
 
-  // Group all questions for filtering logic
-  const allGroupedQuestions = questions.reduce((acc, question) => {
-    if (!acc[question.question_number]) {
-      acc[question.question_number] = [];
-    }
-    acc[question.question_number].push(question);
-    return acc;
-  }, {} as Record<number, Question[]>);
-
   // Filtering system functions
   const applyFilters = useCallback(() => {
+    // Group all questions for filtering logic
+    const allGroupedQuestions = questions.reduce((acc, question) => {
+      if (!acc[question.question_number]) {
+        acc[question.question_number] = [];
+      }
+      acc[question.question_number].push(question);
+      return acc;
+    }, {} as Record<number, Question[]>);
+
     const questionNumbers = Object.keys(allGroupedQuestions).map(Number);
     
     // Helper functions for filtering
@@ -383,10 +395,13 @@ export default function QuestionsPage() {
     );
     
     setFilteredQuestions(filteredQuestionData);
-    
-    // Reset to page 1 when filters change
-    setCurrentPage(1);
-  }, [allGroupedQuestions, filters, questions, userAnswers]);
+
+    // Reset to page 1 when filters change (only if not already on page 1 to prevent duplicate fetch)
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
+  }, [filters, questions, userAnswers]);
 
   // Apply filters when questions are loaded or filter state changes
   useEffect(() => {
@@ -601,49 +616,7 @@ export default function QuestionsPage() {
         </div>
         
         <div className="absolute right-4">
-          <div className="relative">
-            <button 
-              className="p-2 cursor-pointer"
-              onClick={() => setShowMenu(!showMenu)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            
-            {/* Dropdown Menu */}
-            {showMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
-                <button
-                  onClick={() => {
-                    router.push('/profile');
-                    setShowMenu(false);
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                >
-                  My Profile
-                </button>
-                <button
-                  onClick={() => {
-                    router.push('/results');
-                    setShowMenu(false);
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                >
-                  Results
-                </button>
-                <button
-                  onClick={() => {
-                    router.push('/questions');
-                    setShowMenu(false);
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-                >
-                  All Questions
-                </button>
-              </div>
-            )}
-          </div>
+          <HamburgerMenu />
         </div>
       </div>
 

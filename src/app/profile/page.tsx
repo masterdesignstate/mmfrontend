@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -45,7 +46,6 @@ export default function ProfilePage() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [showMenu, setShowMenu] = useState(false);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -55,65 +55,73 @@ export default function ProfilePage() {
         const userId = localStorage.getItem('user_id');
         if (!userId) {
           setError('User ID not found');
+          router.push('/auth/login');
           return;
         }
 
-        // Try to fetch current user profile using the 'me' endpoint first
-        let userData;
-        try {
-          const userResponse = await fetch(`${getApiUrl(API_ENDPOINTS.USERS_ME)}`, {
-            credentials: 'include',  // Include session cookies
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (userResponse.ok) {
-            userData = await userResponse.json();
-          } else {
-            throw new Error('Me endpoint not available');
-          }
-        } catch (meError) {
-          console.warn('Failed to use /users/me/ endpoint, falling back to direct user ID:', meError);
-          
-          // Clear localStorage if user ID is invalid and redirect to login
-          if (!userId) {
-            console.error('No user ID available, redirecting to login');
-            router.push('/auth/login');
-            return;
-          }
-          
-          // Fallback: fetch user by ID
-          const userByIdResponse = await fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
+        // Check sessionStorage cache first (2 min TTL)
+        const cacheKey = `profile_${userId}`;
+        const cachedData = sessionStorage.getItem(cacheKey);
+        const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+        const now = Date.now();
+
+        if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
+          console.log('Using cached profile data');
+          const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
+          setUser(cachedUser);
+          setUserAnswers(cachedAnswers);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch user and answers in parallel
+        const [userResponse, answersResponse] = await Promise.all([
+          fetch(`${getApiUrl(API_ENDPOINTS.USERS_ME)}`, {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
-          });
-          
-          if (!userByIdResponse.ok) {
-            console.error('User not found, clearing localStorage and redirecting to login');
-            localStorage.removeItem('user_id');
-            router.push('/auth/login');
-            return;
-          }
-          userData = await userByIdResponse.json();
-        }
-        
-        setUser(userData);
+          }).catch(() =>
+            // Fallback to user by ID if /me fails
+            fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+          ),
+          fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+        ]);
 
-        // Fetch user answers
-        const answersResponse = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}`, {
-          credentials: 'include',  // Include session cookies
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        if (!userResponse.ok) {
+          console.error('User not found, clearing localStorage and redirecting to login');
+          localStorage.removeItem('user_id');
+          router.push('/auth/login');
+          return;
+        }
+
         if (!answersResponse.ok) {
           throw new Error('Failed to fetch user answers');
         }
-        const answersData = await answersResponse.json();
-        setUserAnswers(answersData.results || []);
+
+        const [userData, answersData] = await Promise.all([
+          userResponse.json(),
+          answersResponse.json()
+        ]);
+
+        const answers = answersData.results || [];
+
+        // Cache the data
+        sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
+        sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+
+        setUser(userData);
+        setUserAnswers(answers);
 
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -124,7 +132,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, []);
+  }, [router]);
 
 
   // Helper function to get answer value for specific question
@@ -472,49 +480,7 @@ export default function ProfilePage() {
             className="mr-2"
           />
         </div>
-        <div className="relative">
-          <button 
-            className="p-2 cursor-pointer"
-            onClick={() => setShowMenu(!showMenu)}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          
-          {/* Dropdown Menu */}
-          {showMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
-              <button
-                onClick={() => {
-                  router.push('/profile');
-                  setShowMenu(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                My Profile
-              </button>
-              <button
-                onClick={() => {
-                  router.push('/results');
-                  setShowMenu(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Results
-              </button>
-              <button
-                onClick={() => {
-                  router.push('/questions');
-                  setShowMenu(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                All Questions
-              </button>
-            </div>
-          )}
-        </div>
+        <HamburgerMenu />
       </div>
 
       <div className="flex">
@@ -542,7 +508,7 @@ export default function ProfilePage() {
                 </div>
                 <span className="font-medium text-gray-900">About me</span>
               </div>
-              
+
               <div
                 className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
                 onClick={() => router.push('/profile/edit')}
@@ -555,8 +521,8 @@ export default function ProfilePage() {
                 />
                 <span className="text-gray-700">Edit Profile</span>
               </div>
-              
-              
+
+
               <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                 <Image
                   src="/assets/heart.png"
@@ -592,19 +558,6 @@ export default function ProfilePage() {
                   {displayName}{user.age ? `, ${user.age}` : ''}
                 </h1>
               </div>
-            </div>
-
-            {/* Mobile Action Buttons - only show on mobile */}
-            <div className="flex justify-end space-x-3 mt-4 lg:hidden">
-              <button className="px-4 py-1.5 bg-black text-white rounded-full text-sm font-medium">
-                Matches
-              </button>
-              <button
-                onClick={() => router.push('/profile/edit')}
-                className="px-4 py-1.5 border border-black text-gray-700 rounded-full text-sm font-medium"
-              >
-                Edit
-              </button>
             </div>
           </div>
 

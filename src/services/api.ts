@@ -216,6 +216,7 @@ class ApiService {
     compatibility_type?: string;
     min_compatibility?: number;
     max_compatibility?: number;
+    required_only?: boolean;
     page?: number;
     page_size?: number;
   }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
@@ -224,6 +225,7 @@ class ApiService {
     if (params.compatibility_type) queryParams.append('compatibility_type', params.compatibility_type);
     if (params.min_compatibility !== undefined) queryParams.append('min_compatibility', params.min_compatibility.toString());
     if (params.max_compatibility !== undefined) queryParams.append('max_compatibility', params.max_compatibility.toString());
+    if (params.required_only !== undefined) queryParams.append('required_only', params.required_only.toString());
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.page_size) queryParams.append('page_size', params.page_size.toString());
 
