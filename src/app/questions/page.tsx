@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -62,6 +62,10 @@ export default function QuestionsPage() {
   const [paginatedQuestions, setPaginatedQuestions] = useState<Question[]>([]);
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [allQuestionNumbers, setAllQuestionNumbers] = useState<number[]>([]);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [sortOption, setSortOption] = useState<'randomized' | 'popular' | 'new' | 'number'>('number');
+  const sortButtonRef = useRef<HTMLButtonElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const ROWS_PER_PAGE = 10;
   const [filters, setFilters] = useState({
     questions: {
@@ -93,6 +97,11 @@ export default function QuestionsPage() {
       if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 300000) { // 5 min cache
         console.log('Using cached question metadata');
         const metadata = JSON.parse(cachedData);
+        console.log('📊 Cached Metadata:', {
+          distinct_question_numbers: metadata.distinct_question_numbers,
+          total_question_groups: metadata.total_question_groups,
+          question_count: metadata.distinct_question_numbers?.length
+        });
         setAllQuestionNumbers(metadata.distinct_question_numbers);
         setTotalQuestionGroups(metadata.total_question_groups);
         setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
@@ -113,6 +122,13 @@ export default function QuestionsPage() {
 
       if (response.ok) {
         const metadata = await response.json();
+
+        console.log('📊 Fresh Metadata from API:', {
+          distinct_question_numbers: metadata.distinct_question_numbers,
+          total_question_groups: metadata.total_question_groups,
+          question_count: metadata.distinct_question_numbers?.length,
+          answer_counts: metadata.answer_counts
+        });
 
         // Cache the metadata
         sessionStorage.setItem(cacheKey, JSON.stringify(metadata));
@@ -196,6 +212,37 @@ export default function QuestionsPage() {
     }
   }, [searchParams]);
 
+  // Clear stale cache on mount (one-time cache bust)
+  useEffect(() => {
+    const cacheBustKey = 'questions_cache_v2';
+    if (!sessionStorage.getItem(cacheBustKey)) {
+      console.log('🔄 Cache bust: Clearing stale question metadata');
+      sessionStorage.removeItem('questions_metadata');
+      sessionStorage.removeItem('questions_metadata_timestamp');
+      sessionStorage.setItem(cacheBustKey, 'true');
+    }
+  }, []);
+
+  // Click outside detection for sort dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showSortDropdown &&
+        sortDropdownRef.current &&
+        sortButtonRef.current &&
+        !sortDropdownRef.current.contains(event.target as Node) &&
+        !sortButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSortDropdown]);
+
   // Check for filter parameter and apply submitted filter
   useEffect(() => {
     const filter = searchParams.get('filter');
@@ -214,13 +261,39 @@ export default function QuestionsPage() {
   const fetchQuestionsForCurrentPage = React.useCallback(async () => {
     if (allQuestionNumbers.length === 0) return;
 
+    // Sort question numbers based on sort option
+    const questionNumbersWithMetadata = allQuestionNumbers.map(qNum => ({
+      questionNumber: qNum,
+      answerCount: answerCounts[qNum] || 0
+    }));
+
+    let sorted;
+    switch (sortOption) {
+      case 'randomized':
+        sorted = [...questionNumbersWithMetadata].sort(() => Math.random() - 0.5);
+        break;
+      case 'popular':
+        sorted = [...questionNumbersWithMetadata].sort((a, b) => b.answerCount - a.answerCount);
+        break;
+      case 'new':
+        sorted = [...questionNumbersWithMetadata].sort((a, b) => b.questionNumber - a.questionNumber);
+        break;
+      case 'number':
+        sorted = [...questionNumbersWithMetadata].sort((a, b) => a.questionNumber - b.questionNumber);
+        break;
+      default:
+        sorted = [...questionNumbersWithMetadata].sort((a, b) => a.questionNumber - b.questionNumber);
+    }
+
+    const sortedQuestionNumbers = sorted.map(item => item.questionNumber);
+
     try {
       setLoading(true);
 
       // Calculate which question numbers to show on current page
       const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
       const endIndex = startIndex + ROWS_PER_PAGE;
-      const pageQuestionNumbers = allQuestionNumbers.slice(startIndex, endIndex);
+      const pageQuestionNumbers = sortedQuestionNumbers.slice(startIndex, endIndex);
 
       if (pageQuestionNumbers.length === 0) {
         setQuestions([]);
@@ -230,17 +303,42 @@ export default function QuestionsPage() {
 
       // Build single batch API call with multiple question_number params
       const questionNumberParams = pageQuestionNumbers.map(num => `question_number=${num}`).join('&');
-      const url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=100`;
+      let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=100`;
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Fetch all pages if paginated
+      let allPageQuestions = [];
+      let hasMore = true;
+      let pageNum = 1;
 
-      const data = await response.json();
-      const pageQuestions = data.results || [];
+      while (hasMore && pageNum <= 5) { // Safety limit of 5 pages
+        const response = await fetch(url, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+        const results = data.results || [];
+        allPageQuestions = [...allPageQuestions, ...results];
+
+        console.log(`📥 API Response (page ${pageNum}):`, {
+          total_in_response: data.count,
+          results_this_page: results.length,
+          accumulated_total: allPageQuestions.length,
+          has_next: !!data.next,
+          question_numbers: allPageQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b)
+        });
+
+        if (data.next) {
+          url = data.next;
+          pageNum++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const pageQuestions = allPageQuestions;
 
       // Sort by question_number and group_number
       pageQuestions.sort((a, b) => {
@@ -258,7 +356,7 @@ export default function QuestionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [allQuestionNumbers, currentPage]);
+  }, [allQuestionNumbers, currentPage, sortOption, answerCounts]);
 
   // Effect to handle page changes
   useEffect(() => {
@@ -420,6 +518,12 @@ export default function QuestionsPage() {
     }
   }, [questions, filters, applyFilters]);
 
+  // Sort handler
+  const handleSortOptionSelect = (option: typeof sortOption) => {
+    setSortOption(option);
+    setShowSortDropdown(false);
+  };
+
   // Question display names for the list (matching the actual onboarding page titles)
   const questionDisplayNames = React.useMemo((): Record<number, string> => ({
     1: 'What relationship are you looking for?',
@@ -436,7 +540,12 @@ export default function QuestionsPage() {
 
   // Group questions intelligently based on question_type
   const groupedQuestions = React.useMemo(() => {
-    const grouped: Record<string, { questions: Question[], displayName: string, questionNumber: number }> = {};
+    console.log('🔍 Grouping questions. filteredQuestions:', {
+      count: filteredQuestions.length,
+      question_numbers: filteredQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b)
+    });
+
+    const grouped: Record<string, { questions: Question[], displayName: string, questionNumber: number, answerCount: number }> = {};
 
     filteredQuestions.forEach(question => {
       const questionType = question.question_type || 'basic';
@@ -447,7 +556,8 @@ export default function QuestionsPage() {
         grouped[key] = {
           questions: [question],
           displayName: question.text,
-          questionNumber: question.question_number
+          questionNumber: question.question_number,
+          answerCount: answerCounts[question.question_number] || 0
         };
       } else if (['four', 'grouped', 'double', 'triple'].includes(questionType)) {
         // Grouped questions - combine by question_number
@@ -460,7 +570,8 @@ export default function QuestionsPage() {
           grouped[key] = {
             questions: [],
             displayName: displayText,
-            questionNumber: question.question_number
+            questionNumber: question.question_number,
+            answerCount: answerCounts[question.question_number] || 0
           };
         }
         grouped[key].questions.push(question);
@@ -468,7 +579,29 @@ export default function QuestionsPage() {
     });
 
     return grouped;
-  }, [filteredQuestions, questionDisplayNames]);
+  }, [filteredQuestions, questionDisplayNames, answerCounts]);
+
+  // Sort the grouped questions based on selected sort option
+  const sortedGroupedQuestions = React.useMemo(() => {
+    const entries = Object.entries(groupedQuestions);
+
+    switch (sortOption) {
+      case 'randomized':
+        // Randomize order
+        return entries.sort(() => Math.random() - 0.5);
+      case 'popular':
+        // Sort by answer count (most answers first)
+        return entries.sort((a, b) => b[1].answerCount - a[1].answerCount);
+      case 'new':
+        // Sort by question number descending (recently asked)
+        return entries.sort((a, b) => b[1].questionNumber - a[1].questionNumber);
+      case 'number':
+        // Sort by question number ascending (numerical order)
+        return entries.sort((a, b) => a[1].questionNumber - b[1].questionNumber);
+      default:
+        return entries.sort((a, b) => a[1].questionNumber - b[1].questionNumber);
+    }
+  }, [groupedQuestions, sortOption]);
 
 
   // Get answer count for a question number from fetched data
@@ -607,12 +740,58 @@ export default function QuestionsPage() {
             Filter
           </button>
           
-          <button className="ml-2 px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-            </svg>
-            Sort
-          </button>
+          <div className="relative ml-2">
+            <button
+              ref={sortButtonRef}
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className="px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+            >
+              <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+              Sort
+            </button>
+
+            {/* Sort Dropdown */}
+            {showSortDropdown && (
+              <div
+                ref={sortDropdownRef}
+                className="absolute top-full mt-2 right-0 w-64 bg-white rounded-2xl shadow-lg border border-gray-200 py-2 z-50"
+              >
+                <button
+                  onClick={() => handleSortOptionSelect('randomized')}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <div className="font-semibold text-black">Explore (default)</div>
+                  <div className="text-sm text-gray-500">Randomized</div>
+                </button>
+
+                <button
+                  onClick={() => handleSortOptionSelect('popular')}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <div className="font-semibold text-black">Popular</div>
+                  <div className="text-sm text-gray-500">Questions with the most answers</div>
+                </button>
+
+                <button
+                  onClick={() => handleSortOptionSelect('new')}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <div className="font-semibold text-black">New</div>
+                  <div className="text-sm text-gray-500">Recently asked</div>
+                </button>
+
+                <button
+                  onClick={() => handleSortOptionSelect('number')}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <div className="font-semibold text-black">Number</div>
+                  <div className="text-sm text-gray-500">Questions in numerical order</div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="absolute right-4">
@@ -627,7 +806,7 @@ export default function QuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold">All Questions</h1>
             <p className="text-gray-600">
-              Showing {Object.keys(groupedQuestions).length} questions
+              Showing {sortedGroupedQuestions.length} questions
             </p>
           </div>
           <button 
@@ -640,8 +819,7 @@ export default function QuestionsPage() {
 
         {/* Questions List */}
         <div className="space-y-2">
-          {Object.entries(groupedQuestions)
-            .sort((a, b) => a[1].questionNumber - b[1].questionNumber)
+          {sortedGroupedQuestions
             .map(([key, group]) => {
               const answerCount = getAnswerCount(group.questionNumber);
 
