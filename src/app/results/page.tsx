@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
 import { apiService, type ApiUser, type CompatibilityResult } from '@/services/api';
+import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 
 interface ResultProfile {
@@ -14,6 +15,7 @@ interface ResultProfile {
   status: 'approved' | 'liked' | 'matched';
   isLiked: boolean;
   isMatched: boolean;
+  tags: string[]; // Add tags to the interface
 }
 
 // Generate dummy profiles (fallback only)
@@ -84,6 +86,7 @@ const generateDummyProfiles = (): ResultProfile[] => {
       status,
       isLiked,
       isMatched,
+      tags: [], // Add empty tags array for dummy profiles
     });
   }
 
@@ -157,6 +160,49 @@ export default function ResultsPage() {
     requiredOnly: false
   });
 
+  // Fetch tags for a specific user
+  const fetchUserTags = async (userId: string): Promise<string[]> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return [];
+
+    try {
+      const response = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
+        {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.tags || [];
+      }
+    } catch (error) {
+      console.error('Error fetching tags for user:', userId, error);
+    }
+    return [];
+  };
+
+  // Fetch tags for multiple users in parallel
+  const fetchTagsForProfiles = async (profiles: ResultProfile[]): Promise<ResultProfile[]> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return profiles;
+
+    try {
+      // Fetch tags for all users in parallel
+      const tagPromises = profiles.map(async (profile) => {
+        const tags = await fetchUserTags(profile.user.id);
+        return { ...profile, tags };
+      });
+
+      return await Promise.all(tagPromises);
+    } catch (error) {
+      console.error('Error fetching tags for profiles:', error);
+      return profiles;
+    }
+  };
+
   // Fetch compatible users from API
   const fetchCompatibleUsers = async (page = 1, applyFilters = false) => {
     console.log(`🚀 fetchCompatibleUsers called: page=${page}, applyFilters=${applyFilters}`);
@@ -172,6 +218,8 @@ export default function ResultsPage() {
         min_compatibility?: number;
         max_compatibility?: number;
         required_only?: boolean;
+        tags?: string[];
+        user_id?: string;
       } = {
         page,
         page_size: 15
@@ -189,9 +237,25 @@ export default function ResultsPage() {
         params.min_compatibility = filters.compatibility.min;
         params.max_compatibility = filters.compatibility.max;
         params.required_only = filters.requiredOnly;
+        
+        // Add tag filters
+        if (filters.tags && filters.tags.length > 0) {
+          params.tags = filters.tags;
+        }
+        
+        // Add user_id for proper filtering
+        const currentUserId = localStorage.getItem('user_id');
+        if (currentUserId) {
+          params.user_id = currentUserId;
+        }
 
         console.log('📊 API params with filters:', params);
       } else {
+        // Add user_id for non-filtered calls too
+        const currentUserId = localStorage.getItem('user_id');
+        if (currentUserId) {
+          params.user_id = currentUserId;
+        }
         console.log('📊 API params (no filters):', params);
       }
 
@@ -206,13 +270,19 @@ export default function ResultsPage() {
         compatibility: item.compatibility,
         status: 'approved', // Default status - could be determined by user tags/reactions
         isLiked: false, // Could be determined by user tags
-        isMatched: false // Could be determined by user tags
+        isMatched: false, // Could be determined by user tags
+        tags: [] // Initialize empty tags array
       }));
 
+      // Fetch tags for all profiles
+      console.log('🏷️ Fetching tags for profiles...');
+      const profilesWithTags = await fetchTagsForProfiles(transformedProfiles);
+      console.log('✅ Tags fetched for profiles:', profilesWithTags.map(p => ({ id: p.user.id, tags: p.tags })));
+
       if (page === 1) {
-        setProfiles(transformedProfiles);
+        setProfiles(profilesWithTags);
       } else {
-        setProfiles(prev => [...prev, ...transformedProfiles]);
+        setProfiles(prev => [...prev, ...profilesWithTags]);
       }
 
       setTotalCount(response.total_count || response.count);
@@ -291,6 +361,7 @@ export default function ResultsPage() {
       })
     );
   };
+
 
   // Dual range slider powered by react-slider for smooth dragging
   const DualRangeSlider = ({ min, max, value, onChange, label, unit = '' }: {
@@ -395,7 +466,7 @@ export default function ResultsPage() {
     setFilters(prev => ({ ...prev, [category]: value }));
   };
 
-  const handleTagToggle = (tag: string) => {
+  const handleFilterTagToggle = (tag: string) => {
     setFilters(prev => ({
       ...prev,
       tags: prev.tags.includes(tag)
@@ -645,7 +716,10 @@ export default function ResultsPage() {
               return (
                 <div key={profile.id} className="relative">
                   <CardWithProgressBorder percentage={compatibilityScore}>
-                    <div className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                    <div
+                      onClick={() => router.push(`/profile/${profile.user.id}`)}
+                      className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    >
                       {/* Status Indicator */}
                       <div className="absolute top-0 left-0 z-20">
                         {profile.status === 'approved' && !profile.isLiked && (
@@ -683,10 +757,7 @@ export default function ResultsPage() {
                       </div>
 
                       {/* Profile Image */}
-                      <div
-                        className="relative aspect-square bg-gray-200"
-                        onClick={() => router.push(`/profile/${profile.id}`)}
-                      >
+                      <div className="relative aspect-square bg-gray-200">
                         <Image
                           src={profilePhoto}
                           alt={firstName}
@@ -880,11 +951,11 @@ export default function ResultsPage() {
                 <div className="flex flex-wrap gap-3">
                   {[
                     'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
-                    'Liked Me', 'Matched', 'Saved', 'Not Approved', 'Hidden'
+                    'Liked Me', 'Matched', 'Required', 'Pending', 'Saved', 'Not Approved', 'Hidden'
                   ].map((tag) => (
                     <button
                       key={tag}
-                      onClick={() => handleTagToggle(tag)}
+                      onClick={() => handleFilterTagToggle(tag)}
                       className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
                         filters.tags.includes(tag)
                           ? 'bg-white text-gray-900 border-black'

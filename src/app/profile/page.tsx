@@ -54,10 +54,13 @@ export default function ProfilePage() {
         // Get user ID from localStorage
         const userId = localStorage.getItem('user_id');
         if (!userId) {
+          console.log('No user_id in localStorage, redirecting to login');
           setError('User ID not found');
           router.push('/auth/login');
           return;
         }
+
+        console.log('Fetching profile for user:', userId);
 
         // Check sessionStorage cache first (2 min TTL)
         const cacheKey = `profile_${userId}`;
@@ -75,21 +78,14 @@ export default function ProfilePage() {
         }
 
         // Fetch user and answers in parallel
+        // Use direct user ID endpoint instead of /me/ to avoid session issues
         const [userResponse, answersResponse] = await Promise.all([
-          fetch(`${getApiUrl(API_ENDPOINTS.USERS_ME)}`, {
+          fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
-          }).catch(() =>
-            // Fallback to user by ID if /me fails
-            fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-          ),
+          }),
           fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
             credentials: 'include',
             headers: {
@@ -99,9 +95,14 @@ export default function ProfilePage() {
         ]);
 
         if (!userResponse.ok) {
-          console.error('User not found, clearing localStorage and redirecting to login');
-          localStorage.removeItem('user_id');
-          router.push('/auth/login');
+          console.error('User API failed with status:', userResponse.status);
+          if (userResponse.status === 401 || userResponse.status === 403) {
+            console.error('Authentication failed, clearing localStorage and redirecting to login');
+            localStorage.removeItem('user_id');
+            router.push('/auth/login');
+          } else {
+            throw new Error('Failed to fetch user profile');
+          }
           return;
         }
 

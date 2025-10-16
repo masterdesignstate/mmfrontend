@@ -15,6 +15,7 @@ const API_CONFIG = {
     USERS_ME: '/api/users/me/',
     QUESTIONS: '/api/questions/',
     ANSWERS: '/api/answers/',
+    USER_RESULTS: '/api/results',
   }
 };
 

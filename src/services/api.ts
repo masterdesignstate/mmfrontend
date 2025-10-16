@@ -219,6 +219,8 @@ class ApiService {
     required_only?: boolean;
     page?: number;
     page_size?: number;
+    tags?: string[];
+    user_id?: string;
   }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
     const queryParams = new URLSearchParams();
 
@@ -228,6 +230,16 @@ class ApiService {
     if (params.required_only !== undefined) queryParams.append('required_only', params.required_only.toString());
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.page_size) queryParams.append('page_size', params.page_size.toString());
+    
+    // Add tag parameters
+    if (params.tags && params.tags.length > 0) {
+      params.tags.forEach(tag => queryParams.append('tags', tag));
+    }
+    
+    // Add user_id parameter
+    if (params.user_id) {
+      queryParams.append('user_id', params.user_id);
+    }
 
     return this.request(`/users/compatible/?${queryParams.toString()}`, 'GET') as Promise<{
       results: Array<{ user: ApiUser; compatibility: CompatibilityResult }>;
