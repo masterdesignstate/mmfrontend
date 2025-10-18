@@ -16,6 +16,8 @@ const API_CONFIG = {
     QUESTIONS: '/api/questions/',
     ANSWERS: '/api/answers/',
     USER_RESULTS: '/api/results',
+    CONTROLS: '/api/controls/',
+    CONTROLS_CURRENT: '/api/controls/current/',
   }
 };
 

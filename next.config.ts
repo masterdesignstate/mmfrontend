@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  trailingSlash: true, // Enable trailing slashes to match Django URLs
+  // trailingSlash: true, // DISABLED - causes redirect loops with API proxy
   images: {
     remotePatterns: [
       {

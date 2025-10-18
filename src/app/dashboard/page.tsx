@@ -1,27 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   LineChart,
   Line
 } from 'recharts';
-
-// Mock data - replace with actual API calls
-const mockStats = {
-  totalUsers: 1247,
-  dailyActiveUsers: 892,
-  weeklyActiveUsers: 1156,
-  monthlyActiveUsers: 1342,
-  newUsersThisYear: 1247,
-  totalMatches: 2341,
-  totalLikes: 5678,
-  totalApproves: 3456,
-};
+import { apiService } from '@/services/api';
 
 // Labels and helpers
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -90,29 +79,64 @@ function generateMonthlyData(monthIndex: number, year: number) {
 
 
 export default function DashboardOverview() {
-  const [stats] = useState(mockStats);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    dailyActiveUsers: 0,
+    weeklyActiveUsers: 0,
+    monthlyActiveUsers: 0,
+    newUsersThisYear: 0,
+    totalMatches: 0,
+    totalLikes: 0,
+    totalApproves: 0,
+  });
   const [loading, setLoading] = useState(true);
-
-  // Current calendar markers
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonthIndex = now.getMonth(); // 0-11
-  const currentWeekNumber = getISOWeek(now); // 1-53
-
-  // Selected period
-  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeekNumber);
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonthIndex);
-
-  // Data based on selected period
-  const weeklyData = useMemo(() => generateWeeklyData(selectedWeek), [selectedWeek]);
-  const monthlyData = useMemo(() => generateMonthlyData(selectedMonth, currentYear), [selectedMonth, currentYear]);
+  const [error, setError] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartPeriod, setChartPeriod] = useState<'week' | 'month'>(  'month');
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-  }, []);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch stats
+        const dashboardStats = await apiService.getDashboardStats();
+        setStats({
+          totalUsers: dashboardStats.total_users,
+          dailyActiveUsers: dashboardStats.daily_active_users,
+          weeklyActiveUsers: dashboardStats.weekly_active_users,
+          monthlyActiveUsers: dashboardStats.monthly_active_users,
+          newUsersThisYear: dashboardStats.new_users_this_year,
+          totalMatches: dashboardStats.total_matches,
+          totalLikes: dashboardStats.total_likes,
+          totalApproves: dashboardStats.total_approves,
+        });
+
+        // Fetch time-series data
+        const period = chartPeriod === 'week' ? 7 : 30;
+        const timeseriesData = await apiService.getTimeseriesData(period);
+
+        // Transform data for charts
+        const transformedData = timeseriesData.data.map((item: any) => ({
+          name: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          users: item.users,
+          approves: item.approves,
+          likes: item.likes,
+          matches: item.matches,
+        }));
+
+        setChartData(transformedData);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to fetch dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [chartPeriod]);
 
   if (loading) {
     return (
@@ -230,149 +254,76 @@ export default function DashboardOverview() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Activity Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              <i className="fas fa-chart-line mr-2"></i>
-              Weekly Activity
-            </h3>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedWeek((w) => Math.max(1, w - 1))}
-                disabled={selectedWeek <= 1}
-                className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Previous week"
-              >
-                <i className="fas fa-chevron-left"></i>
-              </button>
-              <span className="text-sm text-gray-700 min-w-[200px] text-center">
-                {formatWeekRangeLabel(currentYear, selectedWeek)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedWeek((w) => Math.min(currentWeekNumber, w + 1))}
-                disabled={selectedWeek >= currentWeekNumber}
-                className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Next week"
-              >
-                <i className="fas fa-chevron-right"></i>
-              </button>
-            </div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            <i className="fas fa-chart-line mr-2"></i>
+            Activity Overview
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setChartPeriod('week')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                chartPeriod === 'week'
+                  ? 'bg-[#672DB7] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setChartPeriod('month')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                chartPeriod === 'month'
+                  ? 'bg-[#672DB7] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Month
+            </button>
           </div>
-          
-          {/* Weekly Totals */}
-          <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#672DB7]">
-                {weeklyData.reduce((sum, item) => sum + item.users, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Users</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#10B981]">
-                {weeklyData.reduce((sum, item) => sum + item.approves, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Approves</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#2563eb]">
-                {weeklyData.reduce((sum, item) => sum + item.likes, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Likes</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#dc2626]">
-                {weeklyData.reduce((sum, item) => sum + item.matches, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Matches</div>
-            </div>
-          </div>
-          
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={weeklyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
-              <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
-              <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
-              <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
 
-        {/* Monthly Growth Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="mb-4">
-            <div className="flex items-center">
-              <h3 className="text-lg font-semibold text-gray-900">
-                <i className="fas fa-chart-line mr-2"></i>
-                Monthly Growth
-              </h3>
+        {/* Totals */}
+        <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-[#672DB7]">
+              {chartData.reduce((sum, item) => sum + item.users, 0)}
             </div>
-            <div className="mt-2 flex flex-nowrap gap-2 overflow-x-auto">
-              {Array.from({ length: currentMonthIndex + 1 }, (_, m) => m).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setSelectedMonth(m)}
-                  className={`px-2.5 py-1 rounded-full text-sm border transition-colors ${
-                    selectedMonth === m
-                      ? 'bg-[#672DB7] text-white border-[#672DB7]'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-[#672DB7]'
-                  }`}
-                >
-                  {monthShortNames[m]}
-                </button>
-              ))}
-            </div>
+            <div className="text-sm text-gray-600">Active Users</div>
           </div>
-          
-          {/* Monthly Totals */}
-          <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#672DB7]">
-                {monthlyData.reduce((sum, item) => sum + item.users, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Users</div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-[#10B981]">
+              {chartData.reduce((sum, item) => sum + item.approves, 0)}
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#10B981]">
-                {monthlyData.reduce((sum, item) => sum + item.approves, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Approves</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#2563eb]">
-                {monthlyData.reduce((sum, item) => sum + item.likes, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Likes</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#dc2626]">
-                {monthlyData.reduce((sum, item) => sum + item.matches, 0)}
-              </div>
-              <div className="text-sm text-gray-600">Matches</div>
-            </div>
+            <div className="text-sm text-gray-600">Approves</div>
           </div>
-          
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={Math.ceil(monthlyData.length / 12)} />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
-              <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
-              <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
-              <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-[#2563eb]">
+              {chartData.reduce((sum, item) => sum + item.likes, 0)}
+            </div>
+            <div className="text-sm text-gray-600">Likes</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-[#dc2626]">
+              {chartData.reduce((sum, item) => sum + item.matches, 0)}
+            </div>
+            <div className="text-sm text-gray-600">Matches</div>
+          </div>
         </div>
+
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Active Users" />
+            <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
+            <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
+            <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
 

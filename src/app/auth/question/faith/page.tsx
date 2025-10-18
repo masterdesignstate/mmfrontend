@@ -288,9 +288,9 @@ export default function FaithQuestionPage() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="onboarding-label-row items-center mx-auto w-full mb-2">
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="onboarding-track flex justify-between text-xs text-gray-500">
                 <span>Less</span>
                 <span>More</span>
               </div>
@@ -300,13 +300,13 @@ export default function FaithQuestionPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="onboarding-grid items-center mx-auto w-full">
               
               {/* FAITH Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
                 {(question?.question_name || 'FAITH').toUpperCase()}
               </div>
-              <div className="relative">
+              <div className="relative onboarding-track">
                 <SliderComponent
                   value={myAnswer}
                   onChange={(value) => handleSliderChange('myAnswer', value)}
@@ -335,7 +335,7 @@ export default function FaithQuestionPage() {
 
               {/* IMPORTANCE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
+              <div className="relative onboarding-track">
                 <SliderComponent
                   value={importance.me}
                   onChange={(value) => handleSliderChange('importance', value)}
@@ -347,9 +347,9 @@ export default function FaithQuestionPage() {
             </div>
 
             {/* Importance labels below Me section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="onboarding-grid items-center mx-auto w-full mt-2">
               <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+              <div className="relative text-xs text-gray-500 onboarding-track text-xs text-gray-500">
                 {/* Only show the label for the current importance value */}
                 {importance.me === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
@@ -376,9 +376,9 @@ export default function FaithQuestionPage() {
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="onboarding-label-row items-center mx-auto w-full mb-2">
               <div></div> {/* Empty placeholder for label column */}
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="onboarding-track flex justify-between text-xs text-gray-500">
                 <span>Less</span>
                 <span>More</span>
               </div>
@@ -388,13 +388,13 @@ export default function FaithQuestionPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="onboarding-grid items-center mx-auto w-full">
               
               {/* FAITH Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
                 {(question?.question_name || 'FAITH').toUpperCase()}
               </div>
-              <div className="relative">
+              <div className="relative onboarding-track">
                 <SliderComponent
                   value={lookingForAnswer}
                   onChange={(value) => handleSliderChange('lookingForAnswer', value)}
@@ -423,7 +423,7 @@ export default function FaithQuestionPage() {
 
               {/* IMPORTANCE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
+              <div className="relative onboarding-track">
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={handleLookingForImportanceChange}
@@ -435,9 +435,9 @@ export default function FaithQuestionPage() {
             </div>
 
             {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="onboarding-grid items-center mx-auto w-full mt-2">
               <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+              <div className="relative text-xs text-gray-500 onboarding-track text-xs text-gray-500">
                 {/* Only show the label for the current importance value */}
                 {importance.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>

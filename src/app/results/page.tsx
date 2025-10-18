@@ -586,13 +586,13 @@ export default function ResultsPage() {
                 placeholder="Search people"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-[250px] sm:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                className="w-[220px] sm:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
               />
             </div>
 
             <button
               onClick={() => setShowFilterModal(true)}
-              className={`ml-4 px-4 py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
+              className={`ml-2 sm:ml-4 inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
                 filtersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
               }`}
             >
@@ -600,10 +600,10 @@ export default function ResultsPage() {
                 <div className="absolute inset-0 bg-black opacity-[0.05]"></div>
               )}
               <span className="relative z-10 flex items-center">
-                <svg className="w-4 h-4 mr-1 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-black sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
                 </svg>
-                Filter
+                <span className="hidden sm:inline">Filter</span>
               </span>
             </button>
 
@@ -611,12 +611,12 @@ export default function ResultsPage() {
               <button
                 ref={sortButtonRef}
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                className="inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
               >
-                <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 inline text-black sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
-                Sort
+                <span className="hidden sm:inline">Sort</span>
               </button>
 
               {/* Sort Dropdown */}

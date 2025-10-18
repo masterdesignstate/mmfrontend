@@ -392,7 +392,13 @@ export default function RelationshipPage() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* LESS, MORE, and OTA labels below Me header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
               <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
@@ -406,7 +412,14 @@ export default function RelationshipPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
               
               {/* Question Rows for Relationship Questions (question_number = 1) */}
               {questions.filter(q => q.question_number === 1).map((question) => {
@@ -415,7 +428,7 @@ export default function RelationshipPage() {
                 
                 return (
                   <React.Fragment key={question.id}>
-                    <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                    <div className="text-xs font-semibold text-gray-400 mobile-label">{question.question_name.toUpperCase()}</div>
                     <div className="relative">
                       <SliderComponent
                         value={myAnswers[questionKey]}
@@ -461,9 +474,15 @@ export default function RelationshipPage() {
             </div>
 
             {/* Importance labels below Me section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
               <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+              <div className="relative text-xs text-gray-500 w-full">
                 {/* Only show the label for the current importance value */}
                 {importance.me === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>

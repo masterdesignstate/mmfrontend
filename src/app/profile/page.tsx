@@ -615,7 +615,7 @@ export default function ProfilePage() {
 
           {/* My Gender Section - left aligned content block */}
           <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4">My Gender</h3>
+            <h3 className="text-xl font-bold mb-4">Gender</h3>
             
             {/* Me Section */}
             <div className="mb-6">

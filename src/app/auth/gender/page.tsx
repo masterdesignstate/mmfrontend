@@ -1,25 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+
+type QuestionShape = {
+  id: string;
+  question_name: string;
+  question_number: number;
+  group_number?: number;
+  group_name: string;
+  text: string;
+  answers: Array<{ value: string; answer_text: string }>;
+  open_to_all_me: boolean;
+  open_to_all_looking_for: boolean;
+};
 
 export default function GenderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
-  const [questions, setQuestions] = useState<Array<{
-    id: string;
-    question_name: string;
-    question_number: number;
-    group_number?: number;
-    group_name: string;
-    text: string;
-    answers: Array<{ value: string; answer_text: string }>;
-    open_to_all_me: boolean;
-    open_to_all_looking_for: boolean;
-  }>>([]);
+
+  const [questions, setQuestions] = useState<QuestionShape[]>([]);
+  const [genderQuestions, setGenderQuestions] = useState<QuestionShape[]>([]);
 
   // State for MALE/FEMALE sliders
   const [myGender, setMyGender] = useState({
@@ -40,7 +44,7 @@ export default function GenderPage() {
   });
 
   const [importance, setImportance] = useState({
-    me: 1,
+    me: 3,
     lookingFor: 3
   });
 
@@ -75,9 +79,16 @@ export default function GenderPage() {
     
     if (questionsParam) {
       try {
-        const parsedQuestions = JSON.parse(questionsParam);
+        const parsedQuestions: QuestionShape[] = JSON.parse(questionsParam);
+        setQuestions(parsedQuestions);
+        const preloadedGender = parsedQuestions.filter((q) =>
+          ['male', 'female'].includes(q.question_name?.toLowerCase() || '')
+        );
+        if (preloadedGender.length) {
+          setGenderQuestions(prev => prev.length ? prev : preloadedGender);
+        }
         console.log('�� Received questions from URL:', parsedQuestions);
-        console.log('🔍 Question OTA settings from URL:', parsedQuestions.map((q: typeof questions[0]) => ({
+        console.log('🔍 Question OTA settings from URL:', parsedQuestions.map((q: QuestionShape) => ({
           number: q.question_number,
           group: q.group_name,
           ota_me: q.open_to_all_me,
@@ -95,7 +106,7 @@ export default function GenderPage() {
   useEffect(() => {
     const fetchQuestionsIfNeeded = async () => {
       // Only fetch if we have a userId and haven't fetched questions yet
-      if (userId && questions.length === 0 && !loadingQuestions) {
+      if (userId && genderQuestions.length === 0 && !loadingQuestions) {
         console.log('🚀 Starting to fetch Male/Female questions from backend...');
         setLoadingQuestions(true);
         try {
@@ -110,15 +121,16 @@ export default function GenderPage() {
             console.log('📋 Raw API response:', data);
             
             // Sort questions by group_number
-            const sortedQuestions = (data.results || []).sort((a: typeof questions[0], b: typeof questions[0]) => {
+            const sortedQuestions = (data.results || []).sort((a: QuestionShape, b: QuestionShape) => {
               const groupA = a.group_number || 0;
               const groupB = b.group_number || 0;
               return groupA - groupB;
             });
             
-            setQuestions(sortedQuestions);
+            setGenderQuestions(sortedQuestions);
+            setQuestions(prev => prev.length ? prev : sortedQuestions);
             console.log('📋 Set Male/Female questions to state (sorted by group_number):', sortedQuestions);
-            console.log('🔍 Backend Male/Female Question OTA settings:', sortedQuestions.map((q: typeof questions[0]) => ({
+            console.log('🔍 Backend Male/Female Question OTA settings:', sortedQuestions.map((q: QuestionShape) => ({
               number: q.question_number,
               group_number: q.group_number,
               group: q.group_name,
@@ -137,7 +149,24 @@ export default function GenderPage() {
     };
 
     fetchQuestionsIfNeeded();
-  }, [userId, questions.length, loadingQuestions]);
+  }, [userId, genderQuestions.length, loadingQuestions]);
+
+  const maleQuestion =
+    genderQuestions.find(
+      (q) =>
+        q.question_name?.toLowerCase() === 'male' ||
+        q.group_name?.toLowerCase() === 'male' ||
+        (q.group_number ?? 0) === 1 ||
+        q.text.toLowerCase().includes('male')
+    ) ?? genderQuestions[0];
+  const femaleQuestion =
+    genderQuestions.find(
+      (q) =>
+        q.question_name?.toLowerCase() === 'female' ||
+        q.group_name?.toLowerCase() === 'female' ||
+        (q.group_number ?? 0) === 2 ||
+        q.text.toLowerCase().includes('female')
+    ) ?? genderQuestions.find(q => q.id !== maleQuestion?.id);
 
   const handleSliderChange = (section: 'myGender' | 'lookingFor' | 'importance', gender: string, value: number) => {
     if (section === 'myGender') {
@@ -159,8 +188,11 @@ export default function GenderPage() {
       return;
     }
 
-    if (!questions || questions.length < 2) {
-      setError('Questions not loaded properly');
+    const male = maleQuestion;
+    const female = femaleQuestion;
+
+    if (!male || !female) {
+      setError('Still loading gender options. Please wait a moment and try again.');
       return;
     }
 
@@ -168,50 +200,33 @@ export default function GenderPage() {
     setError('');
 
     try {
-      // Find Male/Female questions (question_number = 2)
-      const maleFemaleQuestions = questions.filter(q => q.question_number === 2);
-
-      if (maleFemaleQuestions.length < 2) {
-        setError('Required Male/Female questions not found');
-        return;
-      }
-
       // Prepare user answers for Male/Female questions
-      const userAnswers = [];
-
-      for (const question of maleFemaleQuestions) {
-        // Determine if this is MALE or FEMALE based on group_name or other logic
-        const isMale = question.group_name.toLowerCase().includes('male') || question.group_number === 1;
-        const isFemale = question.group_name.toLowerCase().includes('female') || question.group_number === 2;
-        
-        if (isMale) {
-          userAnswers.push({
-            user_id: userId,
-            question_id: question.id,
-            me_answer: openToAll.maleMeOpen ? 6 : myGender.male,
-            me_open_to_all: openToAll.maleMeOpen,
-            me_importance: importance.me,
-            me_share: true,
-            looking_for_answer: openToAll.maleLookingOpen ? 6 : lookingFor.male,
-            looking_for_open_to_all: openToAll.maleLookingOpen,
-            looking_for_importance: importance.lookingFor,
-            looking_for_share: true
-          });
-        } else if (isFemale) {
-          userAnswers.push({
-            user_id: userId,
-            question_id: question.id,
-            me_answer: openToAll.femaleMeOpen ? 6 : myGender.female,
-            me_open_to_all: openToAll.femaleMeOpen,
-            me_importance: importance.me,
-            me_share: true,
-            looking_for_answer: openToAll.femaleLookingOpen ? 6 : lookingFor.female,
-            looking_for_open_to_all: openToAll.femaleLookingOpen,
-            looking_for_importance: importance.lookingFor,
-            looking_for_share: true
-          });
+      const userAnswers = [
+        {
+          user_id: userId,
+          question_id: male.id,
+          me_answer: openToAll.maleMeOpen ? 6 : myGender.male,
+          me_open_to_all: openToAll.maleMeOpen,
+          me_importance: importance.me,
+          me_share: true,
+          looking_for_answer: openToAll.maleLookingOpen ? 6 : lookingFor.male,
+          looking_for_open_to_all: openToAll.maleLookingOpen,
+          looking_for_importance: importance.lookingFor,
+          looking_for_share: true
+        },
+        {
+          user_id: userId,
+          question_id: female.id,
+          me_answer: openToAll.femaleMeOpen ? 6 : myGender.female,
+          me_open_to_all: openToAll.femaleMeOpen,
+          me_importance: importance.me,
+          me_share: true,
+          looking_for_answer: openToAll.femaleLookingOpen ? 6 : lookingFor.female,
+          looking_for_open_to_all: openToAll.femaleLookingOpen,
+          looking_for_importance: importance.lookingFor,
+          looking_for_share: true
         }
-      }
+      ];
 
       // Save each user answer
       for (const userAnswer of userAnswers) {
@@ -233,6 +248,15 @@ export default function GenderPage() {
       const params = new URLSearchParams({ 
         user_id: userId
       });
+      const combinedQuestions = [
+        ...questions,
+        ...genderQuestions.filter(
+          (question) => !questions.some(existing => existing.id === question.id)
+        )
+      ];
+      if (combinedQuestions.length) {
+        params.set('questions', JSON.stringify(combinedQuestions));
+      }
       router.push(`/auth/ethnicity?${params.toString()}`);
     } catch (error) {
       console.error('Error saving gender preferences:', error);
@@ -304,7 +328,7 @@ export default function GenderPage() {
           
           {/* Custom Slider Track */}
           <div 
-            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+            className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
               backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -376,37 +400,44 @@ export default function GenderPage() {
           )}
 
           {/* Looking For Section */}
-          <div className="mb-6">
+          <div className="mb-10">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-            
-            {/* LESS, MORE, and OTA labels below Looking For header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
+              <div></div>
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.find(q => q.question_number === 1)?.open_to_all_looking_for || questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? 'OTA' : ''}
+                {maleQuestion?.open_to_all_looking_for || femaleQuestion?.open_to_all_looking_for ? 'OTA' : ''}
               </div>
             </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              
-              {/* MALE Slider Row */}
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
               <div className="text-xs font-semibold text-gray-400">MALE</div>
               <div className="relative">
                 <SliderComponent
                   value={lookingFor.male}
                   onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
-                  
                   isOpenToAll={openToAll.maleLookingOpen}
                 />
               </div>
               <div>
-                {/* Only show switch if Male question has open_to_all_looking_for enabled */}
-                {questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? (
+                {maleQuestion?.open_to_all_looking_for ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input
@@ -420,23 +451,20 @@ export default function GenderPage() {
                     </div>
                   </label>
                 ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                  <div className="w-11 h-6"></div>
                 )}
               </div>
-              
-              {/* FEMALE Slider Row */}
+
               <div className="text-xs font-semibold text-gray-400">FEMALE</div>
               <div className="relative">
                 <SliderComponent
                   value={lookingFor.female}
                   onChange={(value) => handleSliderChange('lookingFor', 'female', value)}
-                  
                   isOpenToAll={openToAll.femaleLookingOpen}
                 />
               </div>
               <div>
-                {/* Only show switch if Female question has open_to_all_looking_for enabled */}
-                {questions.find(q => q.question_number === 2)?.open_to_all_looking_for ? (
+                {femaleQuestion?.open_to_all_looking_for ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input
@@ -450,81 +478,53 @@ export default function GenderPage() {
                     </div>
                   </label>
                 ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                  <div className="w-11 h-6"></div>
                 )}
               </div>
 
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
-                  isOpenToAll={false}
-                  isImportance={true}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
             </div>
 
-            {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {/* Only show the label for the current importance value */}
-                {importance.lookingFor === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.lookingFor === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.lookingFor === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.lookingFor === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.lookingFor === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
-            </div>
           </div>
 
           {/* Me Section */}
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-            
-            {/* LESS, MORE, and OTA labels below Me header - using same grid structure */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div> {/* Empty placeholder for label column */}
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
+              <div></div>
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.find(q => q.question_number === 1)?.open_to_all_me || questions.find(q => q.question_number === 2)?.open_to_all_me ? 'OTA' : ''}
+                {maleQuestion?.open_to_all_me || femaleQuestion?.open_to_all_me ? 'OTA' : ''}
               </div>
             </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              
-              {/* MALE Slider Row */}
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
               <div className="text-xs font-semibold text-gray-400">MALE</div>
               <div className="relative">
                 <SliderComponent
                   value={myGender.male}
                   onChange={(value) => handleSliderChange('myGender', 'male', value)}
-                  
                   isOpenToAll={openToAll.maleMeOpen}
                 />
               </div>
               <div>
-                {/* Only show switch if Male question has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 2)?.open_to_all_me ? (
+                {maleQuestion?.open_to_all_me ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input
@@ -538,23 +538,20 @@ export default function GenderPage() {
                     </div>
                   </label>
                 ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                  <div className="w-11 h-6"></div>
                 )}
               </div>
-              
-              {/* FEMALE Slider Row */}
+
               <div className="text-xs font-semibold text-gray-400">FEMALE</div>
               <div className="relative">
                 <SliderComponent
                   value={myGender.female}
                   onChange={(value) => handleSliderChange('myGender', 'female', value)}
-                  
                   isOpenToAll={openToAll.femaleMeOpen}
                 />
               </div>
               <div>
-                {/* Only show switch if Female question has open_to_all_me enabled */}
-                {questions.find(q => q.question_number === 2)?.open_to_all_me ? (
+                {femaleQuestion?.open_to_all_me ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input
@@ -568,10 +565,32 @@ export default function GenderPage() {
                     </div>
                   </label>
                 ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                  <div className="w-11 h-6"></div>
                 )}
               </div>
-              
+
+              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={importance.lookingFor}
+                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+                  isOpenToAll={false}
+                  isImportance={true}
+                />
+              </div>
+              <div className="w-11 h-6"></div>
+            </div>
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
+              <div></div>
+              <div className="relative text-xs text-gray-500 w-full"></div>
+              <div></div>
             </div>
           </div>
         </div>
@@ -598,9 +617,9 @@ export default function GenderPage() {
           {/* Next Button */}
           <button
             onClick={handleNext}
-            disabled={loading}
+            disabled={loading || loadingQuestions || !maleQuestion || !femaleQuestion}
             className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading
+              !loading && !loadingQuestions && maleQuestion && femaleQuestion
                 ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 const sidebarItems = [
@@ -17,6 +17,7 @@ const sidebarItems = [
   // { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },
   // { name: 'Reported Users', href: '/dashboard/reported-users', icon: 'fas fa-exclamation-triangle' },
   { name: 'Restricted Text', href: '/dashboard/restricted-text', icon: 'fas fa-shield-alt' },
+  { name: 'Controls', href: '/dashboard/controls', icon: 'fas fa-sliders-h' },
 ];
 
 export default function DashboardLayout({
@@ -26,6 +27,16 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // Clear any stored user data
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_email');
+
+    // Redirect to login page
+    router.push('/auth/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -44,8 +55,20 @@ export default function DashboardLayout({
             <span className="ml-3 text-lg font-semibold text-gray-900">Dashboard</span>
           </div>
           
-          {/* Right side - just hamburger menu */}
-          <div className="flex items-center">
+          {/* Right side - Log out button and hamburger menu */}
+          <div className="flex items-center gap-3">
+            {/* Log Out Button */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="hidden sm:inline">Log out</span>
+            </button>
+
+            {/* Hamburger Menu (Mobile) */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"

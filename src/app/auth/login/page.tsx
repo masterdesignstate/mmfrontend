@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { isAdminEmail } from '@/config/admin';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -44,7 +43,7 @@ export default function LoginPage() {
 
         const normalizedEmail = email.trim().toLowerCase();
         const userId = data?.user_id || data?.user_data?.id;
-        const isAdminLogin = isAdminEmail(normalizedEmail) || data?.is_admin || data?.user_data?.is_admin;
+        const isAdminLogin = Boolean(data?.is_admin || data?.user_data?.is_admin);
 
         if (userId) {
           localStorage.setItem('user_id', userId);

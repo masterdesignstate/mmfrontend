@@ -59,6 +59,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
           <a href="#science" className="block px-1 py-2" onClick={() => setMobileOpen(false)}>The Math</a>
           <a href="#testimonials" className="block px-1 py-2" onClick={() => setMobileOpen(false)}>Stories</a>
           <a href="#faq" className="block px-1 py-2" onClick={() => setMobileOpen(false)}>FAQ</a>
+          <Link href="/auth/login" className="block px-1 py-2" onClick={() => setMobileOpen(false)}>Log out</Link>
           <div className="flex gap-2 pt-2">
             <Link href="/auth/login" className="flex-1 text-center text-sm font-medium px-4 py-2 rounded-md border border-gray-200">Log in</Link>
             <Link href="/auth/register" className="flex-1 text-center text-sm font-medium px-4 py-2 rounded-md bg-[#672DB7] text-white hover:bg-[#5a2a9e]">Get started</Link>

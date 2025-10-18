@@ -9,6 +9,18 @@ export interface ApiUser {
   age?: number;
   city?: string;
   bio?: string;
+  live?: string;
+  date_joined?: string;
+  is_banned?: boolean;
+  questions_answered_count?: number;
+  question_answers?: {
+    male?: number;
+    female?: number;
+    friend?: number;
+    hookup?: number;
+    date?: number;
+    partner?: number;
+  };
 }
 
 export interface UserAnswer {
@@ -16,9 +28,16 @@ export interface UserAnswer {
   user: ApiUser;
   question: Question;
   me_answer: number;
+  me_open_to_all?: boolean;
+  me_importance: number;
+  me_share?: boolean;
   looking_for_answer: number;
-  me_multiplier: number;
-  looking_for_multiplier: number;
+  looking_for_open_to_all?: boolean;
+  looking_for_importance: number;
+  looking_for_share?: boolean;
+  // Legacy fields kept for backwards compatibility
+  me_multiplier?: number;
+  looking_for_multiplier?: number;
 }
 
 export interface Question {
@@ -75,6 +94,7 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     };
 
     if (data) {
@@ -117,6 +137,7 @@ class ApiService {
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
         });
         
         console.log('Fetch completed!');
@@ -251,14 +272,18 @@ class ApiService {
     }>;
   }
 
-  async searchUsers(query: string): Promise<ApiUser[]> {
+  async searchUsers(query: string, limit = 10): Promise<ApiUser[]> {
     if (!query || query.trim().length < 2) {
       return [];
     }
     
     try {
-      const response = await this.request(`/users/search/?q=${encodeURIComponent(query)}`, 'GET') as { results: ApiUser[] };
-      return response.results || [];
+      const response = await this.request(
+        `/users/search/?q=${encodeURIComponent(query)}&limit=${limit}`,
+        'GET'
+      ) as { results: ApiUser[] };
+      const results = response.results || [];
+      return limit > 0 ? results.slice(0, limit) : results;
     } catch (error) {
       console.error('Error searching users:', error);
       return [];
@@ -289,6 +314,7 @@ class ApiService {
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
         });
         
         console.log('Fetch completed!');
@@ -383,6 +409,14 @@ class ApiService {
     return this.request(`/questions/${id}/delete/`, 'DELETE') as Promise<void>;
   }
 
+  async approveQuestion(id: string): Promise<Question> {
+    return this.request(`/questions/${id}/approve/`, 'POST') as Promise<Question>;
+  }
+
+  async rejectQuestion(id: string): Promise<Question> {
+    return this.request(`/questions/${id}/reject/`, 'POST') as Promise<Question>;
+  }
+
   async getQuestionMetadata(): Promise<QuestionMetadata> {
     return this.request('/questions/metadata/', 'GET') as Promise<QuestionMetadata>;
   }
@@ -392,6 +426,68 @@ class ApiService {
       user1_id: user1Id,
       user2_id: user2Id
     }) as Promise<CompatibilityResult>;
+  }
+
+  async getDashboardStats(): Promise<{
+    total_users: number;
+    daily_active_users: number;
+    weekly_active_users: number;
+    monthly_active_users: number;
+    new_users_this_year: number;
+    total_matches: number;
+    total_likes: number;
+    total_approves: number;
+  }> {
+    return this.request('/stats/dashboard/', 'GET') as Promise<{
+      total_users: number;
+      daily_active_users: number;
+      weekly_active_users: number;
+      monthly_active_users: number;
+      new_users_this_year: number;
+      total_matches: number;
+      total_likes: number;
+      total_approves: number;
+    }>;
+  }
+
+  async getPictureModerationQueue(): Promise<unknown[]> {
+    return this.request('/picture-moderation/queue/', 'GET') as Promise<unknown[]>;
+  }
+
+  async approvePicture(id: string): Promise<unknown> {
+    return this.request(`/picture-moderation/${id}/approve/`, 'POST');
+  }
+
+  async rejectPicture(id: string, reason: string): Promise<unknown> {
+    return this.request(`/picture-moderation/${id}/reject/`, 'POST', { reason });
+  }
+
+  async getTimeseriesData(period: number = 30): Promise<{
+    period: number;
+    start_date: string;
+    end_date: string;
+    data: Array<{
+      date: string;
+      users: number;
+      approves: number;
+      likes: number;
+      matches: number;
+      new_users: number;
+    }>;
+  }> {
+    return this.request(`/stats/timeseries/?period=${period}`, 'GET') as Promise<{
+      period: number;
+      start_date: string;
+      end_date: string;
+      data: Array<{
+        date: string;
+        users: number;
+        approves: number;
+        likes: number;
+        matches: number;
+        new_users: number;
+      }>;
+    }>;
   }
 
   // Generic CRUD operations

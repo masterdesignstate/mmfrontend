@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import PlacesHttpAutocomplete from '@/components/PlacesHttpAutocomplete';
 
 export default function PersonalDetailsPage() {
   const [formData, setFormData] = useState({
@@ -20,10 +21,35 @@ export default function PersonalDetailsPage() {
     user_id: '',
     email: ''
   });
+  const [heightDigits, setHeightDigits] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const formatHeightDisplay = (digits: string) => {
+    if (!digits) return '';
+    if (digits.length === 1) {
+      return digits;
+    }
+
+    const feet = parseInt(digits.charAt(0), 10);
+    const inchesDigits = digits.slice(1);
+    if (Number.isNaN(feet)) {
+      return digits;
+    }
+
+    if (!inchesDigits) {
+      return `${feet}`;
+    }
+
+    const inches = parseInt(inchesDigits, 10);
+    if (Number.isNaN(inches) || inches > 11) {
+      return digits;
+    }
+
+    return `${feet}' ${inches}"`;
+  };
 
   // Extract user data from URL parameters
   useEffect(() => {
@@ -44,29 +70,64 @@ export default function PersonalDetailsPage() {
     
     // Special handling for height field
     if (name === 'height') {
-      // Only allow numbers and limit to 3 digits
-      const numericValue = value.replace(/\D/g, '').slice(0, 3);
-      
-      if (numericValue.length === 3) {
-        // Auto-format to feet and inches
-        const feet = parseInt(numericValue[0]);
-        const inches = parseInt(numericValue.slice(1));
-        
-        // Validate the input
-        if (feet >= 4 && feet <= 7 && inches >= 0 && inches <= 11) {
-          const formattedHeight = `${feet}' ${inches.toString().padStart(2, '0')}"`;
+      const cleanedDigits = value.replace(/\D/g, '');
+      const previousDigits = heightDigits;
+      const previousFormatted = formatHeightDisplay(previousDigits);
+
+      if (!cleanedDigits) {
+        setHeightDigits('');
+        setFormData(prev => ({
+          ...prev,
+          height: ''
+        }));
+        return;
+      }
+
+      if (!/[4-7]/.test(cleanedDigits.charAt(0))) {
+        return;
+      }
+
+      let nextDigits = cleanedDigits.slice(0, 3);
+
+      if (
+        value.length < previousFormatted.length &&
+        nextDigits === previousDigits &&
+        previousDigits.length > 0
+      ) {
+        nextDigits = previousDigits.slice(0, -1);
+      }
+
+      if (!nextDigits) {
+        setHeightDigits('');
+        setFormData(prev => ({
+          ...prev,
+          height: ''
+        }));
+        return;
+      }
+
+      const feet = parseInt(nextDigits.charAt(0), 10);
+      const inchesDigits = nextDigits.slice(1);
+
+      if (Number.isNaN(feet)) {
+        return;
+      }
+
+      if (inchesDigits.length > 0) {
+        const inches = parseInt(inchesDigits, 10);
+        if (Number.isNaN(inches) || inches > 11) {
           setFormData(prev => ({
             ...prev,
-            [name]: formattedHeight
+            height: formatHeightDisplay(previousDigits)
           }));
           return;
         }
       }
-      
-      // If not complete or invalid, just store the raw input
+
+      setHeightDigits(nextDigits);
       setFormData(prev => ({
         ...prev,
-        [name]: numericValue
+        height: formatHeightDisplay(nextDigits)
       }));
       return;
     }
@@ -336,8 +397,8 @@ export default function PersonalDetailsPage() {
                   value={formData.height}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
-                  placeholder="Enter 511 for 5' 11&quot;"
-                  maxLength={3}
+                  placeholder="Enter height in feet and inches"
+                  maxLength={6}
                   disabled={loading}
                 />
              
@@ -348,16 +409,13 @@ export default function PersonalDetailsPage() {
                 <label htmlFor="from" className="block text-sm font-medium text-gray-900 mb-2">
                   From
                 </label>
-                <input
-                  type="text"
-                  id="from"
-                  name="from"
+                <PlacesHttpAutocomplete
                   value={formData.from}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
+                  onChange={(value) => setFormData((prev) => ({ ...prev, from: value }))}
                   placeholder="Where are you originally from?"
-                  required
+                  className="w-full"
                   disabled={loading}
+                  apiKey={process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
                 />
               </div>
 
@@ -373,17 +431,27 @@ export default function PersonalDetailsPage() {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white"
                   disabled={loading}
+                  required
                 >
-                  <option value="Austin">Austin</option>
-                  <option value="Cedar Park">Cedar Park</option>
-                  <option value="Georgetown">Georgetown</option>
-                  <option value="Hutto">Hutto</option>
-                  <option value="Kyle">Kyle</option>
-                  <option value="Leander">Leander</option>
-                  <option value="Manor">Manor</option>
-                  <option value="Pflugerville">Pflugerville</option>
-                  <option value="Round Rock">Round Rock</option>
-                  <option value="San Marcos">San Marcos</option>
+                  <option value="" disabled>
+                    Select your city
+                  </option>
+                  {[
+                    'Austin',
+                    'Cedar Park',
+                    'Georgetown',
+                    'Hutto',
+                    'Kyle',
+                    'Leander',
+                    'Manor',
+                    'Pflugerville',
+                    'Round Rock',
+                    'San Marcos',
+                  ].map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
                 </select>
               </div>
 

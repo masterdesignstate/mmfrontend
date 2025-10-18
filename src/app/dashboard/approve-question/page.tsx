@@ -1,285 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiService, Question } from '@/services/api';
 
-// Generate mock data for unapproved questions
-const generateMockUnapprovedQuestions = () => {
-  const questions = [
-    {
-      id: 1,
-      question: "What's your favorite way to spend a weekend?",
-      tag: "Lifestyle",
-      submittedBy: "user123",
-      submittedAt: "Jan 28, 2025",
-      timesAnswered: 0,
-      status: "approved"
-    },
-    {
-      id: 2,
-      question: "How do you handle stress in your daily life?",
-      tag: "Trait",
-      submittedBy: "user456",
-      submittedAt: "Jan 27, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 3,
-      question: "What's your ideal vacation destination?",
-      tag: "Interest",
-      submittedBy: "user789",
-      submittedAt: "Jan 26, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 4,
-      question: "How important is family in your life?",
-      tag: "Value",
-      submittedBy: "user101",
-      submittedAt: "Jan 25, 2025",
-      timesAnswered: 0,
-      status: "approved"
-    },
-    {
-      id: 5,
-      question: "What's your approach to personal finance?",
-      tag: "Lifestyle",
-      submittedBy: "user202",
-      submittedAt: "Jan 24, 2025",
-      timesAnswered: 0,
-      status: "approved"
-    },
-    {
-      id: 6,
-      question: "How do you prefer to communicate with others?",
-      tag: "Trait",
-      submittedBy: "user303",
-      submittedAt: "Jan 23, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 7,
-      question: "What's your favorite type of music?",
-      tag: "Interest",
-      submittedBy: "user404",
-      submittedAt: "Jan 22, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 8,
-      question: "How do you approach learning new things?",
-      tag: "Trait",
-      submittedBy: "user505",
-      submittedAt: "Jan 21, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 9,
-      question: "What's your ideal living environment?",
-      tag: "Lifestyle",
-      submittedBy: "user606",
-      submittedAt: "Jan 20, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 10,
-      question: "How do you handle disagreements in relationships?",
-      tag: "Value",
-      submittedBy: "user707",
-      submittedAt: "Jan 19, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 11,
-      question: "What's your favorite hobby or pastime?",
-      tag: "Interest",
-      submittedBy: "user808",
-      submittedAt: "Jan 18, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 12,
-      question: "How do you approach decision-making?",
-      tag: "Trait",
-      submittedBy: "user909",
-      submittedAt: "Jan 17, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 13,
-      question: "What's your ideal work environment?",
-      tag: "Career",
-      submittedBy: "user1010",
-      submittedAt: "Jan 16, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 14,
-      question: "How do you handle change in your life?",
-      tag: "Trait",
-      submittedBy: "user1111",
-      submittedAt: "Jan 15, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 15,
-      question: "What's your favorite type of food?",
-      tag: "Interest",
-      submittedBy: "user1212",
-      submittedAt: "Jan 14, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 16,
-      question: "How do you approach personal growth?",
-      tag: "Value",
-      submittedBy: "user1313",
-      submittedAt: "Jan 13, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 17,
-      question: "What's your ideal social setting?",
-      tag: "Lifestyle",
-      submittedBy: "user1414",
-      submittedAt: "Jan 12, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 18,
-      question: "How do you handle criticism?",
-      tag: "Trait",
-      submittedBy: "user1515",
-      submittedAt: "Jan 11, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 19,
-      question: "What's your favorite way to relax?",
-      tag: "Lifestyle",
-      submittedBy: "user1616",
-      submittedAt: "Jan 10, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 20,
-      question: "How do you approach goal-setting?",
-      tag: "Trait",
-      submittedBy: "user1717",
-      submittedAt: "Jan 9, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 21,
-      question: "What's your ideal weekend activity?",
-      tag: "Interest",
-      submittedBy: "user1818",
-      submittedAt: "Jan 8, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 22,
-      question: "How do you handle failure?",
-      tags: ["Trait", "Value"],
-      submittedBy: "user1919",
-      submittedAt: "Jan 7, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 23,
-      question: "What's your favorite type of entertainment?",
-      tags: ["Interest", "Lifestyle"],
-      submittedBy: "user2020",
-      submittedAt: "Jan 6, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 24,
-      question: "How do you approach problem-solving?",
-      tags: ["Trait", "Value"],
-      submittedBy: "user2121",
-      submittedAt: "Jan 5, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    },
-    {
-      id: 25,
-      question: "What's your ideal travel experience?",
-      tags: ["Interest", "Lifestyle"],
-      submittedBy: "user2222",
-      submittedAt: "Jan 4, 2025",
-      timesAnswered: 0,
-      status: "pending"
-    }
-  ];
-
-  return questions;
-};
-
-const mockUnapprovedQuestions = generateMockUnapprovedQuestions();
-
-const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
+const allTags = ["value", "lifestyle", "look", "trait", "hobby", "interest"];
 
 export default function ApproveQuestionsPage() {
   const router = useRouter();
-  const [questions, setQuestions] = useState(mockUnapprovedQuestions);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [sortField, setSortField] = useState('');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [selectedQuestions, setSelectedQuestions] = useState<number[]>([]);
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch unapproved questions from API
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const allQuestions = await apiService.getQuestions();
+        // Filter for unapproved questions (user-submitted questions that need approval)
+        const unapproved = allQuestions.filter(q => !q.is_approved && q.submitted_by !== null);
+        setQuestions(unapproved);
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+        setError('Failed to fetch questions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, []);
 
   // Filter questions
   const filteredQuestions = questions.filter(question => {
-    const matchesSearch = searchTerm === '' || 
-      question.question.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesTag = selectedTag === 'All' || question.tags.includes(selectedTag);
-    
-    const matchesDateRange = (!startDate || question.submittedAt >= startDate) &&
-                           (!endDate || question.submittedAt <= endDate);
-    
+    const matchesSearch = searchTerm === '' ||
+      question.text.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesTag = selectedTag === 'All' || question.tags.some(tag => tag.name === selectedTag);
+
+    const matchesDateRange = (!startDate || question.created_at >= startDate) &&
+                           (!endDate || question.created_at <= endDate);
+
     return matchesSearch && matchesTag && matchesDateRange;
   });
 
   // Sort questions
   const sortedQuestions = [...filteredQuestions].sort((a, b) => {
     if (!sortField) return 0;
-    
+
     const aValue = a[sortField as keyof typeof a];
     const bValue = b[sortField as keyof typeof b];
-    
-    if (sortField === 'timesAnswered') {
-      const aNum = typeof aValue === 'number' ? aValue : 0;
-      const bNum = typeof bValue === 'number' ? bValue : 0;
-      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-    }
-    
+
     if (sortDirection === 'asc') {
       return aValue > bValue ? 1 : -1;
     } else {
@@ -318,12 +103,12 @@ export default function ApproveQuestionsPage() {
     if (sortField !== field) {
       return <i className="fas fa-sort text-gray-400 ml-1"></i>;
     }
-    return sortDirection === 'asc' 
+    return sortDirection === 'asc'
       ? <i className="fas fa-sort-up text-[#672DB7] ml-1"></i>
       : <i className="fas fa-sort-down text-[#672DB7] ml-1"></i>;
   };
 
-  const handleQuestionSelect = (questionId: number) => {
+  const handleQuestionSelect = (questionId: string) => {
     setSelectedQuestions(prev => {
       if (prev.includes(questionId)) {
         const newSelected = prev.filter(id => id !== questionId);
@@ -347,29 +132,87 @@ export default function ApproveQuestionsPage() {
     }
   };
 
-  const handleApproveQuestion = (questionId: number) => {
-    setQuestions(prev => prev.filter(q => q.id !== questionId));
-    setSelectedQuestions(prev => prev.filter(id => id !== questionId));
-    setShowBulkActions(selectedQuestions.length > 1);
+  const handleApproveQuestion = async (questionId: string) => {
+    try {
+      setActionLoading(true);
+      await apiService.approveQuestion(questionId);
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      setSelectedQuestions(prev => prev.filter(id => id !== questionId));
+      setShowBulkActions(selectedQuestions.length > 1);
+    } catch (error) {
+      console.error('Error approving question:', error);
+      setError('Failed to approve question');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleRejectQuestion = (questionId: number) => {
-    setQuestions(prev => prev.filter(q => q.id !== questionId));
-    setSelectedQuestions(prev => prev.filter(id => id !== questionId));
-    setShowBulkActions(selectedQuestions.length > 1);
+  const handleRejectQuestion = async (questionId: string) => {
+    try {
+      setActionLoading(true);
+      await apiService.rejectQuestion(questionId);
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      setSelectedQuestions(prev => prev.filter(id => id !== questionId));
+      setShowBulkActions(selectedQuestions.length > 1);
+    } catch (error) {
+      console.error('Error rejecting question:', error);
+      setError('Failed to reject question');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleBulkApprove = () => {
-    setQuestions(prev => prev.filter(q => !selectedQuestions.includes(q.id)));
-    setSelectedQuestions([]);
-    setShowBulkActions(false);
+  const handleBulkApprove = async () => {
+    try {
+      setActionLoading(true);
+      await Promise.all(selectedQuestions.map(id => apiService.approveQuestion(id)));
+      setQuestions(prev => prev.filter(q => !selectedQuestions.includes(q.id)));
+      setSelectedQuestions([]);
+      setShowBulkActions(false);
+    } catch (error) {
+      console.error('Error bulk approving questions:', error);
+      setError('Failed to approve questions');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleBulkReject = () => {
-    setQuestions(prev => prev.filter(q => !selectedQuestions.includes(q.id)));
-    setSelectedQuestions([]);
-    setShowBulkActions(false);
+  const handleBulkReject = async () => {
+    try {
+      setActionLoading(true);
+      await Promise.all(selectedQuestions.map(id => apiService.rejectQuestion(id)));
+      setQuestions(prev => prev.filter(q => !selectedQuestions.includes(q.id)));
+      setSelectedQuestions([]);
+      setShowBulkActions(false);
+    } catch (error) {
+      console.error('Error bulk rejecting questions:', error);
+      setError('Failed to reject questions');
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-800">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -389,14 +232,16 @@ export default function ApproveQuestionsPage() {
             <>
               <button
                 onClick={handleBulkApprove}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium cursor-pointer"
+                disabled={actionLoading}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium cursor-pointer disabled:opacity-50"
               >
                 <i className="fas fa-check mr-2"></i>
                 Approve Selected ({selectedQuestions.length})
               </button>
               <button
                 onClick={handleBulkReject}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium cursor-pointer"
+                disabled={actionLoading}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium cursor-pointer disabled:opacity-50"
               >
                 <i className="fas fa-times mr-2"></i>
                 Reject Selected ({selectedQuestions.length})
@@ -417,7 +262,7 @@ export default function ApproveQuestionsPage() {
             Reset
           </button>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Tags Dropdown */}
           <div>
@@ -429,7 +274,7 @@ export default function ApproveQuestionsPage() {
             >
               <option value="All">All</option>
               {allTags.map(tag => (
-                <option key={tag} value={tag}>{tag}</option>
+                <option key={tag} value={tag}>{tag.charAt(0).toUpperCase() + tag.slice(1)}</option>
               ))}
             </select>
           </div>
@@ -489,7 +334,7 @@ export default function ApproveQuestionsPage() {
                     className="rounded border-gray-300 text-[#672DB7] focus:ring-[#672DB7] cursor-pointer"
                   />
                 </th>
-                <th 
+                <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('id')}
                 >
@@ -505,12 +350,12 @@ export default function ApproveQuestionsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Submitted By
                 </th>
-                <th 
+                <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('submittedAt')}
+                  onClick={() => handleSort('created_at')}
                 >
                   Submitted At
-                  <SortIcon field="submittedAt" />
+                  <SortIcon field="created_at" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -529,36 +374,45 @@ export default function ApproveQuestionsPage() {
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.id}
+                    {question.question_number || '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{question.question}</div>
+                    <div className="truncate">{question.text}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300">
-                      {question.tag}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {question.tags.map((tag, index) => (
+                        <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-gray-300">
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.submittedBy}
+                    {question.submitted_by ? `${question.submitted_by.first_name} ${question.submitted_by.last_name}` : 'System'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {question.submittedAt}
+                    {formatDate(question.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => question.status === "approved" ? handleRejectQuestion(question.id) : handleApproveQuestion(question.id)}
-                        className={`transition-colors duration-200 cursor-pointer ${
-                          question.status === "approved" 
-                            ? "text-red-600 hover:text-red-800" 
-                            : "text-green-600 hover:text-green-800"
-                        }`}
-                        title={question.status === "approved" ? "Unapprove" : "Approve"}
+                      <button
+                        onClick={() => handleApproveQuestion(question.id)}
+                        disabled={actionLoading}
+                        className="text-green-600 hover:text-green-800 transition-colors duration-200 cursor-pointer disabled:opacity-50"
+                        title="Approve"
                       >
-                        <i className={`fas ${question.status === "approved" ? "fa-times" : "fa-check"}`}></i>
+                        <i className="fas fa-check"></i>
                       </button>
-                      <button 
+                      <button
+                        onClick={() => handleRejectQuestion(question.id)}
+                        disabled={actionLoading}
+                        className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer disabled:opacity-50"
+                        title="Reject"
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                      <button
                         onClick={() => router.push(`/dashboard/question/${question.id}`)}
                         className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
                         title="View Details"
@@ -594,7 +448,7 @@ export default function ApproveQuestionsPage() {
             </select>
           </div>
         </div>
-        
+
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center space-x-1">
@@ -605,7 +459,7 @@ export default function ApproveQuestionsPage() {
             >
               <i className="fas fa-chevron-left"></i>
             </button>
-            
+
             {/* Page Numbers */}
             {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
               let pageNum;
@@ -618,7 +472,7 @@ export default function ApproveQuestionsPage() {
               } else {
                 pageNum = currentPage - 3 + i;
               }
-              
+
               return (
                 <button
                   key={pageNum}
@@ -633,7 +487,7 @@ export default function ApproveQuestionsPage() {
                 </button>
               );
             })}
-            
+
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
@@ -655,4 +509,4 @@ export default function ApproveQuestionsPage() {
       )}
     </div>
   );
-} 
+}

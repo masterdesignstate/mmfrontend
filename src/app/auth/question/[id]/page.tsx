@@ -83,6 +83,21 @@ export default function QuestionPage() {
     );
   };
 
+  const ToggleControl = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+    <label className="flex items-center cursor-pointer">
+      <div className="relative">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          className="sr-only"
+        />
+        <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${checked ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+      </div>
+    </label>
+  );
+
   
   // For habits page (question 7) - 3 questions + importance
   const [habitsQuestions, setHabitsQuestions] = useState<Array<{
@@ -846,7 +861,7 @@ export default function QuestionPage() {
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2 mobile-grid-labels" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
 {renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
@@ -855,10 +870,10 @@ export default function QuestionPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mobile-grid-rows" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               
               {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
+              <div className="text-xs font-semibold text-gray-400 mobile-label">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : (question?.question_name || 'ANSWER').toUpperCase()}
               </div>
               <div className="relative">
@@ -869,28 +884,28 @@ export default function QuestionPage() {
                   isImportance={false}
                 />
               </div>
-              <div>
+              <div className="hidden sm:flex justify-center">
                 {/* Only show switch if question has open_to_all_looking_for enabled */}
                 {question.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.lookingForOpen}
-                        onChange={() => handleOpenToAllToggle('lookingForOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.lookingForOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.lookingForOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
+                  <ToggleControl
+                    checked={openToAll.lookingForOpen}
+                    onChange={() => handleOpenToAllToggle('lookingForOpen')}
+                  />
                 ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                  <div className="w-11 h-6"></div>
                 )}
               </div>
+              {question.open_to_all_looking_for && (
+                <div className="sm:hidden col-span-2 flex justify-end">
+                  <ToggleControl
+                    checked={openToAll.lookingForOpen}
+                    onChange={() => handleOpenToAllToggle('lookingForOpen')}
+                  />
+                </div>
+              )}
 
               {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="text-xs font-semibold text-gray-400 mobile-label">IMPORTANCE</div>
               <div className="relative">
                 <SliderComponent
                   value={importance.lookingFor}
@@ -934,7 +949,7 @@ export default function QuestionPage() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2 mobile-grid-labels" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div> {/* Empty placeholder for label column */}
 {renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
@@ -943,10 +958,10 @@ export default function QuestionPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mobile-grid-rows" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               
               {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
+              <div className="text-xs font-semibold text-gray-400 mobile-label">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : (question?.question_name || 'ANSWER').toUpperCase()}
               </div>
               <div className="relative">
@@ -957,25 +972,25 @@ export default function QuestionPage() {
                   isImportance={false}
                 />
               </div>
-              <div>
+              <div className="hidden sm:flex justify-center">
                 {/* Only show switch if question has open_to_all_me enabled */}
                 {question.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.meOpen}
-                        onChange={() => handleOpenToAllToggle('meOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.meOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.meOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
+                  <ToggleControl
+                    checked={openToAll.meOpen}
+                    onChange={() => handleOpenToAllToggle('meOpen')}
+                  />
                 ) : (
                   <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
                 )}
               </div>
+              {question.open_to_all_me && (
+                <div className="sm:hidden col-span-2 flex justify-end">
+                  <ToggleControl
+                    checked={openToAll.meOpen}
+                    onChange={() => handleOpenToAllToggle('meOpen')}
+                  />
+                </div>
+              )}
               
             </div>
 

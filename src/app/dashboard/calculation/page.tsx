@@ -1,103 +1,34 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { apiService } from '@/services/api';
 import type { ApiUser, UserAnswer, Question } from '@/services/api';
+import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-// Type definition for calculation result
-interface CalculationResult {
+type MatchStatus = 'match' | 'mismatch' | 'open';
+
+interface DirectionalResult {
   questionNumber: number;
   question: string;
-  p1Me: number;
-  p2Me: number;
-  p1LookingFor: number;
-  p2LookingFor: number;
-  p1Multiplier: number;
-  delta: number;
-  adj: number;
-  max: number;
+  preferenceValue: number;
+  preferenceOpen: boolean;
+  importance: number;
+  importanceFactor: number;
+  counterpartValue: number;
+  counterpartOpen: boolean;
+  score: number;
+  maxScore: number;
+  delta: number | null;
+  status: MatchStatus;
+}
+
+interface ControlsState {
+  adjust: number;
+  exponent: number;
+  ota: number;
 }
 
 export default function CalculationPage() {
-  const USE_DUMMY_DATA = true;
-
-  const dummyUsers: ApiUser[] = useMemo(() => ([
-    { id: 'u1', username: 'alice', first_name: 'Alice', last_name: 'Johnson', email: 'alice@example.com' },
-    { id: 'u2', username: 'bob', first_name: 'Bob', last_name: 'Smith', email: 'bob@example.com' },
-    { id: 'u3', username: 'carol', first_name: 'Carol', last_name: 'Lee', email: 'carol@example.com' },
-    { id: 'u4', username: 'adam', first_name: 'Adam', last_name: 'Green', email: 'adam@example.com' },
-    { id: 'u5', username: 'steve', first_name: 'Steve', last_name: 'Miller', email: 'steve@example.com' },
-    { id: 'u6', username: 'steven', first_name: 'Steven', last_name: 'Clark', email: 'steven@example.com' },
-    { id: 'u7', username: 'sara', first_name: 'Sara', last_name: 'Lopez', email: 'sara@example.com' },
-    { id: 'u8', username: 'david', first_name: 'David', last_name: 'Nguyen', email: 'david@example.com' },
-    { id: 'u9', username: 'mike', first_name: 'Michael', last_name: 'Brown', email: 'mike@example.com' },
-    { id: 'u10', username: 'jess', first_name: 'Jessica', last_name: 'Davis', email: 'jess@example.com' },
-    { id: 'u11', username: 'nate', first_name: 'Nathan', last_name: 'Kim', email: 'nate@example.com' },
-    { id: 'u12', username: 'andrew', first_name: 'Andrew', last_name: 'Moore', email: 'andrew@example.com' },
-  ]), []);
-
-  const dummyQuestions: Question[] = useMemo(() => ([
-    { id: '1', text: 'How strongly do you identify as Male?', question_type: 'scale', is_required_for_match: true },
-    { id: '2', text: 'How strongly do you identify as Female?', question_type: 'scale', is_required_for_match: true },
-    { id: '3', text: 'How much are you interested in Friendship?', question_type: 'scale', is_required_for_match: true },
-    { id: '4', text: 'How much are you interested in Hookup?', question_type: 'scale', is_required_for_match: true },
-    { id: '5', text: 'How much are you interested in Dating?', question_type: 'scale', is_required_for_match: true },
-    { id: '6', text: 'How much are you interested in a Partner?', question_type: 'scale', is_required_for_match: true },
-    { id: '7', text: 'How often do you follow religious practices?', question_type: 'scale', is_required_for_match: true },
-    { id: '8', text: 'What faith do you identify with?', question_type: 'scale', is_required_for_match: true },
-    { id: '9', text: 'How strongly do you identify as Christian?', question_type: 'scale', is_required_for_match: true },
-    { id: '10', text: 'How strongly do you identify as Muslim?', question_type: 'scale', is_required_for_match: true },
-    { id: '11', text: 'How strongly do you identify as Hindu?', question_type: 'scale', is_required_for_match: true },
-    { id: '12', text: 'How strongly do you identify as Jewish?', question_type: 'scale', is_required_for_match: true },
-    { id: '13', text: 'How strongly do you identify as Buddhist?', question_type: 'scale', is_required_for_match: true },
-    { id: '14', text: 'How strongly do you identify as Pagan?', question_type: 'scale', is_required_for_match: true },
-    { id: '15', text: 'How strongly do you identify as Other (faith)?', question_type: 'scale', is_required_for_match: true },
-    { id: '16', text: 'How strongly do you identify as Spiritual (Nonreligious)?', question_type: 'scale', is_required_for_match: true },
-    { id: '17', text: 'How strongly do you identify as Atheist?', question_type: 'scale', is_required_for_match: true },
-    { id: '18', text: 'How strongly do you identify as Agnostic?', question_type: 'scale', is_required_for_match: true },
-    { id: '19', text: 'How strongly do you identify as Nonspiritual?', question_type: 'scale', is_required_for_match: true },
-    { id: '20', text: 'How often do you exercise?', question_type: 'scale', is_required_for_match: true },
-    { id: '21', text: 'How often do you partake in Alcohol?', question_type: 'scale', is_required_for_match: true },
-    { id: '22', text: 'How often do you partake in Tobacco?', question_type: 'scale', is_required_for_match: true },
-    { id: '23', text: 'Do you have kids?', question_type: 'scale', is_required_for_match: true },
-    { id: '24', text: 'Do you want kids?', question_type: 'scale', is_required_for_match: true },
-    { id: '25', text: 'Pre-High School (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
-    { id: '26', text: 'High School (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
-    { id: '27', text: 'Trade (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
-    { id: '28', text: 'Undergraduate (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
-    { id: '29', text: 'Master (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
-    { id: '30', text: 'Doctorate (attended or completed): describe your experience', question_type: 'scale', is_required_for_match: true },
-    { id: '31', text: 'Do you eat meat? (Omnivore)', question_type: 'scale', is_required_for_match: true },
-    { id: '32', text: 'Do you identify as Pescatarian?', question_type: 'scale', is_required_for_match: true },
-    { id: '33', text: 'Do you identify as Vegetarian?', question_type: 'scale', is_required_for_match: true },
-    { id: '34', text: 'Do you identify as Vegan?', question_type: 'scale', is_required_for_match: true },
-    { id: '35', text: 'How politically engaged are you?', question_type: 'scale', is_required_for_match: true },
-    { id: '36', text: 'How strongly do you identify as Liberal?', question_type: 'scale', is_required_for_match: true },
-    { id: '37', text: 'How strongly do you identify as Moderate?', question_type: 'scale', is_required_for_match: true },
-    { id: '38', text: 'How strongly do you identify as Conservative?', question_type: 'scale', is_required_for_match: true },
-    { id: '39', text: 'How strongly do you identify as Non-binary (ideology)?', question_type: 'scale', is_required_for_match: true },
-    { id: '40', text: 'How strongly do you identify as Anarchist?', question_type: 'scale', is_required_for_match: true },
-  ]), []);
-
-  const dummyUserAnswers: Record<string, UserAnswer[]> = useMemo(() => {
-    const build = (userId: string, bias: number): UserAnswer[] => (
-      dummyQuestions.map((q, idx) => ({
-        id: `${userId}-${q.id}`,
-        user: dummyUsers.find(u => u.id === userId)!,
-        question: q,
-        me_answer: ((idx + 1 + bias) % 5) + 1,
-        looking_for_answer: ((idx + 3 + bias) % 5) + 1,
-        me_multiplier: 1,
-        looking_for_multiplier: ((idx % 3) + 1),
-      }))
-    );
-    const ids = dummyUsers.map(u => u.id);
-    const record: Record<string, UserAnswer[]> = {};
-    ids.forEach((id, i) => {
-      record[id] = build(id, i);
-    });
-    return record;
-  }, [dummyQuestions, dummyUsers]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer[]>>({});
   const [person1, setPerson1] = useState<string>('');
@@ -106,8 +37,8 @@ export default function CalculationPage() {
   const [person2Search, setPerson2Search] = useState('');
   const [person1Results, setPerson1Results] = useState<ApiUser[]>([]);
   const [person2Results, setPerson2Results] = useState<ApiUser[]>([]);
-  const [calculationResults1, setCalculationResults1] = useState<CalculationResult[]>([]);
-  const [calculationResults2, setCalculationResults2] = useState<CalculationResult[]>([]);
+  const [calculationResults1, setCalculationResults1] = useState<DirectionalResult[]>([]);
+  const [calculationResults2, setCalculationResults2] = useState<DirectionalResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -115,45 +46,73 @@ export default function CalculationPage() {
   const [compatibilityPercentage2, setCompatibilityPercentage2] = useState(0);
   const [overallCompatibility, setOverallCompatibility] = useState(0);
   const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [controls, setControls] = useState<ControlsState>({ adjust: 5.0, exponent: 2.0, ota: 0.5 });
+  const [controlsLoaded, setControlsLoaded] = useState(false);
+  const [controlsError, setControlsError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        if (USE_DUMMY_DATA) {
-          setQuestions(dummyQuestions);
-          return;
-        }
-        console.log('Fetching questions only...');
+        console.log('Fetching questions...');
         const questionsData = await apiService.getQuestions();
         console.log('Fetched questions:', questionsData.length);
         setQuestions(questionsData);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching questions:', error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [USE_DUMMY_DATA, dummyQuestions]);
+  }, []);
+
+  useEffect(() => {
+    const fetchControls = async () => {
+      try {
+        const response = await fetch(getApiUrl(API_ENDPOINTS.CONTROLS_CURRENT), {
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch controls: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setControls({
+          adjust: Number(data.adjust ?? 5.0),
+          exponent: Number(data.exponent ?? 2.0),
+          ota: Number(data.ota ?? 0.5),
+        });
+        setControlsError(null);
+      } catch (error) {
+        console.error('Error fetching controls:', error);
+        setControls({
+          adjust: 5.0,
+          exponent: 2.0,
+          ota: 0.5,
+        });
+        setControlsError('Using default controls because the configured values could not be loaded.');
+      } finally {
+        setControlsLoaded(true);
+      }
+    };
+
+    fetchControls();
+  }, []);
 
   // Search users function
   const searchUsers = async (query: string, excludeIds: string[] = []): Promise<ApiUser[]> => {
     console.log('searchUsers called with query:', query, 'excludeIds:', excludeIds);
     if (!query || query.trim().length < 2) return [];
-    if (USE_DUMMY_DATA) {
-      const lc = query.toLowerCase();
-      const filtered = dummyUsers
-        .filter(u => !excludeIds.includes(u.id))
-        .filter(u => `${u.first_name} ${u.last_name}`.toLowerCase().includes(lc) || u.username.toLowerCase().includes(lc));
-      return filtered;
-    }
     try {
       console.log('Calling API search...');
-      const users = await apiService.searchUsers(query);
+      const users = await apiService.searchUsers(query, 8);
       console.log('API search results:', users.length, users);
-      const filtered = users.filter(user => !excludeIds.includes(user.id));
+      const filtered = users
+        .filter(user => !excludeIds.includes(user.id))
+        .slice(0, 8);
       console.log('After excluding IDs:', filtered.length);
       return filtered;
     } catch (error) {
@@ -212,11 +171,6 @@ export default function CalculationPage() {
       if (!userId) return;
       try {
         setLoadingAnswers(true);
-        if (USE_DUMMY_DATA) {
-          const answers = dummyUserAnswers[userId] || [];
-          setUserAnswers(prev => ({ ...prev, [userId]: answers }));
-          return;
-        }
         const answers = await apiService.getUserAnswers(userId);
         setUserAnswers(prev => ({ ...prev, [userId]: answers }));
       } catch (error) {
@@ -232,107 +186,230 @@ export default function CalculationPage() {
     if (person2 && !userAnswers[person2]) {
       fetchAnswers(person2);
     }
-  }, [person1, person2, userAnswers, USE_DUMMY_DATA, dummyUserAnswers]);
+  }, [person1, person2, userAnswers]);
+
+  const resolveQuestionNumber = (question: Question, index: number): number => {
+    if (typeof question.question_number === 'number') {
+      return question.question_number;
+    }
+    const parsed = Number.parseInt(question.id, 10);
+    return Number.isNaN(parsed) ? index + 1 : parsed;
+  };
+
+  const mapImportanceToFactor = (importanceLevel?: number): number => {
+    const level = Number.isFinite(Number(importanceLevel)) ? Number(importanceLevel) : 1;
+    const exponent = controls.exponent;
+
+    if (level <= 1) return 0;
+    if (level === 2) return 0.5;
+    if (level === 3) return 1.0;
+    if (level >= 4) {
+      return 1.0 + Math.pow(level - 3, exponent);
+    }
+    return 1.0;
+  };
+
+  const getImportanceLevel = (primary?: number, fallback?: number): number => {
+    const level = primary ?? fallback;
+    const numeric = Number(level);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
+  };
+
+  // Mirrors backend compatibility_service.calculate_question_score to keep math consistent in the UI
+  const computeQuestionScores = (p1Answer: UserAnswer, p2Answer: UserAnswer) => {
+    const adjust = controls.adjust;
+    const ota = controls.ota;
+
+    const p1ImportanceLevel = getImportanceLevel(
+      p1Answer.looking_for_importance,
+      p1Answer.looking_for_multiplier
+    );
+    const p2ImportanceLevel = getImportanceLevel(
+      p2Answer.looking_for_importance,
+      p2Answer.looking_for_multiplier
+    );
+
+    const p1ImportanceFactor = mapImportanceToFactor(p1ImportanceLevel);
+    const p2ImportanceFactor = mapImportanceToFactor(p2ImportanceLevel);
+
+    let deltaA: number | null = null;
+    let deltaB: number | null = null;
+
+    let scoreA = 0;
+    let maxA = 0;
+    let statusA: MatchStatus = 'mismatch';
+
+    if (
+      Boolean(p1Answer.looking_for_open_to_all) ||
+      p1Answer.looking_for_answer === 6 ||
+      p2Answer.me_answer === 6
+    ) {
+      scoreA = adjust * ota;
+      maxA = adjust;
+      statusA = 'open';
+    } else {
+      deltaA = Math.abs(p1Answer.looking_for_answer - p2Answer.me_answer);
+      const adjA = adjust - deltaA;
+      scoreA = Math.max(0, adjA * p1ImportanceFactor);
+      maxA = adjust * p1ImportanceFactor;
+      statusA = deltaA === 0 ? 'match' : 'mismatch';
+    }
+
+    let scoreB = 0;
+    let maxB = 0;
+    let statusB: MatchStatus = 'mismatch';
+
+    if (
+      Boolean(p2Answer.me_open_to_all) ||
+      p2Answer.looking_for_answer === 6 ||
+      p1Answer.me_answer === 6
+    ) {
+      scoreB = adjust * ota;
+      maxB = adjust;
+      statusB = 'open';
+    } else {
+      deltaB = Math.abs(p2Answer.looking_for_answer - p1Answer.me_answer);
+      const adjB = adjust - deltaB;
+      scoreB = Math.max(0, adjB * p2ImportanceFactor);
+      maxB = adjust * p2ImportanceFactor;
+      statusB = deltaB === 0 ? 'match' : 'mismatch';
+    }
+
+    return {
+      directionA: {
+        score: scoreA,
+        max: maxA,
+        importanceLevel: p1ImportanceLevel,
+        importanceFactor: p1ImportanceFactor,
+        delta: deltaA,
+        status: statusA,
+      },
+      directionB: {
+        score: scoreB,
+        max: maxB,
+        importanceLevel: p2ImportanceLevel,
+        importanceFactor: p2ImportanceFactor,
+        delta: deltaB,
+        status: statusB,
+      },
+    };
+  };
 
   const calculateCompatibility = () => {
-    if (!person1 || !person2) return;
+    if (!person1 || !person2 || !controlsLoaded) return;
 
     setCalculating(true);
-    
-    const person1Answers = userAnswers[person1] || [];
-    const person2Answers = userAnswers[person2] || [];
 
-    console.log('=== CALCULATION DEBUG ===');
-    console.log('Person 1 Answers:', person1Answers.length);
-    console.log('Person 2 Answers:', person2Answers.length);
-    console.log('Questions:', questions.length);
-    
-    // Create maps for lookup
-    const person1AnswerMap = new Map(person1Answers.map(answer => [answer.question.id, answer]));
-    const person2AnswerMap = new Map(person2Answers.map(answer => [answer.question.id, answer]));
-    
-    // Find common questions
-    const commonQuestions = questions.filter(q => 
-      person1AnswerMap.has(q.id) && person2AnswerMap.has(q.id)
-    );
-    
-    console.log('Common question IDs:', commonQuestions.length);
-    
-    // Calculate from Person 1's perspective (Person 1's Looking For vs Person 2's Me)
-    const results1: CalculationResult[] = commonQuestions.map(question => {
-      const p1Answer = person1AnswerMap.get(question.id)!;
-      const p2Answer = person2AnswerMap.get(question.id)!;
-      
-      const delta = Math.abs(p1Answer.looking_for_answer - p2Answer.me_answer);
-      const max = 4 * p1Answer.looking_for_multiplier;
-      const adj = Math.max(0, max - (delta * p1Answer.looking_for_multiplier));
-      
-      return {
-        questionNumber: parseInt(question.id) || 0,
-        question: question.text,
-        p1Me: p1Answer.me_answer,
-        p2Me: p2Answer.me_answer,
-        p1LookingFor: p1Answer.looking_for_answer,
-        p2LookingFor: p2Answer.looking_for_answer,
-        p1Multiplier: p1Answer.looking_for_multiplier,
-        delta,
-        adj,
-        max
-      };
-    });
-    
-    // Calculate from Person 2's perspective (Person 2's Looking For vs Person 1's Me)
-    const results2: CalculationResult[] = commonQuestions.map(question => {
-      const p1Answer = person1AnswerMap.get(question.id)!;
-      const p2Answer = person2AnswerMap.get(question.id)!;
-      
-      const delta = Math.abs(p2Answer.looking_for_answer - p1Answer.me_answer);
-      const max = 4 * p2Answer.looking_for_multiplier;
-      const adj = Math.max(0, max - (delta * p2Answer.looking_for_multiplier));
-      
-      return {
-        questionNumber: parseInt(question.id) || 0,
-        question: question.text,
-        p1Me: p1Answer.me_answer,
-        p2Me: p2Answer.me_answer,
-        p1LookingFor: p1Answer.looking_for_answer,
-        p2LookingFor: p2Answer.looking_for_answer,
-        p1Multiplier: p2Answer.looking_for_multiplier,
-        delta,
-        adj,
-        max
-      };
-    });
-    
-    // Calculate compatibility percentages
-    const totalAdj1 = results1.reduce((sum, r) => sum + r.adj, 0);
-    const totalMax1 = results1.reduce((sum, r) => sum + r.max, 0);
-    const percentage1 = totalMax1 > 0 ? Math.round((totalAdj1 / totalMax1) * 100) : 0;
-    
-    const totalAdj2 = results2.reduce((sum, r) => sum + r.adj, 0);
-    const totalMax2 = results2.reduce((sum, r) => sum + r.max, 0);
-    const percentage2 = totalMax2 > 0 ? Math.round((totalAdj2 / totalMax2) * 100) : 0;
-    
-    // Calculate overall compatibility (average of both percentages)
-    const overall = Math.round((percentage1 + percentage2) / 2);
-    
-    // Set results
-    setCalculationResults1(results1);
-    setCalculationResults2(results2);
-    setCompatibilityPercentage1(percentage1);
-    setCompatibilityPercentage2(percentage2);
-    setOverallCompatibility(overall);
-    setShowResults(true);
-    setCalculating(false);
-    
-    console.log('Calculation complete!', {
-      results1: results1.length,
-      results2: results2.length,
-      percentage1,
-      percentage2,
-      overall
-    });
+    try {
+      const person1Answers = userAnswers[person1] || [];
+      const person2Answers = userAnswers[person2] || [];
+
+      const person1AnswerMap = new Map(person1Answers.map(answer => [answer.question.id, answer]));
+      const person2AnswerMap = new Map(person2Answers.map(answer => [answer.question.id, answer]));
+
+      const mutualQuestions = questions.filter(
+        q => person1AnswerMap.has(q.id) && person2AnswerMap.has(q.id)
+      );
+
+      if (mutualQuestions.length === 0) {
+        setCalculationResults1([]);
+        setCalculationResults2([]);
+        setCompatibilityPercentage1(0);
+        setCompatibilityPercentage2(0);
+        setOverallCompatibility(0);
+        setShowResults(true);
+        return;
+      }
+
+      const results1: DirectionalResult[] = [];
+      const results2: DirectionalResult[] = [];
+
+      let totalScoreA = 0;
+      let totalMaxA = 0;
+      let totalScoreB = 0;
+      let totalMaxB = 0;
+
+      mutualQuestions.forEach((question, index) => {
+        const p1Answer = person1AnswerMap.get(question.id)!;
+        const p2Answer = person2AnswerMap.get(question.id)!;
+
+        const { directionA, directionB } = computeQuestionScores(p1Answer, p2Answer);
+
+        totalScoreA += directionA.score;
+        totalMaxA += directionA.max;
+        totalScoreB += directionB.score;
+        totalMaxB += directionB.max;
+
+        const questionNumber = resolveQuestionNumber(question, index);
+        const p1PreferenceOpen =
+          Boolean(p1Answer.looking_for_open_to_all) || p1Answer.looking_for_answer === 6;
+        const p2PreferenceOpen =
+          Boolean(p2Answer.looking_for_open_to_all) || p2Answer.looking_for_answer === 6;
+        const p1SelfOpen = Boolean(p1Answer.me_open_to_all) || p1Answer.me_answer === 6;
+        const p2SelfOpen = Boolean(p2Answer.me_open_to_all) || p2Answer.me_answer === 6;
+
+        results1.push({
+          questionNumber,
+          question: question.text,
+          preferenceValue: p1Answer.looking_for_answer,
+          preferenceOpen: p1PreferenceOpen,
+          importance: directionA.importanceLevel,
+          importanceFactor: directionA.importanceFactor,
+          counterpartValue: p2Answer.me_answer,
+          counterpartOpen: p2SelfOpen,
+          score: directionA.score,
+          maxScore: directionA.max,
+          delta: directionA.delta,
+          status: directionA.status,
+        });
+
+        results2.push({
+          questionNumber,
+          question: question.text,
+          preferenceValue: p2Answer.looking_for_answer,
+          preferenceOpen: p2PreferenceOpen,
+          importance: directionB.importanceLevel,
+          importanceFactor: directionB.importanceFactor,
+          counterpartValue: p1Answer.me_answer,
+          counterpartOpen: p1SelfOpen,
+          score: directionB.score,
+          maxScore: directionB.max,
+          delta: directionB.delta,
+          status: directionB.status,
+        });
+      });
+
+      const percentage1Raw = totalMaxA > 0 ? (totalScoreA / totalMaxA) * 100 : 0;
+      const percentage2Raw = totalMaxB > 0 ? (totalScoreB / totalMaxB) * 100 : 0;
+
+      const percentage1 = Number.isFinite(percentage1Raw)
+        ? parseFloat(percentage1Raw.toFixed(2))
+        : 0;
+      const percentage2 = Number.isFinite(percentage2Raw)
+        ? parseFloat(percentage2Raw.toFixed(2))
+        : 0;
+
+      const overallRaw =
+        percentage1 > 0 && percentage2 > 0
+          ? Math.sqrt(percentage1 * percentage2)
+          : 0;
+      const overall = Number.isFinite(overallRaw) ? parseFloat(overallRaw.toFixed(2)) : 0;
+
+      setCalculationResults1(results1);
+      setCalculationResults2(results2);
+      setCompatibilityPercentage1(percentage1);
+      setCompatibilityPercentage2(percentage2);
+      setOverallCompatibility(overall);
+      setShowResults(true);
+    } finally {
+      setCalculating(false);
+    }
   };
+
+  const totalScore1 = calculationResults1.reduce((sum, r) => sum + r.score, 0);
+  const totalMax1 = calculationResults1.reduce((sum, r) => sum + r.maxScore, 0);
+  const totalScore2 = calculationResults2.reduce((sum, r) => sum + r.score, 0);
+  const totalMax2 = calculationResults2.reduce((sum, r) => sum + r.maxScore, 0);
 
   const getPersonName = (id: string) => {
     if (id === person1 && person1Search) {
@@ -344,6 +421,42 @@ export default function CalculationPage() {
       return match ? match[1].trim() : person2Search;
     }
     return `User ${id.slice(0, 8)}...`;
+  };
+
+  const formatScore = (value: number) => {
+    if (!Number.isFinite(value)) return '0';
+    const rounded = Number(value.toFixed(2));
+    return Number.isInteger(rounded) ? `${rounded.toFixed(0)}` : `${rounded}`;
+  };
+
+  const formatFactor = (value: number) => {
+    if (!Number.isFinite(value)) return '0';
+    const formatted = value.toFixed(2);
+    return formatted.replace(/\.00$/, '');
+  };
+
+  const formatDelta = (value: number | null) => {
+    if (value === null || !Number.isFinite(value)) return '—';
+    return value.toString();
+  };
+
+  const formatPercent = (value: number) => {
+    if (!Number.isFinite(value)) return '0%';
+    const fixed = value.toFixed(2);
+    if (fixed.endsWith('00')) {
+      return `${Number.parseInt(fixed, 10)}%`;
+    }
+    if (fixed.endsWith('0')) {
+      return `${Number.parseFloat(fixed).toFixed(1)}%`;
+    }
+    return `${Number.parseFloat(fixed)}%`;
+  };
+
+  const displayAnswerValue = (value: number, isOpen: boolean) => {
+    if (isOpen && value === 6) {
+      return 'Open (6)';
+    }
+    return value;
   };
 
   if (loading) {
@@ -431,10 +544,15 @@ export default function CalculationPage() {
         <div className="mt-6 flex justify-center">
           <button
             onClick={calculateCompatibility}
-            disabled={!person1 || !person2 || calculating}
+            disabled={!person1 || !person2 || calculating || !controlsLoaded}
             className="bg-[#672DB7] text-white px-8 py-3 rounded-lg hover:bg-[#5a259f] transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {calculating ? (
+            {!controlsLoaded ? (
+              <>
+                <i className="fas fa-cog fa-spin mr-2"></i>
+                Loading Controls...
+              </>
+            ) : calculating ? (
               <>
                 <i className="fas fa-spinner fa-spin mr-2"></i>
                 Calculating...
@@ -447,6 +565,18 @@ export default function CalculationPage() {
             )}
           </button>
         </div>
+        <div className="mt-4 text-center text-sm text-gray-500 space-y-1">
+          {controlsLoaded ? (
+            <p>
+              Using controls — Adjust: {formatScore(controls.adjust)}, Exponent: {formatScore(controls.exponent)}, OTA: {formatScore(controls.ota)}
+            </p>
+          ) : (
+            <p>Fetching control values…</p>
+          )}
+          {controlsError && (
+            <p className="text-xs text-red-500">{controlsError}</p>
+          )}
+        </div>
       </div>
 
       {/* Overall Compatibility summary below inputs */}
@@ -454,15 +584,15 @@ export default function CalculationPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-center">
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Overall Compatibility</h3>
-            <div className="text-4xl font-extrabold text-[#672DB7] mb-4">{overallCompatibility}%</div>
+            <div className="text-4xl font-extrabold text-[#672DB7] mb-4">{formatPercent(overallCompatibility)}</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-3 rounded border border-gray-200">
                 <div className="text-sm text-gray-600">{getPersonName(person1)} → {getPersonName(person2)}</div>
-                <div className="text-2xl font-semibold text-green-600">{compatibilityPercentage1}%</div>
+                <div className="text-2xl font-semibold text-green-600">{formatPercent(compatibilityPercentage1)}</div>
               </div>
               <div className="p-3 rounded border border-gray-200">
                 <div className="text-sm text-gray-600">{getPersonName(person2)} → {getPersonName(person1)}</div>
-                <div className="text-2xl font-semibold text-blue-600">{compatibilityPercentage2}%</div>
+                <div className="text-2xl font-semibold text-blue-600">{formatPercent(compatibilityPercentage2)}</div>
               </div>
               <div className="p-3 rounded border border-gray-200">
                 <div className="text-sm text-gray-600">Total Questions</div>
@@ -515,22 +645,28 @@ export default function CalculationPage() {
                       Question
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P1→Me Answer Value
+                      Answer (Me)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P2→Me Answer Value
+                      OTA (Me)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P1→Looking Importance
+                      Importance (Factor)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Delta
+                      Answer (Them)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Adj
+                      OTA (Them)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Value
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Max
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Delta
                     </th>
                   </tr>
                 </thead>
@@ -544,22 +680,28 @@ export default function CalculationPage() {
                         {result.question}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.p1LookingFor}
+                        {displayAnswerValue(result.preferenceValue, result.preferenceOpen)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.p2Me}
+                        {result.preferenceOpen ? 'Yes' : 'No'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.p1Multiplier}
+                        {result.importance} ({formatFactor(result.importanceFactor)})
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.delta}
+                        {displayAnswerValue(result.counterpartValue, result.counterpartOpen)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.adj}
+                        {result.counterpartOpen ? 'Yes' : 'No'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.max}
+                        {formatScore(result.score)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatScore(result.maxScore)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDelta(result.delta)}
                       </td>
                     </tr>
                   ))}
@@ -573,12 +715,14 @@ export default function CalculationPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Total Adj: {calculationResults1.reduce((sum, r) => sum + r.adj, 0)}
+                      Total Value: {formatScore(totalScore1)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Total Max: {calculationResults1.reduce((sum, r) => sum + r.max, 0)}
+                      Total Max: {formatScore(totalMax1)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                   </tr>
                 </tbody>
               </table>
@@ -609,22 +753,28 @@ export default function CalculationPage() {
                       Question
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P2→Looking For Answer Value
+                      Answer (Me)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P1→Self Answer Value
+                      OTA (Me)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      P2→Looking Importance
+                      Importance (Factor)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Delta
+                      Answer (Them)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Adj
+                      OTA (Them)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Value
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Max
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Delta
                     </th>
                   </tr>
                 </thead>
@@ -638,22 +788,28 @@ export default function CalculationPage() {
                         {result.question}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.p2LookingFor}
+                        {displayAnswerValue(result.preferenceValue, result.preferenceOpen)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.p1Me}
+                        {result.preferenceOpen ? 'Yes' : 'No'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.p1Multiplier}
+                        {result.importance} ({formatFactor(result.importanceFactor)})
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.delta}
+                        {displayAnswerValue(result.counterpartValue, result.counterpartOpen)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.adj}
+                        {result.counterpartOpen ? 'Yes' : 'No'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.max}
+                        {formatScore(result.score)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatScore(result.maxScore)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDelta(result.delta)}
                       </td>
                     </tr>
                   ))}
@@ -667,12 +823,14 @@ export default function CalculationPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Total Adj: {calculationResults2.reduce((sum, r) => sum + r.adj, 0)}
+                      Total Value: {formatScore(totalScore2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Total Max: {calculationResults2.reduce((sum, r) => sum + r.max, 0)}
+                      Total Max: {formatScore(totalMax2)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                   </tr>
                 </tbody>
               </table>
