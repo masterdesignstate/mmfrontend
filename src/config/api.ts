@@ -1,7 +1,7 @@
 // API Configuration
 const API_CONFIG = {
   // Backend base URL - change this based on your environment
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com',
   
   // API endpoints
   ENDPOINTS: {

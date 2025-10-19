@@ -40,7 +40,7 @@ export default function ControlsPage() {
       setError(null);
 
       const response = await fetch(getApiUrl(API_ENDPOINTS.CONTROLS_CURRENT), {
-        credentials: 'include',
+        credentials: 'omit',
       });
       if (!response.ok) {
         throw new Error('Failed to fetch controls');
@@ -93,7 +93,7 @@ export default function ControlsPage() {
 
       const response = await fetch(`${getApiUrl(API_ENDPOINTS.CONTROLS)}${controls.id}/`, {
         method: 'PATCH',
-        credentials: 'include',
+
         headers: {
           'Content-Type': 'application/json',
         },

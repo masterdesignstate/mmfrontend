@@ -167,11 +167,7 @@ export default function ResultsPage() {
 
     try {
       const response = await fetch(
-        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
-        {
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        }
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`
       );
 
       if (response.ok) {

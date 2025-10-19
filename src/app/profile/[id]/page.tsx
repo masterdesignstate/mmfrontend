@@ -77,13 +77,13 @@ export default function UserProfilePage() {
         // Fetch user and answers in parallel
         const [userResponse, answersResponse] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
-            credentials: 'include',
+ 
             headers: {
               'Content-Type': 'application/json',
             },
           }),
           fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
-            credentials: 'include',
+
             headers: {
               'Content-Type': 'application/json',
             },
@@ -133,7 +133,7 @@ export default function UserProfilePage() {
         const response = await fetch(
           `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
           {
-            credentials: 'include',
+ 
             headers: { 'Content-Type': 'application/json' },
           }
         );
@@ -413,7 +413,7 @@ export default function UserProfilePage() {
         `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`,
         {
           method: 'POST',
-          credentials: 'include',
+
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: currentUserId,
@@ -603,7 +603,7 @@ export default function UserProfilePage() {
       `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`,
       {
         method: 'POST',
-        credentials: 'include',
+
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: currentUserId,

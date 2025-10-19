@@ -663,7 +663,7 @@ export default function QuestionEditPage() {
           const answersResponse = await fetch(
             `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}`,
             {
-              credentials: 'include',
+       
               headers: { 'Content-Type': 'application/json' }
             }
           );
@@ -825,7 +825,7 @@ export default function QuestionEditPage() {
               fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}${existingAnswer.id}/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+               
                 body: JSON.stringify(answerData)
               })
             );
@@ -835,7 +835,7 @@ export default function QuestionEditPage() {
               fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+           
                 body: JSON.stringify(answerData)
               })
             );
@@ -878,7 +878,7 @@ export default function QuestionEditPage() {
               fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}${existingAnswer.id}/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+           
                 body: JSON.stringify(answerData)
               })
             );
@@ -888,7 +888,7 @@ export default function QuestionEditPage() {
               fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+             
                 body: JSON.stringify(answerData)
               })
             );
@@ -930,7 +930,7 @@ export default function QuestionEditPage() {
               fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}${existingAnswer.id}/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+         
                 body: JSON.stringify(answerData)
               })
             );
@@ -939,7 +939,6 @@ export default function QuestionEditPage() {
               fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify(answerData)
               })
             );

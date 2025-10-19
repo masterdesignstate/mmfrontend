@@ -72,7 +72,7 @@ export default function CalculationPage() {
     const fetchControls = async () => {
       try {
         const response = await fetch(getApiUrl(API_ENDPOINTS.CONTROLS_CURRENT), {
-          credentials: 'include',
+          credentials: 'omit',
         });
 
         if (!response.ok) {

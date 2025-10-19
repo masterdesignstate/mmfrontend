@@ -81,13 +81,13 @@ export default function ProfilePage() {
         // Use direct user ID endpoint instead of /me/ to avoid session issues
         const [userResponse, answersResponse] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
-            credentials: 'include',
+     
             headers: {
               'Content-Type': 'application/json',
             },
           }),
           fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
-            credentials: 'include',
+ 
             headers: {
               'Content-Type': 'application/json',
             },

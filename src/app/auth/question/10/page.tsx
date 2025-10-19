@@ -32,6 +32,7 @@ export default function Question10Page() {
   const [userId, setUserId] = useState<string>('');
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [faithQuestions, setFaithQuestions] = useState<QuestionShape[]>([]);
+  const [prefilledFromParams, setPrefilledFromParams] = useState(false);
 
   const [myAnswers, setMyAnswers] = useState<Record<QuestionKey, number>>({
     answer1: 3,
@@ -152,6 +153,7 @@ export default function Question10Page() {
       try {
         const parsedQuestions: QuestionShape[] = JSON.parse(questionsParam);
         setQuestions(parsedQuestions);
+        setPrefilledFromParams(true);
       } catch (err) {
         console.error('Error parsing questions from URL:', err);
       }
@@ -160,8 +162,10 @@ export default function Question10Page() {
 
   useEffect(() => {
     const fetchQuestionsIfNeeded = async () => {
-      if (userId && questions.length === 0 && !searchParams.get('questions')) {
-        setLoadingQuestions(true);
+      if (userId) {
+        if (!prefilledFromParams) {
+          setLoadingQuestions(true);
+        }
         try {
           const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=10`;
           const response = await fetch(apiUrl);
@@ -174,6 +178,7 @@ export default function Question10Page() {
               return groupA - groupB;
             });
             setQuestions(sortedQuestions);
+            setPrefilledFromParams(false);
           }
         } catch (err) {
           console.error('Error fetching Kids questions:', err);
@@ -184,7 +189,7 @@ export default function Question10Page() {
     };
 
     fetchQuestionsIfNeeded();
-  }, [userId, questions.length, searchParams]);
+  }, [userId, prefilledFromParams]);
 
   useEffect(() => {
     const fetchFaithQuestions = async () => {
@@ -342,7 +347,7 @@ export default function Question10Page() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-black mb-2">{primaryTitle}</h1>
             <p className="text-3xl font-bold text-black mb-12">
-              {questions[0]?.text || primarySubtitle}
+              {questions[0]?.group_name_text || questions[0]?.text || primarySubtitle}
             </p>
           </div>
 

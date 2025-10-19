@@ -73,7 +73,7 @@ export default function EditProfilePage() {
         // Try /users/me first (session)
         try {
           const meRes = await fetch(getApiUrl(API_ENDPOINTS.USERS_ME), {
-            credentials: 'include',
+  
             headers: { 'Content-Type': 'application/json' },
           });
           if (meRes.ok) {
@@ -84,7 +84,7 @@ export default function EditProfilePage() {
         } catch (_) {
           if (!userId) throw new Error('User not found in local storage');
           const byIdRes = await fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
-            credentials: 'include',
+      
             headers: { 'Content-Type': 'application/json' },
           });
           if (!byIdRes.ok) throw new Error('Failed to fetch user');
@@ -236,7 +236,7 @@ export default function EditProfilePage() {
       setSelectedFile(null);
       // Refresh user data
       try {
-        const meRes = await fetch(getApiUrl(API_ENDPOINTS.USERS_ME), { credentials: 'include' });
+        const meRes = await fetch(getApiUrl(API_ENDPOINTS.USERS_ME), { credentials: 'omit' });
         if (meRes.ok) {
           const refreshed = await meRes.json();
           setUser(refreshed);

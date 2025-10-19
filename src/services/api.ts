@@ -82,19 +82,23 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
-const API_BASE_URL = 'http://localhost:9090/api';
+// const API_BASE_URL = 'http://localhost:9090/api';
+const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
 
 console.log('API_BASE_URL:', API_BASE_URL);
 
 class ApiService {
   private async request(endpoint: string, method: string, data?: Record<string, unknown>): Promise<unknown> {
     const url = `${API_BASE_URL}${endpoint}`;
+    const headers: HeadersInit = {};
+
+    if (method !== 'GET' || data) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const options: RequestInit = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
+      headers
     };
 
     if (data) {
@@ -133,11 +137,7 @@ class ApiService {
       try {
         console.log('Calling fetch...');
         const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
+          method: 'GET'
         });
         
         console.log('Fetch completed!');
@@ -313,8 +313,7 @@ class ApiService {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-          },
-          credentials: 'include',
+          }
         });
         
         console.log('Fetch completed!');

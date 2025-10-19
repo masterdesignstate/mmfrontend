@@ -113,7 +113,7 @@ export default function QuestionsPage() {
       const response = await fetch(
         `${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`,
         {
-          credentials: 'include',
+   
           headers: {
             'Content-Type': 'application/json',
           },
@@ -174,7 +174,7 @@ export default function QuestionsPage() {
         const answersResponse = await fetch(
           `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}`,
           {
-            credentials: 'include',
+       
             headers: {
               'Content-Type': 'application/json',
             },
@@ -312,7 +312,7 @@ export default function QuestionsPage() {
 
       while (hasMore && pageNum <= 5) { // Safety limit of 5 pages
         const response = await fetch(url, {
-          credentials: 'include',
+   
           headers: {
             'Content-Type': 'application/json',
           },
@@ -1305,7 +1305,7 @@ export default function QuestionsPage() {
                       headers: {
                         'Content-Type': 'application/json',
                       },
-                      credentials: 'include',
+               
                       body: JSON.stringify({
                         text: questionText.trim(),
                         tags: selectedTags.map(tag => tag.toLowerCase()),
