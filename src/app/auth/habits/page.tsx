@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -22,19 +22,26 @@ export default function HabitsPage() {
   }>>([]);
 
   // State for 3 habits sliders
-  const [myHabits, setMyHabits] = useState({
+  const habitKeys = ['habit1', 'habit2', 'habit3'] as const;
+  const meOpenKeys = ['habit1MeOpen', 'habit2MeOpen', 'habit3MeOpen'] as const;
+  const lookingOpenKeys = ['habit1LookingOpen', 'habit2LookingOpen', 'habit3LookingOpen'] as const;
+  type HabitKey = (typeof habitKeys)[number];
+  type MeOpenKey = (typeof meOpenKeys)[number];
+  type LookingOpenKey = (typeof lookingOpenKeys)[number];
+
+  const [myHabits, setMyHabits] = useState<Record<HabitKey, number>>({
     habit1: 3,
     habit2: 3,
     habit3: 3
   });
 
-  const [lookingFor, setLookingFor] = useState({
+  const [lookingFor, setLookingFor] = useState<Record<HabitKey, number>>({
     habit1: 3,
     habit2: 3,
     habit3: 3
   });
 
-  const [openToAll, setOpenToAll] = useState({
+  const [openToAll, setOpenToAll] = useState<Record<MeOpenKey | LookingOpenKey, boolean>>({
     habit1MeOpen: false,
     habit2MeOpen: false,
     habit3MeOpen: false,
@@ -66,17 +73,17 @@ export default function HabitsPage() {
   const renderTopLabels = () => {
     if (!questions || questions.length === 0 || !questions[0]?.answers || questions[0].answers.length === 0) {
       return (
-        <div className="onboarding-track flex justify-between text-xs text-gray-500">
+        <div className="flex justify-between text-xs text-gray-500 w-full">
           <span>LESS</span>
           <span>MORE</span>
         </div>
       );
     }
     
-    const sortedAnswers = questions[0].answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedAnswers = [...questions[0].answers].sort((a, b) => parseInt(a.value) - parseInt(b.value));
     
     return (
-      <div className="relative text-xs text-gray-500 onboarding-track" style={{ height: '14px' }}>
+      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
         {sortedAnswers.map((answer, index) => {
           const value = parseInt(answer.value);
           let leftPosition;
@@ -276,7 +283,7 @@ export default function HabitsPage() {
     }
   }, [userId]);
 
-  const handleSliderChange = (section: 'myHabits' | 'lookingFor' | 'importance', habitKey?: string, value?: number) => {
+  const handleSliderChange = (section: 'myHabits' | 'lookingFor' | 'importance', habitKey?: HabitKey, value?: number) => {
     if (section === 'myHabits' && habitKey && value !== undefined) {
       setMyHabits(prev => ({ ...prev, [habitKey]: value }));
     } else if (section === 'lookingFor' && habitKey && value !== undefined) {
@@ -290,8 +297,8 @@ export default function HabitsPage() {
     setImportance(prev => ({ ...prev, lookingFor: value }));
   };
 
-  const handleOpenToAllToggle = (switchType: string) => {
-    setOpenToAll(prev => ({ ...prev, [switchType]: !prev[switchType as keyof typeof prev] }));
+  const handleOpenToAllToggle = (switchType: MeOpenKey | LookingOpenKey) => {
+    setOpenToAll(prev => ({ ...prev, [switchType]: !prev[switchType] }));
   };
 
   const handleNext = async () => {
@@ -458,7 +465,7 @@ export default function HabitsPage() {
           
           {/* Custom Slider Track */}
           <div 
-            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+            className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
               backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -489,6 +496,9 @@ export default function HabitsPage() {
       </div>
     );
   };
+
+  const anyLookingForOpen = habitKeys.some((_, index) => questions[index]?.open_to_all_looking_for);
+  const anyMeOpen = habitKeys.some((_, index) => questions[index]?.open_to_all_me);
 
   return (
     <div className="min-h-screen bg-white">
@@ -529,117 +539,71 @@ export default function HabitsPage() {
           )}
 
           {/* Looking For Section */}
-          <div className="mb-6">
+          <div className="mb-10">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-            
-            {/* Dynamic answer labels above sliders */}
-            <div className="onboarding-label-row items-center mx-auto w-full mb-2">
-              <div></div> {/* Empty placeholder for label column */}
-              {renderTopLabels()}
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
+              <div></div>
+              <div className="w-full">{renderTopLabels()}</div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions[0]?.open_to_all_looking_for ? 'OTA' : ''}
+                {anyLookingForOpen ? 'OTA' : ''}
               </div>
             </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="onboarding-grid items-center mx-auto w-full">
-              
-              {/* HABIT 1 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[0]?.question_name || 'HABIT 1').toUpperCase()}
-              </div>
-              <div className="relative onboarding-track">
-                <SliderComponent
-                  value={lookingFor.habit1}
-                  onChange={(value) => handleSliderChange('lookingFor', 'habit1', value)}
-                  isOpenToAll={openToAll.habit1LookingOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Habit 1 question has open_to_all_looking_for enabled */}
-                {questions[0]?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.habit1LookingOpen}
-                        onChange={() => handleOpenToAllToggle('habit1LookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.habit1LookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.habit1LookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-              
-              {/* HABIT 2 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[1]?.question_name || 'HABIT 2').toUpperCase()}
-              </div>
-              <div className="relative onboarding-track">
-                <SliderComponent
-                  value={lookingFor.habit2}
-                  onChange={(value) => handleSliderChange('lookingFor', 'habit2', value)}
-                  isOpenToAll={openToAll.habit2LookingOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Habit 2 question has open_to_all_looking_for enabled */}
-                {questions[1]?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.habit2LookingOpen}
-                        onChange={() => handleOpenToAllToggle('habit2LookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.habit2LookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.habit2LookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
 
-              {/* HABIT 3 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[2]?.question_name || 'HABIT 3').toUpperCase()}
-              </div>
-              <div className="relative onboarding-track">
-                <SliderComponent
-                  value={lookingFor.habit3}
-                  onChange={(value) => handleSliderChange('lookingFor', 'habit3', value)}
-                  isOpenToAll={openToAll.habit3LookingOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Habit 3 question has open_to_all_looking_for enabled */}
-                {questions[2]?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.habit3LookingOpen}
-                        onChange={() => handleOpenToAllToggle('habit3LookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.habit3LookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.habit3LookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
+              {habitKeys.map((habitKey, index) => {
+                const question = questions[index];
+                const lookingOpenKey = lookingOpenKeys[index];
 
-              {/* IMPORTANCE Slider Row */}
+                return (
+                  <React.Fragment key={`looking-${habitKey}`}>
+                    <div className="text-xs font-semibold text-gray-400">
+                      {(question?.question_name || `HABIT ${index + 1}`).toUpperCase()}
+                    </div>
+                    <div className="relative">
+                      <SliderComponent
+                        value={lookingFor[habitKey]}
+                        onChange={(value) => handleSliderChange('lookingFor', habitKey, value)}
+                        isOpenToAll={openToAll[lookingOpenKey]}
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      {question?.open_to_all_looking_for ? (
+                        <label className="flex items-center cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={openToAll[lookingOpenKey]}
+                              onChange={() => handleOpenToAllToggle(lookingOpenKey)}
+                              className="sr-only"
+                            />
+                            <div className={`block w-11 h-6 rounded-full ${openToAll[lookingOpenKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[lookingOpenKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                          </div>
+                        </label>
+                      ) : (
+                        <div className="w-11 h-6"></div>
+                      )}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative onboarding-track">
+              <div className="relative">
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={handleLookingForImportanceChange}
@@ -648,14 +612,17 @@ export default function HabitsPage() {
                 />
               </div>
               <div className="w-11 h-6"></div>
-              
             </div>
 
-            {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="onboarding-grid items-center mx-auto w-full mt-2">
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500 onboarding-track text-xs text-gray-500">
-                {/* Only show the label for the current importance value */}
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
+              <div></div>
+              <div className="relative text-xs text-gray-500 w-full">
                 {importance.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
                 )}
@@ -672,119 +639,73 @@ export default function HabitsPage() {
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
                 )}
               </div>
-              <div></div> {/* Empty placeholder for switch column */}
+              <div></div>
             </div>
           </div>
 
           {/* Me Section */}
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-            
-            {/* Dynamic answer labels above sliders */}
-            <div className="onboarding-label-row items-center mx-auto w-full mb-2">
-              <div></div> {/* Empty placeholder for label column */}
-              {renderTopLabels()}
+
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
+              <div></div>
+              <div className="w-full">{renderTopLabels()}</div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions[0]?.open_to_all_me ? 'OTA' : ''}
+                {anyMeOpen ? 'OTA' : ''}
               </div>
             </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className="onboarding-grid items-center mx-auto w-full">
-              
-              {/* HABIT 1 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[0]?.question_name || 'HABIT 1').toUpperCase()}
-              </div>
-              <div className="relative onboarding-track">
-                <SliderComponent
-                  value={myHabits.habit1}
-                  onChange={(value) => handleSliderChange('myHabits', 'habit1', value)}
-                  isOpenToAll={openToAll.habit1MeOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Habit 1 question has open_to_all_me enabled */}
-                {questions[0]?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.habit1MeOpen}
-                        onChange={() => handleOpenToAllToggle('habit1MeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.habit1MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.habit1MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-              
-              {/* HABIT 2 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[1]?.question_name || 'HABIT 2').toUpperCase()}
-              </div>
-              <div className="relative onboarding-track">
-                <SliderComponent
-                  value={myHabits.habit2}
-                  onChange={(value) => handleSliderChange('myHabits', 'habit2', value)}
-                  isOpenToAll={openToAll.habit2MeOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Habit 2 question has open_to_all_me enabled */}
-                {questions[1]?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.habit2MeOpen}
-                        onChange={() => handleOpenToAllToggle('habit2MeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.habit2MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.habit2MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
 
-              {/* HABIT 3 Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(questions[2]?.question_name || 'HABIT 3').toUpperCase()}
-              </div>
-              <div className="relative onboarding-track">
-                <SliderComponent
-                  value={myHabits.habit3}
-                  onChange={(value) => handleSliderChange('myHabits', 'habit3', value)}
-                  isOpenToAll={openToAll.habit3MeOpen}
-                />
-              </div>
-              <div>
-                {/* Only show switch if Habit 3 question has open_to_all_me enabled */}
-                {questions[2]?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.habit3MeOpen}
-                        onChange={() => handleOpenToAllToggle('habit3MeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.habit3MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.habit3MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
+              {habitKeys.map((habitKey, index) => {
+                const question = questions[index];
+                const meOpenKey = meOpenKeys[index];
+
+                return (
+                  <React.Fragment key={`me-${habitKey}`}>
+                    <div className="text-xs font-semibold text-gray-400">
+                      {(question?.question_name || `HABIT ${index + 1}`).toUpperCase()}
                     </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-              
+                    <div className="relative">
+                      <SliderComponent
+                        value={myHabits[habitKey]}
+                        onChange={(value) => handleSliderChange('myHabits', habitKey, value)}
+                        isOpenToAll={openToAll[meOpenKey]}
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      {question?.open_to_all_me ? (
+                        <label className="flex items-center cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={openToAll[meOpenKey]}
+                              onChange={() => handleOpenToAllToggle(meOpenKey)}
+                              className="sr-only"
+                            />
+                            <div className={`block w-11 h-6 rounded-full ${openToAll[meOpenKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[meOpenKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                          </div>
+                        </label>
+                      ) : (
+                        <div className="w-11 h-6"></div>
+                      )}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
             </div>
           </div>
         </div>

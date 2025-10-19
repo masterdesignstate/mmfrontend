@@ -51,7 +51,7 @@ export default function QuestionPage() {
     const sortedAnswers = question.answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
     
     return (
-      <div className="relative text-xs text-gray-500" style={{ width: '500px', height: '14px' }}>
+      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
         {sortedAnswers.map((answer, index) => {
           const value = parseInt(answer.value);
           let leftPosition;
@@ -730,8 +730,8 @@ export default function QuestionPage() {
           )}
           
           {/* Custom Slider Track */}
-          <div 
-            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+        <div 
+          className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
               backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -861,7 +861,13 @@ export default function QuestionPage() {
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2 mobile-grid-labels" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
               <div></div> {/* Empty placeholder for label column */}
 {renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
@@ -870,7 +876,14 @@ export default function QuestionPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mobile-grid-rows" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
               
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400 mobile-label">
@@ -920,9 +933,15 @@ export default function QuestionPage() {
 
 
             {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
               <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+              <div className="relative text-xs text-gray-500 w-full">
                 {/* Only show the label for the current importance value */}
                 {importance.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
@@ -949,7 +968,13 @@ export default function QuestionPage() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2 mobile-grid-labels" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)'
+              }}
+            >
               <div></div> {/* Empty placeholder for label column */}
 {renderTopLabels()}
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
@@ -958,7 +983,14 @@ export default function QuestionPage() {
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mobile-grid-rows" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div
+              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
+              style={{
+                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
+                columnGap: 'clamp(12px, 5vw, 24px)',
+                rowGap: 'clamp(16px, 4vw, 28px)'
+              }}
+            >
               
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400 mobile-label">

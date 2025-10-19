@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -316,7 +316,7 @@ export default function FaithPage() {
 
       {/* Main Content */}
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-3xl">
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-black mb-2">11. Faith</h1>
@@ -340,74 +340,14 @@ export default function FaithPage() {
           )}
 
           {/* Faith Options List */}
-          <div className="space-y-3">
-            {questions
-              .filter(q => q.group_name === 'Faith')
-              .sort((a, b) => {
-                // Handle null group_number by using question_name as fallback
-                const groupA = a.group_number || 0;
-                const groupB = b.group_number || 0;
-                
-                // If both have group_number, sort by that
-                if (groupA !== 0 && groupB !== 0) {
-                  return groupA - groupB;
-                }
-                
-                // If one has group_number and other doesn't, prioritize the one with group_number
-                if (groupA !== 0 && groupB === 0) return -1;
-                if (groupA === 0 && groupB !== 0) return 1;
-                
-                // If neither has group_number, sort alphabetically by question_name
-                return a.question_name.localeCompare(b.question_name);
-              })
-              .slice(0, showAllFaiths ? undefined : 6)
-              .map((question, index) => {
-                const isAnswered = answeredQuestions.has(question.id);
-                
-                return (
-                  <div
-                    key={question.id}
-                    onClick={() => handleFaithSelect(question.question_name)}
-                    className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                      selectedFaith === question.question_name
-                        ? 'border-black bg-gray-50'
-                        : isAnswered
-                        ? 'border-[#672DB7] bg-purple-50'
-                        : 'border-black bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-7 h-7 flex-shrink-0 overflow-hidden">
-                        <Image
-                          src="/assets/handss.png"
-                          alt="Faith icon"
-                          width={45}
-                          height={45}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="text-black font-medium">{question.question_name}</span>
-                      {isAnswered && (
-                        <span className="text-[#672DB7] text-sm">✓ Answered</span>
-                      )}
-                    </div>
-                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                );
-              })}
-            
-            {/* Load More Button - only show if there are more than 6 faiths and not all are shown */}
-            {questions.filter(q => q.group_name === 'Faith').length > 6 && !showAllFaiths && (
-              <button
-                onClick={handleLoadMore}
-                className="w-full px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-all duration-200 text-black font-medium cursor-pointer"
-              >
-                Load More
-              </button>
-            )}
-          </div>
+          <FaithOptionsGrid
+            questions={questions}
+            answeredQuestions={answeredQuestions}
+            selectedFaith={selectedFaith}
+            onSelect={handleFaithSelect}
+            showAllFaiths={showAllFaiths}
+            onShowAll={handleLoadMore}
+          />
         </div>
       </main>
 
@@ -451,6 +391,135 @@ export default function FaithPage() {
           </button>
         </div>
       </footer>
+    </div>
+  );
+}
+
+type FaithOptionsGridProps = {
+  questions: Array<{
+    id: string;
+    question_name: string;
+    group_name: string;
+    group_number?: number;
+  }>;
+  answeredQuestions: Set<string>;
+  selectedFaith: string;
+  onSelect: (faith: string) => void;
+  showAllFaiths: boolean;
+  onShowAll: () => void;
+};
+
+const faithIconMap: Record<string, string> = {
+  christian: '/assets/chapel.png',
+  catholic: '/assets/chapel.png',
+  muslim: '/assets/chapel.png',
+  islam: '/assets/chapel.png',
+  jewish: '/assets/chapel.png',
+  hindu: '/assets/chapel.png',
+  buddhist: '/assets/chapel.png',
+  atheist: '/assets/leaf.png',
+  agnostic: '/assets/leaf.png',
+  spiritual: '/assets/leaf.png'
+};
+
+function getFaithIcon(faithName: string): string {
+  const key = faithName.toLowerCase();
+  return faithIconMap[key] || '/assets/chapel.png';
+}
+
+function FaithOptionsGrid({
+  questions,
+  answeredQuestions,
+  selectedFaith,
+  onSelect,
+  showAllFaiths,
+  onShowAll
+}: FaithOptionsGridProps) {
+  const faithQuestions = questions
+    .filter(q => q.group_name === 'Faith')
+    .sort((a, b) => {
+      const groupA = a.group_number || 0;
+      const groupB = b.group_number || 0;
+
+      if (groupA !== 0 && groupB !== 0) {
+        return groupA - groupB;
+      }
+      if (groupA !== 0 && groupB === 0) return -1;
+      if (groupA === 0 && groupB !== 0) return 1;
+
+      return a.question_name.localeCompare(b.question_name);
+    });
+
+  const displayedFaiths = showAllFaiths ? faithQuestions : faithQuestions.slice(0, 6);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {displayedFaiths.map(question => {
+          const isAnswered = answeredQuestions.has(question.id);
+          const isSelected = selectedFaith === question.question_name;
+
+          return (
+            <button
+              key={question.id}
+              type="button"
+              onClick={() => onSelect(question.question_name)}
+              className={`group flex h-full flex-col justify-between rounded-xl border px-5 py-4 text-left transition-all duration-200 ${
+                isSelected
+                  ? 'border-black bg-gray-50 shadow-sm'
+                  : isAnswered
+                  ? 'border-[#672DB7] bg-purple-50 shadow-sm'
+                  : 'border-gray-200 bg-white hover:border-black hover:shadow'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                  <Image
+                    src={getFaithIcon(question.question_name)}
+                    alt={`${question.question_name} icon`}
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 object-contain"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg font-semibold text-black leading-snug">
+                    {question.question_name}
+                  </p>
+                  {isAnswered && (
+                    <span className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-[#672DB7]">
+                      <span className="block h-2 w-2 rounded-full bg-[#672DB7]" />
+                      Answered
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between text-sm text-gray-500">
+                <span>{isSelected ? 'Selected' : 'Tap to choose'}</span>
+                <svg
+                  className={`h-5 w-5 transition-transform duration-200 ${isSelected ? 'translate-x-1 text-black' : 'text-gray-400 group-hover:translate-x-1 group-hover:text-black'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {faithQuestions.length > 6 && !showAllFaiths && (
+        <button
+          type="button"
+          onClick={onShowAll}
+          className="w-full rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-black transition-colors duration-200 hover:border-black hover:bg-gray-100"
+        >
+          Show all faiths
+        </button>
+      )}
     </div>
   );
 }

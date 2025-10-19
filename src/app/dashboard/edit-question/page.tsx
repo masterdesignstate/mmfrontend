@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 // Mock questions data - these would come from your API in a real app
 const mockQuestions = [
   { id: 1, question: "What type of relationship are you seeking?", tags: ["Value", "Trait"] },
-  { id: 2, question: "Do you have kids?", tags: ["Lifestyle"] },
+  { id: 2, question: "What are your thoughts on kids?", tags: ["Lifestyle"] },
   { id: 3, question: "How often do you drink alcohol?", tags: ["Lifestyle", "Interest"] },
   { id: 4, question: "What's your ideal weekend activity?", tags: ["Interest", "Lifestyle"] },
   { id: 5, question: "How important is religion in your life?", tags: ["Value"] },
