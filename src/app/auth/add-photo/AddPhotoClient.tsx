@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,6 +16,7 @@ export default function AddPhotoClient() {
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -59,8 +62,7 @@ export default function AddPhotoClient() {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
@@ -97,23 +99,22 @@ export default function AddPhotoClient() {
         })
       });
 
-      if (response.ok) {
-        console.log('✅ Profile photo updated successfully');
-
-        const elapsedTime = Date.now() - startTime;
-        if (elapsedTime < 1000) {
-          await new Promise(resolve => setTimeout(resolve, 1000 - elapsedTime));
-        }
-
-        const params = new URLSearchParams({
-          user_id: userId,
-          questions: JSON.stringify(questions)
-        });
-        router.push(`/auth/introcard?${params.toString()}`);
-      } else {
+      if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to update profile photo');
       }
+
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < 1000) {
+        await new Promise(resolve => setTimeout(resolve, 1000 - elapsedTime));
+      }
+
+      const params = new URLSearchParams({
+        user_id: userId,
+        questions: JSON.stringify(questions)
+      });
+
+      router.push(`/auth/gender?${params.toString()}`);
     } catch (error) {
       console.error('❌ Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Upload failed');
@@ -175,61 +176,127 @@ export default function AddPhotoClient() {
                   ? 'bg-transparent border-none'
                   : 'bg-gray-100 border-2 border-dashed border-gray-400'
               }`}>
-                {previewUrl ? (
-                  <div className="relative w-full h-full">
-                    <Image
-                      src={previewUrl}
-                      alt="Selected photo preview"
-                      fill
-                      className="object-cover rounded-lg"
-                    />
-                    {uploading && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center rounded-lg">
-                        <p className="text-white text-lg mb-2">Uploading...</p>
-                        <div className="w-3/4 bg-white bg-opacity-30 rounded-full h-2 overflow-hidden">
-                          <div
-                            className="bg-white h-full rounded-full transition-all duration-300"
-                            style={{ width: `${uploadProgress}%` }}
+                <div className="flex flex-col items-center justify-center h-full">
+                  {previewUrl ? (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <div className="relative">
+                        {uploading && (
+                          <svg className="absolute inset-0 w-72 h-72 -top-4 -left-4 transform -rotate-90" style={{ zIndex: 10 }}>
+                            <circle
+                              cx="144"
+                              cy="144"
+                              r="132"
+                              stroke="#e5e7eb"
+                              strokeWidth="3"
+                              fill="none"
+                            />
+                            <circle
+                              cx="144"
+                              cy="144"
+                              r="132"
+                              stroke="#672DB7"
+                              strokeWidth="3"
+                              fill="none"
+                              strokeDasharray={`${2 * Math.PI * 132}`}
+                              strokeDashoffset={`${2 * Math.PI * 132 * (1 - uploadProgress / 100)}`}
+                              className="transition-all duration-500 ease-out"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        )}
+
+                        <div className="w-64 h-64 rounded-full overflow-hidden border-4 border-white shadow-lg relative">
+                          <Image
+                            src={previewUrl}
+                            alt="Profile preview"
+                            width={256}
+                            height={256}
+                            className="w-full h-full object-cover"
                           />
+
+                          {uploading && (
+                            <>
+                              <div className="absolute inset-0 bg-black" style={{ opacity: 0.15, zIndex: 5 }}></div>
+                              <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 10 }}>
+                                <span className="text-white text-2xl font-bold">{uploadProgress}%</span>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <p className="text-white text-sm mt-2">{uploadProgress}%</p>
+
+                        {!uploading && (
+                          <button
+                            onClick={() => document.getElementById('photo-upload')?.click()}
+                            className="absolute -top-2 -right-2 w-10 h-10 bg-black rounded-full flex items-center justify-center shadow-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                            title="Change photo"
+                          >
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="photo-upload"
-                    className="flex flex-col items-center justify-center w-full h-full cursor-pointer"
-                  >
-                    <div className="flex flex-col items-center justify-center text-center px-6 py-12">
-                      <div className="mb-4">
-                        <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 16l3.6-4.5a1 1 0 011.59 0L12 16m0 0l3.6-4.5a1 1 0 011.59 0L21 16m-9 0v6m0-6l3.6-4.5m-7.2 0L3 16M3 20h18" />
-                        </svg>
-                      </div>
-                      <h2 className="text-xl font-semibold text-gray-700 mb-2">
-                        Upload a photo
-                      </h2>
-                      <p className="text-gray-500">
-                        Recommended: clear headshot, bright lighting, no group photos.
-                      </p>
                     </div>
-                  </label>
-                )}
+                  ) : (
+                    <>
+                      <div className="mb-8">
+                        <Image
+                          src="/assets/kamm.png"
+                          alt="Camera icon"
+                          width={80}
+                          height={80}
+                          className="mx-auto"
+                        />
+                      </div>
+
+                      <label
+                        htmlFor="photo-upload"
+                        className="px-8 py-3 bg-white border border-gray-400 rounded-md text-gray-900 hover:bg-gray-50 transition-colors text-base cursor-pointer hover:shadow-md"
+                      >
+                        Add photo
+                      </label>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-
-          <button
-            onClick={uploading ? undefined : handleContinue}
-            className={`w-full py-4 rounded-full font-semibold text-lg transition-colors ${
-              uploading ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-black text-white hover:bg-gray-900'
-            }`}
-          >
-            {uploading ? 'Uploading...' : 'Continue'}
-          </button>
         </div>
       </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div className="w-full h-1 bg-gray-200">
+          <div className="h-full bg-black" style={{ width: '15%' }}></div>
+        </div>
+
+        <div className="flex justify-between items-center px-6 py-4">
+          <button
+            onClick={() => router.back()}
+            className="text-gray-900 font-medium hover:text-gray-700 transition-colors cursor-pointer"
+          >
+            Back
+          </button>
+
+          <button
+            onClick={handleContinue}
+            disabled={!selectedFile || uploading}
+            className={`px-8 py-3 rounded-md font-medium transition-colors ${
+              selectedFile && !uploading
+                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {uploading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Uploading...
+              </div>
+            ) : (
+              'Next'
+            )}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
