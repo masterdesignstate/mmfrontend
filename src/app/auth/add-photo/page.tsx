@@ -1,7 +1,5 @@
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
-
-const AddPhotoClient = dynamic(() => import('./AddPhotoClient'), { ssr: false });
+import AddPhotoClient from './AddPhotoClient';
 
 export const dynamic = 'force-dynamic';
 
