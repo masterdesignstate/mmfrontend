@@ -577,6 +577,13 @@ export default function ProfilePage() {
                 </h1>
               </div>
             </div>
+            
+            {/* Tagline below the profile photo */}
+            {user.tagline && (
+              <div className="mt-4 text-center">
+                <p className="text-gray-700 text-lg">{user.tagline}</p>
+              </div>
+            )}
           </div>
 
           {/* Profile Icons - horizontal layout with containers */}
@@ -613,10 +620,6 @@ export default function ProfilePage() {
             <div>
               <h3 className="font-semibold text-gray-900">Live</h3>
               <p className="text-gray-600">{user.live || 'Austin'}</p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Tag line</h3>
-              <p className="text-gray-600">{user.tagline || 'Carpe Diem'}</p>
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Height</h3>
