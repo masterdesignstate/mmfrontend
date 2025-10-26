@@ -483,7 +483,9 @@ export default function ProfilePage() {
   if (!user) return null;
 
   const profileIcons = getProfileIcons();
-  const displayName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.username;
+  // Get the first name only (text before first space)
+  const fullName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.username;
+  const displayName = fullName.split(' ')[0]; // Take only the first part before space
 
   return (
     <div className="min-h-screen bg-white">
