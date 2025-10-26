@@ -580,7 +580,7 @@ export default function ProfilePage() {
             
             {/* Tagline below the profile photo */}
             {user.tagline && (
-              <div className="mt-4 text-center">
+              <div className="mt-2 text-center">
                 <p className="text-gray-700 text-lg">{user.tagline}</p>
               </div>
             )}

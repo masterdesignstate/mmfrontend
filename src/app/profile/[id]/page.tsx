@@ -686,6 +686,21 @@ export default function UserProfilePage() {
               </button>
             </div>
           </div>
+          
+          {/* Tagline and Questions button below the profile photo */}
+          <div className="mt-2 w-full sm:w-95 mx-auto flex items-center justify-between">
+            {user.tagline && (
+              <div className="text-left flex-1 mr-4">
+                <p className="text-gray-700 text-lg">{user.tagline}</p>
+              </div>
+            )}
+            <button
+              onClick={() => handleActionButtonClick()}
+              className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors flex-shrink-0"
+            >
+              Questions
+            </button>
+          </div>
         </div>
 
         {/* Profile Icons - horizontal layout with containers */}
@@ -722,10 +737,6 @@ export default function UserProfilePage() {
           <div>
             <h3 className="font-semibold text-gray-900">Live</h3>
             <p className="text-gray-600">{user.live || 'Austin'}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Tag line</h3>
-            <p className="text-gray-600">{user.tagline || 'Carpe Diem'}</p>
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">Height</h3>
