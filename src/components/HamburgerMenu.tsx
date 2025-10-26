@@ -87,15 +87,13 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
             Results
           </button>
 
-          {/* Matches - Only show on mobile when on profile page (desktop has it in sidebar) */}
-          {isMobile && isProfilePage && (
-            <button
-              onClick={() => handleNavigation('/matches')}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              Matches
-            </button>
-          )}
+          {/* Matches - Show for all users */}
+          <button
+            onClick={() => handleNavigation('/matches')}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Matches
+          </button>
 
           <button
             onClick={() => handleNavigation('/chat')}

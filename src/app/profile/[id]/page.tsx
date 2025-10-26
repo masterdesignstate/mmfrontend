@@ -236,7 +236,7 @@ export default function UserProfilePage() {
 
   // Helper function to format height from centimeters to feet and inches
   const formatHeight = (heightCm: number | null | undefined): string => {
-    if (!heightCm) return `5'3"`;
+    if (!heightCm) return `5'-3"`;
 
     // Convert cm to inches
     const totalInches = Math.round(heightCm / 2.54);
@@ -245,7 +245,7 @@ export default function UserProfilePage() {
     const feet = Math.floor(totalInches / 12);
     const inches = totalInches % 12;
 
-    return `${feet}'${inches}"`;
+    return `${feet}'-${inches}"`;
   };
 
   // Generate profile icons based on user answers

@@ -239,7 +239,7 @@ export default function ProfilePage() {
 
   // Helper function to format height from centimeters to feet and inches
   const formatHeight = (heightCm: number | null | undefined): string => {
-    if (!heightCm) return `5'3"`;
+    if (!heightCm) return `5'-3"`;
     
     // Convert cm to inches
     const totalInches = Math.round(heightCm / 2.54);
@@ -248,7 +248,7 @@ export default function ProfilePage() {
     const feet = Math.floor(totalInches / 12);
     const inches = totalInches % 12;
     
-    return `${feet}'${inches}"`;
+    return `${feet}'-${inches}"`;
   };
 
   // Generate profile icons based on user answers
@@ -543,15 +543,6 @@ export default function ProfilePage() {
               </div>
 
 
-              <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <Image
-                  src="/assets/heart.png"
-                  alt="Matches"
-                  width={32}
-                  height={32}
-                />
-                <span className="text-gray-700">Matches</span>
-              </div>
             </nav>
           </div>
         </div>

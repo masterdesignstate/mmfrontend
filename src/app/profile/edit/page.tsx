@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 type User = {
   id: string;
@@ -286,11 +287,7 @@ export default function EditProfilePage() {
         <div className="flex items-center">
           <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} className="mr-2" />
         </div>
-        <button className="p-2" aria-label="Menu">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <HamburgerMenu />
       </div>
 
       <div className="flex">
@@ -321,18 +318,6 @@ export default function EditProfilePage() {
               <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
                 <Image src="/assets/edit-profile.png" alt="Edit Profile" width={32} height={32} />
                 <span className="text-gray-900 font-medium">Edit Profile</span>
-              </div>
-
-              {/* Answers */}
-              <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <Image src="/assets/answered.png" alt="Answers" width={32} height={32} />
-                <span className="text-gray-700">Answers</span>
-              </div>
-
-              {/* Matches */}
-              <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <Image src="/assets/heart.png" alt="Matches" width={32} height={32} />
-                <span className="text-gray-700">Matches</span>
               </div>
             </nav>
           </div>
