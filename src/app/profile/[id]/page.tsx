@@ -184,7 +184,7 @@ export default function UserProfilePage() {
       if (groupNumber === 1) {
         // Have kids question
         const haveLabels = { 1: "Don't Have", 5: "Have" };
-        return haveLabels[answer[answerType] as keyof typeof haveLabels] || null;
+        return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
       } else if (groupNumber === 2) {
         // Want kids question
         const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
