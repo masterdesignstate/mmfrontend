@@ -373,14 +373,24 @@ export default function ProfilePage() {
       }
     }
 
-    // Religion icon (question_number === 8, highest value)
-    const religionAnswer = getHighestAnswer(8);
-    if (religionAnswer) {
-      icons.push({
-        image: '/assets/prayin.png',
-        label: religionAnswer.question.question_name || '',
-        show: true
-      });
+    // Religion icon (question_number === 8)
+    const religionValue = getAnswerValue(8);
+    if (religionValue) {
+      const religionLabels = {
+        1: 'Never',
+        2: 'Rarely',
+        3: 'Sometimes',
+        4: 'Regularly',
+        5: 'Daily'
+      };
+      const label = religionLabels[religionValue as keyof typeof religionLabels];
+      if (label) {
+        icons.push({
+          image: '/assets/prayin.png',
+          label: label,
+          show: true
+        });
+      }
     }
 
     // Faith icon (question_number === 11, highest value)
