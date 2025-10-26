@@ -35,6 +35,7 @@ export default function EthnicityPage() {
 
   const [selectedEthnicity, setSelectedEthnicity] = useState<string>('');
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
+  const [answeredEthnicities, setAnsweredEthnicities] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
@@ -84,11 +85,22 @@ export default function EthnicityPage() {
       setAnsweredQuestions(prev => new Set([...prev, justAnsweredParam]));
     }
 
-    // If refresh flag is present, sync with backend (but don't wait for UI update)
-    if (refreshParam === 'true' && userIdParam) {
-      console.log('🔄 Refresh flag detected, syncing with backend in background...');
-      // Don't wait for this - UI is already updated optimistically
-      checkAnsweredQuestions();
+    // No need to sync with backend - we're using localStorage for immediate UI feedback
+    // if (refreshParam === 'true' && userIdParam) {
+    //   console.log('🔄 Refresh flag detected, syncing with backend in background...');
+    //   checkAnsweredQuestions();
+    // }
+
+    // Check for answered ethnicities in localStorage for immediate UI feedback
+    const answeredEthnicitiesData = localStorage.getItem('answeredEthnicities');
+    if (answeredEthnicitiesData) {
+      try {
+        const parsed = JSON.parse(answeredEthnicitiesData);
+        setAnsweredEthnicities(new Set(parsed));
+        console.log('📋 Loaded answered ethnicities from localStorage:', parsed);
+      } catch (error) {
+        console.error('❌ Error parsing answered ethnicities:', error);
+      }
     }
   }, [searchParams]);
 
@@ -100,10 +112,11 @@ export default function EthnicityPage() {
         console.log('🚀 Starting to fetch ethnicity questions from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3`;
-          console.log('🌐 Fetching from URL:', apiUrl);
+          // No need to fetch ethnicity questions - we're using hardcoded data
+          // const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3`;
+          // console.log('🌐 Fetching from URL:', apiUrl);
           
-          const response = await fetch(apiUrl);
+          // const response = await fetch(apiUrl);
           console.log('�� Response status:', response.status);
           
           if (response.ok) {
@@ -144,8 +157,9 @@ export default function EthnicityPage() {
     // Fetch education questions in the background
     if (userId && educationQuestions.length === 0) {
       try {
-        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=4`;
-        const response = await fetch(apiUrl);
+        // No need to fetch education questions in background
+        // const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=4`;
+        // const response = await fetch(apiUrl);
         
         if (response.ok) {
           const data = await response.json();
@@ -181,48 +195,35 @@ export default function EthnicityPage() {
         setAnsweredQuestions(new Set(localAnswered));
         console.log('⚡ Loaded answered questions from localStorage:', localAnswered);
       }
-      // Also check backend (but don't wait for it)
-      checkAnsweredQuestions();
+      // No need to check backend - we're using localStorage for immediate UI feedback
+      // checkAnsweredQuestions();
     }
   }, [userId]);
 
-  // Check answered questions when page becomes visible (user returns from question page)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && userId) {
-        console.log('🔄 Page became visible, checking answered questions...');
-        checkAnsweredQuestions();
-      }
-    };
+  // No need to check answered questions when page becomes visible - we're using localStorage
+  // useEffect(() => {
+  //   const handleVisibilityChange = () => {
+  //     if (document.visibilityState === 'visible' && userId) {
+  //       console.log('🔄 Page became visible, checking answered questions...');
+  //       checkAnsweredQuestions();
+  //     }
+  //   };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [userId]);
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+  //   return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // }, [userId]);
 
   const handleEthnicitySelect = (ethnicity: string) => {
     setSelectedEthnicity(ethnicity);
     
-    // Find the selected ethnicity question to get the correct question number
-    const selectedEthnicityQuestion = questions.find(question => 
-      question.question_name === ethnicity
-    );
-    
-    if (!selectedEthnicityQuestion) {
-      console.error('❌ No ethnicity question found for:', ethnicity);
-      return;
-    }
-    
-    const questionNumber = selectedEthnicityQuestion.question_number;
-    
-    // Pass the full question data to avoid re-fetching
+    // Navigate to the existing single question page with ethnicity parameter
     const params = new URLSearchParams({ 
       user_id: userId,
       ethnicity: ethnicity,
-      question_number: questionNumber.toString(),
-      question_data: JSON.stringify(selectedEthnicityQuestion)
+      question_number: '3' // Ethnicity questions are question_number=3
     });
     
-    // Navigate to the specific ethnicity question page
+    // Navigate to the existing single question page
     router.push(`/auth/question/ethnicity?${params.toString()}`);
   };
 
@@ -240,32 +241,20 @@ export default function EthnicityPage() {
     setError('');
 
     try {
-      // Check if user has answered any ethnicity questions using the answeredQuestions state
-      // which is already populated by checkAnsweredQuestions function
-      console.log('🔍 Checking answered questions in handleNext:');
-      console.log('📋 Questions loaded:', questions.length);
-      console.log('📋 Answered questions set size:', answeredQuestions.size);
-      console.log('📋 Answered questions:', Array.from(answeredQuestions));
-      
-      const answeredEthnicityQuestions = questions.filter(q => 
-        q.group_name === 'Ethnicity' && answeredQuestions.has(q.id)
-      );
-      
-      console.log('📋 Ethnicity questions:', questions.filter(q => q.group_name === 'Ethnicity').map(q => ({ id: q.id, number: q.question_number, group: q.group_number, name: q.question_name })));
-      console.log('📋 Answered ethnicity questions:', answeredEthnicityQuestions.map(q => ({ id: q.id, number: q.question_number, group: q.group_number, name: q.question_name })));
-      console.log('📋 All answered question IDs:', Array.from(answeredQuestions));
-      console.log('📋 Ethnicity question IDs:', questions.filter(q => q.group_name === 'Ethnicity').map(q => q.id));
+      // Check if user has answered any ethnicity questions using localStorage data
+      console.log('🔍 Checking answered ethnicities in handleNext:');
+      console.log('📋 Answered ethnicities set size:', answeredEthnicities.size);
+      console.log('📋 Answered ethnicities:', Array.from(answeredEthnicities));
       
       // Require at least 1 answered ethnicity question
-      if (answeredEthnicityQuestions.length === 0) {
+      if (answeredEthnicities.size === 0) {
         console.log('❌ Validation failed: No answered ethnicity questions found');
-        console.log('📋 Current answeredQuestions state:', Array.from(answeredQuestions));
-        console.log('📋 Available ethnicity questions:', questions.filter(q => q.group_name === 'Ethnicity').map(q => ({ id: q.id, name: q.question_name })));
+        console.log('📋 Current answeredEthnicities state:', Array.from(answeredEthnicities));
         setError('Please answer at least one ethnicity question before proceeding.');
         return;
       }
       
-      console.log('✅ User has answered', answeredEthnicityQuestions.length, 'ethnicity question(s), proceeding to next page');
+      console.log('✅ User has answered', answeredEthnicities.size, 'ethnicity question(s), proceeding to next page');
 
       // Navigate to next onboarding step (education page)
       const params = new URLSearchParams({ 
@@ -287,70 +276,71 @@ export default function EthnicityPage() {
     }
   };
 
-  const checkAnsweredQuestions = async () => {
-    if (!userId) return;
-    
-    console.log('🔍 checkAnsweredQuestions called for userId:', userId);
-    
-    try {
-      // Fetch ALL pages of answers (handle pagination)
-      let allAnswers: any[] = [];
-      let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}&page_size=100`; // Request more items per page
-      
-      while (nextUrl) {
-        const response = await fetch(nextUrl);
-        console.log('📡 Response status:', response.status, 'URL:', nextUrl);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('📋 Page data:', { count: data.count, results_length: data.results?.length, next: data.next });
-          
-          // Check what fields are actually in the answer objects
-          if (data.results && data.results.length > 0) {
-            console.log('📋 Sample answer object:', data.results[0]);
-            console.log('📋 Answer object keys:', Object.keys(data.results[0]));
-          }
-          
-          allAnswers = [...allAnswers, ...(data.results || [])];
-          nextUrl = data.next; // Get next page URL if exists
-        } else {
-          nextUrl = null;
-        }
-      }
-      
-      console.log('📋 Total answers fetched:', allAnswers.length);
-      
-      // Extract question IDs - the 'question' field contains an object with an 'id' property
-      const answeredQuestionIds = new Set<string>(
-        allAnswers.map((answer: any) => {
-          if (answer.question_id) {
-            return answer.question_id;
-          } else if (answer.question && typeof answer.question === 'object' && answer.question.id) {
-            return answer.question.id;
-          }
-          return null;
-        }).filter(id => id != null)
-      );
-      
-      console.log('📋 Answered question IDs from backend:', Array.from(answeredQuestionIds));
-      console.log('📋 First 5 answers detail:', allAnswers.slice(0, 5).map((answer: any) => ({ 
-        question_id: answer.question_id, 
-        question: answer.question,
-        me_answer: answer.me_answer, 
-        user_id: answer.user_id 
-      })));
-      
-      // Merge with localStorage (localStorage takes precedence for recent answers)
-      const answeredQuestionsKey = `answered_questions_${userId}`;
-      const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
-      const mergedAnswered = new Set([...answeredQuestionIds, ...localAnswered]);
-      
-      setAnsweredQuestions(mergedAnswered);
-      console.log('📋 Updated answeredQuestions state with', mergedAnswered.size, 'questions (backend:', answeredQuestionIds.size, '+ localStorage:', localAnswered.length, ')');
-    } catch (error) {
-      console.error('Error checking answered questions:', error);
-    }
-  };
+  // No need for checkAnsweredQuestions function - we're using localStorage
+  // const checkAnsweredQuestions = async () => {
+  //   if (!userId) return;
+  //   
+  //   console.log('🔍 checkAnsweredQuestions called for userId:', userId);
+  //   
+  //   try {
+  //     // Fetch ALL pages of answers (handle pagination)
+  //     let allAnswers: any[] = [];
+  //     let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}&page_size=100`; // Request more items per page
+  //     
+  //     while (nextUrl) {
+  //       const response = await fetch(nextUrl);
+  //       console.log('📡 Response status:', response.status, 'URL:', nextUrl);
+  //       
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         console.log('📋 Page data:', { count: data.count, results_length: data.results?.length, next: data.next });
+  //         
+  //         // Check what fields are actually in the answer objects
+  //         if (data.results && data.results.length > 0) {
+  //           console.log('📋 Sample answer object:', data.results[0]);
+  //           console.log('📋 Answer object keys:', Object.keys(data.results[0]));
+  //         }
+  //         
+  //         allAnswers = [...allAnswers, ...(data.results || [])];
+  //         nextUrl = data.next; // Get next page URL if exists
+  //       } else {
+  //         nextUrl = null;
+  //       }
+  //     }
+  //     
+  //     console.log('📋 Total answers fetched:', allAnswers.length);
+  //     
+  //     // Extract question IDs - the 'question' field contains an object with an 'id' property
+  //     const answeredQuestionIds = new Set<string>(
+  //       allAnswers.map((answer: any) => {
+  //         if (answer.question_id) {
+  //           return answer.question_id;
+  //         } else if (answer.question && typeof answer.question === 'object' && answer.question.id) {
+  //           return answer.question.id;
+  //         }
+  //         return null;
+  //       }).filter(id => id != null)
+  //     );
+  //     
+  //     console.log('📋 Answered question IDs from backend:', Array.from(answeredQuestionIds));
+  //     console.log('📋 First 5 answers detail:', allAnswers.slice(0, 5).map((answer: any) => ({ 
+  //       question_id: answer.question_id, 
+  //       question: answer.question,
+  //       me_answer: answer.me_answer, 
+  //       user_id: answer.user_id 
+  //     })));
+  //     
+  //     // Merge with localStorage (localStorage takes precedence for recent answers)
+  //     const answeredQuestionsKey = `answered_questions_${userId}`;
+  //     const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+  //     const mergedAnswered = new Set([...answeredQuestionIds, ...localAnswered]);
+  //     
+  //     setAnsweredQuestions(mergedAnswered);
+  //     console.log('📋 Updated answeredQuestions state with', mergedAnswered.size, 'questions (backend:', answeredQuestionIds.size, '+ localStorage:', localAnswered.length, ')');
+  //   } catch (error) {
+  //     console.error('Error checking answered questions:', error);
+  //   }
+  // };
 
   const handleBack = () => {
     const params = new URLSearchParams({ 
@@ -405,12 +395,8 @@ export default function EthnicityPage() {
           {/* Ethnicity Options List */}
           <div className="space-y-3">
             {ethnicityOptions.map((option, index) => {
-              // Find the corresponding question by matching the ethnicity name exactly
-              const question = questions.find(q => 
-                q.group_name === 'Ethnicity' && 
-                q.question_name === option.value
-              );
-              const isAnswered = question && answeredQuestions.has(question.id);
+              // Check if this ethnicity has been answered using localStorage data
+              const isAnswered = answeredEthnicities.has(option.value);
               
               return (
                 <div

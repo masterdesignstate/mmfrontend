@@ -114,7 +114,7 @@ export default function AddPhotoClient() {
         questions: JSON.stringify(questions)
       });
 
-      router.push(`/auth/gender?${params.toString()}`);
+      router.push(`/auth/introcard?${params.toString()}`);
     } catch (error) {
       console.error('❌ Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Upload failed');

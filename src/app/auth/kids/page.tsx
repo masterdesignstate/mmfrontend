@@ -5,49 +5,43 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-export default function HabitsPage() {
+export default function KidsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
-  // Removed questions state - using hardcoded data only
 
-  // Hardcoded habits question IDs from Django database (question_number=7)
-  const habitsQuestionIds = {
-    'Alcohol': 'befc610f-6fda-4b0e-9b5a-8100ec0d14e7',        // Group 1: Alcohol
-    'Cigarettes': '13d18dd3-00c1-4f86-9337-24fc07e24091',     // Group 2: Cigarettes
-    'Vape': '07453d3e-5f22-4b73-9cd5-a09520b412b5'             // Group 3: Vape
+  // Hardcoded kids question IDs from Django database (question_number=10)
+  const kidsQuestionIds = {
+    'Have': '4be86e73-87be-4c81-a66a-5490255f3e3b',        // Group 1: Have Kids
+    'Want': 'b3d3b8c8-f1ef-43ce-8e36-1b78b75848c6'         // Group 2: Want Kids
   };
 
-  // Hardcoded habits labels
-  const habitsLabels = ['ALCOHOL', 'CIGARETTES', 'VAPE'];
+  // Hardcoded kids labels
+  const kidsLabels = ['WANT KIDS', 'HAVE KIDS'];
 
-  // State for 3 habits sliders
-  const habitKeys = ['habit1', 'habit2', 'habit3'] as const;
-  const meOpenKeys = ['habit1MeOpen', 'habit2MeOpen', 'habit3MeOpen'] as const;
-  const lookingOpenKeys = ['habit1LookingOpen', 'habit2LookingOpen', 'habit3LookingOpen'] as const;
-  type HabitKey = (typeof habitKeys)[number];
+  // State for 2 kids sliders
+  const kidsKeys = ['kids1', 'kids2'] as const;
+  const meOpenKeys = ['kids1MeOpen', 'kids2MeOpen'] as const;
+  const lookingOpenKeys = ['kids1LookingOpen', 'kids2LookingOpen'] as const;
+  type KidsKey = (typeof kidsKeys)[number];
   type MeOpenKey = (typeof meOpenKeys)[number];
   type LookingOpenKey = (typeof lookingOpenKeys)[number];
 
-  const [myHabits, setMyHabits] = useState<Record<HabitKey, number>>({
-    habit1: 3,
-    habit2: 3,
-    habit3: 3
+  const [myKids, setMyKids] = useState<Record<KidsKey, number>>({
+    kids1: 3, // Want Kids
+    kids2: 3  // Have Kids
   });
 
-  const [lookingFor, setLookingFor] = useState<Record<HabitKey, number>>({
-    habit1: 3,
-    habit2: 3,
-    habit3: 3
+  const [lookingFor, setLookingFor] = useState<Record<KidsKey, number>>({
+    kids1: 3, // Want Kids
+    kids2: 3  // Have Kids
   });
 
   const [openToAll, setOpenToAll] = useState<Record<MeOpenKey | LookingOpenKey, boolean>>({
-    habit1MeOpen: false,
-    habit2MeOpen: false,
-    habit3MeOpen: false,
-    habit1LookingOpen: false,
-    habit2LookingOpen: false,
-    habit3LookingOpen: false
+    kids1MeOpen: false,
+    kids2MeOpen: false,
+    kids1LookingOpen: false,
+    kids2LookingOpen: false
   });
 
   const [importance, setImportance] = useState({
@@ -56,18 +50,21 @@ export default function HabitsPage() {
   });
 
   const [loading, setLoading] = useState(false);
-  // Removed loadingQuestions state - no longer fetching data
   const [error, setError] = useState<string>('');
-  // Removed exerciseQuestion state - not needed for habits page
 
-  // Hardcoded slider labels for habits questions
-  const habitsSliderLabels = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
+  // Hardcoded slider labels for kids questions
+  const kidsSliderLabels = ['YES', 'MAYBE', 'NO PREFERENCE', 'PREFER NO', 'DEFINITELY NO'];
   
   // Helper function to render all available answer labels at the top
-  const renderTopLabels = () => {
+  const renderTopLabels = (sliderIndex: number) => {
+    const wantKidsLabels = ['DON\'T WANT', 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
+    const haveKidsLabels = ['DON\'T HAVE', '', '', '', 'HAVE'];
+    
+    const labels = sliderIndex === 0 ? wantKidsLabels : haveKidsLabels;
+    
     return (
       <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-        {habitsSliderLabels.map((label, index) => {
+        {labels.map((label, index) => {
           const value = index + 1;
           let leftPosition;
           
@@ -97,123 +94,76 @@ export default function HabitsPage() {
       </div>
     );
   };
-  
-  // Removed nextQuestions state - not needed for habits page
 
+  // Load user ID from URL params
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
-    const questionsParam = searchParams.get('questions');
-    
-    console.log('🔍 Habits Page Load - URL Params:', {
-      userIdParam,
-      questionsParam: questionsParam ? 'present' : 'missing',
-      questionsParamLength: questionsParam?.length
-    });
-    
-    // Get userId from URL params first, then try localStorage as fallback
     if (userIdParam) {
-      setUserId(userIdParam);
       console.log('📋 Set userId from URL param:', userIdParam);
-    } else {
-      // Try to get user_id from localStorage (set during login)
-      const storedUserId = localStorage.getItem('user_id');
-      if (storedUserId) {
-        setUserId(storedUserId);
-        console.log('📋 Set userId from localStorage:', storedUserId);
-      } else {
-        console.log('❌ No userId found in URL params or localStorage');
-      }
+      setUserId(userIdParam);
     }
-    
-    // Removed questions parameter parsing - using hardcoded data only
   }, [searchParams]);
 
-  // Removed habits questions fetching - using hardcoded data only
-
-  // Removed next questions fetching - not needed for habits page
-
-  // Removed fetchExerciseQuestion function - not needed for habits page
-
-  const handleSliderChange = (section: 'myHabits' | 'lookingFor' | 'importance', habitKey?: HabitKey, value?: number) => {
-    if (section === 'myHabits' && habitKey && value !== undefined) {
-      setMyHabits(prev => ({ ...prev, [habitKey]: value }));
-    } else if (section === 'lookingFor' && habitKey && value !== undefined) {
-      setLookingFor(prev => ({ ...prev, [habitKey]: value }));
-    } else if (section === 'importance' && value !== undefined) {
-      setImportance(prev => ({ ...prev, me: value }));
+  const handleSliderChange = (section: 'myKids' | 'lookingFor', key: KidsKey, value: number) => {
+    console.log(`🎚️ Slider changed: ${key} = ${value} (${section})`);
+    
+    if (section === 'myKids') {
+      setMyKids(prev => ({ ...prev, [key]: value }));
+    } else {
+      setLookingFor(prev => ({ ...prev, [key]: value }));
     }
+  };
+
+  const handleOpenToAllToggle = (key: MeOpenKey | LookingOpenKey) => {
+    console.log(`🔄 OTA toggle: ${key}`);
+    setOpenToAll(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleMeImportanceChange = (value: number) => {
+    setImportance(prev => ({ ...prev, me: value }));
   };
 
   const handleLookingForImportanceChange = (value: number) => {
     setImportance(prev => ({ ...prev, lookingFor: value }));
   };
 
-  const handleOpenToAllToggle = (switchType: MeOpenKey | LookingOpenKey) => {
-    setOpenToAll(prev => ({ ...prev, [switchType]: !prev[switchType] }));
-  };
-
   const handleNext = async () => {
-    if (!userId) {
-      setError('User ID is required');
-      return;
-    }
+    console.log('➡️ Next button clicked');
+    console.log('👶 My Kids answers:', myKids);
+    console.log('👶 Looking For answers:', lookingFor);
+    console.log('👶 Open to all:', openToAll);
 
     setLoading(true);
     setError('');
 
     try {
-      // Prepare user answers for all 3 habits questions using hardcoded question IDs
-      const userAnswers: Array<{
-        user_id: string;
-        question_id: string;
-        me_answer: number;
-        me_open_to_all: boolean;
-        me_importance: number;
-        me_share: boolean;
-        looking_for_answer: number;
-        looking_for_open_to_all: boolean;
-        looking_for_importance: number;
-        looking_for_share: boolean;
-      }> = [];
-      
-      // Habit 1 (Alcohol)
+      // Create user answers for both kids questions
+      const userAnswers = [];
+
+      // Kids 1 (Want Kids)
       userAnswers.push({
         user_id: userId,
-        question_id: habitsQuestionIds.Alcohol,
-        me_answer: openToAll.habit1MeOpen ? 6 : myHabits.habit1,
-        me_open_to_all: openToAll.habit1MeOpen,
+        question_id: kidsQuestionIds.Want,
+        me_answer: openToAll.kids1MeOpen ? 6 : myKids.kids1,
+        me_open_to_all: openToAll.kids1MeOpen,
         me_importance: importance.me,
         me_share: true,
-        looking_for_answer: openToAll.habit1LookingOpen ? 6 : lookingFor.habit1,
-        looking_for_open_to_all: openToAll.habit1LookingOpen,
+        looking_for_answer: openToAll.kids1LookingOpen ? 6 : lookingFor.kids1,
+        looking_for_open_to_all: openToAll.kids1LookingOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true
       });
 
-      // Habit 2 (Cigarettes)
+      // Kids 2 (Have Kids)
       userAnswers.push({
         user_id: userId,
-        question_id: habitsQuestionIds.Cigarettes,
-        me_answer: openToAll.habit2MeOpen ? 6 : myHabits.habit2,
-        me_open_to_all: openToAll.habit2MeOpen,
+        question_id: kidsQuestionIds.Have,
+        me_answer: openToAll.kids2MeOpen ? 6 : myKids.kids2,
+        me_open_to_all: openToAll.kids2MeOpen,
         me_importance: importance.me,
         me_share: true,
-        looking_for_answer: openToAll.habit2LookingOpen ? 6 : lookingFor.habit2,
-        looking_for_open_to_all: openToAll.habit2LookingOpen,
-        looking_for_importance: importance.lookingFor,
-        looking_for_share: true
-      });
-
-      // Habit 3 (Vape)
-      userAnswers.push({
-        user_id: userId,
-        question_id: habitsQuestionIds.Vape,
-        me_answer: openToAll.habit3MeOpen ? 6 : myHabits.habit3,
-        me_open_to_all: openToAll.habit3MeOpen,
-        me_importance: importance.me,
-        me_share: true,
-        looking_for_answer: openToAll.habit3LookingOpen ? 6 : lookingFor.habit3,
-        looking_for_open_to_all: openToAll.habit3LookingOpen,
+        looking_for_answer: openToAll.kids2LookingOpen ? 6 : lookingFor.kids2,
+        looking_for_open_to_all: openToAll.kids2LookingOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true
       });
@@ -221,7 +171,7 @@ export default function HabitsPage() {
       // Save answers in background (optimistic approach)
       const saveAnswersInBackground = async () => {
         try {
-          console.log('🚀 Starting to save habits answers to backend...');
+          console.log('🚀 Starting to save kids answers to backend...');
           console.log('📊 User answers:', userAnswers);
 
           for (const userAnswer of userAnswers) {
@@ -244,28 +194,28 @@ export default function HabitsPage() {
             }
           }
 
-          console.log('✅ All habits answers processed');
+          console.log('✅ All kids answers processed');
         } catch (error) {
-          console.error('❌ Error saving habits answers to backend:', error);
+          console.error('❌ Error saving kids answers to backend:', error);
         }
       };
 
       // Start background save (don't await)
-      console.log('🏃 About to start background save...');
+      console.log('👶 About to start background save...');
       saveAnswersInBackground();
-      console.log('🏃 Background save function called');
+      console.log('👶 Background save function called');
       
       // Continue with navigation immediately
-      console.log('🏃 Continuing with navigation...');
+      console.log('👶 Continuing with navigation...');
       
-      // Navigate to next onboarding step immediately
+      // Navigate to loading page immediately
       const params = new URLSearchParams({ 
         user_id: userId
       });
       
-      router.push(`/auth/question/8?${params.toString()}`);
+      router.push(`/auth/loading?${params.toString()}`);
     } catch (error) {
-      console.error('Error saving habits answers:', error);
+      console.error('Error saving kids answers:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answers');
     } finally {
       setLoading(false);
@@ -277,10 +227,10 @@ export default function HabitsPage() {
       user_id: userId
     });
     
-    router.push(`/auth/question/6?${params.toString()}`);
+    router.push(`/auth/question/9?${params.toString()}`);
   };
 
-  // Slider component - EXACT COPY from gender page
+  // Slider component - EXACT COPY from habits page
   const SliderComponent = ({ 
     value, 
     onChange,
@@ -368,9 +318,9 @@ export default function HabitsPage() {
     );
   };
 
-  // Hardcoded OTA settings for habits questions
-  const anyLookingForOpen = true; // All habits questions have open_to_all_looking_for = true
-  const anyMeOpen = false; // All habits questions have open_to_all_me = false
+  // Hardcoded OTA settings for kids questions
+  const anyLookingForOpen = true; // All kids questions have open_to_all_looking_for = true
+  const anyMeOpen = true; // Want Kids question has open_to_all_me = true
 
   return (
     <div className="min-h-screen bg-white">
@@ -397,9 +347,9 @@ export default function HabitsPage() {
         <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">7. Habits</h1>
+            <h1 className="text-3xl font-bold text-black mb-2">10. Kids</h1>
             <p className="text-3xl font-bold text-black mb-12">
-              How often do you engage in these habits?
+              What are your thoughts on kids?
             </p>
           </div>
 
@@ -421,8 +371,8 @@ export default function HabitsPage() {
                 columnGap: 'clamp(12px, 5vw, 24px)'
               }}
             >
-              <div></div>
-              <div className="w-full">{renderTopLabels()}</div>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="w-full">{/* Empty space for LESS/MORE labels if needed */}</div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {anyLookingForOpen ? 'OTA' : ''}
               </div>
@@ -436,18 +386,22 @@ export default function HabitsPage() {
                 rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
-              {habitKeys.map((habitKey, index) => {
+              {kidsKeys.map((kidsKey, index) => {
                 const lookingOpenKey = lookingOpenKeys[index];
 
                 return (
-                  <React.Fragment key={`looking-${habitKey}`}>
+                  <React.Fragment key={`looking-${kidsKey}`}>
                     <div className="text-xs font-semibold text-gray-400">
-                      {habitsLabels[index]}
+                      {kidsLabels[index]}
                     </div>
                     <div className="relative">
+                      {/* Labels above slider */}
+                      <div className="mb-2">
+                        {renderTopLabels(index)}
+                      </div>
                       <SliderComponent
-                        value={lookingFor[habitKey]}
-                        onChange={(value) => handleSliderChange('lookingFor', habitKey, value)}
+                        value={lookingFor[kidsKey]}
+                        onChange={(value) => handleSliderChange('lookingFor', kidsKey, value)}
                         isOpenToAll={openToAll[lookingOpenKey]}
                       />
                     </div>
@@ -475,6 +429,10 @@ export default function HabitsPage() {
 
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
               <div className="relative">
+                {/* Add same spacing as kids sliders */}
+                <div className="mb-2">
+                  {/* Empty space to match kids sliders spacing */}
+                </div>
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={handleLookingForImportanceChange}
@@ -525,8 +483,8 @@ export default function HabitsPage() {
                 columnGap: 'clamp(12px, 5vw, 24px)'
               }}
             >
-              <div></div>
-              <div className="w-full">{renderTopLabels()}</div>
+              <div></div> {/* Empty placeholder for label column */}
+              <div className="w-full">{/* Empty space for LESS/MORE labels if needed */}</div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                 {anyMeOpen ? 'OTA' : ''}
               </div>
@@ -540,23 +498,27 @@ export default function HabitsPage() {
                 rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
-              {habitKeys.map((habitKey, index) => {
+              {kidsKeys.map((kidsKey, index) => {
                 const meOpenKey = meOpenKeys[index];
 
                 return (
-                  <React.Fragment key={`me-${habitKey}`}>
+                  <React.Fragment key={`me-${kidsKey}`}>
                     <div className="text-xs font-semibold text-gray-400">
-                      {habitsLabels[index]}
+                      {kidsLabels[index]}
                     </div>
                     <div className="relative">
+                      {/* Labels above slider */}
+                      <div className="mb-2">
+                        {renderTopLabels(index)}
+                      </div>
                       <SliderComponent
-                        value={myHabits[habitKey]}
-                        onChange={(value) => handleSliderChange('myHabits', habitKey, value)}
+                        value={myKids[kidsKey]}
+                        onChange={(value) => handleSliderChange('myKids', kidsKey, value)}
                         isOpenToAll={openToAll[meOpenKey]}
                       />
                     </div>
                     <div className="flex justify-center">
-                      {false ? (
+                      {index === 0 ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
                             <input
@@ -585,7 +547,7 @@ export default function HabitsPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '70%' }}></div>
+          <div className="h-full bg-black" style={{ width: '100%' }}></div>
         </div>
         
         {/* Navigation Buttons */}
@@ -602,20 +564,9 @@ export default function HabitsPage() {
           <button
             onClick={handleNext}
             disabled={loading}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading
-                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            className="bg-black text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              'Next'
-            )}
+            {loading ? 'Saving...' : 'Next'}
           </button>
         </div>
       </footer>

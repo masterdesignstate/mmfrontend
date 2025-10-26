@@ -9,35 +9,28 @@ export default function DietPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
-  const [questions, setQuestions] = useState<Array<{
-    id: string;
-    question_name: string;
-    question_number: number;
-    group_number?: number;
-    group_name: string;
-    text: string;
-    answers: Array<{ value: string; answer_text: string }>;
-    open_to_all_me: boolean;
-    open_to_all_looking_for: boolean;
-  }>>([]);
-
-  const [nextQuestions, setNextQuestions] = useState<Array<{
-    id: string;
-    question_name: string;
-    question_number: number;
-    group_number?: number;
-    group_name: string;
-    text: string;
-    answers: Array<{ value: string; answer_text: string }>;
-    open_to_all_me: boolean;
-    open_to_all_looking_for: boolean;
-  }>>([]);
+  // Removed questions and nextQuestions state - using hardcoded data only
 
   const [selectedDiet, setSelectedDiet] = useState<string>('');
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
+  const [answeredDiets, setAnsweredDiets] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  // Removed loadingQuestions state - no longer fetching data
   const [error, setError] = useState<string>('');
+  // Hardcoded diet options matching the database question names exactly
+  const dietOptions = [
+    { value: 'Vegan', label: 'Vegan', icon: '/assets/diet.png' },
+    { value: 'Vegetarian', label: 'Vegetarian', icon: '/assets/diet.png' },
+    { value: 'Pescatarian', label: 'Pescatarian', icon: '/assets/diet.png' },
+    { value: 'Omnivore', label: 'Omnivore', icon: '/assets/diet.png' }
+  ];
+
+  // Hardcoded question IDs from Django database (question_number=5)
+  const questionIds = {
+    'Omnivore': '88c5d527-5b04-4227-8b94-e2e8537c5ad1',        // Group 1: Omnivore
+    'Pescatarian': 'f0634c01-0941-4ae6-bfa8-24268b40d7f0',     // Group 2: Pescatarian
+    'Vegetarian': 'cbb8c995-a0f2-4311-af82-daff06435e84',       // Group 3: Vegetarian
+    'Vegan': '5dde9565-3ee5-4910-837c-ee92212db90a'             // Group 4: Vegan
+  };
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
@@ -67,133 +60,57 @@ export default function DietPage() {
       }
     }
     
-    if (questionsParam) {
+    // Removed questions parameter parsing - using hardcoded data only
+
+    // Check for answered diets in localStorage for immediate UI feedback
+    const answeredDietsData = localStorage.getItem('answeredDiets');
+    if (answeredDietsData) {
       try {
-        const parsedQuestions = JSON.parse(questionsParam);
-        setQuestions(parsedQuestions);
-        console.log('📋 Received questions from URL:', parsedQuestions);
-        console.log('🔍 Diet questions from URL:', parsedQuestions.filter((q: typeof questions[0]) => q.group_name === 'Diet'));
+        const parsed = JSON.parse(answeredDietsData);
+        setAnsweredDiets(new Set(parsed));
+        console.log('📋 Loaded answered diets from localStorage:', parsed);
       } catch (error) {
-        console.error('❌ Error parsing questions from URL:', error);
+        console.error('❌ Error parsing answered diets:', error);
       }
-    } else {
-      console.log('❌ No questions parameter found in URL');
     }
 
-    // If a question was just answered, immediately add it to the answered set for instant feedback
-    if (justAnsweredParam) {
-      console.log('✅ Question just answered:', justAnsweredParam);
-      setAnsweredQuestions(prev => new Set([...prev, justAnsweredParam]));
-    }
-
-    // If refresh flag is present, sync with backend (but don't wait for UI update)
-    if (refreshParam === 'true' && userIdParam) {
-      console.log('🔄 Refresh flag detected, syncing with backend in background...');
-      // Don't wait for this - UI is already updated optimistically
-      checkAnsweredQuestions();
-    }
+    // No need to sync with backend - we're using localStorage for immediate UI feedback
+    // if (refreshParam === 'true' && userIdParam) {
+    //   console.log('🔄 Refresh flag detected, syncing with backend in background...');
+    //   checkAnsweredQuestions();
+    // }
   }, [searchParams]);
 
-  // Fetch diet questions from backend when userId is available (only once)
+  // Removed diet questions fetching - using hardcoded data only
+
+  // Removed next questions fetching - not needed for diet page
+
+  // IMMEDIATELY load answered diets from localStorage for instant UI
   useEffect(() => {
-    const fetchDietQuestions = async () => {
-      // Only fetch if we have a userId, questions array is empty, and we don't have questions from URL params
-      if (userId && questions.length === 0 && !searchParams.get('questions')) {
-        console.log('🚀 Starting to fetch diet questions from backend...');
-        setLoadingQuestions(true);
+    if (userId) {
+      const answeredDietsData = localStorage.getItem('answeredDiets');
+      if (answeredDietsData) {
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=5`;
-          console.log('🌐 Fetching from URL:', apiUrl);
-          
-          const response = await fetch(apiUrl);
-          console.log('📡 Response status:', response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📋 Raw API response:', data);
-            
-            // Sort questions by group_number
-            const sortedQuestions = (data.results || []).sort((a: typeof questions[0], b: typeof questions[0]) => {
-              const groupA = a.group_number || 0;
-              const groupB = b.group_number || 0;
-              return groupA - groupB;
-            });
-            
-            setQuestions(sortedQuestions);
-            console.log('📋 Set diet questions to state (sorted by group_number):', sortedQuestions);
-            console.log('🔍 Backend Diet Question OTA settings:', sortedQuestions.map((q: typeof questions[0]) => ({
-              number: q.question_number,
-              group_number: q.group_number,
-              group: q.group_name,
-              ota_me: q.open_to_all_me,
-              ota_looking: q.open_to_all_looking_for
-            })));
-          } else {
-            console.error('❌ Failed to fetch diet questions from backend. Status:', response.status);
-          }
-        } catch (error: unknown) {
-          console.error('❌ Error fetching diet questions from backend:', error);
-        } finally {
-          setLoadingQuestions(false);
+          const parsed = JSON.parse(answeredDietsData);
+          setAnsweredDiets(new Set(parsed));
+          console.log('⚡ Loaded answered diets from localStorage:', parsed);
+        } catch (error) {
+          console.error('❌ Error parsing answered diets:', error);
         }
       }
-    };
-
-    fetchDietQuestions();
-  }, [userId, questions.length, searchParams]);
-
-  const fetchNextQuestions = async () => {
-    // Fetch next questions in the background
-    if (userId && nextQuestions.length === 0) {
-      try {
-        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=6`;
-        const response = await fetch(apiUrl);
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Sort questions by group_number
-          const sortedNextQuestions = (data.results || []).sort((a: typeof nextQuestions[0], b: typeof nextQuestions[0]) => {
-            const groupA = a.group_number || 0;
-            const groupB = b.group_number || 0;
-            return groupA - groupB;
-          });
-          
-          setNextQuestions(sortedNextQuestions);
-        }
-      } catch (error: unknown) {
-        // Silently fail - next page will fetch normally if needed
-      }
-    }
-  };
-
-  // IMMEDIATELY load answered questions from localStorage for instant UI
-  useEffect(() => {
-    if (userId) {
-      const answeredQuestionsKey = `answered_questions_${userId}`;
-      const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
-      if (localAnswered.length > 0) {
-        setAnsweredQuestions(new Set(localAnswered));
-        console.log('⚡ Loaded answered questions from localStorage:', localAnswered);
-      }
-      // Also check backend (but don't wait for it)
-      checkAnsweredQuestions();
+      // No need to check backend - we're using localStorage for immediate UI feedback
     }
   }, [userId]);
 
-  // Fetch next questions in background when userId is available
-  useEffect(() => {
-    if (userId) {
-      fetchNextQuestions();
-    }
-  }, [userId]);
+  // Removed next questions useEffect - not needed for diet page
 
   // Check answered questions when page becomes visible (user returns from question page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && userId) {
         console.log('🔄 Page became visible, checking answered questions...');
-        checkAnsweredQuestions();
+        // No need to check backend - we're using localStorage for immediate UI feedback
+        // checkAnsweredQuestions();
       }
     };
 
@@ -202,29 +119,16 @@ export default function DietPage() {
   }, [userId]);
 
   const handleDietSelect = (diet: string) => {
+    console.log('🥗 Diet selected:', diet);
     setSelectedDiet(diet);
     
-    // Find the selected diet question to get the correct question number
-    const selectedDietQuestion = questions.find(question => 
-      question.question_name === diet
-    );
-    
-    if (!selectedDietQuestion) {
-      console.error('❌ No diet question found for:', diet);
-      return;
-    }
-    
-    const questionNumber = selectedDietQuestion.question_number;
-    
-    // Pass the full question data to avoid re-fetching
-    const params = new URLSearchParams({ 
+    // Navigate to single diet question page with hardcoded data
+    const params = new URLSearchParams({
       user_id: userId,
       diet: diet,
-      question_number: questionNumber.toString(),
-      question_data: JSON.stringify(selectedDietQuestion)
+      question_number: '5' // Diet questions are question_number=5
     });
     
-    // Navigate to the specific diet question page
     router.push(`/auth/question/diet?${params.toString()}`);
   };
 
@@ -234,51 +138,31 @@ export default function DietPage() {
       return;
     }
 
-    // Allow navigation even if questions aren't loaded - they'll be fetched on the next page
-    console.log('📋 Questions loaded:', questions.length);
-    console.log('📋 Diet questions found:', questions.filter(q => q.group_name === 'Diet').length);
+    // Removed questions validation - using hardcoded data only
 
     setLoading(true);
     setError('');
 
     try {
-      // Check if user has answered any diet questions using the answeredQuestions state
-      // which is already populated by checkAnsweredQuestions function
-      console.log('🔍 Checking answered questions in handleNext:');
-      console.log('📋 Questions loaded:', questions.length);
-      console.log('📋 Answered questions set size:', answeredQuestions.size);
-      console.log('📋 Answered questions:', Array.from(answeredQuestions));
-      
-      const answeredDietQuestions = questions.filter(q => 
-        q.group_name === 'Diet' && answeredQuestions.has(q.id)
-      );
-      
-      console.log('📋 Diet questions:', questions.filter(q => q.group_name === 'Diet').map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
-      console.log('📋 Answered diet questions:', answeredDietQuestions.map(q => ({ id: q.id, number: q.question_number, group: q.group_number })));
+      // Check if user has answered any diet questions using localStorage data
+      console.log('🔍 Checking answered diet questions in handleNext:');
+      console.log('📋 Answered diet questions set size:', answeredDiets.size);
+      console.log('📋 Answered diet questions:', Array.from(answeredDiets));
       
       // Require at least 1 answered diet question
-      if (answeredDietQuestions.length === 0) {
+      if (answeredDiets.size === 0) {
         setError('Please answer at least one diet question before proceeding.');
         return;
       }
       
-      console.log('✅ User has answered', answeredDietQuestions.length, 'diet question(s), proceeding to next page');
+      console.log('✅ User has answered', answeredDiets.size, 'diet question(s), proceeding to next page');
 
-      // Navigate to next onboarding step (single next question page)
+      // Navigate to next onboarding step (exercise question page)
       const params = new URLSearchParams({ 
         user_id: userId
       });
       
-      // If we have next questions loaded, pass the first one to avoid re-fetching
-      if (nextQuestions.length > 0) {
-        const firstQuestion = nextQuestions[0];
-        params.set('next_question', firstQuestion.question_name);
-        params.set('question_number', firstQuestion.question_number.toString());
-        params.set('question_data', JSON.stringify(firstQuestion));
-        console.log('📋 Passing pre-loaded next question to single question page');
-      }
-      
-      router.push(`/auth/question/next-question?${params.toString()}`);
+      router.push(`/auth/question/6?${params.toString()}`);
     } catch (error) {
       console.error('Error checking diet answers:', error);
       setError('Failed to check diet answers');
@@ -287,56 +171,7 @@ export default function DietPage() {
     }
   };
 
-  const checkAnsweredQuestions = async () => {
-    if (!userId) return;
-    
-    console.log('🔍 checkAnsweredQuestions called for userId:', userId);
-    
-    try {
-      // Fetch ALL pages of answers (handle pagination)
-      let allAnswers: any[] = [];
-      let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}&page_size=100`;
-      
-      while (nextUrl) {
-        const response = await fetch(nextUrl);
-        console.log('📡 Fetching answers page:', nextUrl);
-        
-        if (response.ok) {
-          const data = await response.json();
-          allAnswers = [...allAnswers, ...(data.results || [])];
-          nextUrl = data.next;
-        } else {
-          nextUrl = null;
-        }
-      }
-      
-      console.log('📋 Total answers fetched:', allAnswers.length);
-      
-      // Extract question IDs - the 'question' field contains an object with an 'id' property
-      const answeredQuestionIds = new Set<string>(
-        allAnswers.map((answer: any) => {
-          if (answer.question_id) {
-            return answer.question_id;
-          } else if (answer.question && typeof answer.question === 'object' && answer.question.id) {
-            return answer.question.id;
-          }
-          return null;
-        }).filter(id => id != null)
-      );
-      
-      console.log('📋 Answered question IDs:', Array.from(answeredQuestionIds));
-      
-      // Merge with localStorage (localStorage takes precedence for recent answers)
-      const answeredQuestionsKey = `answered_questions_${userId}`;
-      const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
-      const mergedAnswered = new Set([...answeredQuestionIds, ...localAnswered]);
-      
-      setAnsweredQuestions(mergedAnswered);
-      console.log('📋 Updated answeredQuestions state with', mergedAnswered.size, 'questions (backend:', answeredQuestionIds.size, '+ localStorage:', localAnswered.length, ')');
-    } catch (error) {
-      console.error('Error checking answered questions:', error);
-    }
-  };
+  // Removed checkAnsweredQuestions function - using localStorage only
 
   const handleBack = () => {
     const params = new URLSearchParams({ 
@@ -384,24 +219,21 @@ export default function DietPage() {
             </div>
           )}
 
+          {/* Removed loading indicator - no longer fetching data */}
+
           {/* Diet Options List */}
           <div className="space-y-3">
-            {!loadingQuestions && questions.filter(q => q.group_name === 'Diet').length === 0 && (
-              <div className="text-center text-gray-500 p-4">
-                <p>No diet questions found.</p>
-                <p className="text-sm mt-2">Please check if diet questions exist in the database.</p>
-              </div>
-            )}
+            {/* Removed no questions found message - using hardcoded data */}
             
-            {questions.filter(q => q.group_name === 'Diet').reverse().map((question) => {
-              const isAnswered = answeredQuestions.has(question.id);
+            {dietOptions.map((option) => {
+              const isAnswered = answeredDiets.has(option.value);
               
               return (
                 <div
-                  key={question.id}
-                  onClick={() => handleDietSelect(question.question_name)}
+                  key={option.value}
+                  onClick={() => handleDietSelect(option.value)}
                   className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                    selectedDiet === question.question_name
+                    selectedDiet === option.value
                       ? 'border-black bg-gray-50'
                       : isAnswered
                       ? 'border-[#672DB7] bg-purple-50'
@@ -410,13 +242,13 @@ export default function DietPage() {
                 >
                   <div className="flex items-center space-x-3">
                     <Image
-                      src="/assets/lf2.png"
+                      src="/assets/cpx.png"
                       alt="Diet icon"
                       width={24}
                       height={24}
                       className="w-6 h-6"
                     />
-                    <span className="text-black font-medium">{question.question_name}</span>
+                    <span className="text-black font-medium">{option.label}</span>
                     {isAnswered && (
                       <span className="text-[#672DB7] text-sm">✓ Answered</span>
                     )}

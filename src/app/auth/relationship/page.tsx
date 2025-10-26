@@ -9,130 +9,61 @@ export default function RelationshipPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
-  const [questions, setQuestions] = useState<Array<{
-    id: string;
-    question_name: string;
-    question_number: number;
-    group_number?: number;
-    group_name: string;
-    text: string;
-    answers: Array<{ value: string; answer_text: string }>;
-    open_to_all_me: boolean;
-    open_to_all_looking_for: boolean;
-  }>>([]);
 
-  // State for relationship questions (group numbers 1-4)
+  // Hardcoded relationship question labels
+  const relationshipLabels = ['FRIEND', 'HOOKUP', 'DATE', 'PARTNER'];
+  
+  // Hardcoded relationship question IDs (question_number == 1)
+  const relationshipQuestionIds = {
+    friend: '0794e611-1552-4840-a968-a3296263f317',    // Group 1
+    hookup: '18b3073e-fad2-45ee-b0b7-dfd99b9d23dd',   // Group 2
+    date: '72efdf7a-7db2-472b-84a4-58fa4f7ad8c1',     // Group 3
+    partner: '5e8dc25e-a417-421f-ad54-b136b7e54f34'   // Group 4
+  };
+
+  // State for relationship questions (4 sliders + importance)
   const [myAnswers, setMyAnswers] = useState({
-    q1: 3,
-    q2: 3,
-    q3: 3,
-    q4: 3
+    friend: 3,
+    hookup: 3,
+    date: 3,
+    partner: 3
   });
 
   const [openToAll, setOpenToAll] = useState({
-    q1: false,
-    q2: false,
-    q3: false,
-    q4: false
+    friend: false,
+    hookup: false,
+    date: false,
+    partner: false
   });
 
   const [importance, setImportance] = useState({
     me: 3
   });
 
-
-
   const [loading, setLoading] = useState(false);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
-    const questionsParam = searchParams.get('questions');
-    
-    console.log('🔍 Relationship Page Load - URL Params:', {
-      userIdParam,
-      questionsParam: questionsParam ? 'present' : 'missing',
-      questionsParamLength: questionsParam?.length
-    });
     
     // Get userId from URL params first, then try localStorage as fallback
     if (userIdParam) {
       setUserId(userIdParam);
-      console.log('📋 Set userId from URL param:', userIdParam);
     } else {
       // Try to get user_id from localStorage (set during login)
       const storedUserId = localStorage.getItem('user_id');
       if (storedUserId) {
         setUserId(storedUserId);
-        console.log('📋 Set userId from localStorage:', storedUserId);
-      } else {
-        console.log('❌ No userId found in URL params or localStorage');
       }
-    }
-    
-    if (questionsParam) {
-      try {
-        const parsedQuestions = JSON.parse(questionsParam);
-        setQuestions(parsedQuestions);
-        console.log('�� Received questions from URL:', parsedQuestions);
-        console.log('🔍 Relationship questions:', parsedQuestions.filter((q: typeof questions[0]) => q.question_number === 1));
-      } catch (error) {
-        console.error('❌ Error parsing questions from URL:', error);
-      }
-    } else {
-      console.log('❌ No questions parameter found in URL');
     }
   }, [searchParams]);
 
-  // Fetch questions from backend when userId is available (only once)
-  useEffect(() => {
-    const fetchQuestionsIfNeeded = async () => {
-      // Only fetch if we have a userId and haven't fetched questions yet
-      if (userId && questions.length === 0 && !loadingQuestions) {
-        console.log('🚀 Starting to fetch questions from backend...');
-        setLoadingQuestions(true);
-        try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1`;
-          console.log('🌐 Fetching from URL:', apiUrl);
-          
-          const response = await fetch(apiUrl);
-          console.log('�� Response status:', response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📋 Raw API response:', data);
-            
-            // Sort questions by group_number
-            const sortedQuestions = (data.results || []).sort((a: typeof questions[0], b: typeof questions[0]) => {
-              const groupA = a.group_number || 0;
-              const groupB = b.group_number || 0;
-              return groupA - groupB;
-            });
-            
-            setQuestions(sortedQuestions);
-            console.log('📋 Set questions to state (sorted by group_number):', sortedQuestions);
-          } else {
-            console.error('❌ Failed to fetch questions from backend. Status:', response.status);
-          }
-        } catch (error: unknown) {
-          console.error('❌ Error fetching questions from backend:', error);
-        } finally {
-          setLoadingQuestions(false);
-        }
-      }
-    };
 
-    fetchQuestionsIfNeeded();
-  }, [userId, questions.length, loadingQuestions]);
-
-  const handleSliderChange = (section: 'myAnswers', questionKey: string, value: number) => {
-    if (section === 'myAnswers') {
-      setMyAnswers(prev => ({ ...prev, [questionKey]: value }));
-    }
+  const handleSliderChange = (questionKey: keyof typeof myAnswers, value: number) => {
+    setMyAnswers(prev => ({ ...prev, [questionKey]: value }));
   };
 
-  const handleOpenToAllToggle = (questionKey: 'q1' | 'q2' | 'q3' | 'q4') => {
+  const handleOpenToAllToggle = (questionKey: keyof typeof openToAll) => {
     setOpenToAll(prev => ({ ...prev, [questionKey]: !prev[questionKey] }));
   };
 
@@ -142,72 +73,82 @@ export default function RelationshipPage() {
       return;
     }
 
-    if (!questions || questions.length < 4) {
-      setError('Questions not loaded properly');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     try {
-      // Find relationship questions (question_number = 1)
-      const relationshipQuestions = questions.filter(q => q.question_number === 1);
-
-      if (relationshipQuestions.length !== 4) {
-        setError('Required relationship questions not found');
-        return;
-      }
-
-      // Prepare user answers for relationship questions
-      const userAnswers = [];
-
-      for (const question of relationshipQuestions) {
-        const questionKey = `q${question.group_number}` as keyof typeof myAnswers;
-        const openToAllKey = questionKey as keyof typeof openToAll;
-        
-        userAnswers.push({
-          user_id: userId,
-          question_id: question.id,
-          me_answer: openToAll[openToAllKey] ? 6 : myAnswers[questionKey],
-          me_open_to_all: openToAll[openToAllKey],
-          me_importance: importance.me,
-          me_share: true,
-          looking_for_answer: 1, // Default since these questions don't have "looking for"
-          looking_for_open_to_all: false,
-          looking_for_importance: 1,
-          looking_for_share: true
-        });
-      }
-
-      // Save each user answer
-      for (const userAnswer of userAnswers) {
-        const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userAnswer)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to save answer for question ${userAnswer.question_id}`);
-        }
-      }
-
-      console.log('✅ All relationship answers saved successfully');
-
-      // Navigate to next onboarding step (gender page)
+      // Navigate to next page immediately (optimistic approach)
       const params = new URLSearchParams({ 
-        user_id: userId,
-        questions: JSON.stringify(questions)
+        user_id: userId
       });
       
       router.push(`/auth/gender?${params.toString()}`);
 
+      // Save answers to backend in the background (don't wait for response)
+      const saveAnswersInBackground = async () => {
+        try {
+          console.log('🚀 Starting to save relationship answers to backend...');
+          console.log('📊 Current answers:', { myAnswers, openToAll, importance });
+          
+          // Prepare user answers for each relationship question
+          const userAnswers = Object.entries(myAnswers).map(([questionKey, answerValue]) => {
+            const openToAllKey = questionKey as keyof typeof openToAll;
+            const questionId = relationshipQuestionIds[questionKey as keyof typeof relationshipQuestionIds];
+            
+            return {
+              user_id: userId,
+              question_id: questionId,
+              me_answer: openToAll[openToAllKey] ? 6 : answerValue,
+              me_open_to_all: openToAll[openToAllKey],
+              me_importance: importance.me,
+              me_share: true,
+              looking_for_answer: 1,
+              looking_for_open_to_all: false,
+              looking_for_importance: 1,
+              looking_for_share: true
+            };
+          });
+
+          console.log('🌐 Making API calls to:', getApiUrl(API_ENDPOINTS.ANSWERS));
+          
+          // Save each answer to backend
+          const savePromises = userAnswers.map(async (userAnswer, index) => {
+            console.log(`📤 Sending API request ${index + 1}/4:`, userAnswer);
+            
+            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(userAnswer)
+            });
+            
+            console.log(`📡 Response ${index + 1} status:`, response.status);
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`❌ API request ${index + 1} failed:`, response.status, errorText);
+            } else {
+              const responseData = await response.json();
+              console.log(`✅ API request ${index + 1} successful:`, responseData);
+            }
+          });
+
+          await Promise.all(savePromises);
+          console.log('✅ All relationship answers processed');
+        } catch (error) {
+          console.error('❌ Error saving relationship answers to backend:', error);
+        }
+      };
+
+      // Start background save (don't await)
+      console.log('🎯 About to start background save...');
+      saveAnswersInBackground();
+      console.log('🎯 Background save function called');
+
     } catch (error: unknown) {
-      console.error('❌ Error saving relationship answers:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save answers');
+      console.error('❌ Error navigating to next page:', error);
+      setError(error instanceof Error ? error.message : 'Failed to proceed');
     } finally {
       setLoading(false);
     }
@@ -405,7 +346,7 @@ export default function RelationshipPage() {
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.some(q => [3, 4, 5, 6].includes(q.question_number) && q.open_to_all_me) ? 'OTA' : ''}
+                OTA
               </div>
             
                
@@ -421,39 +362,34 @@ export default function RelationshipPage() {
               }}
             >
               
-              {/* Question Rows for Relationship Questions (question_number = 1) */}
-              {questions.filter(q => q.question_number === 1).map((question) => {
-                const questionKey = `q${question.group_number}` as keyof typeof myAnswers;
+              {/* Hardcoded Relationship Question Rows */}
+              {relationshipLabels.map((label) => {
+                const questionKey = label.toLowerCase() as keyof typeof myAnswers;
                 const openToAllKey = questionKey as keyof typeof openToAll;
                 
                 return (
-                  <React.Fragment key={question.id}>
-                    <div className="text-xs font-semibold text-gray-400 mobile-label">{question.question_name.toUpperCase()}</div>
+                  <React.Fragment key={label}>
+                    <div className="text-xs font-semibold text-gray-400 mobile-label">{label}</div>
                     <div className="relative">
                       <SliderComponent
                         value={myAnswers[questionKey]}
-                        onChange={(value) => handleSliderChange('myAnswers', questionKey, value)}
+                        onChange={(value) => handleSliderChange(questionKey, value)}
                         isOpenToAll={openToAll[openToAllKey]}
                       />
                     </div>
                     <div>
-                      {/* Only show switch if question has open_to_all_me enabled */}
-                      {question.open_to_all_me ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAll[openToAllKey]}
-                              onChange={() => handleOpenToAllToggle(openToAllKey)}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAll[openToAllKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[openToAllKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                      )}
+                      <label className="flex items-center cursor-pointer">
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={openToAll[openToAllKey]}
+                            onChange={() => handleOpenToAllToggle(openToAllKey)}
+                            className="sr-only"
+                          />
+                          <div className={`block w-11 h-6 rounded-full ${openToAll[openToAllKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                          <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[openToAllKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                        </div>
+                      </label>
                     </div>
                   </React.Fragment>
                 );

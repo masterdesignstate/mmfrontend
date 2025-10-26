@@ -1,23 +1,24 @@
 // API Configuration
 const API_CONFIG = {
   // Backend base URL - change this based on your environment
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com',
-  
+  // BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com',
+
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090/api',
   // API endpoints
   ENDPOINTS: {
-    SIGNUP: '/api/auth/signup/',
-    PERSONAL_DETAILS: '/api/auth/personal-details/',
-    LOGIN: '/api/auth/login/',
-    CHECK_USER: '/api/auth/check-user/',
-    ONBOARDING_STATUS: '/api/auth/onboarding-status/',
-    UPDATE_PROFILE_PHOTO: '/api/auth/update-profile-photo/',
-    USERS: '/api/users/',
-    USERS_ME: '/api/users/me/',
-    QUESTIONS: '/api/questions/',
-    ANSWERS: '/api/answers/',
-    USER_RESULTS: '/api/results',
-    CONTROLS: '/api/controls/',
-    CONTROLS_CURRENT: '/api/controls/current/',
+    SIGNUP: '/auth/signup/',
+    PERSONAL_DETAILS: '/auth/personal-details/',
+    LOGIN: '/auth/login/',
+    CHECK_USER: '/auth/check-user/',
+    ONBOARDING_STATUS: '/auth/onboarding-status/',
+    UPDATE_PROFILE_PHOTO: '/auth/update-profile-photo/',
+    USERS: '/users/',
+    USERS_ME: '/users/me/',
+    QUESTIONS: '/questions/',
+    ANSWERS: '/answers/',
+    USER_RESULTS: '/results',
+    CONTROLS: '/controls/',
+    CONTROLS_CURRENT: '/controls/current/',
   }
 };
 

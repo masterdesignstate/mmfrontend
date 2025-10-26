@@ -145,10 +145,12 @@ export default function ProfilePage() {
 
     // Debug for question 1 (I'm Looking For section)
     if (questionNumber === 1) {
-      console.log(`🔍 Looking for Q${questionNumber} G${groupNumber} (${answerType}):`, {
+      console.log(`🔍 Relationship Question Q${questionNumber} G${groupNumber} (${answerType}):`, {
         found: !!answer,
         value: answer ? answer[answerType] : null,
         question: answer?.question.question_name,
+        me_answer: answer?.me_answer,
+        looking_for_answer: answer?.looking_for_answer,
         allQ1Answers: userAnswers.filter(a => a.question.question_number === 1).map(a => ({
           group: a.question.group_number,
           name: a.question.question_name,
@@ -436,7 +438,17 @@ export default function ProfilePage() {
     );
   };
 
-  if (loading) {
+  // Check if we should hide the loading spinner because the loading page is showing
+  const showLoadingPage = typeof window !== 'undefined' && sessionStorage.getItem('show_loading_page') === 'true';
+  
+  // Clear the flag once profile is loaded (from onboarding flow)
+  if (!loading && showLoadingPage) {
+    sessionStorage.removeItem('show_loading_page');
+  }
+
+  // If coming from onboarding (showLoadingPage is true), don't show the spinner
+  // The loading page will handle the display
+  if (loading && !showLoadingPage) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -445,6 +457,11 @@ export default function ProfilePage() {
         </div>
       </div>
     );
+  }
+  
+  // If loading page is showing and profile is still loading, return null to stay on loading page
+  if (loading && showLoadingPage) {
+    return null;
   }
 
   if (error) {

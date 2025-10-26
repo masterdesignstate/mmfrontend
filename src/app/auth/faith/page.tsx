@@ -82,12 +82,11 @@ export default function FaithPage() {
       setAnsweredQuestions(prev => new Set([...prev, justAnsweredParam]));
     }
 
-    // If refresh flag is present, sync with backend (but don't wait for UI update)
-    if (refreshParam === 'true' && userIdParam) {
-      console.log('🔄 Refresh flag detected, syncing with backend in background...');
-      // Don't wait for this - UI is already updated optimistically
-      checkAnsweredQuestions();
-    }
+    // No need to sync with backend - we're using localStorage for immediate UI feedback
+    // if (refreshParam === 'true' && userIdParam) {
+    //   console.log('🔄 Refresh flag detected, syncing with backend in background...');
+    //   checkAnsweredQuestions();
+    // }
   }, [searchParams]);
 
   // Fetch faith questions from backend when userId is available (only once)
@@ -148,61 +147,62 @@ export default function FaithPage() {
         setAnsweredQuestions(new Set(localAnswered));
         console.log('⚡ Loaded answered questions from localStorage:', localAnswered);
       }
-      // Also check backend (but don't wait for it)
-      checkAnsweredQuestions();
+      // No need to check backend - we're using localStorage for immediate UI feedback
+      // checkAnsweredQuestions();
     }
   }, [userId]);
 
-  const checkAnsweredQuestions = async () => {
-    if (!userId) return;
-    
-    console.log('🔍 checkAnsweredQuestions called for userId:', userId);
-    
-    try {
-      // Fetch ALL pages of answers (handle pagination)
-      let allAnswers: any[] = [];
-      let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}&page_size=100`;
-      
-      while (nextUrl) {
-        const response = await fetch(nextUrl);
-        console.log('📡 Fetching answers page:', nextUrl);
-        
-        if (response.ok) {
-          const data = await response.json();
-          allAnswers = [...allAnswers, ...(data.results || [])];
-          nextUrl = data.next;
-        } else {
-          nextUrl = null;
-        }
-      }
-      
-      console.log('📋 Total answers fetched:', allAnswers.length);
-      
-      // Extract question IDs - the 'question' field contains an object with an 'id' property
-      const answeredQuestionIds = new Set<string>(
-        allAnswers.map((answer: any) => {
-          if (answer.question_id) {
-            return answer.question_id;
-          } else if (answer.question && typeof answer.question === 'object' && answer.question.id) {
-            return answer.question.id;
-          }
-          return null;
-        }).filter(id => id != null)
-      );
-      
-      console.log('📋 Answered question IDs:', Array.from(answeredQuestionIds));
-      
-      // Merge with localStorage (localStorage takes precedence for recent answers)
-      const answeredQuestionsKey = `answered_questions_${userId}`;
-      const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
-      const mergedAnswered = new Set([...answeredQuestionIds, ...localAnswered]);
-      
-      setAnsweredQuestions(mergedAnswered);
-      console.log('📋 Updated answeredQuestions state with', mergedAnswered.size, 'questions (backend:', answeredQuestionIds.size, '+ localStorage:', localAnswered.length, ')');
-    } catch (error) {
-      console.error('Error checking answered questions:', error);
-    }
-  };
+  // No need for checkAnsweredQuestions function - we're using localStorage
+  // const checkAnsweredQuestions = async () => {
+  //   if (!userId) return;
+  //   
+  //   console.log('🔍 checkAnsweredQuestions called for userId:', userId);
+  //   
+  //   try {
+  //     // Fetch ALL pages of answers (handle pagination)
+  //     let allAnswers: any[] = [];
+  //     let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user_id=${userId}&page_size=100`;
+  //     
+  //     while (nextUrl) {
+  //       const response = await fetch(nextUrl);
+  //       console.log('📡 Fetching answers page:', nextUrl);
+  //       
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         allAnswers = [...allAnswers, ...(data.results || [])];
+  //         nextUrl = data.next;
+  //       } else {
+  //         nextUrl = null;
+  //       }
+  //     }
+  //     
+  //     console.log('📋 Total answers fetched:', allAnswers.length);
+  //     
+  //     // Extract question IDs - the 'question' field contains an object with an 'id' property
+  //     const answeredQuestionIds = new Set<string>(
+  //       allAnswers.map((answer: any) => {
+  //         if (answer.question_id) {
+  //           return answer.question_id;
+  //         } else if (answer.question && typeof answer.question === 'object' && answer.question.id) {
+  //           return answer.question.id;
+  //         }
+  //         return null;
+  //       }).filter(id => id != null)
+  //     );
+  //     
+  //     console.log('📋 Answered question IDs:', Array.from(answeredQuestionIds));
+  //     
+  //     // Merge with localStorage (localStorage takes precedence for recent answers)
+  //     const answeredQuestionsKey = `answered_questions_${userId}`;
+  //     const localAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+  //     const mergedAnswered = new Set([...answeredQuestionIds, ...localAnswered]);
+  //     
+  //     setAnsweredQuestions(mergedAnswered);
+  //     console.log('📋 Updated answeredQuestions state with', mergedAnswered.size, 'questions (backend:', answeredQuestionIds.size, '+ localStorage:', localAnswered.length, ')');
+  //   } catch (error) {
+  //     console.error('Error checking answered questions:', error);
+  //   }
+  // };
 
   const handleFaithSelect = (faith: string) => {
     console.log('🔍 Faith selected:', faith);

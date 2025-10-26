@@ -99,7 +99,7 @@ export default function LoginPage() {
                 const params = new URLSearchParams({
                   user_id: onboardingData.user_id
                 });
-                router.push(`/auth/gender?${params.toString()}`);
+                router.push(`/auth/relationship?${params.toString()}`);
               } else if (onboardingData.step === 'complete') {
                 // Onboarding complete - redirect to results page for regular users
                 console.log('✅ Onboarding complete, redirecting to results');

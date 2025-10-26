@@ -1,29 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-
-type QuestionShape = {
-  id: string;
-  question_name: string;
-  question_number: number;
-  group_number?: number;
-  group_name: string;
-  text: string;
-  answers: Array<{ value: string; answer_text: string }>;
-  open_to_all_me: boolean;
-  open_to_all_looking_for: boolean;
-};
 
 export default function GenderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>('');
-
-  const [questions, setQuestions] = useState<QuestionShape[]>([]);
-  const [genderQuestions, setGenderQuestions] = useState<QuestionShape[]>([]);
 
   // State for MALE/FEMALE sliders
   const [myGender, setMyGender] = useState({
@@ -48,125 +33,23 @@ export default function GenderPage() {
     lookingFor: 3
   });
 
-  const [loading, setLoading] = useState(false);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // Hardcoded question IDs for gender questions
+  const genderQuestionIds = {
+    male: 'bfc597fe-fa90-46b3-9ac8-e98968b46efa',    // Group 1
+    female: '45e0858e-8870-4378-ac4a-02e1043b5c2e'  // Group 2
+  };
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
-    const questionsParam = searchParams.get('questions');
-    
-    console.log('�� Gender Page Load - URL Params:', {
-      userIdParam,
-      questionsParam: questionsParam ? 'present' : 'missing',
-      questionsParamLength: questionsParam?.length
-    });
-    
-    // Get userId from URL params first, then try localStorage as fallback
     if (userIdParam) {
       setUserId(userIdParam);
       console.log('📋 Set userId from URL param:', userIdParam);
     } else {
-      // Try to get user_id from localStorage (set during login)
-      const storedUserId = localStorage.getItem('user_id');
-      if (storedUserId) {
-        setUserId(storedUserId);
-        console.log('📋 Set userId from localStorage:', storedUserId);
-      } else {
-        console.log('❌ No userId found in URL params or localStorage');
-      }
-    }
-    
-    if (questionsParam) {
-      try {
-        const parsedQuestions: QuestionShape[] = JSON.parse(questionsParam);
-        setQuestions(parsedQuestions);
-        const preloadedGender = parsedQuestions.filter((q) =>
-          ['male', 'female'].includes(q.question_name?.toLowerCase() || '')
-        );
-        if (preloadedGender.length) {
-          setGenderQuestions(prev => prev.length ? prev : preloadedGender);
-        }
-        console.log('�� Received questions from URL:', parsedQuestions);
-        console.log('🔍 Question OTA settings from URL:', parsedQuestions.map((q: QuestionShape) => ({
-          number: q.question_number,
-          group: q.group_name,
-          ota_me: q.open_to_all_me,
-          ota_looking: q.open_to_all_looking_for
-        })));
-      } catch (error) {
-        console.error('❌ Error parsing questions from URL:', error);
-      }
-    } else {
-      console.log('❌ No questions parameter found in URL');
+      console.log('❌ No user_id parameter found in URL');
     }
   }, [searchParams]);
-
-  // Fetch Male/Female questions from backend when userId is available (only once)
-  useEffect(() => {
-    const fetchQuestionsIfNeeded = async () => {
-      // Only fetch if we have a userId and haven't fetched questions yet
-      if (userId && genderQuestions.length === 0 && !loadingQuestions) {
-        console.log('🚀 Starting to fetch Male/Female questions from backend...');
-        setLoadingQuestions(true);
-        try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=2`;
-          console.log('🌐 Fetching from URL:', apiUrl);
-          
-          const response = await fetch(apiUrl);
-          console.log('�� Response status:', response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📋 Raw API response:', data);
-            
-            // Sort questions by group_number
-            const sortedQuestions = (data.results || []).sort((a: QuestionShape, b: QuestionShape) => {
-              const groupA = a.group_number || 0;
-              const groupB = b.group_number || 0;
-              return groupA - groupB;
-            });
-            
-            setGenderQuestions(sortedQuestions);
-            setQuestions(prev => prev.length ? prev : sortedQuestions);
-            console.log('📋 Set Male/Female questions to state (sorted by group_number):', sortedQuestions);
-            console.log('🔍 Backend Male/Female Question OTA settings:', sortedQuestions.map((q: QuestionShape) => ({
-              number: q.question_number,
-              group_number: q.group_number,
-              group: q.group_name,
-              ota_me: q.open_to_all_me,
-              ota_looking: q.open_to_all_looking_for
-            })));
-          } else {
-            console.error('❌ Failed to fetch Male/Female questions from backend. Status:', response.status);
-          }
-        } catch (error: unknown) {
-          console.error('❌ Error fetching Male/Female questions from backend:', error);
-        } finally {
-          setLoadingQuestions(false);
-        }
-      }
-    };
-
-    fetchQuestionsIfNeeded();
-  }, [userId, genderQuestions.length, loadingQuestions]);
-
-  const maleQuestion =
-    genderQuestions.find(
-      (q) =>
-        q.question_name?.toLowerCase() === 'male' ||
-        q.group_name?.toLowerCase() === 'male' ||
-        (q.group_number ?? 0) === 1 ||
-        q.text.toLowerCase().includes('male')
-    ) ?? genderQuestions[0];
-  const femaleQuestion =
-    genderQuestions.find(
-      (q) =>
-        q.question_name?.toLowerCase() === 'female' ||
-        q.group_name?.toLowerCase() === 'female' ||
-        (q.group_number ?? 0) === 2 ||
-        q.text.toLowerCase().includes('female')
-    ) ?? genderQuestions.find(q => q.id !== maleQuestion?.id);
 
   const handleSliderChange = (section: 'myGender' | 'lookingFor' | 'importance', gender: string, value: number) => {
     if (section === 'myGender') {
@@ -184,86 +67,78 @@ export default function GenderPage() {
 
   const handleNext = async () => {
     if (!userId) {
-      setError('User ID is required');
+      console.error('❌ User ID is required');
       return;
     }
 
-    const male = maleQuestion;
-    const female = femaleQuestion;
+    console.log('🚀 Gender page - Starting optimistic navigation to ethnicity');
 
-    if (!male || !female) {
-      setError('Still loading gender options. Please wait a moment and try again.');
-      return;
-    }
+    // Navigate immediately to ethnicity page (optimistic)
+    const params = new URLSearchParams({ 
+      user_id: userId
+    });
+    router.push(`/auth/ethnicity?${params.toString()}`);
 
-    setLoading(true);
-    setError('');
-
-    try {
-      // Prepare user answers for Male/Female questions
-      const userAnswers = [
-        {
-          user_id: userId,
-          question_id: male.id,
-          me_answer: openToAll.maleMeOpen ? 6 : myGender.male,
-          me_open_to_all: openToAll.maleMeOpen,
-          me_importance: importance.me,
-          me_share: true,
-          looking_for_answer: openToAll.maleLookingOpen ? 6 : lookingFor.male,
-          looking_for_open_to_all: openToAll.maleLookingOpen,
-          looking_for_importance: importance.lookingFor,
-          looking_for_share: true
-        },
-        {
-          user_id: userId,
-          question_id: female.id,
-          me_answer: openToAll.femaleMeOpen ? 6 : myGender.female,
-          me_open_to_all: openToAll.femaleMeOpen,
-          me_importance: importance.me,
-          me_share: true,
-          looking_for_answer: openToAll.femaleLookingOpen ? 6 : lookingFor.female,
-          looking_for_open_to_all: openToAll.femaleLookingOpen,
-          looking_for_importance: importance.lookingFor,
-          looking_for_share: true
-        }
-      ];
-
-      // Save each user answer
-      for (const userAnswer of userAnswers) {
-        const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+    // Save answers in background
+    const saveAnswersInBackground = async () => {
+      try {
+        console.log('💾 Gender page - Starting background save...');
+        
+        // Prepare user answers for Male/Female questions
+        const userAnswers = [
+          {
+            user_id: userId,
+            question_id: genderQuestionIds.male,
+            me_answer: openToAll.maleMeOpen ? 6 : myGender.male,
+            me_open_to_all: openToAll.maleMeOpen,
+            me_importance: importance.me,
+            me_share: true,
+            looking_for_answer: openToAll.maleLookingOpen ? 6 : lookingFor.male,
+            looking_for_open_to_all: openToAll.maleLookingOpen,
+            looking_for_importance: importance.lookingFor,
+            looking_for_share: true
           },
-          body: JSON.stringify(userAnswer)
-        });
+          {
+            user_id: userId,
+            question_id: genderQuestionIds.female,
+            me_answer: openToAll.femaleMeOpen ? 6 : myGender.female,
+            me_open_to_all: openToAll.femaleMeOpen,
+            me_importance: importance.me,
+            me_share: true,
+            looking_for_answer: openToAll.femaleLookingOpen ? 6 : lookingFor.female,
+            looking_for_open_to_all: openToAll.femaleLookingOpen,
+            looking_for_importance: importance.lookingFor,
+            looking_for_share: true
+          }
+        ];
 
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to save answer');
+        // Save each user answer
+        for (const userAnswer of userAnswers) {
+          console.log('💾 Saving gender answer:', userAnswer.question_id);
+          const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userAnswer)
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            console.error('❌ Failed to save gender answer:', data);
+            throw new Error(data.error || 'Failed to save answer');
+          }
+          console.log('✅ Gender answer saved successfully');
         }
+        
+        console.log('✅ All gender answers saved successfully');
+      } catch (error) {
+        console.error('❌ Error saving gender answers in background:', error);
       }
+    };
 
-      // Navigate to ethnicity page
-      const params = new URLSearchParams({ 
-        user_id: userId
-      });
-      const combinedQuestions = [
-        ...questions,
-        ...genderQuestions.filter(
-          (question) => !questions.some(existing => existing.id === question.id)
-        )
-      ];
-      if (combinedQuestions.length) {
-        params.set('questions', JSON.stringify(combinedQuestions));
-      }
-      router.push(`/auth/ethnicity?${params.toString()}`);
-    } catch (error) {
-      console.error('Error saving gender preferences:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save gender preferences');
-    } finally {
-      setLoading(false);
-    }
+    // Start background save (don't await)
+    saveAnswersInBackground();
   };
 
   const handleBack = () => {
@@ -284,6 +159,32 @@ export default function GenderPage() {
     isOpenToAll?: boolean;
     isImportance?: boolean;
   }) => {
+    const [fillWidth, setFillWidth] = useState('0%');
+    const hasAnimatedRef = useRef(false);
+    const raf1Ref = useRef<number | null>(null);
+    const raf2Ref = useRef<number | null>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+      if (isOpenToAll && !hasAnimatedRef.current) {
+        setFillWidth('0%');
+        raf1Ref.current = requestAnimationFrame(() => {
+          raf2Ref.current = requestAnimationFrame(() => {
+            setFillWidth('100%');
+            hasAnimatedRef.current = true;
+          });
+        });
+        return () => {
+          if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+          if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+        };
+      }
+      if (!isOpenToAll) {
+        hasAnimatedRef.current = false;
+        setFillWidth('0%');
+      }
+    }, [isOpenToAll]);
+
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
       const rect = e.currentTarget.getBoundingClientRect();
@@ -325,44 +226,58 @@ export default function GenderPage() {
         onDragStart={handleDragStart}
       >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-          
-          {/* Custom Slider Track */}
+        
+        {/* Custom Slider Track */}
+        <div 
+          ref={sliderRef}
+          className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+          style={{
+            width: '100%',
+            backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
+            borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
+          }}
+          onClick={handleSliderClick}
+          onMouseMove={handleSliderDrag}
+          onMouseDown={handleSliderDrag}
+          onDragStart={handleDragStart}
+        >
+          {/* Filling Animation Layer */}
           <div 
-            className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+            className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
             style={{
-              width: '100%',
-              backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-              borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
+              width: fillWidth,
+              transition: 'width 1.2s ease-in-out',
+              willChange: 'width'
             }}
-            onClick={handleSliderClick}
-            onMouseMove={handleSliderDrag}
-            onMouseDown={handleSliderDrag}
-            onDragStart={handleDragStart}
           />
-          
-          {/* Slider Thumb - OUTSIDE the track container */}
-          {!isOpenToAll && (
-            <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
-              style={{
-                backgroundColor: isImportance ? 'white' : '#672DB7',
-                boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
-              }}
-              onDragStart={handleDragStart}
-            >
-              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
-            </div>
-          )}
-          
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
+        </div>
+        
+        {/* Slider Thumb */}
+        {!isOpenToAll && (
+          <div 
+            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
+            style={{
+              backgroundColor: isImportance ? 'white' : '#672DB7',
+              boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
+              left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
+            }}
+            onDragStart={handleDragStart}
+          >
+            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+          </div>
+        )}
+        
+        {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
       </div>
     );
   };
 
+  // Hardcoded OTA settings for gender questions
+  const anyLookingForOpen = true; // All gender questions have open_to_all_looking_for = true
+  const anyMeOpen = false; // Male question has open_to_all_me = true, Female has false
+
   return (
     <div className="min-h-screen bg-white">
-
       {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
@@ -399,10 +314,13 @@ export default function GenderPage() {
             </div>
           )}
 
-          {/* Looking For Section */}
-          <div className="mb-10">
+        {/* Sliders Container */}
+        <div className="max-w-2xl mx-auto">
+          {/* Them Section */}
+          <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
+            {/* LESS, MORE, and OTA labels below Them header - using same grid structure */}
             <div
               className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
               style={{
@@ -410,13 +328,13 @@ export default function GenderPage() {
                 columnGap: 'clamp(12px, 5vw, 24px)'
               }}
             >
-              <div></div>
+              <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {maleQuestion?.open_to_all_looking_for || femaleQuestion?.open_to_all_looking_for ? 'OTA' : ''}
+                OTA
               </div>
             </div>
 
@@ -425,9 +343,10 @@ export default function GenderPage() {
               style={{
                 gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
                 columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(16px, 4vw, 28px)'
+                rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
+              {/* Male Slider */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
               <div className="relative">
                 <SliderComponent
@@ -436,25 +355,22 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.maleLookingOpen}
                 />
               </div>
-              <div>
-                {maleQuestion?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.maleLookingOpen}
-                        onChange={() => handleOpenToAllToggle('maleLookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div>
-                )}
+              <div className="flex justify-center">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.maleLookingOpen}
+                      onChange={() => handleOpenToAllToggle('maleLookingOpen')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
               </div>
 
+              {/* Female Slider */}
               <div className="text-xs font-semibold text-gray-400">FEMALE</div>
               <div className="relative">
                 <SliderComponent
@@ -463,33 +379,39 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.femaleLookingOpen}
                 />
               </div>
-              <div>
-                {femaleQuestion?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.femaleLookingOpen}
-                        onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div>
-                )}
+              <div className="flex justify-center">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.femaleLookingOpen}
+                      onChange={() => handleOpenToAllToggle('femaleLookingOpen')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-11 h-6 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
               </div>
 
+              {/* Importance Slider */}
+              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={importance.lookingFor}
+                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+                  isImportance={true}
+                />
+              </div>
+              <div className="w-11 h-6"></div>
             </div>
-
           </div>
 
           {/* Me Section */}
-          <div className="mb-6 pt-8">
+          <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
+            {/* LESS, MORE, and OTA labels below Me header - using same grid structure */}
             <div
               className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
               style={{
@@ -497,13 +419,13 @@ export default function GenderPage() {
                 columnGap: 'clamp(12px, 5vw, 24px)'
               }}
             >
-              <div></div>
+              <div></div> {/* Empty placeholder for label column */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {maleQuestion?.open_to_all_me || femaleQuestion?.open_to_all_me ? 'OTA' : ''}
+                {anyMeOpen ? 'OTA' : ''}
               </div>
             </div>
 
@@ -512,9 +434,10 @@ export default function GenderPage() {
               style={{
                 gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
                 columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(16px, 4vw, 28px)'
+                rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
+              {/* Male Slider */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
               <div className="relative">
                 <SliderComponent
@@ -523,25 +446,22 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.maleMeOpen}
                 />
               </div>
-              <div>
-                {maleQuestion?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.maleMeOpen}
-                        onChange={() => handleOpenToAllToggle('maleMeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.maleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div>
-                )}
+              <div className="flex justify-center">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.maleMeOpen}
+                      onChange={() => handleOpenToAllToggle('maleMeOpen')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-11 h-6 rounded-full ${openToAll.maleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
               </div>
 
+              {/* Female Slider */}
               <div className="text-xs font-semibold text-gray-400">FEMALE</div>
               <div className="relative">
                 <SliderComponent
@@ -550,51 +470,13 @@ export default function GenderPage() {
                   isOpenToAll={openToAll.femaleMeOpen}
                 />
               </div>
-              <div>
-                {femaleQuestion?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.femaleMeOpen}
-                        onChange={() => handleOpenToAllToggle('femaleMeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.femaleMeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div>
-                )}
+              <div className="flex justify-center">
+                <div className="w-11 h-6"></div>
               </div>
-
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
-                  isOpenToAll={false}
-                  isImportance={true}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-            </div>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div>
-              <div className="relative text-xs text-gray-500 w-full"></div>
-              <div></div>
             </div>
           </div>
         </div>
-
+        </div>
       </main>
 
       {/* Footer with Progress and Navigation */}
@@ -613,57 +495,16 @@ export default function GenderPage() {
           >
             Back
           </button>
-          
-          {/* Next Button */}
+
+          {/* Next/Save Button */}
           <button
             onClick={handleNext}
-            disabled={loading || loadingQuestions || !maleQuestion || !femaleQuestion}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading && !loadingQuestions && maleQuestion && femaleQuestion
-                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            className="px-8 py-3 bg-black text-white rounded-md font-medium hover:bg-gray-800 transition-colors"
           >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              'Next'
-            )}
+            Next
           </button>
         </div>
       </footer>
-
-      <style jsx>{`
-        .slider {
-          -webkit-appearance: none;
-          appearance: none;
-          background: #ddd;
-          outline: none;
-          border-radius: 15px;
-        }
-
-        .slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #000;
-          cursor: pointer;
-        }
-
-        .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #000;
-          cursor: pointer;
-          border: none;
-        }
-      `}</style>
     </div>
   );
 }
