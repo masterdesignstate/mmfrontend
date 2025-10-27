@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 
 interface Question {
@@ -53,6 +53,7 @@ export default function QuestionsPage() {
   const [isRequiredForMatch, setIsRequiredForMatch] = useState(false);
   const [shareAnswer, setShareAnswer] = useState(true);
   const [sliderValue, setSliderValue] = useState(3);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,23 +103,26 @@ export default function QuestionsPage() {
           total_question_groups: metadata.total_question_groups,
           question_count: metadata.distinct_question_numbers?.length
         });
-        setAllQuestionNumbers(metadata.distinct_question_numbers);
+        // Filter out any null values from distinct_question_numbers
+        const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
+        setAllQuestionNumbers(validQuestionNumbers);
         setTotalQuestionGroups(metadata.total_question_groups);
         setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
         setAnswerCounts(metadata.answer_counts);
-        return metadata.distinct_question_numbers;
+        return validQuestionNumbers;
       }
 
       // Fetch from new optimized metadata endpoint
-      const response = await fetch(
-        `${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`,
-        {
+      const metadataUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`;
+      console.log('🔍 Fetching metadata from:', metadataUrl);
+      console.log('🔍 Full metadata URL:', metadataUrl);
+      
+      const response = await fetch(metadataUrl, {
    
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (response.ok) {
         const metadata = await response.json();
@@ -129,25 +133,45 @@ export default function QuestionsPage() {
           question_count: metadata.distinct_question_numbers?.length,
           answer_counts: metadata.answer_counts
         });
+        console.log('📊 All question numbers in metadata:', metadata.distinct_question_numbers);
 
         // Cache the metadata
         sessionStorage.setItem(cacheKey, JSON.stringify(metadata));
         sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
 
-        // Set state
-        setAllQuestionNumbers(metadata.distinct_question_numbers);
+        // Filter out any null values from distinct_question_numbers
+        const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
+        setAllQuestionNumbers(validQuestionNumbers);
         setTotalQuestionGroups(metadata.total_question_groups);
         setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
         setAnswerCounts(metadata.answer_counts);
 
         console.log(`Fetched metadata: ${metadata.total_question_groups} question groups`);
-        return metadata.distinct_question_numbers;
+        return validQuestionNumbers;
       } else {
         console.error('Failed to fetch question metadata');
         return [];
       }
     } catch (error) {
       console.error('Error fetching question metadata:', error);
+      
+      // If fetch failed but we have cached data, try to use it even if expired
+      const cacheKey = 'questions_metadata';
+      const cachedData = sessionStorage.getItem(cacheKey);
+      if (cachedData) {
+        console.log('⚠️ Using stale cache due to network error');
+        try {
+          const metadata = JSON.parse(cachedData);
+          const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
+          setAllQuestionNumbers(validQuestionNumbers);
+          setTotalQuestionGroups(metadata.total_question_groups);
+          setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
+          setAnswerCounts(metadata.answer_counts);
+          return validQuestionNumbers;
+        } catch (parseError) {
+          console.error('Error parsing cached data:', parseError);
+        }
+      }
       return [];
     }
   };
@@ -819,6 +843,10 @@ export default function QuestionsPage() {
 
         {/* Questions List */}
         <div className="space-y-2">
+          <div className="flex items-center justify-between px-4 mb-2">
+            <div className="flex-1"></div>
+            <span className="text-sm font-medium text-black">Times Answered</span>
+          </div>
           {sortedGroupedQuestions
             .map(([key, group]) => {
               const answerCount = getAnswerCount(group.questionNumber);
@@ -1300,14 +1328,39 @@ export default function QuestionsPage() {
                   setIsSubmittingQuestion(true);
                   
                   try {
-                    const response = await fetch(getApiUrl(API_ENDPOINTS.QUESTIONS), {
-                      method: 'POST',
+                    // First, fetch the max question_number to determine the next number
+                    const maxResponse = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?ordering=-question_number&page_size=1`, {
                       headers: {
                         'Content-Type': 'application/json',
                       },
-               
-                      body: JSON.stringify({
+                    });
+
+                    let nextQuestionNumber = 1;
+                    if (maxResponse.ok) {
+                      const maxData = await maxResponse.json();
+                      console.log('📊 Max question data:', maxData);
+                      console.log('📊 Results array:', maxData.results);
+                      if (maxData.results && maxData.results.length > 0) {
+                        // Find the highest question_number from all results
+                        let maxNum = 0;
+                        for (const q of maxData.results) {
+                          if (q.question_number && q.question_number > maxNum) {
+                            maxNum = q.question_number;
+                          }
+                        }
+                        if (maxNum > 0) {
+                          nextQuestionNumber = maxNum + 1;
+                          console.log(`📝 Next question number will be: ${nextQuestionNumber}`);
+                        }
+                      }
+                    }
+
+                    // Now create the question with the next number
+                    const questionData = {
                         text: questionText.trim(),
+                        question_name: questionText.trim().substring(0, 50),  // Auto-generate name from text
+                        question_number: nextQuestionNumber,  // Use the next available question number
+                        question_type: 'basic',  // Default to basic type
                         tags: selectedTags.map(tag => tag.toLowerCase()),
                         is_approved: false,  // User-submitted questions need approval
                         is_mandatory: false,
@@ -1317,10 +1370,31 @@ export default function QuestionsPage() {
                         open_to_all_me: shareAnswer,
                         open_to_all_looking_for: shareAnswer,
                         is_group: false,
-                      }),
+                        value_label_1: valueLabel1.trim(),
+                        value_label_5: valueLabel5.trim()
+                      };
+                    
+                    console.log('📤 Submitting question with data:', questionData);
+                    const response = await fetch(getApiUrl(API_ENDPOINTS.QUESTIONS), {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+               
+                      body: JSON.stringify(questionData),
                     });
 
+                    console.log('📡 Response status:', response.status);
+                    const responseData = await response.json();
+                    console.log('📡 Response data:', responseData);
+                    console.log('📝 Created question number:', responseData.question_number);
+                    console.log('📝 Created question id:', responseData.id);
+
                     if (response.ok) {
+                      // Clear the cached metadata so it will be refreshed
+                      sessionStorage.removeItem('questions_metadata');
+                      sessionStorage.removeItem('questions_metadata_timestamp');
+                      
                       // Reset form and close modal
                       setQuestionText('');
                       setSelectedTags([]);
@@ -1331,11 +1405,20 @@ export default function QuestionsPage() {
                       setSliderValue(3);
                       setShowAskQuestionModal(false);
                       
-                      // Optionally show success message
-                      alert('Question submitted successfully! It will be reviewed before being published.');
+                      // Show success message
+                      setShowSuccessMessage(true);
+                      setTimeout(() => setShowSuccessMessage(false), 3000);
+                      
+                      // Refresh the questions list by clearing cache and reloading page
+                      await fetchQuestionMetadata();
+                      
+                      // Give a bit of time for metadata to be cached
+                      await new Promise(resolve => setTimeout(resolve, 200));
+                      
+                      // Force a full page reload to ensure fresh data
+                      window.location.reload();
                     } else {
-                      const errorData = await response.json();
-                      alert(errorData.error || 'Failed to submit question. Please try again.');
+                      alert(responseData.error || 'Failed to submit question. Please try again.');
                     }
                   } catch (error) {
                     console.error('Error submitting question:', error);
@@ -1350,6 +1433,18 @@ export default function QuestionsPage() {
                 {isSubmittingQuestion ? 'Submitting...' : 'Submit'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-slide-up">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 px-6 py-4 flex items-center space-x-3">
+            <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-gray-900 font-medium">Your question has been posted successfully!</span>
           </div>
         </div>
       )}
