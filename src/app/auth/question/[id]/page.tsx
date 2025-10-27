@@ -751,244 +751,53 @@ export default function QuestionPage() {
       console.log('📊 Constructed userAnswer:', userAnswer);
 
       // For ethnicity questions, save in background without blocking UI
-      if (params.id === 'ethnicity') {
-        // Save user answer to backend in background (don't wait for response)
-        const saveAnswerInBackground = async () => {
-          try {
-            console.log('🚀 Starting to save ethnicity answer to backend...');
-            console.log('📊 User answer:', userAnswer);
+      const saveAnswerInBackground = async () => {
+        try {
+          console.log('🚀 Starting to save answer to backend...');
+          console.log('📊 User answer:', userAnswer);
 
-            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(userAnswer)
-            });
+          const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userAnswer)
+          });
 
-            console.log('📡 Response status:', response.status);
+          console.log('📡 Response status:', response.status);
 
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ API request failed:', response.status, errorText);
-            } else {
-              const responseData = await response.json();
-              console.log('✅ API request successful:', responseData);
-            }
-
-            console.log('✅ Ethnicity answer processed');
-          } catch (error) {
-            console.error('❌ Error saving ethnicity answer to backend:', error);
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ API request failed:', response.status, errorText);
+          } else {
+            const responseData = await response.json();
+            console.log('✅ API request successful:', responseData);
           }
-        };
 
-        // Start background save (don't await)
-        console.log('🎯 About to start background save...');
+          console.log('✅ Answer processed');
+        } catch (error) {
+          console.error('❌ Error saving answer to backend:', error);
+        }
+      };
+
+      if (params.id === 'ethnicity') {
+        console.log('🌎 Ethnicity question detected - starting background save...');
         saveAnswerInBackground();
-        console.log('🎯 Background save function called');
       } else if (params.id === 'education') {
         console.log('🎓 Education question detected - starting background save...');
-        
-        // Save user answer to backend in background (don't wait for response)
-        const saveAnswerInBackground = async () => {
-          try {
-            console.log('🚀 Starting to save education answer to backend...');
-            console.log('📊 User answer:', userAnswer);
-
-            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(userAnswer)
-            });
-
-            console.log('📡 Response status:', response.status);
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ API request failed:', response.status, errorText);
-            } else {
-              const responseData = await response.json();
-              console.log('✅ API request successful:', responseData);
-            }
-
-            console.log('✅ Education answer processed');
-          } catch (error) {
-            console.error('❌ Error saving education answer to backend:', error);
-          }
-        };
-
-        // Start background save (don't await)
-        console.log('🎓 About to start background save...');
         saveAnswerInBackground();
-        console.log('🎓 Background save function called');
-        
-        // Continue with navigation immediately
-        console.log('🎓 Continuing with navigation...');
       } else if (params.id === 'diet') {
         console.log('🥗 Diet question detected - starting background save...');
-        
-        // Save user answer to backend in background (don't wait for response)
-        const saveAnswerInBackground = async () => {
-          try {
-            console.log('🚀 Starting to save diet answer to backend...');
-            console.log('📊 User answer:', userAnswer);
-
-            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(userAnswer)
-            });
-
-            console.log('📡 Response status:', response.status);
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ API request failed:', response.status, errorText);
-            } else {
-              const responseData = await response.json();
-              console.log('✅ API request successful:', responseData);
-            }
-
-            console.log('✅ Diet answer processed');
-          } catch (error) {
-            console.error('❌ Error saving diet answer to backend:', error);
-          }
-        };
-
-        // Start background save (don't await)
-        console.log('🥗 About to start background save...');
         saveAnswerInBackground();
-        console.log('🥗 Background save function called');
-        
-        // Continue with navigation immediately
-        console.log('🥗 Continuing with navigation...');
       } else if (params.id === '6') {
         console.log('🏃 Exercise question detected - starting background save...');
-        console.log('🏃 Question ID being used:', question.id);
-        
-        // Save user answer to backend in background (don't wait for response)
-        const saveAnswerInBackground = async () => {
-          try {
-            console.log('🚀 Starting to save exercise answer to backend...');
-            console.log('📊 User answer:', userAnswer);
-
-            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(userAnswer)
-            });
-
-            console.log('📡 Response status:', response.status);
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ API request failed:', response.status, errorText);
-            } else {
-              const responseData = await response.json();
-              console.log('✅ API request successful:', responseData);
-            }
-
-            console.log('✅ Exercise answer processed');
-          } catch (error) {
-            console.error('❌ Error saving exercise answer to backend:', error);
-          }
-        };
-
-        // Start background save (don't await)
-        console.log('🏃 About to start background save...');
         saveAnswerInBackground();
-        console.log('🏃 Background save function called');
-        
-        // Continue with navigation immediately
-        console.log('🏃 Continuing with navigation...');
       } else if (params.id === '8') {
         console.log('🙏 Religion question detected - starting background save...');
-        console.log('🙏 Question ID being used:', question.id);
-        
-        // Save user answer to backend in background (don't wait for response)
-        const saveAnswerInBackground = async () => {
-          try {
-            console.log('🚀 Starting to save religion answer to backend...');
-            console.log('📊 User answer:', userAnswer);
-
-            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(userAnswer)
-            });
-
-            console.log('📡 Response status:', response.status);
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ API request failed:', response.status, errorText);
-            } else {
-              const responseData = await response.json();
-              console.log('✅ API request successful:', responseData);
-            }
-
-            console.log('✅ Religion answer processed');
-          } catch (error) {
-            console.error('❌ Error saving religion answer to backend:', error);
-          }
-        };
-
-        // Start background save (don't await)
-        console.log('🙏 About to start background save...');
         saveAnswerInBackground();
-        console.log('🙏 Background save function called');
-        
-        // Continue with navigation immediately
-        console.log('🙏 Continuing with navigation...');
       } else if (params.id === '9') {
         console.log('🗳️ Politics question detected - starting background save...');
-        console.log('🗳️ Question ID being used:', question.id);
-        
-        // Save user answer to backend in background (don't wait for response)
-        const saveAnswerInBackground = async () => {
-          try {
-            console.log('🚀 Starting to save politics answer to backend...');
-            console.log('📊 User answer:', userAnswer);
-
-            const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(userAnswer)
-            });
-
-            console.log('📡 Response status:', response.status);
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ API request failed:', response.status, errorText);
-            } else {
-              const responseData = await response.json();
-              console.log('✅ API request successful:', responseData);
-            }
-
-            console.log('✅ Politics answer processed');
-          } catch (error) {
-            console.error('❌ Error saving politics answer to backend:', error);
-          }
-        };
-
-        // Start background save (don't await)
-        console.log('🗳️ About to start background save...');
         saveAnswerInBackground();
-        console.log('🗳️ Background save function called');
-        
-        // Continue with navigation immediately
-        console.log('🗳️ Continuing with navigation...');
       } else {
         // For other questions, save synchronously as before
       const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {

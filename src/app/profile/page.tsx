@@ -287,25 +287,19 @@ export default function ProfilePage() {
       });
     }
 
-    // Diet icon (question_number === 5, highest value)
-    const dietAnswer = getHighestAnswer(5);
-    if (dietAnswer) {
-      const dietLabel = dietAnswer.question.question_name || '';
-      const normalizedLabel = dietLabel.toLowerCase();
-      const dietGroup = dietAnswer.question.group_number;
-
-      const isPescatarian = (dietGroup === 2) || normalizedLabel.includes('pesca');
-      const isPlantBased = (dietGroup === 1) || normalizedLabel.includes('vegan') || normalizedLabel.includes('vegetarian');
-
-      let dietIcon = '/assets/carnivore.png';
-      if (isPescatarian) {
-        dietIcon = '/assets/fish.png';
-      } else if (isPlantBased) {
-        dietIcon = '/assets/leaf.png';
-      }
-
+    // Diet icon (question_number === 5) - check all diet answers
+    const dietAnswers = userAnswers.filter(a => a.question.question_number === 5);
+    
+    if (dietAnswers.length > 0) {
+      // Get the answer with the highest value (most strongly identified with)
+      const highestDietAnswer = dietAnswers.reduce((prev, curr) => 
+        curr.me_answer > prev.me_answer ? curr : prev
+      );
+      
+      const dietLabel = highestDietAnswer.question.question_name || '';
+      
       icons.push({
-        image: dietIcon,
+        image: '/assets/leaf.png',
         label: dietLabel,
         show: true
       });
@@ -371,6 +365,23 @@ export default function ProfilePage() {
           show: true
         });
       }
+    }
+
+    // Ethnicity icon (question_number === 3)
+    const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === 3);
+    if (ethnicityAnswers.length > 0) {
+      // Get the answer with the highest value (most strongly identified with)
+      const highestEthnicityAnswer = ethnicityAnswers.reduce((prev, curr) => 
+        curr.me_answer > prev.me_answer ? curr : prev
+      );
+      
+      const ethnicityLabel = highestEthnicityAnswer.question.question_name || '';
+      
+      icons.push({
+        image: '/assets/globex.png',
+        label: ethnicityLabel,
+        show: true
+      });
     }
 
     // Religion icon (question_number === 8)
