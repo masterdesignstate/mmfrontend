@@ -88,13 +88,13 @@ export default function QuestionPage() {
       );
     }
     
-    // For education questions, show LESS, SOME (value 3), MORE
+    // For education questions, show NONE, SOME, COMPLETED
     if (params.id === 'education') {
       return (
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>LESS</span>
-          <span>SOME</span>
-          <span>MORE</span>
+        <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+          <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+          <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+          <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
         </div>
       );
     }
@@ -303,7 +303,7 @@ export default function QuestionPage() {
           { value: '5', answer_text: 'MORE' }
         ],
         open_to_all_me: false,
-        open_to_all_looking_for: false
+        open_to_all_looking_for: true
       };
       
       console.log('📋 Using hardcoded education question data:', hardcodedQuestion);
@@ -331,6 +331,10 @@ export default function QuestionPage() {
       
       console.log('📋 Using hardcoded diet question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
+      
+      // Set initial slider values to 5 (YES) for diet questions
+      setMeAnswer(5);
+      setLookingForAnswer(5);
     } else if (questionId === '6') {
       console.log('🏃 Handling exercise question');
       

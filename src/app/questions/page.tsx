@@ -1355,6 +1355,9 @@ export default function QuestionsPage() {
                       }
                     }
 
+                    // Get user ID from localStorage
+                    const storedUserId = localStorage.getItem('user_id');
+                    
                     // Now create the question with the next number
                     const questionData = {
                         text: questionText.trim(),
@@ -1371,7 +1374,8 @@ export default function QuestionsPage() {
                         open_to_all_looking_for: shareAnswer,
                         is_group: false,
                         value_label_1: valueLabel1.trim(),
-                        value_label_5: valueLabel5.trim()
+                        value_label_5: valueLabel5.trim(),
+                        user_id: storedUserId  // Include user_id so backend can identify the submitter
                       };
                     
                     console.log('📤 Submitting question with data:', questionData);
@@ -1380,7 +1384,6 @@ export default function QuestionsPage() {
                       headers: {
                         'Content-Type': 'application/json',
                       },
-               
                       body: JSON.stringify(questionData),
                     });
 

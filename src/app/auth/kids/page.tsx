@@ -29,12 +29,12 @@ export default function KidsPage() {
 
   const [myKids, setMyKids] = useState<Record<KidsKey, number>>({
     kids1: 3, // Want Kids
-    kids2: 3  // Have Kids
+    kids2: 5  // Have Kids (default to 5)
   });
 
   const [lookingFor, setLookingFor] = useState<Record<KidsKey, number>>({
     kids1: 3, // Want Kids
-    kids2: 3  // Have Kids
+    kids2: 5  // Have Kids (default to 5)
   });
 
   const [openToAll, setOpenToAll] = useState<Record<MeOpenKey | LookingOpenKey, boolean>>({
@@ -107,10 +107,17 @@ export default function KidsPage() {
   const handleSliderChange = (section: 'myKids' | 'lookingFor', key: KidsKey, value: number) => {
     console.log(`🎚️ Slider changed: ${key} = ${value} (${section})`);
     
+    // For "Have Kids" (kids2), only allow values 1 or 5
+    let finalValue = value;
+    if (key === 'kids2') {
+      // Snap to closest end (1 or 5)
+      finalValue = value <= 3 ? 1 : 5;
+    }
+    
     if (section === 'myKids') {
-      setMyKids(prev => ({ ...prev, [key]: value }));
+      setMyKids(prev => ({ ...prev, [key]: finalValue }));
     } else {
-      setLookingFor(prev => ({ ...prev, [key]: value }));
+      setLookingFor(prev => ({ ...prev, [key]: finalValue }));
     }
   };
 
@@ -365,20 +372,6 @@ export default function KidsPage() {
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
             <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="w-full">{/* Empty space for LESS/MORE labels if needed */}</div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {anyLookingForOpen ? 'OTA' : ''}
-              </div>
-            </div>
-
-            <div
               className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
               style={{
                 gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
@@ -405,7 +398,17 @@ export default function KidsPage() {
                         isOpenToAll={openToAll[lookingOpenKey]}
                       />
                     </div>
-                    <div className="flex justify-center">
+                    <div className="flex flex-col">
+                      {/* OTA label above switch */}
+                      {index === 0 && (
+                        <div className="text-xs text-gray-500 text-center mb-1" style={{ marginLeft: '-15px' }}>
+                          {anyLookingForOpen ? 'OTA' : ''}
+                        </div>
+                      )}
+                      {index !== 0 && (
+                        <div className="mb-1"></div>
+                      )}
+                      {/* Switch */}
                       {true ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
@@ -477,20 +480,6 @@ export default function KidsPage() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
             <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="w-full">{/* Empty space for LESS/MORE labels if needed */}</div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {anyMeOpen ? 'OTA' : ''}
-              </div>
-            </div>
-
-            <div
               className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
               style={{
                 gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
@@ -517,7 +506,17 @@ export default function KidsPage() {
                         isOpenToAll={openToAll[meOpenKey]}
                       />
                     </div>
-                    <div className="flex justify-center">
+                    <div className="flex flex-col">
+                      {/* OTA label above switch */}
+                      {index === 0 && (
+                        <div className="text-xs text-gray-500 text-center mb-1" style={{ marginLeft: '-15px' }}>
+                          {anyMeOpen ? 'OTA' : ''}
+                        </div>
+                      )}
+                      {index !== 0 && (
+                        <div className="mb-1"></div>
+                      )}
+                      {/* Switch */}
                       {index === 0 ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
