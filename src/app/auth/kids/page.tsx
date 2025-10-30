@@ -212,15 +212,18 @@ export default function KidsPage() {
       saveAnswersInBackground();
       console.log('👶 Background save function called');
       
-      // Continue with navigation immediately
+      // Set flag so profile page shows loading UI instead of spinner
+      sessionStorage.setItem('show_loading_page', 'true');
+      
+      // Continue with navigation immediately to profile page
       console.log('👶 Continuing with navigation...');
       
-      // Navigate to loading page immediately
+      // Navigate directly to profile page (it will show loading UI if needed)
       const params = new URLSearchParams({ 
         user_id: userId
       });
       
-      router.push(`/auth/loading?${params.toString()}`);
+      router.push(`/profile?${params.toString()}`);
     } catch (error) {
       console.error('Error saving kids answers:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answers');

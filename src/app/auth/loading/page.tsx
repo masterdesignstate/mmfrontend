@@ -27,7 +27,6 @@ export default function LoadingPage() {
     }
 
     // Minimum display time: 5 seconds
-    const startTime = Date.now();
     const minDisplayTime = 5000;
 
     // Simulate progress from 0 to 100%
@@ -40,34 +39,69 @@ export default function LoadingPage() {
       });
     }, 25);
 
-    // Change message every 600ms
+    // Change message every 2000ms (2 seconds) - slow enough to read
     const messageInterval = setInterval(() => {
       setMessage(prev => (prev + 1) % messages.length);
-    }, 600);
+    }, 2000);
 
-    // Wait for at least 5 seconds, then navigate
-    const navigateTimeout = setTimeout(() => {
-      clearInterval(progressInterval);
-      clearInterval(messageInterval);
+    // Check for profile readiness with polling
+    const checkProfileReady = () => {
+      // Check if profile cache exists (means profile has loaded)
+      const cacheKey = `profile_${userId}`;
+      const cachedData = sessionStorage.getItem(cacheKey);
+      const profileReady = !!cachedData;
       
-      // Check if profile is ready (flag was cleared)
-      const profileReady = !sessionStorage.getItem('show_loading_page');
+      return profileReady;
+    };
+
+    // Wait for at least 5 seconds, then check if profile is ready before navigating
+    const startTime = Date.now();
+    const checkAndNavigate = () => {
+      const elapsed = Date.now() - startTime;
+      const profileReady = checkProfileReady();
       
-      if (profileReady || true) { // Always navigate after minimum time
+      // Only navigate if profile is ready AND minimum time has passed
+      if (profileReady && elapsed >= minDisplayTime) {
+        clearInterval(progressInterval);
+        clearInterval(messageInterval);
+        clearInterval(checkInterval);
+        
+        // DON'T clear show_loading_page here - let the profile page clear it when ready
+        // This prevents the profile page from showing its own spinner
+        
+        if (userId) {
+          router.push(`/profile?user_id=${userId}`);
+        } else {
+          router.push('/profile');
+        }
+      } else if (elapsed >= minDisplayTime * 2) {
+        // Safety timeout: if profile still not ready after 10 seconds, navigate anyway
+        clearInterval(progressInterval);
+        clearInterval(messageInterval);
+        clearInterval(checkInterval);
+        // DON'T clear show_loading_page here either - let profile page handle it
+        
         if (userId) {
           router.push(`/profile?user_id=${userId}`);
         } else {
           router.push('/profile');
         }
       }
-    }, minDisplayTime);
+    };
+
+    // Poll every 100ms to check if profile is ready
+    const checkInterval = setInterval(checkAndNavigate, 100);
+    
+    // Initial check after minimum time
+    const navigateTimeout = setTimeout(checkAndNavigate, minDisplayTime);
 
     return () => {
       clearInterval(progressInterval);
       clearInterval(messageInterval);
+      clearInterval(checkInterval);
       clearTimeout(navigateTimeout);
     };
-  }, [router, searchParams, messages.length]);
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">

@@ -42,9 +42,39 @@ interface ProfileIcon {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Check cache synchronously on mount to avoid loading state if cache exists
+  const getInitialState = () => {
+    if (typeof window === 'undefined') {
+      return { user: null, answers: [], loading: true };
+    }
+    
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      return { user: null, answers: [], loading: true };
+    }
+    
+    const cacheKey = `profile_${userId}`;
+    const cachedData = sessionStorage.getItem(cacheKey);
+    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+    const now = Date.now();
+    
+    if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) {
+      try {
+        const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
+        return { user: cachedUser, answers: cachedAnswers, loading: false };
+      } catch {
+        return { user: null, answers: [], loading: true };
+      }
+    }
+    
+    return { user: null, answers: [], loading: true };
+  };
+  
+  const initialState = getInitialState();
+  const [user, setUser] = useState<UserProfile | null>(initialState.user);
+  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>(initialState.answers);
+  const [loading, setLoading] = useState(initialState.loading);
   const [error, setError] = useState<string>('');
 
   // Fetch user profile and answers
@@ -459,16 +489,106 @@ export default function ProfilePage() {
     );
   };
 
-  // Check if we should hide the loading spinner because the loading page is showing
+  // Check if we should show loading page instead of spinner
   const showLoadingPage = typeof window !== 'undefined' && sessionStorage.getItem('show_loading_page') === 'true';
+  const [progress, setProgress] = useState(0);
+  const [message, setMessage] = useState(0);
   
+  const messages = [
+    'Analyzing your preferences',
+    'Finding compatible matches',
+    'Personalizing your experience',
+    'Almost ready'
+  ];
+
   // Clear the flag once profile is loaded (from onboarding flow)
-  if (!loading && showLoadingPage) {
-    sessionStorage.removeItem('show_loading_page');
+  useEffect(() => {
+    if (!loading && showLoadingPage) {
+      sessionStorage.removeItem('show_loading_page');
+    }
+  }, [loading, showLoadingPage]);
+
+  // Loading page UI state management
+  useEffect(() => {
+    if (!loading || !showLoadingPage) return;
+
+    // Simulate progress from 0 to 100%
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 95) {
+          return 95;
+        }
+        return prev + 0.5;
+      });
+    }, 25);
+
+    // Change message every 2000ms (2 seconds)
+    const messageInterval = setInterval(() => {
+      setMessage(prev => (prev + 1) % messages.length);
+    }, 2000);
+
+    return () => {
+      clearInterval(progressInterval);
+      clearInterval(messageInterval);
+    };
+  }, [loading, showLoadingPage, messages.length]);
+
+  // If coming from onboarding (showLoadingPage is true), show loading page UI instead of spinner
+  if (loading && showLoadingPage) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="max-w-md w-full px-6">
+          {/* Logo centered */}
+          <div className="flex justify-center mb-16">
+            <Image
+              src="/assets/mmlogox.png"
+              alt="Matchmatical"
+              width={120}
+              height={120}
+              priority
+            />
+          </div>
+
+          {/* Message with fade transition */}
+          <div className="text-center mb-12 min-h-[40px]">
+            <p className="text-xl text-gray-700 font-medium" key={message}>
+              {messages[message]}
+            </p>
+          </div>
+
+          {/* Progress indicator - minimalistic dots */}
+          <div className="flex justify-center gap-2 mb-8">
+            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full transition-all duration-300" style={{ 
+              opacity: progress > 25 ? 1 : 0.3,
+              transform: progress > 25 ? 'scale(1.2)' : 'scale(1)'
+            }}></div>
+            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full transition-all duration-300" style={{ 
+              opacity: progress > 50 ? 1 : 0.3,
+              transform: progress > 50 ? 'scale(1.2)' : 'scale(1)'
+            }}></div>
+            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full transition-all duration-300" style={{ 
+              opacity: progress > 75 ? 1 : 0.3,
+              transform: progress > 75 ? 'scale(1.2)' : 'scale(1)'
+            }}></div>
+            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full transition-all duration-300" style={{ 
+              opacity: progress > 90 ? 1 : 0.3,
+              transform: progress > 90 ? 'scale(1.2)' : 'scale(1)'
+            }}></div>
+          </div>
+
+          {/* Minimal progress bar */}
+          <div className="w-full bg-gray-100 rounded-full h-0.5 overflow-hidden">
+            <div
+              className="h-full bg-[#672DB7] rounded-full transition-all duration-200 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // If coming from onboarding (showLoadingPage is true), don't show the spinner
-  // The loading page will handle the display
+  // If loading and not from onboarding, show the spinner
   if (loading && !showLoadingPage) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -478,11 +598,6 @@ export default function ProfilePage() {
         </div>
       </div>
     );
-  }
-  
-  // If loading page is showing and profile is still loading, return null to stay on loading page
-  if (loading && showLoadingPage) {
-    return null;
   }
 
   if (error) {
