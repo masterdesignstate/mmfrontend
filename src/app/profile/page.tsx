@@ -863,8 +863,8 @@ export default function ProfilePage() {
             <h3 className="text-xl font-bold mb-4">I&apos;m Looking For</h3>
             
             <div className="max-w-md">
-              {/* LESS, MORE labels above sliders - aligned with slider start */}
-              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20 sm:ml-24">
+              {/* LESS, MORE labels above sliders - aligned with slider start (matching Gender section) */}
+              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
@@ -872,7 +872,7 @@ export default function ProfilePage() {
               <div className="space-y-3">
                 {/* FRIEND Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-20">FRIEND</div>
+                  <div className="text-xs font-semibold text-gray-400 w-16">FRIEND</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 1, 'me_answer') || 3}
@@ -884,7 +884,7 @@ export default function ProfilePage() {
 
                 {/* HOOK UP Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-20">HOOK UP</div>
+                  <div className="text-xs font-semibold text-gray-400 w-16">HOOK UP</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 2, 'me_answer') || 3}
@@ -896,7 +896,7 @@ export default function ProfilePage() {
 
                 {/* DATE Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-20">DATE</div>
+                  <div className="text-xs font-semibold text-gray-400 w-16">DATE</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 3, 'me_answer') || 3}
@@ -908,7 +908,7 @@ export default function ProfilePage() {
 
                 {/* LIFE PARTNER Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-20">PARTNER</div>
+                  <div className="text-xs font-semibold text-gray-400 w-16">PARTNER</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 4, 'me_answer') || 3}
