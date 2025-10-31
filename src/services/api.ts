@@ -353,8 +353,9 @@ class ApiService {
     return allResults;
   }
 
-  async getQuestions(): Promise<Question[]> {
-    return this.fetchAllPages<Question>('/questions/');
+  async getQuestions(includeUnapproved: boolean = false): Promise<Question[]> {
+    const endpoint = includeUnapproved ? '/questions/?include_unapproved=true' : '/questions/';
+    return this.fetchAllPages<Question>(endpoint);
   }
 
   async getQuestion(id: string): Promise<Question> {

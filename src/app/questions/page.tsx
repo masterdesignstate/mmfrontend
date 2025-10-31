@@ -1394,10 +1394,6 @@ export default function QuestionsPage() {
                     console.log('📝 Created question id:', responseData.id);
 
                     if (response.ok) {
-                      // Clear the cached metadata so it will be refreshed
-                      sessionStorage.removeItem('questions_metadata');
-                      sessionStorage.removeItem('questions_metadata_timestamp');
-                      
                       // Reset form and close modal
                       setQuestionText('');
                       setSelectedTags([]);
@@ -1411,15 +1407,6 @@ export default function QuestionsPage() {
                       // Show success message
                       setShowSuccessMessage(true);
                       setTimeout(() => setShowSuccessMessage(false), 3000);
-                      
-                      // Refresh the questions list by clearing cache and reloading page
-                      await fetchQuestionMetadata();
-                      
-                      // Give a bit of time for metadata to be cached
-                      await new Promise(resolve => setTimeout(resolve, 200));
-                      
-                      // Force a full page reload to ensure fresh data
-                      window.location.reload();
                     } else {
                       alert(responseData.error || 'Failed to submit question. Please try again.');
                     }
@@ -1447,7 +1434,7 @@ export default function QuestionsPage() {
             <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-gray-900 font-medium">Your question has been posted successfully!</span>
+            <span className="text-gray-900 font-medium">Question successfully submitted for approval</span>
           </div>
         </div>
       )}

@@ -30,7 +30,8 @@ export default function ApproveQuestionsPage() {
         setLoading(true);
         setError(null);
 
-        const allQuestions = await apiService.getQuestions();
+        // Fetch all questions including unapproved ones
+        const allQuestions = await apiService.getQuestions(true);
         // Filter for unapproved questions (user-submitted questions that need approval)
         const unapproved = allQuestions.filter(q => !q.is_approved && q.submitted_by !== null);
         setQuestions(unapproved);
