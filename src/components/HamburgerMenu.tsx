@@ -74,7 +74,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           </button>
 
           <button
-            onClick={() => handleNavigation('/questions?filter=submitted')}
+            onClick={() => handleNavigation('/questions?filter=answered')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
             My Questions

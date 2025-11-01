@@ -67,6 +67,7 @@ export default function QuestionsPage() {
   const [sortOption, setSortOption] = useState<'randomized' | 'popular' | 'new' | 'number'>('number');
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const filterAppliedFromUrl = useRef<boolean>(false);
   const ROWS_PER_PAGE = 10;
   const [filters, setFilters] = useState({
     questions: {
@@ -85,6 +86,14 @@ export default function QuestionsPage() {
       interest: false
     }
   });
+  const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
+
+  // Sync pendingFilters with filters when modal opens or when filters change externally
+  useEffect(() => {
+    if (showFilterModal) {
+      setPendingFilters(filters);
+    }
+  }, [showFilterModal, filters]);
 
   // Fetch question metadata (question numbers and answer counts) from backend in single optimized request
   const fetchQuestionMetadata = async () => {
@@ -267,19 +276,24 @@ export default function QuestionsPage() {
     };
   }, [showSortDropdown]);
 
-  // Check for filter parameter and apply submitted filter
+  // Check for filter parameter and apply answered filter (for "My Questions")
+  // Only apply once when URL has the parameter, don't override manual changes
   useEffect(() => {
     const filter = searchParams.get('filter');
-    if (filter === 'submitted' && !filters.questions.submitted) {
+    if (filter === 'answered' && !filterAppliedFromUrl.current) {
       setFilters(prev => ({
         ...prev,
         questions: {
           ...prev.questions,
-          submitted: true
+          answered: true
         }
       }));
+      filterAppliedFromUrl.current = true;
+    } else if (filter !== 'answered') {
+      // Reset the flag when filter parameter is removed or changed
+      filterAppliedFromUrl.current = false;
     }
-  }, [searchParams, filters.questions.submitted]);
+  }, [searchParams]);
 
   // Fetch questions for current page
   const fetchQuestionsForCurrentPage = React.useCallback(async () => {
@@ -382,10 +396,14 @@ export default function QuestionsPage() {
     }
   }, [allQuestionNumbers, currentPage, sortOption, answerCounts]);
 
-  // Effect to handle page changes
+  // Effect to handle page changes (skip if filtering by answered/unanswered since we do client-side pagination)
   useEffect(() => {
+    // Don't fetch if filtering by answered/unanswered (we already have all filtered questions)
+    if (filters.questions.answered || filters.questions.unanswered) {
+      return;
+    }
     fetchQuestionsForCurrentPage();
-  }, [fetchQuestionsForCurrentPage]);
+  }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered]);
 
   // Filtering system functions
   const applyFilters = useCallback(() => {
@@ -398,6 +416,8 @@ export default function QuestionsPage() {
       return acc;
     }, {} as Record<number, Question[]>);
 
+    // For "answered/unanswered" filters, we need to check ALL question numbers, not just current page
+    // For other filters (mandatory, required, submitted, tags), we can only check loaded questions
     const questionNumbers = Object.keys(allGroupedQuestions).map(Number);
     
     // Helper functions for filtering
@@ -408,16 +428,16 @@ export default function QuestionsPage() {
     };
 
     const isQuestionAnswered = (questionNumber: number): boolean => {
-      const questionGroup = allGroupedQuestions[questionNumber];
-      if (!questionGroup || questionGroup.length === 0) return false;
-      // Use the backend-computed field if available, otherwise check UserAnswers
-      if (questionGroup[0].is_answered !== undefined) {
-        return questionGroup[0].is_answered;
-      }
+      // Always use userAnswers check since backend is_answered requires authentication
+      // and may not be reliable for unauthenticated requests
+      // Check if ANY answer exists for this question number
+      // This works for ANY question number, not just loaded ones
       return userAnswers.some(answer => answer.question.question_number === questionNumber);
     };
 
     const isQuestionUnanswered = (questionNumber: number): boolean => {
+      // A question is unanswered if the user has NO answers for that question number
+      // This works for ANY question number, not just loaded ones
       return !isQuestionAnswered(questionNumber);
     };
 
@@ -446,7 +466,13 @@ export default function QuestionsPage() {
       return questionGroup[0].tags?.map(tag => tag.name.toLowerCase()) || [];
     };
     
-    const filtered = questionNumbers.filter(questionNumber => {
+    // If filtering by answered/unanswered, we should check ALL question numbers, not just loaded ones
+    // Otherwise, we can only filter the loaded questions
+    const questionNumbersToCheck = (filters.questions.answered || filters.questions.unanswered) 
+      ? allQuestionNumbers 
+      : questionNumbers;
+    
+    const filtered = questionNumbersToCheck.filter(questionNumber => {
       // Apply question type filters
       const questionFilters = filters.questions;
       const tagFilters = filters.tags;
@@ -523,10 +549,112 @@ export default function QuestionsPage() {
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
-  }, [filters, questions, userAnswers]);
+    }, [filters, questions, userAnswers, allQuestionNumbers]);
 
-  // Apply filters when questions are loaded or filter state changes
+  // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
+    const fetchFilteredQuestions = async () => {
+      // Only fetch if filtering by answered/unanswered
+      if (!filters.questions.answered && !filters.questions.unanswered) {
+        return;
+      }
+      
+      if (allQuestionNumbers.length === 0) {
+        return;
+      }
+      
+      // If userAnswers is empty, all questions are unanswered (if filtering by unanswered)
+      // If filtering by answered and userAnswers is empty, no questions match
+      if (filters.questions.answered && userAnswers.length === 0) {
+        setFilteredQuestions([]);
+        return;
+      }
+
+      // Determine which question numbers match the filter
+      const answeredQuestionNumbers = new Set(
+        userAnswers.map(answer => answer.question.question_number)
+      );
+
+      let matchingQuestionNumbers: number[];
+      if (filters.questions.answered) {
+        // Only show question numbers that the user has answered
+        matchingQuestionNumbers = allQuestionNumbers.filter(qNum => 
+          answeredQuestionNumbers.has(qNum)
+        );
+      } else if (filters.questions.unanswered) {
+        // Only show question numbers that the user has NOT answered
+        matchingQuestionNumbers = allQuestionNumbers.filter(qNum => 
+          !answeredQuestionNumbers.has(qNum)
+        );
+      } else {
+        return;
+      }
+
+      if (matchingQuestionNumbers.length === 0) {
+        setFilteredQuestions([]);
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        // Fetch ALL matching questions (not paginated)
+        const questionNumberParams = matchingQuestionNumbers.map(num => `question_number=${num}`).join('&');
+        let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=100`;
+
+        // Fetch all pages if paginated
+        let allQuestions: Question[] = [];
+        let hasMore = true;
+        let pageNum = 1;
+
+        while (hasMore && pageNum <= 5) { // Safety limit of 5 pages
+          const response = await fetch(url, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          const data = await response.json();
+          const results = data.results || [];
+          allQuestions = [...allQuestions, ...results];
+
+          if (data.next) {
+            url = data.next;
+            pageNum++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // Sort by question_number and group_number
+        allQuestions.sort((a, b) => {
+          if (a.question_number !== b.question_number) {
+            return a.question_number - b.question_number;
+          }
+          return (a.group_number || 0) - (b.group_number || 0);
+        });
+
+        setFilteredQuestions(allQuestions);
+        // Reset to page 1 when filter changes
+        setCurrentPage(1);
+      } catch (error) {
+        console.error('Error fetching filtered questions:', error);
+        setError('Failed to load filtered questions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFilteredQuestions();
+  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers, userAnswers]);
+
+  // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
+  useEffect(() => {
+    // Skip if filtering by answered/unanswered (handled by separate effect above)
+    if (filters.questions.answered || filters.questions.unanswered) {
+      return;
+    }
+
     if (questions.length > 0) {
       // Check if any filters are active
       const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
@@ -627,6 +755,25 @@ export default function QuestionsPage() {
     }
   }, [groupedQuestions, sortOption]);
 
+  // Calculate pagination for filtered results (when filtering by answered/unanswered)
+  const isFilteredByAnsweredStatus = filters.questions.answered || filters.questions.unanswered;
+  const filteredTotalPages = isFilteredByAnsweredStatus 
+    ? Math.ceil(sortedGroupedQuestions.length / ROWS_PER_PAGE)
+    : totalPages;
+  
+  // Paginate sortedGroupedQuestions for display (only when filtering by answered/unanswered)
+  const paginatedGroupedQuestions = React.useMemo(() => {
+    if (!isFilteredByAnsweredStatus) {
+      // Not filtering by answered/unanswered, show all grouped questions
+      return sortedGroupedQuestions;
+    }
+    
+    // Client-side pagination for filtered results
+    const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+    const endIndex = startIndex + ROWS_PER_PAGE;
+    return sortedGroupedQuestions.slice(startIndex, endIndex);
+  }, [sortedGroupedQuestions, currentPage, isFilteredByAnsweredStatus]);
+
 
   // Get answer count for a question number from fetched data
   const getAnswerCount = (questionNumber: number): number => {
@@ -644,10 +791,30 @@ export default function QuestionsPage() {
 
   const handleFilterToggle = (category: 'questions' | 'tags', filter: string) => {
     if (category === 'questions') {
-      updateQuestionFilter(filter as keyof typeof filters.questions, !filters.questions[filter as keyof typeof filters.questions]);
+      updatePendingQuestionFilter(filter as keyof typeof pendingFilters.questions, !pendingFilters.questions[filter as keyof typeof pendingFilters.questions]);
     } else {
-      updateTagFilter(filter as keyof typeof filters.tags, !filters.tags[filter as keyof typeof filters.tags]);
+      updatePendingTagFilter(filter as keyof typeof pendingFilters.tags, !pendingFilters.tags[filter as keyof typeof pendingFilters.tags]);
     }
+  };
+
+  const updatePendingQuestionFilter = (filterType: keyof typeof pendingFilters.questions, value: boolean) => {
+    setPendingFilters(prev => ({
+      ...prev,
+      questions: {
+        ...prev.questions,
+        [filterType]: value
+      }
+    }));
+  };
+
+  const updatePendingTagFilter = (filterType: keyof typeof pendingFilters.tags, value: boolean) => {
+    setPendingFilters(prev => ({
+      ...prev,
+      tags: {
+        ...prev.tags,
+        [filterType]: value
+      }
+    }));
   };
 
   const updateQuestionFilter = (filterType: keyof typeof filters.questions, value: boolean) => {
@@ -658,6 +825,15 @@ export default function QuestionsPage() {
         [filterType]: value
       }
     }));
+    
+    // If toggling off the "answered" filter and URL has filter=answered, remove it from URL
+    if (filterType === 'answered' && !value && searchParams.get('filter') === 'answered') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('filter');
+      window.history.replaceState({}, '', url.toString());
+      // Reset the flag so URL changes don't re-apply the filter
+      filterAppliedFromUrl.current = false;
+    }
   };
 
   const updateTagFilter = (filterType: keyof typeof filters.tags, value: boolean) => {
@@ -671,7 +847,7 @@ export default function QuestionsPage() {
   };
 
   const clearAllFilters = () => {
-    setFilters({
+    const clearedFilters = {
       questions: {
         mandatory: false,
         answered: false,
@@ -687,15 +863,42 @@ export default function QuestionsPage() {
         hobby: false,
         interest: false
       }
-    });
+    };
     
-    setFilteredQuestions(questions);
-    setCurrentPage(1);
+    setPendingFilters(clearedFilters);
   };
 
-  const applyFiltersAndClose = () => {
-    applyFilters();
-    setShowFilterModal(false);
+  const applyFiltersAndClose = async () => {
+    // Check if the new filters require fetching data (answered/unanswered filters)
+    const requiresFetching = 
+      (pendingFilters.questions.answered && !filters.questions.answered) ||
+      (pendingFilters.questions.unanswered && !filters.questions.unanswered) ||
+      (filters.questions.answered && !pendingFilters.questions.answered) ||
+      (filters.questions.unanswered && !pendingFilters.questions.unanswered);
+    
+    // Update filters state first
+    setFilters(pendingFilters);
+    
+    // Close modal immediately if no fetching needed
+    if (!requiresFetching) {
+      setShowFilterModal(false);
+      // Filters will be applied via useEffect that watches filters
+      return;
+    }
+    
+    // If fetching is needed, show loader and fetch
+    try {
+      setLoading(true);
+      setShowFilterModal(false);
+      
+      // The fetchFilteredQuestions useEffect will handle the actual fetching
+      // since it watches filters.questions.answered/unanswered
+      // Just wait a tick to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 0));
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      setLoading(false);
+    }
   };
 
 
@@ -830,7 +1033,10 @@ export default function QuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold">All Questions</h1>
             <p className="text-gray-600">
-              Showing {sortedGroupedQuestions.length} questions
+              {isFilteredByAnsweredStatus 
+                ? `Showing ${paginatedGroupedQuestions.length} of ${sortedGroupedQuestions.length} questions`
+                : `Showing ${sortedGroupedQuestions.length} questions`
+              }
             </p>
           </div>
           <button 
@@ -847,7 +1053,7 @@ export default function QuestionsPage() {
             <div className="flex-1"></div>
             <span className="text-sm font-medium text-black">Times Answered</span>
           </div>
-          {sortedGroupedQuestions
+          {paginatedGroupedQuestions
             .map(([key, group]) => {
               const answerCount = getAnswerCount(group.questionNumber);
 
@@ -877,7 +1083,7 @@ export default function QuestionsPage() {
         </div>
 
         {/* Pagination Controls */}
-        {totalPages > 1 && (
+        {(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) > 1 && (
           <div className="flex justify-center items-center space-x-4 mt-8">
             {/* Previous Button */}
             <button
@@ -891,15 +1097,16 @@ export default function QuestionsPage() {
             </button>
 
             {/* Page Numbers */}
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+            {Array.from({ length: Math.min(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages, 7) }, (_, i) => {
+              const displayTotalPages = isFilteredByAnsweredStatus ? filteredTotalPages : totalPages;
               let pageNum;
-              if (totalPages <= 7) {
+              if (displayTotalPages <= 7) {
                 pageNum = i + 1;
               } else {
                 if (currentPage <= 4) {
                   pageNum = i + 1;
-                } else if (currentPage >= totalPages - 3) {
-                  pageNum = totalPages - 6 + i;
+                } else if (currentPage >= displayTotalPages - 3) {
+                  pageNum = displayTotalPages - 6 + i;
                 } else {
                   pageNum = currentPage - 3 + i;
                 }
@@ -921,22 +1128,22 @@ export default function QuestionsPage() {
             })}
 
             {/* Show ellipsis and last page if needed */}
-            {totalPages > 7 && currentPage < totalPages - 3 && (
+            {(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) > 7 && currentPage < (isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) - 3 && (
               <>
                 <span className="text-gray-400">...</span>
                 <button
-                  onClick={() => setCurrentPage(totalPages)}
+                  onClick={() => setCurrentPage(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages)}
                   className="w-8 h-8 text-gray-600 flex items-center justify-center text-sm hover:text-black"
                 >
-                  {totalPages}
+                  {isFilteredByAnsweredStatus ? filteredTotalPages : totalPages}
                 </button>
               </>
             )}
 
             {/* Next Button */}
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(Math.min(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages, currentPage + 1))}
+              disabled={currentPage === (isFilteredByAnsweredStatus ? filteredTotalPages : totalPages)}
               className={`text-gray-600 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -963,7 +1170,7 @@ export default function QuestionsPage() {
               <h2 className="text-lg font-semibold">Filters</h2>
               <button 
                 onClick={() => setShowFilterModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -981,7 +1188,7 @@ export default function QuestionsPage() {
                   <button
                     onClick={() => handleFilterToggle('questions', 'mandatory')}
                     className={`relative p-1 rounded-3xl border-2 transition-colors aspect-square cursor-pointer ${
-                      filters.questions.mandatory 
+                      pendingFilters.questions.mandatory 
                         ? 'border-red-500 bg-red-50' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -995,8 +1202,8 @@ export default function QuestionsPage() {
                   {/* Answered */}
                   <button
                     onClick={() => handleFilterToggle('questions', 'answered')}
-                    className={`flex flex-col items-center justify-center p- rounded-3xl border-2 transition-colors aspect-square gap-0 ${
-                      filters.questions.answered 
+                    className={`flex flex-col items-center justify-center p- rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                      pendingFilters.questions.answered 
                         ? 'border-green-500 bg-green-50' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -1011,7 +1218,7 @@ export default function QuestionsPage() {
                   <button
                     onClick={() => handleFilterToggle('questions', 'unanswered')}
                     className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 !cursor-pointer ${
-                      filters.questions.unanswered 
+                      pendingFilters.questions.unanswered 
                         ? 'border-blue-500 bg-blue-50' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -1026,7 +1233,7 @@ export default function QuestionsPage() {
                   <button
                     onClick={() => handleFilterToggle('questions', 'required')}
                     className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                      filters.questions.required 
+                      pendingFilters.questions.required 
                         ? 'border-gray-800 bg-gray-50' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -1041,7 +1248,7 @@ export default function QuestionsPage() {
                   <button
                     onClick={() => handleFilterToggle('questions', 'submitted')}
                     className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                      filters.questions.submitted 
+                      pendingFilters.questions.submitted 
                         ? 'border-orange-500 bg-orange-50' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -1059,8 +1266,8 @@ export default function QuestionsPage() {
                 <h3 className="text-lg font-semibold mb-4">Tags</h3>
                 <div className="flex flex-wrap gap-3">
                   {['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'].map((tag) => {
-                    const tagKey = tag.toLowerCase() as keyof typeof filters.tags;
-                    const isSelected = filters.tags[tagKey];
+                    const tagKey = tag.toLowerCase() as keyof typeof pendingFilters.tags;
+                    const isSelected = pendingFilters.tags[tagKey];
                     
                     return (
                       <button
