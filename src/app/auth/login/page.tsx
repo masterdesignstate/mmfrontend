@@ -118,8 +118,18 @@ export default function LoginPage() {
         }
       } else {
         setError(data.error || 'Invalid email or password');
+        // Clear ALL user-related data on failed login
         localStorage.removeItem('user_id');
         localStorage.removeItem('is_admin');
+        localStorage.removeItem('user_email');
+        // Clear all profile caches from sessionStorage
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('profile_')) {
+            sessionStorage.removeItem(key);
+            sessionStorage.removeItem(`${key}_timestamp`);
+          }
+        });
+        console.log('🧹 Cleared all user data on failed login');
       }
     } catch (error) {
       setError('Network error. Please try again.');

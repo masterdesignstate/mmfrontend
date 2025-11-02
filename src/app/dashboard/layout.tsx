@@ -30,10 +30,19 @@ export default function DashboardLayout({
   const router = useRouter();
 
   const handleLogout = () => {
-    // Clear any stored user data
+    // Clear ALL user-related data on logout
     localStorage.removeItem('user_id');
+    localStorage.removeItem('is_admin');
     localStorage.removeItem('user_email');
-
+    // Clear all profile caches from sessionStorage
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.startsWith('profile_')) {
+        sessionStorage.removeItem(key);
+        sessionStorage.removeItem(`${key}_timestamp`);
+      }
+    });
+    console.log('🧹 Cleared all user data on logout');
+    
     // Redirect to login page
     router.push('/auth/login');
   };

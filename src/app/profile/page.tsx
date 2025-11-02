@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 
@@ -42,6 +42,7 @@ interface ProfileIcon {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Check cache synchronously on mount to avoid loading state if cache exists
   const getInitialState = () => {
@@ -49,7 +50,25 @@ export default function ProfilePage() {
       return { user: null, answers: [], loading: true };
     }
     
-    const userId = localStorage.getItem('user_id');
+    // PRIORITY 1: Check URL query parameter first (most recent/accurate)
+    // PRIORITY 2: Fall back to localStorage (may be stale)
+    const urlUserId = searchParams?.get('user_id');
+    const storedUserId = localStorage.getItem('user_id');
+    const userId = urlUserId || storedUserId;
+    
+    // If URL has user_id, update localStorage to keep it in sync
+    if (urlUserId && urlUserId !== storedUserId) {
+      console.log('🔄 Updating localStorage user_id from URL:', urlUserId);
+      localStorage.setItem('user_id', urlUserId);
+      // Clear any cached data for old user to prevent showing wrong profile
+      if (storedUserId) {
+        const oldCacheKey = `profile_${storedUserId}`;
+        sessionStorage.removeItem(oldCacheKey);
+        sessionStorage.removeItem(`${oldCacheKey}_timestamp`);
+        console.log('🗑️ Cleared cached profile for old user:', storedUserId);
+      }
+    }
+    
     if (!userId) {
       return { user: null, answers: [], loading: true };
     }
@@ -81,16 +100,36 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // Get user ID from localStorage
-        const userId = localStorage.getItem('user_id');
+        // PRIORITY 1: Check URL query parameter first (most recent/accurate)
+        // PRIORITY 2: Fall back to localStorage (may be stale)
+        const urlUserId = searchParams?.get('user_id');
+        const storedUserId = localStorage.getItem('user_id');
+        let userId = urlUserId || storedUserId;
+        
+        // If URL has user_id, update localStorage to keep it in sync
+        if (urlUserId) {
+          if (urlUserId !== storedUserId) {
+            console.log('🔄 Updating localStorage user_id from URL:', urlUserId);
+            localStorage.setItem('user_id', urlUserId);
+            // Clear any cached data for old user to prevent showing wrong profile
+            if (storedUserId) {
+              const oldCacheKey = `profile_${storedUserId}`;
+              sessionStorage.removeItem(oldCacheKey);
+              sessionStorage.removeItem(`${oldCacheKey}_timestamp`);
+              console.log('🗑️ Cleared cached profile for old user:', storedUserId);
+            }
+          }
+          userId = urlUserId;
+        }
+        
         if (!userId) {
-          console.log('No user_id in localStorage, redirecting to login');
+          console.log('No user_id found in URL or localStorage, redirecting to login');
           setError('User ID not found');
           router.push('/auth/login');
           return;
         }
 
-        console.log('Fetching profile for user:', userId);
+        console.log('🔍 Fetching profile for user:', userId, urlUserId ? '(from URL)' : '(from localStorage)');
 
         // Check sessionStorage cache first (2 min TTL)
         const cacheKey = `profile_${userId}`;
@@ -163,7 +202,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [router]);
+  }, [router, searchParams]);
 
 
   // Helper function to get answer value for specific question
