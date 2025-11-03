@@ -62,18 +62,6 @@ export default function DietPage() {
     
     // Removed questions parameter parsing - using hardcoded data only
 
-    // Check for answered diets in localStorage for immediate UI feedback
-    const answeredDietsData = localStorage.getItem('answeredDiets');
-    if (answeredDietsData) {
-      try {
-        const parsed = JSON.parse(answeredDietsData);
-        setAnsweredDiets(new Set(parsed));
-        console.log('📋 Loaded answered diets from localStorage:', parsed);
-      } catch (error) {
-        console.error('❌ Error parsing answered diets:', error);
-      }
-    }
-
     // No need to sync with backend - we're using localStorage for immediate UI feedback
     // if (refreshParam === 'true' && userIdParam) {
     //   console.log('🔄 Refresh flag detected, syncing with backend in background...');
@@ -87,18 +75,21 @@ export default function DietPage() {
 
   // IMMEDIATELY load answered diets from localStorage for instant UI
   useEffect(() => {
-    if (userId) {
-      const answeredDietsData = localStorage.getItem('answeredDiets');
-      if (answeredDietsData) {
-        try {
-          const parsed = JSON.parse(answeredDietsData);
-          setAnsweredDiets(new Set(parsed));
-          console.log('⚡ Loaded answered diets from localStorage:', parsed);
-        } catch (error) {
-          console.error('❌ Error parsing answered diets:', error);
-        }
+    if (!userId) {
+      return;
+    }
+    const answeredDietsKey = `answeredDiets_${userId}`;
+    const answeredDietsData = localStorage.getItem(answeredDietsKey);
+    if (answeredDietsData) {
+      try {
+        const parsed = JSON.parse(answeredDietsData);
+        setAnsweredDiets(new Set(parsed));
+        console.log('📋 Loaded answered diets from localStorage:', parsed);
+      } catch (error) {
+        console.error('❌ Error parsing answered diets:', error);
       }
-      // No need to check backend - we're using localStorage for immediate UI feedback
+    } else {
+      setAnsweredDiets(new Set());
     }
   }, [userId]);
 

@@ -91,8 +91,14 @@ export default function EthnicityPage() {
     //   checkAnsweredQuestions();
     // }
 
-    // Check for answered ethnicities in localStorage for immediate UI feedback
-    const answeredEthnicitiesData = localStorage.getItem('answeredEthnicities');
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+    const answeredEthnicitiesKey = `answeredEthnicities_${userId}`;
+    const answeredEthnicitiesData = localStorage.getItem(answeredEthnicitiesKey);
     if (answeredEthnicitiesData) {
       try {
         const parsed = JSON.parse(answeredEthnicitiesData);
@@ -101,8 +107,10 @@ export default function EthnicityPage() {
       } catch (error) {
         console.error('❌ Error parsing answered ethnicities:', error);
       }
+    } else {
+      setAnsweredEthnicities(new Set());
     }
-  }, [searchParams]);
+  }, [userId]);
 
   // Fetch ethnicity questions from backend when userId is available (only once)
   useEffect(() => {

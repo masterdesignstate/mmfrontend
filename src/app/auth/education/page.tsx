@@ -74,8 +74,19 @@ export default function EducationPage() {
       setAnsweredQuestions(prev => new Set([...prev, justAnsweredParam]));
     }
 
-    // Check for answered educations in localStorage for immediate UI feedback
-    const answeredEducationsData = localStorage.getItem('answeredEducations');
+    // No need to sync with backend - we're using localStorage for immediate UI feedback
+    // if (refreshParam === 'true' && userIdParam) {
+    //   console.log('🔄 Refresh flag detected, syncing with backend in background...');
+    //   checkAnsweredQuestions();
+    // }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+    const answeredEducationsKey = `answeredEducations_${userId}`;
+    const answeredEducationsData = localStorage.getItem(answeredEducationsKey);
     if (answeredEducationsData) {
       try {
         const parsed = JSON.parse(answeredEducationsData);
@@ -84,14 +95,10 @@ export default function EducationPage() {
       } catch (error) {
         console.error('❌ Error parsing answered educations:', error);
       }
+    } else {
+      setAnsweredEducations(new Set());
     }
-
-    // No need to sync with backend - we're using localStorage for immediate UI feedback
-    // if (refreshParam === 'true' && userIdParam) {
-    //   console.log('🔄 Refresh flag detected, syncing with backend in background...');
-    //   checkAnsweredQuestions();
-    // }
-  }, [searchParams]);
+  }, [userId]);
 
   // Removed education questions fetching - using hardcoded data only
 

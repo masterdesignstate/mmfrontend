@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -36,6 +36,11 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [error, setError] = useState<string>('');
+
+  const getUserStorageKey = useCallback(
+    (base: string) => (userId ? `${base}_${userId}` : null),
+    [userId]
+  );
 
   // Hardcoded question IDs from Django database (question_number=4)
   const educationQuestionIds = {
@@ -841,7 +846,10 @@ export default function QuestionPage() {
           console.log('🎯 Ethnicity question - navigating back to ethnicity page');
           
           // Save answered ethnicity to localStorage for immediate UI feedback
-          const answeredEthnicitiesData = localStorage.getItem('answeredEthnicities');
+          const answeredEthnicitiesKey = getUserStorageKey('answeredEthnicities');
+          const answeredEthnicitiesData = answeredEthnicitiesKey
+            ? localStorage.getItem(answeredEthnicitiesKey)
+            : null;
           let answeredEthnicities = [];
           if (answeredEthnicitiesData) {
             try {
@@ -855,7 +863,9 @@ export default function QuestionPage() {
           const ethnicityParam = searchParams.get('ethnicity');
           if (ethnicityParam && !answeredEthnicities.includes(ethnicityParam)) {
             answeredEthnicities.push(ethnicityParam);
-            localStorage.setItem('answeredEthnicities', JSON.stringify(answeredEthnicities));
+            if (answeredEthnicitiesKey) {
+              localStorage.setItem(answeredEthnicitiesKey, JSON.stringify(answeredEthnicities));
+            }
             console.log('✅ Saved answered ethnicity to localStorage:', ethnicityParam);
           }
 
@@ -870,7 +880,10 @@ export default function QuestionPage() {
           console.log('🎓 educationParam:', searchParams.get('education'));
           
           // Save answered education to localStorage for immediate UI feedback
-          const answeredEducationsData = localStorage.getItem('answeredEducations');
+          const answeredEducationsKey = getUserStorageKey('answeredEducations');
+          const answeredEducationsData = answeredEducationsKey
+            ? localStorage.getItem(answeredEducationsKey)
+            : null;
           let answeredEducations = [];
           if (answeredEducationsData) {
             try {
@@ -884,7 +897,9 @@ export default function QuestionPage() {
           const educationParam = searchParams.get('education');
           if (educationParam && !answeredEducations.includes(educationParam)) {
             answeredEducations.push(educationParam);
-            localStorage.setItem('answeredEducations', JSON.stringify(answeredEducations));
+            if (answeredEducationsKey) {
+              localStorage.setItem(answeredEducationsKey, JSON.stringify(answeredEducations));
+            }
             console.log('✅ Saved answered education to localStorage:', educationParam);
           }
 
@@ -900,7 +915,10 @@ export default function QuestionPage() {
           console.log('🥗 dietParam:', searchParams.get('diet'));
           
           // Save answered diet to localStorage for immediate UI feedback
-          const answeredDietsData = localStorage.getItem('answeredDiets');
+          const answeredDietsKey = getUserStorageKey('answeredDiets');
+          const answeredDietsData = answeredDietsKey
+            ? localStorage.getItem(answeredDietsKey)
+            : null;
           let answeredDiets = [];
           if (answeredDietsData) {
             try {
@@ -914,7 +932,9 @@ export default function QuestionPage() {
           const dietParam = searchParams.get('diet');
           if (dietParam && !answeredDiets.includes(dietParam)) {
             answeredDiets.push(dietParam);
-            localStorage.setItem('answeredDiets', JSON.stringify(answeredDiets));
+            if (answeredDietsKey) {
+              localStorage.setItem(answeredDietsKey, JSON.stringify(answeredDiets));
+            }
             console.log('✅ Saved answered diet to localStorage:', dietParam);
           }
 
