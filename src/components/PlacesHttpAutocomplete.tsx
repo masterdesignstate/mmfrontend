@@ -62,9 +62,12 @@ export default function PlacesHttpAutocomplete({
   const debouncedValue = useDebounce(inputValue, 250);
 
   useEffect(() => {
+    // If no API key or disabled, just work as a regular input (no autocomplete)
     if (!apiKey || disabled) {
       setSuggestions([]);
       setOpen(false);
+      setLoading(false);
+      setError(null);
       return;
     }
 
@@ -100,8 +103,12 @@ export default function PlacesHttpAutocomplete({
         });
 
         if (!response.ok) {
+          // Don't show error if API key is invalid - just silently fail and work as regular input
           const errorBody = await response.text();
-          throw new Error(errorBody || `Request failed with status ${response.status}`);
+          console.warn('Google Places API error:', response.status, errorBody);
+          setSuggestions([]);
+          setOpen(false);
+          return;
         }
 
         const data: {
@@ -132,8 +139,8 @@ export default function PlacesHttpAutocomplete({
         setOpen(mappedSuggestions.length > 0);
       } catch (err) {
         if (controller.signal.aborted) return;
-        console.error('Places autocomplete error:', err);
-        setError('Unable to fetch suggestions.');
+        // Silently fail - just work as regular input
+        console.warn('Places autocomplete error (working as regular input):', err);
         setSuggestions([]);
         setOpen(false);
       } finally {
@@ -202,12 +209,6 @@ export default function PlacesHttpAutocomplete({
             </li>
           ))}
         </ul>
-      )}
-
-      {error && (
-        <p className="mt-1 text-xs text-red-500">
-          {error}
-        </p>
       )}
     </div>
   );

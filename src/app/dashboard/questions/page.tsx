@@ -321,6 +321,63 @@ export default function QuestionsPage() {
         </div>
       </div>
 
+      {/* Active Filters Display */}
+      {(selectedTag !== 'All' || selectedApproved !== 'All' || selectedMandatory !== 'All' || searchTerm) && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">Active filters:</span>
+            {selectedTag !== 'All' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-black">
+                Tag: {selectedTag}
+                <button
+                  onClick={() => setSelectedTag('All')}
+                  className="ml-2 hover:text-gray-600"
+                  title="Remove filter"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </span>
+            )}
+            {selectedApproved !== 'All' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-black">
+                Approved: {selectedApproved}
+                <button
+                  onClick={() => setSelectedApproved('All')}
+                  className="ml-2 hover:text-gray-600"
+                  title="Remove filter"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </span>
+            )}
+            {selectedMandatory !== 'All' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-black">
+                Mandatory: {selectedMandatory}
+                <button
+                  onClick={() => setSelectedMandatory('All')}
+                  className="ml-2 hover:text-gray-600"
+                  title="Remove filter"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </span>
+            )}
+            {searchTerm && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-black border border-black">
+                Search: {searchTerm}
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="ml-2 hover:text-gray-600"
+                  title="Remove filter"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Questions Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">

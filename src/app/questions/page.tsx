@@ -1031,7 +1031,7 @@ export default function QuestionsPage() {
         {/* Title and Ask Button */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold">All Questions</h1>
+            <h1 className="text-2xl font-bold">Questions</h1>
             <p className="text-gray-600">
               {isFilteredByAnsweredStatus 
                 ? `Showing ${paginatedGroupedQuestions.length} of ${sortedGroupedQuestions.length} questions`
@@ -1049,9 +1049,51 @@ export default function QuestionsPage() {
 
         {/* Questions List */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between px-4 mb-2">
-            <div className="flex-1"></div>
-            <span className="text-sm font-medium text-black">Times Answered</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Question Type Filters */}
+              {filters.questions.mandatory && (
+                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-red-500 bg-red-50 text-gray-900">
+                  <Image src="/assets/asterisk.png" alt="Mandatory" width={24} height={24} />
+                </span>
+              )}
+              {filters.questions.answered && (
+                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-green-500 bg-green-50 text-gray-900">
+                  <Image src="/assets/answered.png" alt="Answered" width={24} height={24} />
+                </span>
+              )}
+              {filters.questions.unanswered && (
+                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-blue-500 bg-blue-50 text-gray-900">
+                  <Image src="/assets/un.png" alt="Unanswered" width={24} height={24} />
+                </span>
+              )}
+              {filters.questions.required && (
+                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-gray-800 bg-gray-50 text-gray-900">
+                  <Image src="/assets/req.png" alt="Required" width={24} height={24} />
+                </span>
+              )}
+              {filters.questions.submitted && (
+                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-orange-500 bg-orange-50 text-gray-900">
+                  <Image src="/assets/submitted.png" alt="Submitted" width={24} height={24} />
+                </span>
+              )}
+
+              {/* Tag Filters */}
+              {Object.entries(filters.tags).map(([tagKey, isActive]) => {
+                if (!isActive) return null;
+                const tagName = tagKey.charAt(0).toUpperCase() + tagKey.slice(1);
+                return (
+                  <span
+                    key={tagKey}
+                    className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer hover:border-gray-600"
+                  >
+                    <div className="absolute inset-0 bg-black opacity-3" style={{ borderRadius: '24px' }}></div>
+                    <span className="relative z-10">{tagName}</span>
+                  </span>
+                );
+              })}
+            </div>
+            <span className="text-sm font-medium text-black pr-4">Times Answered</span>
           </div>
           {paginatedGroupedQuestions
             .map(([key, group]) => {
