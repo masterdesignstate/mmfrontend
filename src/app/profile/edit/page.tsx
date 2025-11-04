@@ -19,6 +19,7 @@ type User = {
   height?: number | null; // cm
   from_location?: string | null;
   live?: string | null;
+  tagline?: string | null;
   bio?: string | null;
 };
 
@@ -115,7 +116,7 @@ export default function EditProfilePage() {
         const prefilled: FormState = {
           fullName,
           username: data.username || '',
-          tagline: '',
+          tagline: data.tagline || '',
           dateOfBirth: dob,
           height: heightText,
           from: data.from_location || '',
