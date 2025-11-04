@@ -2,97 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-// Mock profile data - in real app this would come from API
-const generateMockProfile = (id: string) => {
-  const names = [
-    'Alex Johnson', 'Sarah Wilson', 'Michael Brown', 'Emily Davis', 'David Miller',
-    'Jessica Garcia', 'Christopher Rodriguez', 'Ashley Martinez', 'Matthew Anderson',
-    'Amanda Taylor', 'Daniel Thomas', 'Samantha Jackson', 'James White', 'Nicole Harris',
-    'Ryan Martin', 'Elizabeth Thompson', 'Kevin Garcia', 'Jennifer Martinez', 'Brandon Lee',
-    'Michelle Lewis', 'Jason Walker', 'Stephanie Hall', 'Justin Allen', 'Rebecca Young',
-    'Andrew Hernandez', 'Laura King', 'Anthony Wright', 'Kimberly Lopez', 'Mark Hill',
-    'Amy Scott', 'Steven Green', 'Carol Adams', 'Joshua Baker', 'Lisa Gonzalez',
-    'Kenneth Nelson', 'Sharon Carter', 'Paul Mitchell', 'Donna Perez', 'Edward Roberts',
-    'Helen Turner', 'Ronald Phillips', 'Maria Campbell', 'Timothy Parker', 'Nancy Evans',
-    'Jason Edwards', 'Betty Collins', 'Jeff Stewart', 'Dorothy Sanchez', 'Frank Morris'
-  ];
-
-  const cities = [
-    'New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia',
-    'San Antonio', 'San Diego', 'Dallas', 'San Jose', 'Austin', 'Jacksonville',
-    'Fort Worth', 'Columbus', 'Charlotte', 'San Francisco', 'Indianapolis',
-    'Seattle', 'Denver', 'Washington', 'Boston', 'El Paso', 'Nashville', 'Detroit'
-  ];
-
-  const profileId = parseInt(id);
-  const nameIndex = (profileId - 1) % names.length;
-  const liveIndex = (profileId - 1) % cities.length;
-  
-  const name = names[nameIndex];
-  const username = `user${profileId}`;
-  const age = 18 + (profileId % 40);
-  const live = cities[liveIndex];
-  const answers = 5 + (profileId % 25);
-  
-  // Deterministic date based on profile ID
-  const baseDate = new Date(2023, 0, 1);
-  const daysToAdd = (profileId * 7) % 730;
-  const creationDate = new Date(baseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
-  const month = String(creationDate.getMonth() + 1).padStart(2, '0');
-  const day = String(creationDate.getDate()).padStart(2, '0');
-  const year = creationDate.getFullYear();
-  const formattedDate = `${month}/${day}/${year}`;
-
-  // Mock data for relationship preferences
-  const friend = 1 + (profileId % 6);
-  const hookup = 1 + ((profileId + 1) % 6);
-  const date = 1 + ((profileId + 2) % 6);
-  const partner = 1 + ((profileId + 3) % 6);
-  const male = 1 + ((profileId + 4) % 6);
-  const female = 1 + ((profileId + 5) % 6);
-
-  return {
-    id: profileId,
-    creationDate: formattedDate,
-    name: `${name} ${profileId}`,
-    username,
-    age,
-    live,
-    answers,
-    friend,
-    hookup,
-    date,
-    partner,
-    male,
-    female,
-    // Additional details
-    email: `${username}@example.com`,
-    bio: `Hi, I'm ${name}! I love meeting new people and exploring new places. Looking for someone to share adventures with.`,
-    height: 160 + (profileId % 30), // 160-189 cm
-    education: ['Bachelor\'s Degree', 'Master\'s Degree', 'High School', 'PhD', 'Associate\'s Degree'][profileId % 5],
-    interests: ['Travel', 'Music', 'Sports', 'Reading', 'Cooking', 'Photography', 'Gaming', 'Fitness'][profileId % 8],
-    lastActive: new Date(Date.now() - (profileId * 1000 * 60 * 60)).toLocaleString(),
-    profileCompleted: Math.min(85 + (profileId % 15), 100), // 85-100%
-    photos: profileId <= 5 ? profileId : 0, // Some profiles have photos
-    verified: profileId % 3 === 0, // Every 3rd profile is verified
-    premium: profileId % 5 === 0, // Every 5th profile is premium
-  };
-};
+import { apiService, ApiUser } from '@/services/api';
+import Image from 'next/image';
 
 export default function ProfileDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
+  const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const profileData = generateMockProfile(params.id);
-      setProfile(profileData);
-      setLoading(false);
-    }, 500);
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const userData = await apiService.getUser(params.id);
+        setUser(userData);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
   }, [params.id]);
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'N/A';
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
 
   if (loading) {
     return (
@@ -105,16 +50,42 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
     );
   }
 
-  if (!profile) {
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <i className="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-center">
           <i className="fas fa-user-slash text-4xl text-gray-400 mb-4"></i>
           <p className="text-gray-600">Profile not found</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );
   }
+
+  const displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username;
+  const questionAnswers = user.question_answers || {};
 
   return (
     <div className="space-y-6">
@@ -129,14 +100,16 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
           </button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Profile Details</h1>
-            <p className="text-gray-600">Viewing profile for {profile.name}</p>
+            <p className="text-gray-600">Viewing profile for {displayName}</p>
           </div>
         </div>
         <div className="flex space-x-2">
-          <button className="px-4 py-2 bg-[#672DB7] text-white rounded-lg hover:bg-[#5a259f] transition-colors">
-            <i className="fas fa-edit mr-2"></i>
-            Edit Profile
-          </button>
+          {user.is_banned && (
+            <span className="px-3 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium">
+              <i className="fas fa-ban mr-2"></i>
+              Restricted
+            </span>
+          )}
         </div>
       </div>
 
@@ -147,40 +120,93 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-start space-x-6">
               <div className="flex-shrink-0">
-                <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
-                  <i className="fas fa-user text-3xl text-gray-400"></i>
-                </div>
+                {user.profile_photo ? (
+                  <div className="w-24 h-24 rounded-full overflow-hidden">
+                    <Image
+                      src={user.profile_photo}
+                      alt={displayName}
+                      width={96}
+                      height={96}
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#672DB7] to-[#8b5cf6] flex items-center justify-center text-white text-3xl font-bold">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <h2 className="text-2xl font-bold text-gray-900">{profile.name}</h2>
-                  {profile.verified && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                      <i className="fas fa-check-circle mr-1"></i>
-                      Verified
-                    </span>
-                  )}
-                  {profile.premium && (
-                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                      <i className="fas fa-crown mr-1"></i>
-                      Premium
-                    </span>
-                  )}
+                  <h2 className="text-2xl font-bold text-gray-900">{displayName}</h2>
                 </div>
-                <p className="text-gray-600 mb-2">@{profile.username}</p>
-                <p className="text-gray-700 mb-4">{profile.bio}</p>
+                <p className="text-gray-600 mb-2">@{user.username}</p>
+                {user.bio && (
+                  <p className="text-gray-700 mb-4">{user.bio}</p>
+                )}
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <span><i className="fas fa-map-marker-alt mr-1"></i>{profile.live}</span>
-                  <span><i className="fas fa-birthday-cake mr-1"></i>{profile.age} years old</span>
-                  <span><i className="fas fa-envelope mr-1"></i>{profile.email}</span>
+                  {user.live && (
+                    <span><i className="fas fa-map-marker-alt mr-1"></i>{user.live}</span>
+                  )}
+                  {user.age && (
+                    <span><i className="fas fa-birthday-cake mr-1"></i>{user.age} years old</span>
+                  )}
+                  {user.email && (
+                    <span><i className="fas fa-envelope mr-1"></i>{user.email}</span>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-
-
-
+          {/* Question Answers Card */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <i className="fas fa-question-circle mr-2"></i>
+              Question Answers
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {questionAnswers.male !== undefined && questionAnswers.male !== null && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">Male</div>
+                  <div className="text-lg font-semibold text-gray-900">{questionAnswers.male}</div>
+                </div>
+              )}
+              {questionAnswers.female !== undefined && questionAnswers.female !== null && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">Female</div>
+                  <div className="text-lg font-semibold text-gray-900">{questionAnswers.female}</div>
+                </div>
+              )}
+              {questionAnswers.friend !== undefined && questionAnswers.friend !== null && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">Friend</div>
+                  <div className="text-lg font-semibold text-gray-900">{questionAnswers.friend}</div>
+                </div>
+              )}
+              {questionAnswers.hookup !== undefined && questionAnswers.hookup !== null && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">Hookup</div>
+                  <div className="text-lg font-semibold text-gray-900">{questionAnswers.hookup}</div>
+                </div>
+              )}
+              {questionAnswers.date !== undefined && questionAnswers.date !== null && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">Date</div>
+                  <div className="text-lg font-semibold text-gray-900">{questionAnswers.date}</div>
+                </div>
+              )}
+              {questionAnswers.partner !== undefined && questionAnswers.partner !== null && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">Partner</div>
+                  <div className="text-lg font-semibold text-gray-900">{questionAnswers.partner}</div>
+                </div>
+              )}
+            </div>
+            {Object.keys(questionAnswers).length === 0 && (
+              <p className="text-gray-500 text-center py-4">No question answers available</p>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -193,37 +219,53 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Profile Completion</span>
-                <span className="font-semibold">{profile.profileCompleted}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-[#672DB7] h-2 rounded-full" 
-                  style={{ width: `${profile.profileCompleted}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-gray-600">Questions Answered</span>
-                <span className="font-semibold">{profile.answers}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Photos Uploaded</span>
-                <span className="font-semibold">{profile.photos}</span>
+                <span className="font-semibold">{user.questions_answered_count || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Created</span>
-                <span className="font-semibold">{profile.creationDate}</span>
+                <span className="font-semibold">{formatDate(user.date_joined)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Last Active</span>
-                <span className="font-semibold text-sm">{profile.lastActive}</span>
+                <span className="text-gray-600">Username</span>
+                <span className="font-semibold text-sm">{user.username}</span>
               </div>
+              {user.city && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">City</span>
+                  <span className="font-semibold text-sm">{user.city}</span>
+                </div>
+              )}
+              {user.is_banned && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Status</span>
+                  <span className="font-semibold text-red-600">Restricted</span>
+                </div>
+              )}
             </div>
           </div>
 
-
+          {/* Account Info */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <i className="fas fa-info-circle mr-2"></i>
+              Account Information
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">User ID</span>
+                <span className="font-mono text-xs text-gray-900 break-all">{user.id}</span>
+              </div>
+              {user.email && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Email</span>
+                  <span className="text-gray-900">{user.email}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
-} 
+}

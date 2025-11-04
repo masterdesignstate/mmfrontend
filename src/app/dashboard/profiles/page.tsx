@@ -31,48 +31,10 @@ export default function ProfilesPage() {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const users = await apiService.getUsers();
-
-        // Transform API users to ProfileData format
-        const transformedProfiles: ProfileData[] = users.map((user: ApiUser) => {
-          const questionAnswers = user.question_answers || {};
-
-          return {
-            id: user.id,
-            creationDate: formatDate(user.date_joined || ''),
-            name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username,
-            username: user.username,
-            age: user.age || 0,
-            live: user.live || '',
-            answers: user.questions_answered_count || 0,
-            male: questionAnswers.male || null,
-            female: questionAnswers.female || null,
-            friend: questionAnswers.friend || null,
-            hookup: questionAnswers.hookup || null,
-            date: questionAnswers.date || null,
-            partner: questionAnswers.partner || null,
-            restrictionType: user.is_banned ? 'Restricted' : 'None'
-          };
-        });
-
-        setProfiles(transformedProfiles);
-      } catch (err) {
-        console.error('Error fetching profiles:', err);
-        setError('Failed to fetch profiles');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfiles();
-  }, []);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<'restrict' | 'remove_restriction' | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<ProfileData | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -82,6 +44,84 @@ export default function ProfilesPage() {
     const day = String(d.getDate()).padStart(2, '0');
     const year = d.getFullYear();
     return `${month}/${day}/${year}`;
+  };
+
+  const fetchProfiles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const users = await apiService.getUsers();
+
+      // Transform API users to ProfileData format
+      const transformedProfiles: ProfileData[] = users.map((user: ApiUser) => {
+        const questionAnswers = user.question_answers || {};
+
+        return {
+          id: user.id,
+          creationDate: formatDate(user.date_joined || ''),
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username,
+          username: user.username,
+          age: user.age || 0,
+          live: user.live || '',
+          answers: user.questions_answered_count || 0,
+          male: questionAnswers.male || null,
+          female: questionAnswers.female || null,
+          friend: questionAnswers.friend || null,
+          hookup: questionAnswers.hookup || null,
+          date: questionAnswers.date || null,
+          partner: questionAnswers.partner || null,
+          restrictionType: user.is_banned ? 'Restricted' : 'None'
+        };
+      });
+
+      setProfiles(transformedProfiles);
+    } catch (err) {
+      console.error('Error fetching profiles:', err);
+      setError('Failed to fetch profiles');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  const handleAction = (action: 'restrict' | 'remove_restriction', profile: ProfileData) => {
+    setSelectedAction(action);
+    setSelectedProfile(profile);
+    setShowActionModal(true);
+  };
+
+  const executeAction = async () => {
+    if (!selectedAction || !selectedProfile) return;
+
+    setActionLoading(true);
+    try {
+      if (selectedAction === 'restrict') {
+        await apiService.restrictUser(selectedProfile.id, {
+          restriction_type: 'temporary',
+          duration: 30,
+          reason: 'Restricted by admin'
+        });
+        // Refresh the profiles list
+        await fetchProfiles();
+      } else if (selectedAction === 'remove_restriction') {
+        await apiService.removeRestriction(selectedProfile.id);
+        // Refresh the profiles list
+        await fetchProfiles();
+      }
+      
+      setShowActionModal(false);
+      setSelectedAction(null);
+      setSelectedProfile(null);
+    } catch (err) {
+      console.error('Error executing action:', err);
+      setError(err instanceof Error ? err.message : 'Failed to execute action');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // Filter profiles
@@ -338,7 +378,18 @@ export default function ProfilesPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentProfiles.map((profile, index) => (
-                <tr key={profile.id} className="hover:bg-gray-50">
+                <tr 
+                  key={profile.id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => {
+                    // Don't navigate if clicking on action buttons or their parent buttons
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.tagName === 'BUTTON' || target.tagName === 'I') {
+                      return;
+                    }
+                    router.push(`/dashboard/profiles/${profile.id}`);
+                  }}
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {startIndex + index + 1}
                   </td>
@@ -388,13 +439,32 @@ export default function ProfilesPage() {
                     {profile.partner ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <button
-                      onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
-                      className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
-                      title="View Profile"
-                    >
-                      <i className="fas fa-eye"></i>
-                    </button>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
+                        className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
+                        title="View Profile"
+                      >
+                        <i className="fas fa-eye"></i>
+                      </button>
+                      {profile.restrictionType === 'None' ? (
+                        <button
+                          onClick={() => handleAction('restrict', profile)}
+                          className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
+                          title="Restrict User"
+                        >
+                          <i className="fas fa-ban"></i>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleAction('remove_restriction', profile)}
+                          className="text-green-600 hover:text-green-800 transition-colors duration-200 cursor-pointer"
+                          title="Remove Restriction"
+                        >
+                          <i className="fas fa-unlock"></i>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -472,6 +542,52 @@ export default function ProfilesPage() {
           </div>
         )}
       </div>
+
+      {/* Action Confirmation Modal */}
+      {showActionModal && selectedProfile && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3 text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Confirm Action
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {selectedAction === 'restrict' && 
+                  `Are you sure you want to restrict user "${selectedProfile.name}"? This will temporarily ban the user.`}
+                {selectedAction === 'remove_restriction' && 
+                  `Are you sure you want to remove the restriction from user "${selectedProfile.name}"?`}
+              </p>
+              <div className="flex justify-center space-x-3">
+                <button
+                  onClick={() => {
+                    setShowActionModal(false);
+                    setSelectedAction(null);
+                    setSelectedProfile(null);
+                  }}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeAction}
+                  disabled={actionLoading}
+                  className={`px-4 py-2 rounded-md text-white transition-colors duration-200 cursor-pointer disabled:opacity-50 ${
+                    selectedAction === 'restrict' 
+                      ? 'bg-orange-600 hover:bg-orange-700' 
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {actionLoading ? (
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                  ) : null}
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

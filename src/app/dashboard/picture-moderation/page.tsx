@@ -55,10 +55,12 @@ export default function PictureModerationPage() {
       setError(null);
 
       const queueData = await apiService.getPictureModerationQueue() as PictureModerationItem[];
-      setItems(queueData);
+      // Ensure we always have an array, even if API returns null/undefined
+      setItems(Array.isArray(queueData) ? queueData : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch picture moderation queue');
       console.error('Error fetching picture moderation queue:', err);
+      setItems([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

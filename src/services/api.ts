@@ -197,7 +197,8 @@ class ApiService {
   }
 
   async getPictureModerationQueue(): Promise<unknown[]> {
-    return this.fetchAllPages<unknown>('/picture-moderation/queue/');
+    // The /queue/ endpoint returns a plain array, not a paginated response
+    return this.request('/picture-moderation/queue/', 'GET') as Promise<unknown[]>;
   }
 
   async approvePicture(moderationId: string): Promise<unknown> {
@@ -231,6 +232,10 @@ class ApiService {
   // Calculation methods
   async getUsers(): Promise<ApiUser[]> {
     return this.fetchAllPages<ApiUser>('/users/');
+  }
+
+  async getUser(userId: string): Promise<ApiUser> {
+    return this.request(`/users/${userId}/`, 'GET') as Promise<ApiUser>;
   }
 
   async getCompatibleUsers(params: {
@@ -358,8 +363,12 @@ class ApiService {
     return this.fetchAllPages<Question>(endpoint);
   }
 
-  async getQuestion(id: string): Promise<Question> {
-    return this.request(`/questions/${id}/`, 'GET') as Promise<Question>;
+  async getQuestion(id: string, skipUserAnswers: boolean = true): Promise<Question> {
+    // For edit operations, skip user_answers to improve performance
+    const endpoint = skipUserAnswers 
+      ? `/questions/${id}/?skip_user_answers=true`
+      : `/questions/${id}/`;
+    return this.request(endpoint, 'GET') as Promise<Question>;
   }
 
   async createQuestion(questionData: {
@@ -448,18 +457,6 @@ class ApiService {
       total_likes: number;
       total_approves: number;
     }>;
-  }
-
-  async getPictureModerationQueue(): Promise<unknown[]> {
-    return this.request('/picture-moderation/queue/', 'GET') as Promise<unknown[]>;
-  }
-
-  async approvePicture(id: string): Promise<unknown> {
-    return this.request(`/picture-moderation/${id}/approve/`, 'POST');
-  }
-
-  async rejectPicture(id: string, reason: string): Promise<unknown> {
-    return this.request(`/picture-moderation/${id}/reject/`, 'POST', { reason });
   }
 
   async getTimeseriesData(period: number = 30): Promise<{
