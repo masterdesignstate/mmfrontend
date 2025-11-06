@@ -797,8 +797,8 @@ export default function ProfilePage() {
 
           {/* Bio */}
           <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4">Bio</h3>
-            <p className="text-gray-600">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
+            <h3 className="font-semibold text-gray-900 mb-4">Bio</h3>
+            <p className="text-gray-600 text-sm">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
           </div>
 
           {/* My Gender Section - left aligned content block */}

@@ -142,7 +142,7 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
                 </div>
                 <p className="text-gray-600 mb-2">@{user.username}</p>
                 {user.bio && (
-                  <p className="text-gray-700 mb-4">{user.bio}</p>
+                  <p className="text-gray-700 mb-4 text-sm">{user.bio}</p>
                 )}
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
                   {user.live && (
