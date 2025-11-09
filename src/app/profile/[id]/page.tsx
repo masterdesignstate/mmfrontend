@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -28,6 +28,9 @@ interface UserAnswer {
     question_name: string;
     question_number: number;
     group_number?: number;
+    group_name?: string;
+    group_name_text?: string;
+    question_type?: 'basic' | 'four' | 'grouped' | 'double' | 'triple';
     text: string;
   };
   me_answer: number;
@@ -51,6 +54,7 @@ export default function UserProfilePage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
   const [showQuestionsModal, setShowQuestionsModal] = useState(false);
+  const [allQuestions, setAllQuestions] = useState<any[]>([]);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -76,8 +80,8 @@ export default function UserProfilePage() {
           return;
         }
 
-        // Fetch user and answers in parallel
-        const [userResponse, answersResponse] = await Promise.all([
+        // Fetch user, answers, and questions in parallel
+        const [userResponse, answersResponse, questionsResponse] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
  
             headers: {
@@ -85,6 +89,12 @@ export default function UserProfilePage() {
             },
           }),
           fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
+
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+          fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, {
 
             headers: {
               'Content-Type': 'application/json',
@@ -100,12 +110,18 @@ export default function UserProfilePage() {
           throw new Error('Failed to fetch user answers');
         }
 
-        const [userData, answersData] = await Promise.all([
+        if (!questionsResponse.ok) {
+          throw new Error('Failed to fetch questions');
+        }
+
+        const [userData, answersData, questionsData] = await Promise.all([
           userResponse.json(),
-          answersResponse.json()
+          answersResponse.json(),
+          questionsResponse.json()
         ]);
 
         const answers = answersData.results || [];
+        const questions = questionsData.results || [];
 
         // Cache the data
         sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
@@ -113,6 +129,7 @@ export default function UserProfilePage() {
 
         setUser(userData);
         setUserAnswers(answers);
+        setAllQuestions(questions);
 
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -532,6 +549,95 @@ export default function UserProfilePage() {
       </div>
     );
   };
+
+  // Question display names mapping (matching questions page)
+  const questionDisplayNames: Record<number, string> = {
+    1: 'What relationship are you looking for?',
+    2: 'What gender do you identify with?',
+    3: 'What ethnicity do you identify with?',
+    4: 'What is your highest level of education?',
+    5: 'Which diet best describes you?',
+    6: 'How often do you exercise?',
+    7: 'How often do you engage in these habits?',
+    8: 'How important is religion in your life?',
+    9: 'How important is politics in your life?',
+    10: 'What are your thoughts on kids?'
+  };
+
+  // Group questions for modal display (matching questions page logic)
+  // Must be called before any early returns to satisfy Rules of Hooks
+  const groupedQuestionsForModal = useMemo(() => {
+    // If questions data not loaded yet, return empty array (will show fallback)
+    if (allQuestions.length === 0) {
+      return [];
+    }
+
+    // Create a map of question IDs to full question data
+    const questionMap = new Map(allQuestions.map((q: any) => [q.id, q]));
+    
+    // Enrich userAnswers with full question data
+    const enrichedAnswers = userAnswers.map(answer => {
+      const fullQuestion = questionMap.get(answer.question.id);
+      return {
+        ...answer,
+        question: {
+          ...answer.question,
+          question_type: fullQuestion?.question_type || 'basic',
+          group_name_text: fullQuestion?.group_name_text,
+          group_name: fullQuestion?.group_name
+        }
+      };
+    });
+
+    // Group questions intelligently based on question_type (matching questions page logic)
+    const grouped: Record<string, { 
+      questions: typeof enrichedAnswers, 
+      displayName: string, 
+      questionNumber: number, 
+      answerCount: number 
+    }> = {};
+
+    enrichedAnswers.forEach(answer => {
+      const questionType = answer.question.question_type || 'basic';
+
+      if (questionType === 'basic') {
+        // Basic questions - each stands alone
+        const key = `${answer.question.question_number}_${answer.question.id}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            questions: [],
+            displayName: answer.question.text,
+            questionNumber: answer.question.question_number,
+            answerCount: 0
+          };
+        }
+        grouped[key].questions.push(answer);
+        grouped[key].answerCount++;
+      } else if (['four', 'grouped', 'double', 'triple'].includes(questionType)) {
+        // Grouped questions - combine by question_number
+        const key = `group_${answer.question.question_number}`;
+        if (!grouped[key]) {
+          // Use group_name_text if available, otherwise use predefined mapping, otherwise use question text
+          const displayText = answer.question.group_name_text ||
+                           questionDisplayNames[answer.question.question_number] ||
+                           answer.question.text;
+          grouped[key] = {
+            questions: [],
+            displayName: displayText,
+            questionNumber: answer.question.question_number,
+            answerCount: 0
+          };
+        }
+        grouped[key].questions.push(answer);
+        grouped[key].answerCount++;
+      }
+    });
+
+    // Sort by question number
+    return Object.entries(grouped).sort((a, b) => 
+      a[1].questionNumber - b[1].questionNumber
+    );
+  }, [userAnswers, allQuestions, questionDisplayNames]);
 
   if (loading) {
     return (
@@ -1112,50 +1218,73 @@ export default function UserProfilePage() {
             <div className="flex-1 overflow-y-auto p-6">
               {/* Questions List */}
               <div className="space-y-2">
-                {(() => {
-                  // Group answers by question_number
-                  const groupedAnswers = userAnswers.reduce((acc, answer) => {
-                    const qNum = answer.question.question_number;
-                    if (!acc[qNum]) {
-                      acc[qNum] = [];
-                    }
-                    acc[qNum].push(answer);
-                    return acc;
-                  }, {} as Record<number, UserAnswer[]>);
-
-                  // Sort by question number
-                  const sortedQuestionNumbers = Object.keys(groupedAnswers)
-                    .map(Number)
-                    .sort((a, b) => a - b);
-
-                  return sortedQuestionNumbers.map((qNum) => {
-                    const answers = groupedAnswers[qNum];
-                    const firstAnswer = answers[0];
-                    const questionText = firstAnswer.question.text;
-                    
-                    return (
-                      <div
-                        key={qNum}
-                        className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-start">
-                            <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
-                            <span className="text-gray-900 flex-1">{questionText}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
-                            <span className="text-sm text-gray-700 font-medium">{answers.length}</span>
-                          </div>
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                {groupedQuestionsForModal.length > 0 ? (
+                  groupedQuestionsForModal.map(([key, group]) => (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-start">
+                          <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
+                          <span className="text-gray-900 flex-1">{group.displayName}</span>
                         </div>
                       </div>
-                    );
-                  });
-                })()}
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
+                          <span className="text-sm text-gray-700 font-medium">{group.answerCount}</span>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  // Fallback: simple grouping by question_number when questions data not loaded
+                  (() => {
+                    const groupedAnswers = userAnswers.reduce((acc, answer) => {
+                      const qNum = answer.question.question_number;
+                      if (!acc[qNum]) {
+                        acc[qNum] = [];
+                      }
+                      acc[qNum].push(answer);
+                      return acc;
+                    }, {} as Record<number, UserAnswer[]>);
+
+                    const sortedQuestionNumbers = Object.keys(groupedAnswers)
+                      .map(Number)
+                      .sort((a, b) => a - b);
+
+                    return sortedQuestionNumbers.map((qNum) => {
+                      const answers = groupedAnswers[qNum];
+                      const firstAnswer = answers[0];
+                      const questionText = firstAnswer.question.text;
+                      
+                      return (
+                        <div
+                          key={qNum}
+                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-start">
+                              <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
+                              <span className="text-gray-900 flex-1">{questionText}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
+                              <span className="text-sm text-gray-700 font-medium">{answers.length}</span>
+                            </div>
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()
+                )}
               </div>
 
               {userAnswers.length === 0 && (
