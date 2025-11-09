@@ -49,6 +49,7 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -123,14 +124,15 @@ export default function UserProfilePage() {
     fetchProfile();
   }, [userId]);
 
-  // Fetch tags for this user
+  // Fetch tags for this user and check for match
   useEffect(() => {
     const fetchTags = async () => {
       const currentUserId = localStorage.getItem('user_id');
       if (!currentUserId || !userId) return;
 
       try {
-        const response = await fetch(
+        // Fetch tags I've assigned to this user
+        const myTagsResponse = await fetch(
           `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
           {
  
@@ -138,9 +140,34 @@ export default function UserProfilePage() {
           }
         );
 
-        if (response.ok) {
-          const data = await response.json();
-          setSelectedTags(data.tags || []);
+        if (myTagsResponse.ok) {
+          const data = await myTagsResponse.json();
+          // Normalize tags to lowercase for consistent comparison
+          const normalizedTags = (data.tags || []).map((tag: string) => tag.toLowerCase());
+          setSelectedTags(normalizedTags);
+          
+          // Check if I've liked this user
+          const iLikedThem = normalizedTags.includes('like');
+          
+          // Check if they've liked me (reverse check)
+          if (iLikedThem) {
+            const theirTagsResponse = await fetch(
+              `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+              {
+ 
+                headers: { 'Content-Type': 'application/json' },
+              }
+            );
+            
+            if (theirTagsResponse.ok) {
+              const theirData = await theirTagsResponse.json();
+              const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+              const theyLikedMe = theirNormalizedTags.includes('like');
+              setHasMatch(iLikedThem && theyLikedMe);
+            }
+          } else {
+            setHasMatch(false);
+          }
         }
       } catch (error) {
         console.error('Error fetching tags:', error);
@@ -539,20 +566,33 @@ export default function UserProfilePage() {
   const fullName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.username;
   const displayName = fullName.split(' ')[0]; // Take only the first part before space
 
+  // Helper function to get the hide button icon based on tag state
+  const getHideButtonIcon = () => {
+    if (selectedTags.includes('hide')) {
+      return '/assets/eye.png';
+    } else {
+      return '/assets/pslash.png';
+    }
+  };
+
   // Helper function to get the current action button icon based on tag state
   const getActionButtonIcon = () => {
-    if (selectedTags.includes('like')) {
-      return '/assets/purple-match.png';
+    if (hasMatch) {
+      return '/assets/purpleheart.png';
+    } else if (selectedTags.includes('like')) {
+      return '/assets/redheart.png';
     } else if (selectedTags.includes('approve')) {
-      return '/assets/purple-like.png';
+      return '/assets/strokeheart.png';
     } else {
-      return '/assets/purple-check.png';
+      return '/assets/approve.png';
     }
   };
 
   // Helper function to get the action button alt text
   const getActionButtonAlt = () => {
-    if (selectedTags.includes('like')) {
+    if (hasMatch) {
+      return 'Match';
+    } else if (selectedTags.includes('like')) {
       return 'Liked';
     } else if (selectedTags.includes('approve')) {
       return 'Approved';
@@ -568,20 +608,24 @@ export default function UserProfilePage() {
 
     // Determine what to do based on current state
     let action = '';
-    if (selectedTags.includes('like')) {
-      action = 'reset'; // Remove like tag (go back to no tags)
+    if (hasMatch || selectedTags.includes('like')) {
+      // If matched or liked, remove like tag (go back to approve or no tags)
+      action = 'remove_like';
     } else if (selectedTags.includes('approve')) {
-      action = 'approve_to_like'; // Remove approve, add like
+      // If approved, remove approve and add like
+      action = 'approve_to_like';
     } else {
-      action = 'add_approve'; // Add approve tag
+      // If no tags, add approve
+      action = 'add_approve';
     }
 
     // Update UI optimistically
     let newSelectedTags = [...selectedTags];
     
     switch (action) {
-      case 'reset':
+      case 'remove_like':
         newSelectedTags = newSelectedTags.filter(tag => tag !== 'like');
+        setHasMatch(false);
         break;
       case 'approve_to_like':
         newSelectedTags = newSelectedTags.filter(tag => tag !== 'approve');
@@ -598,12 +642,16 @@ export default function UserProfilePage() {
     // Sync with backend
     try {
       switch (action) {
-        case 'reset':
+        case 'remove_like':
           await toggleTagAPI('Like');
+          // Check for match after removing like
+          await checkForMatch(newSelectedTags);
           break;
         case 'approve_to_like':
           await toggleTagAPI('Approve');
           await toggleTagAPI('Like');
+          // Check for match after adding like
+          await checkForMatch(newSelectedTags);
           break;
         case 'add_approve':
           await toggleTagAPI('Approve');
@@ -612,7 +660,43 @@ export default function UserProfilePage() {
     } catch (error) {
       // Revert on error
       setSelectedTags(selectedTags);
+      setHasMatch(false);
       console.error('Error updating progression:', error);
+    }
+  };
+
+  // Check if there's a match (both users liked each other)
+  const checkForMatch = async (currentTags?: string[]) => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !userId) return;
+
+    try {
+      // Use provided tags or fetch current tags
+      const tagsToCheck = currentTags || selectedTags;
+      const iLikedThem = tagsToCheck.includes('like');
+      
+      if (!iLikedThem) {
+        setHasMatch(false);
+        return;
+      }
+
+      // Check if they've liked me
+      const theirTagsResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+        {
+ 
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      
+      if (theirTagsResponse.ok) {
+        const theirData = await theirTagsResponse.json();
+        const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+        const theyLikedMe = theirNormalizedTags.includes('like');
+        setHasMatch(iLikedThem && theyLikedMe);
+      }
+    } catch (error) {
+      console.error('Error checking for match:', error);
     }
   };
 
@@ -686,18 +770,18 @@ export default function UserProfilePage() {
             <div className="absolute bottom-4 right-4 flex flex-col gap-4">
               <button 
                 onClick={() => handleTagToggle('Hide')}
-                className="hover:scale-105 transition-transform"
+                className="hover:scale-105 transition-transform cursor-pointer"
               >
                 <Image
-                  src="/assets/purple-hide.png"
-                  alt="Hide"
+                  src={getHideButtonIcon()}
+                  alt={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
                   width={48}
                   height={48}
                 />
               </button>
               <button 
                 onClick={() => handleActionButtonClick()}
-                className="hover:scale-105 transition-transform"
+                className="hover:scale-105 transition-transform cursor-pointer"
               >
                 <Image
                   src={getActionButtonIcon()}
