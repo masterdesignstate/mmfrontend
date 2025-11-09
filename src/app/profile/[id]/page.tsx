@@ -50,6 +50,7 @@ export default function UserProfilePage() {
   const [error, setError] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
+  const [showQuestionsModal, setShowQuestionsModal] = useState(false);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -801,8 +802,11 @@ export default function UserProfilePage() {
               </div>
             )}
             <button
-              onClick={() => handleActionButtonClick()}
-              className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors flex-shrink-0"
+              onClick={() => {
+                console.log('Questions button clicked, opening modal');
+                setShowQuestionsModal(true);
+              }}
+              className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors flex-shrink-0 cursor-pointer"
             >
               Questions
             </button>
@@ -1079,6 +1083,90 @@ export default function UserProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Questions Modal Overlay */}
+      {showQuestionsModal && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50" 
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => setShowQuestionsModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-4 h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold">Questions Answered</h2>
+              <button 
+                onClick={() => setShowQuestionsModal(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Questions List */}
+              <div className="space-y-2">
+                {(() => {
+                  // Group answers by question_number
+                  const groupedAnswers = userAnswers.reduce((acc, answer) => {
+                    const qNum = answer.question.question_number;
+                    if (!acc[qNum]) {
+                      acc[qNum] = [];
+                    }
+                    acc[qNum].push(answer);
+                    return acc;
+                  }, {} as Record<number, UserAnswer[]>);
+
+                  // Sort by question number
+                  const sortedQuestionNumbers = Object.keys(groupedAnswers)
+                    .map(Number)
+                    .sort((a, b) => a - b);
+
+                  return sortedQuestionNumbers.map((qNum) => {
+                    const answers = groupedAnswers[qNum];
+                    const firstAnswer = answers[0];
+                    const questionText = firstAnswer.question.text;
+                    
+                    return (
+                      <div
+                        key={qNum}
+                        className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-start">
+                            <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
+                            <span className="text-gray-900 flex-1">{questionText}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
+                            <span className="text-sm text-gray-700 font-medium">{answers.length}</span>
+                          </div>
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {userAnswers.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No questions answered yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
