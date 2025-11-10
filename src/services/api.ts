@@ -487,6 +487,46 @@ class ApiService {
     }>;
   }
 
+  // Settings methods
+  async changeEmail(data: { current_email: string; current_password: string; new_email: string }): Promise<{
+    success: boolean;
+    message: string;
+    email?: string;
+    error?: string;
+  }> {
+    try {
+      return await this.request('/users/change_email/', 'POST', data) as {
+        success: boolean;
+        message: string;
+        email?: string;
+      };
+    } catch (error) {
+      console.error('Error changing email:', error);
+      throw error;
+    }
+  }
+
+  async changePassword(data: {
+    current_email: string;
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    error?: string;
+  }> {
+    try {
+      return await this.request('/users/change_password/', 'POST', data) as {
+        success: boolean;
+        message: string;
+      };
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw error;
+    }
+  }
+
   // Generic CRUD operations
   async get(endpoint: string): Promise<unknown> {
     return this.request(endpoint, 'GET');

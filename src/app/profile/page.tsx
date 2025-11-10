@@ -717,6 +717,13 @@ export default function ProfilePage() {
                 <span className="text-gray-700">Edit Profile</span>
               </div>
 
+              <div
+                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                onClick={() => router.push('/settings')}
+              >
+                <i className="fas fa-cog text-2xl text-gray-600 w-8 text-center"></i>
+                <span className="text-gray-700">Settings</span>
+              </div>
 
             </nav>
           </div>
