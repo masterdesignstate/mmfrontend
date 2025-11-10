@@ -1446,6 +1446,80 @@ export default function UserProfilePage() {
                     );
                   };
 
+                  // Helper function to render top labels for kids question
+                  const renderKidsTopLabels = (groupNumber: number) => {
+                    const wantKidsLabels = ['DON\'T WANT', 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
+                    const haveKidsLabels = ['DON\'T HAVE', '', '', '', 'HAVE'];
+                    
+                    const labels = groupNumber === 2 ? wantKidsLabels : haveKidsLabels; // group_number 1 = Have, 2 = Want
+                    
+                    return (
+                      <div className="relative text-xs text-gray-500 w-full mb-2" style={{ height: '14px' }}>
+                        {labels.map((label, index) => {
+                          const value = index + 1;
+                          let leftPosition;
+                          
+                          // Position labels to center on slider thumb positions
+                          if (value === 1) {
+                            leftPosition = '14px'; // Left edge of thumb (14px from left)
+                          } else if (value === 2) {
+                            leftPosition = '25%';
+                          } else if (value === 3) {
+                            leftPosition = '50%';
+                          } else if (value === 4) {
+                            leftPosition = '75%';
+                          } else if (value === 5) {
+                            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
+                          }
+                          
+                          return (
+                            <span 
+                              key={value}
+                              className="absolute text-xs text-gray-500" 
+                              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  };
+
+                  // Helper function to render top labels for education question
+                  const renderEducationTopLabels = () => {
+                    return (
+                      <div className="relative text-xs text-gray-500 w-full mb-2" style={{ height: '14px' }}>
+                        <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                        <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                      </div>
+                    );
+                  };
+
+                  // Helper function to render top labels for diet question
+                  const renderDietTopLabels = () => {
+                    return (
+                      <div className="flex justify-between text-xs text-gray-500 mb-2">
+                        <span>NO</span>
+                        <span>YES</span>
+                      </div>
+                    );
+                  };
+
+                  // Helper function to render top labels for frequency questions (Exercise, Habits, Religion)
+                  const renderFrequencyTopLabels = () => {
+                    return (
+                      <div className="relative text-xs text-gray-500 w-full mb-2" style={{ height: '14px' }}>
+                        <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                        <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                        <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                        <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                      </div>
+                    );
+                  };
+
                   // Special handling for Relationship question (question_number === 1) - ONLY Me section
                   if (questionNumber === 1) {
                     const IMPORTANCE_LABELS = [
@@ -1586,6 +1660,12 @@ export default function UserProfilePage() {
                         const meValue = isOpenToAllMe ? 3 : (answer && rawMeAnswer !== 6 && rawMeAnswer !== '6' && rawMeAnswer !== undefined ? rawMeAnswer : 3);
                         const lookingValue = isOpenToAllLooking ? 3 : (answer && rawLookingAnswer !== 6 && rawLookingAnswer !== '6' && rawLookingAnswer !== undefined ? rawLookingAnswer : 3);
 
+                        const isEducationQuestion = questionNumber === 4;
+                        const isDietQuestion = questionNumber === 5;
+                        const isExerciseQuestion = questionNumber === 6;
+                        const isHabitsQuestion = questionNumber === 7;
+                        const isReligionQuestion = questionNumber === 8;
+
                         return (
                           <div>
                             {/* Me Section */}
@@ -1661,6 +1741,11 @@ export default function UserProfilePage() {
                     // Gender (question 2) and Kids (question 10) should NEVER show OTA switches
                     const isGenderQuestion = questionNumber === 2;
                     const isKidsQuestion = questionNumber === 10;
+                    const isEducationQuestion = questionNumber === 4;
+                    const isDietQuestion = questionNumber === 5;
+                    const isExerciseQuestion = questionNumber === 6;
+                    const isHabitsQuestion = questionNumber === 7;
+                    const isReligionQuestion = questionNumber === 8;
 
                     return (
                       <div>
@@ -1670,11 +1755,37 @@ export default function UserProfilePage() {
                           <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500">
-                              <span>LESS</span>
-                              <span>MORE</span>
+                              {isEducationQuestion && (
+                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                  <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                  <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                </div>
+                              )}
+                              {isDietQuestion && (
+                                <div className="flex justify-between text-xs text-gray-500 w-full">
+                                  <span>NO</span>
+                                  <span>YES</span>
+                                </div>
+                              )}
+                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                </div>
+                              )}
+                              {!isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && (
+                                <>
+                                  <span>LESS</span>
+                                  <span>MORE</span>
+                                </>
+                              )}
                             </div>
                             <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                              {!isGenderQuestion && !isKidsQuestion && selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
+                              {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
                             </div>
                           </div>
                           <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
@@ -1688,14 +1799,25 @@ export default function UserProfilePage() {
                               const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
                               const meOpenToAll = isOpenToAllMe;
 
+                              // For Kids question, use WANT KIDS / HAVE KIDS labels
+                              let rowLabel = question.question_name.toUpperCase();
+                              if (isKidsQuestion) {
+                                if (question.group_number === 1) {
+                                  rowLabel = 'HAVE KIDS';
+                                } else if (question.group_number === 2) {
+                                  rowLabel = 'WANT KIDS';
+                                }
+                              }
+
                               return (
                                 <React.Fragment key={`me-${question.id}`}>
-                                  <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                                  <div className="text-xs font-semibold text-gray-400">{rowLabel}</div>
                                   <div className="relative">
+                                    {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
                                     <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
                                   </div>
                                   <div>
-                                    {!isGenderQuestion && !isKidsQuestion && question.open_to_all_me ? (
+                                    {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && question.open_to_all_me ? (
                                       <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
                                         <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                                       </div>
@@ -1714,11 +1836,37 @@ export default function UserProfilePage() {
                           <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500">
-                              <span>LESS</span>
-                              <span>MORE</span>
+                              {isEducationQuestion && (
+                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                  <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                  <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                </div>
+                              )}
+                              {isDietQuestion && (
+                                <div className="flex justify-between text-xs text-gray-500 w-full">
+                                  <span>NO</span>
+                                  <span>YES</span>
+                                </div>
+                              )}
+                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                </div>
+                              )}
+                              {!isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && (
+                                <>
+                                  <span>LESS</span>
+                                  <span>MORE</span>
+                                </>
+                              )}
                             </div>
                             <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                              {!isGenderQuestion && !isKidsQuestion && selectedQuestionData.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                              {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && selectedQuestionData.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
                             </div>
                           </div>
                           <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
@@ -1732,10 +1880,21 @@ export default function UserProfilePage() {
                               const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
                               const lookingOpenToAll = isOpenToAllLooking;
 
+                              // For Kids question, use WANT KIDS / HAVE KIDS labels
+                              let rowLabel = question.question_name.toUpperCase();
+                              if (isKidsQuestion) {
+                                if (question.group_number === 1) {
+                                  rowLabel = 'HAVE KIDS';
+                                } else if (question.group_number === 2) {
+                                  rowLabel = 'WANT KIDS';
+                                }
+                              }
+
                               return (
                                 <React.Fragment key={`looking-${question.id}`}>
-                                  <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                                  <div className="text-xs font-semibold text-gray-400">{rowLabel}</div>
                                   <div className="relative">
+                                    {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
                                     <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
                                   </div>
                                   <div className="w-11 h-6"></div>
