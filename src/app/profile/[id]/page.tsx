@@ -85,22 +85,16 @@ export default function UserProfilePage() {
           return;
         }
 
-        // Fetch user, answers, and questions in parallel
-        const [userResponse, answersResponse, questionsResponse] = await Promise.all([
+        // Fetch user and questions
+        const [userResponse, questionsResponse] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
  
             headers: {
               'Content-Type': 'application/json',
             },
           }),
-          fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
-
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }),
           fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, {
-
+ 
             headers: {
               'Content-Type': 'application/json',
             },
@@ -111,22 +105,50 @@ export default function UserProfilePage() {
           throw new Error('User not found');
         }
 
-        if (!answersResponse.ok) {
-          throw new Error('Failed to fetch user answers');
-        }
-
         if (!questionsResponse.ok) {
           throw new Error('Failed to fetch questions');
         }
 
-        const [userData, answersData, questionsData] = await Promise.all([
+        const [userData, questionsData] = await Promise.all([
           userResponse.json(),
-          answersResponse.json(),
           questionsResponse.json()
         ]);
 
-        const answers = answersData.results || [];
         const questions = questionsData.results || [];
+
+        // Fetch all user answers with pagination
+        let allAnswers: any[] = [];
+        let page = 1;
+        const pageSize = 100;
+        const maxPages = 20; // Safety limit
+        
+        while (page <= maxPages) {
+          const answersResponse = await fetch(
+            `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=${page}&page_size=${pageSize}`,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (!answersResponse.ok) {
+            throw new Error('Failed to fetch user answers');
+          }
+
+          const answersData = await answersResponse.json();
+          const pageAnswers = answersData.results || [];
+          allAnswers = allAnswers.concat(pageAnswers);
+
+          // Stop if there's no next page or no more results
+          if (!answersData.next || pageAnswers.length === 0) {
+            break;
+          }
+
+          page++;
+        }
+
+        const answers = allAnswers;
 
         // Cache the data
         sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
@@ -1005,6 +1027,7 @@ export default function UserProfilePage() {
                 className="hover:scale-105 transition-transform cursor-pointer"
               >
                 <Image
+                  key={selectedTags.includes('hide') ? 'eye' : 'pslash'}
                   src={getHideButtonIcon()}
                   alt={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
                   width={48}
