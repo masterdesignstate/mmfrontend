@@ -55,6 +55,10 @@ export default function UserProfilePage() {
   const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
   const [showQuestionsModal, setShowQuestionsModal] = useState(false);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
+  const [questionsModalPage, setQuestionsModalPage] = useState(1);
+  const QUESTIONS_PER_PAGE = 8;
+  const [selectedQuestionNumber, setSelectedQuestionNumber] = useState<number | null>(null);
+  const [selectedQuestionData, setSelectedQuestionData] = useState<any[]>([]);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -567,69 +571,112 @@ export default function UserProfilePage() {
   // Group questions for modal display (matching questions page logic)
   // Must be called before any early returns to satisfy Rules of Hooks
   const groupedQuestionsForModal = useMemo(() => {
-    // If questions data not loaded yet, return empty array (will show fallback)
-    if (allQuestions.length === 0) {
+    // If no user answers, return empty array
+    if (userAnswers.length === 0) {
       return [];
     }
 
-    // Create a map of question IDs to full question data
+    // Get unique question numbers that the user has answered
+    const answeredQuestionNumbers = new Set(
+      userAnswers.map(answer => answer.question.question_number)
+    );
+
+    // Create a map of question IDs to full question data from allQuestions
     const questionMap = new Map(allQuestions.map((q: any) => [q.id, q]));
+
+    // Group questions by question_number
+    const questionsByNumber: Record<number, any[]> = {};
     
-    // Enrich userAnswers with full question data
-    const enrichedAnswers = userAnswers.map(answer => {
-      const fullQuestion = questionMap.get(answer.question.id);
-      return {
-        ...answer,
-        question: {
-          ...answer.question,
-          question_type: fullQuestion?.question_type || 'basic',
-          group_name_text: fullQuestion?.group_name_text,
-          group_name: fullQuestion?.group_name
+    // First, add questions from allQuestions that the user has answered
+    allQuestions.forEach((q: any) => {
+      if (answeredQuestionNumbers.has(q.question_number)) {
+        if (!questionsByNumber[q.question_number]) {
+          questionsByNumber[q.question_number] = [];
         }
-      };
+        questionsByNumber[q.question_number].push(q);
+      }
     });
 
-    // Group questions intelligently based on question_type (matching questions page logic)
+    // Also add questions from userAnswers that might not be in allQuestions
+    userAnswers.forEach(answer => {
+      const qNum = answer.question.question_number;
+      if (!questionsByNumber[qNum]) {
+        questionsByNumber[qNum] = [];
+      }
+      // Check if this question is already in the array
+      const questionId = answer.question.id;
+      const exists = questionsByNumber[qNum].some((q: any) => q.id === questionId);
+      if (!exists) {
+        // Use the question from answer, enriched with data from questionMap if available
+        const fullQuestion = questionMap.get(questionId) || answer.question;
+        questionsByNumber[qNum].push(fullQuestion);
+      }
+    });
+
+    // Now create grouped structure based on question_type
     const grouped: Record<string, { 
-      questions: typeof enrichedAnswers, 
+      questions: UserAnswer[], 
       displayName: string, 
       questionNumber: number, 
       answerCount: number 
     }> = {};
 
-    enrichedAnswers.forEach(answer => {
-      const questionType = answer.question.question_type || 'basic';
+    // Process each answered question number
+    Object.entries(questionsByNumber).forEach(([qNumStr, questions]) => {
+      const questionNumber = parseInt(qNumStr);
+      // Sort questions by group_number if available
+      questions.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
+      const firstQuestion = questions[0];
+      const questionType = firstQuestion?.question_type || 'basic';
+
+      // Find user answers for this question number
+      const answersForQuestion = userAnswers.filter(
+        answer => answer.question.question_number === questionNumber
+      );
+
+      // Only create group if there are answers (should always be true, but safety check)
+      if (answersForQuestion.length === 0) return;
 
       if (questionType === 'basic') {
-        // Basic questions - each stands alone
-        const key = `${answer.question.question_number}_${answer.question.id}`;
-        if (!grouped[key]) {
-          grouped[key] = {
-            questions: [],
-            displayName: answer.question.text,
-            questionNumber: answer.question.question_number,
-            answerCount: 0
-          };
-        }
-        grouped[key].questions.push(answer);
-        grouped[key].answerCount++;
+        // Basic questions - each question stands alone
+        questions.forEach((question: any) => {
+          const answersForThisQuestion = answersForQuestion.filter(
+            answer => answer.question.id === question.id
+          );
+          
+          // Only show if there's an answer for this specific question
+          if (answersForThisQuestion.length === 0) return;
+          
+          const key = `${questionNumber}_${question.id}`;
+          if (!grouped[key]) {
+            grouped[key] = {
+              questions: [],
+              displayName: question.text,
+              questionNumber: questionNumber,
+              answerCount: 0
+            };
+          }
+          grouped[key].questions.push(...answersForThisQuestion);
+          grouped[key].answerCount = answersForThisQuestion.length;
+        });
       } else if (['four', 'grouped', 'double', 'triple'].includes(questionType)) {
         // Grouped questions - combine by question_number
-        const key = `group_${answer.question.question_number}`;
+        const key = `group_${questionNumber}`;
         if (!grouped[key]) {
           // Use group_name_text if available, otherwise use predefined mapping, otherwise use question text
-          const displayText = answer.question.group_name_text ||
-                           questionDisplayNames[answer.question.question_number] ||
-                           answer.question.text;
+          const displayText = firstQuestion.group_name_text ||
+                           questionDisplayNames[questionNumber] ||
+                           firstQuestion.text;
           grouped[key] = {
             questions: [],
             displayName: displayText,
-            questionNumber: answer.question.question_number,
+            questionNumber: questionNumber,
             answerCount: 0
           };
         }
-        grouped[key].questions.push(answer);
-        grouped[key].answerCount++;
+        // Add all answers for this question number
+        grouped[key].questions.push(...answersForQuestion);
+        grouped[key].answerCount = answersForQuestion.length;
       }
     });
 
@@ -638,6 +685,49 @@ export default function UserProfilePage() {
       a[1].questionNumber - b[1].questionNumber
     );
   }, [userAnswers, allQuestions, questionDisplayNames]);
+
+  // Paginate grouped questions for modal (8 per page)
+  const paginatedGroupedQuestions = useMemo(() => {
+    const startIndex = (questionsModalPage - 1) * QUESTIONS_PER_PAGE;
+    const endIndex = startIndex + QUESTIONS_PER_PAGE;
+    return groupedQuestionsForModal.slice(startIndex, endIndex);
+  }, [groupedQuestionsForModal, questionsModalPage]);
+
+  // Calculate total pages for modal (handle both grouped and fallback cases)
+  const totalModalPages = useMemo(() => {
+    if (groupedQuestionsForModal.length > 0) {
+      return Math.ceil(groupedQuestionsForModal.length / QUESTIONS_PER_PAGE);
+    }
+    // Fallback: calculate pages based on unique question numbers
+    const uniqueQuestionNumbers = new Set(userAnswers.map(answer => answer.question.question_number));
+    return Math.ceil(uniqueQuestionNumbers.size / QUESTIONS_PER_PAGE);
+  }, [groupedQuestionsForModal, userAnswers]);
+
+  // Reset pagination and selected question when modal opens
+  useEffect(() => {
+    if (showQuestionsModal) {
+      setQuestionsModalPage(1);
+      setSelectedQuestionNumber(null);
+      setSelectedQuestionData([]);
+    }
+  }, [showQuestionsModal]);
+
+  // Handle question click - show question details in modal
+  const handleQuestionClick = async (questionNumber: number, questionType?: string) => {
+    // Find all questions with this question number
+    const questionsForNumber = allQuestions.filter(q => q.question_number === questionNumber);
+    
+    if (questionsForNumber.length > 0) {
+      setSelectedQuestionNumber(questionNumber);
+      setSelectedQuestionData(questionsForNumber);
+    }
+  };
+
+  // Handle back to questions list
+  const handleBackToQuestionsList = () => {
+    setSelectedQuestionNumber(null);
+    setSelectedQuestionData([]);
+  };
 
   if (loading) {
     return (
@@ -1203,96 +1293,353 @@ export default function UserProfilePage() {
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold">Questions Answered</h2>
-              <button 
-                onClick={() => setShowQuestionsModal(false)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              {selectedQuestionNumber ? (
+                <>
+                  <button 
+                    onClick={handleBackToQuestionsList}
+                    className="flex items-center text-gray-600 hover:text-gray-900"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>Back</span>
+                  </button>
+                  <h2 className="text-xl font-semibold flex-1 text-center">
+                    {selectedQuestionData[0]?.group_name_text || 
+                     selectedQuestionData[0]?.text || 
+                     `Question ${selectedQuestionNumber}`}
+                  </h2>
+                  <div className="w-20"></div> {/* Spacer for centering */}
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-semibold">Questions Answered</h2>
+                  <button 
+                    onClick={() => setShowQuestionsModal(false)}
+                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Questions List */}
-              <div className="space-y-2">
-                {groupedQuestionsForModal.length > 0 ? (
-                  groupedQuestionsForModal.map(([key, group]) => (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-start">
-                          <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
-                          <span className="text-gray-900 flex-1">{group.displayName}</span>
+              {selectedQuestionNumber ? (
+                // Show question details
+                (() => {
+                  const questionType = selectedQuestionData[0]?.question_type || 'basic';
+                  const questionNumber = selectedQuestionNumber;
+                  
+                  // Option icons mapping
+                  const optionIcons: Record<number, string> = {
+                    3: '/assets/ethn.png',
+                    4: '/assets/cpx.png',
+                    5: '/assets/lf2.png',
+                    7: '/assets/hands.png',
+                    8: '/assets/prayin.png',
+                    9: '/assets/politics.png',
+                    10: '/assets/pacifier.png',
+                    11: '/assets/prayin.png',
+                    12: '/assets/ethn.png'
+                  };
+
+                  // Find user answers for this question
+                  const answersForQuestion = userAnswers.filter(
+                    answer => answer.question.question_number === questionNumber
+                  );
+
+                  if (questionType === 'grouped') {
+                    // Show cards for grouped questions (like ethnicity, education, diet)
+                    return (
+                      <div className="max-w-2xl mx-auto">
+                        <div className="mb-6">
+                          <p className="text-gray-600 text-center">
+                            {selectedQuestionData[0]?.text || selectedQuestionData[0]?.group_name_text}
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          {selectedQuestionData.map((question: any) => {
+                            const hasAnswer = answersForQuestion.some(
+                              answer => answer.question.id === question.id
+                            );
+                            
+                            return (
+                              <div
+                                key={question.id}
+                                className={`flex items-center space-x-3 p-4 border rounded-lg ${
+                                  hasAnswer
+                                    ? 'border-[#672DB7] bg-purple-50'
+                                    : 'border-gray-200 bg-white'
+                                }`}
+                              >
+                                <Image
+                                  src={optionIcons[questionNumber] || '/assets/ethn.png'}
+                                  alt={question.question_name}
+                                  width={24}
+                                  height={24}
+                                  className="w-6 h-6"
+                                />
+                                <span className="flex-1 text-gray-900 font-medium">
+                                  {question.question_name}
+                                </span>
+                                {hasAnswer && (
+                                  <span className="text-xs text-[#672DB7] font-medium">
+                                    Answered
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
-                          <span className="text-sm text-gray-700 font-medium">{group.answerCount}</span>
+                    );
+                  } else if (['double', 'triple', 'four', 'basic'].includes(questionType)) {
+                    // Show sliders/answers for double, triple, four, and basic questions
+                    return (
+                      <div className="max-w-2xl mx-auto">
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold mb-4 text-center">
+                            {selectedQuestionData[0]?.text || selectedQuestionData[0]?.group_name_text}
+                          </h3>
+                          
+                          {answersForQuestion.length > 0 ? (
+                            <div className="space-y-4">
+                              {selectedQuestionData.map((question: any) => {
+                                const answerForQuestion = answersForQuestion.find(
+                                  answer => answer.question.id === question.id
+                                );
+                                
+                                if (!answerForQuestion) return null;
+                                
+                                return (
+                                  <div key={question.id} className="p-4 bg-gray-50 rounded-lg">
+                                    <div className="mb-2">
+                                      <p className="text-sm font-medium text-gray-700">
+                                        {question.question_name}
+                                      </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">Me:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {answerForQuestion.me_answer}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">Looking for:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {answerForQuestion.looking_for_answer}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-center">No answers yet</p>
+                          )}
                         </div>
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
                       </div>
+                    );
+                  } else {
+                    // Fallback for unknown types
+                    return (
+                      <div className="max-w-2xl mx-auto">
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold mb-2">
+                            {selectedQuestionData[0]?.text}
+                          </h3>
+                          {answersForQuestion.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                              <p className="text-sm font-medium text-gray-700">Your Answers:</p>
+                              {answersForQuestion.map((answer) => (
+                                <div key={answer.id} className="p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm text-gray-900">
+                                    Me: {answer.me_answer} | Looking for: {answer.looking_for_answer}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                })()
+              ) : (
+                // Show questions list
+                <>
+                  {/* Questions List */}
+                  <div className="space-y-2">
+                    {paginatedGroupedQuestions.length > 0 ? (
+                      paginatedGroupedQuestions.map(([key, group]) => {
+                        // Determine question type from the first question in the group
+                        const firstQuestion = group.questions[0]?.question;
+                        const questionType = firstQuestion?.question_type || 'basic';
+                        
+                        return (
+                          <div
+                            key={key}
+                            onClick={() => handleQuestionClick(group.questionNumber, questionType)}
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-start">
+                                <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
+                                <span className="text-gray-900 flex-1">{group.displayName}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
+                                <span className="text-sm text-gray-700 font-medium">{group.answerCount}</span>
+                              </div>
+                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      // Fallback: simple grouping by question_number when questions data not loaded
+                      (() => {
+                        const groupedAnswers = userAnswers.reduce((acc, answer) => {
+                          const qNum = answer.question.question_number;
+                          if (!acc[qNum]) {
+                            acc[qNum] = [];
+                          }
+                          acc[qNum].push(answer);
+                          return acc;
+                        }, {} as Record<number, UserAnswer[]>);
+
+                        const sortedQuestionNumbers = Object.keys(groupedAnswers)
+                          .map(Number)
+                          .sort((a, b) => a - b);
+
+                        // Paginate fallback questions
+                        const startIndex = (questionsModalPage - 1) * QUESTIONS_PER_PAGE;
+                        const endIndex = startIndex + QUESTIONS_PER_PAGE;
+                        const paginatedQuestionNumbers = sortedQuestionNumbers.slice(startIndex, endIndex);
+
+                        return paginatedQuestionNumbers.map((qNum) => {
+                          const answers = groupedAnswers[qNum];
+                          const firstAnswer = answers[0];
+                          const questionText = firstAnswer.question.text;
+                          
+                          return (
+                            <div
+                              key={qNum}
+                              onClick={() => handleQuestionClick(qNum)}
+                              className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-start">
+                                  <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
+                                  <span className="text-gray-900 flex-1">{questionText}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
+                                  <span className="text-sm text-gray-700 font-medium">{answers.length}</span>
+                                </div>
+                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()
+                    )}
+                  </div>
+
+                  {userAnswers.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No questions answered yet.</p>
                     </div>
-                  ))
-                ) : (
-                  // Fallback: simple grouping by question_number when questions data not loaded
-                  (() => {
-                    const groupedAnswers = userAnswers.reduce((acc, answer) => {
-                      const qNum = answer.question.question_number;
-                      if (!acc[qNum]) {
-                        acc[qNum] = [];
-                      }
-                      acc[qNum].push(answer);
-                      return acc;
-                    }, {} as Record<number, UserAnswer[]>);
-
-                    const sortedQuestionNumbers = Object.keys(groupedAnswers)
-                      .map(Number)
-                      .sort((a, b) => a - b);
-
-                    return sortedQuestionNumbers.map((qNum) => {
-                      const answers = groupedAnswers[qNum];
-                      const firstAnswer = answers[0];
-                      const questionText = firstAnswer.question.text;
-                      
-                      return (
-                        <div
-                          key={qNum}
-                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-start">
-                              <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
-                              <span className="text-gray-900 flex-1">{questionText}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
-                              <span className="text-sm text-gray-700 font-medium">{answers.length}</span>
-                            </div>
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()
-                )}
-              </div>
-
-              {userAnswers.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <p>No questions answered yet.</p>
-                </div>
+                  )}
+                </>
               )}
             </div>
+
+            {/* Pagination Controls - only show when viewing questions list */}
+            {!selectedQuestionNumber && totalModalPages > 1 && (
+              <div className="flex justify-center items-center space-x-4 p-6 border-t border-gray-200">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setQuestionsModalPage(Math.max(1, questionsModalPage - 1))}
+                  disabled={questionsModalPage === 1}
+                  className={`text-gray-600 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <svg className="w-5 h-5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(totalModalPages, 7) }, (_, i) => {
+                  let pageNum;
+                  if (totalModalPages <= 7) {
+                    pageNum = i + 1;
+                  } else {
+                    if (questionsModalPage <= 4) {
+                      pageNum = i + 1;
+                    } else if (questionsModalPage >= totalModalPages - 3) {
+                      pageNum = totalModalPages - 6 + i;
+                    } else {
+                      pageNum = questionsModalPage - 3 + i;
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setQuestionsModalPage(pageNum)}
+                      className={`w-8 h-8 flex items-center justify-center text-sm rounded-full ${
+                        pageNum === questionsModalPage
+                          ? 'bg-black text-white font-medium'
+                          : 'text-gray-600 hover:text-black'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                {/* Show ellipsis and last page if needed */}
+                {totalModalPages > 7 && questionsModalPage < totalModalPages - 3 && (
+                  <>
+                    <span className="text-gray-400">...</span>
+                    <button
+                      onClick={() => setQuestionsModalPage(totalModalPages)}
+                      className={`w-8 h-8 flex items-center justify-center text-sm rounded-full ${
+                        totalModalPages === questionsModalPage
+                          ? 'bg-black text-white font-medium'
+                          : 'text-gray-600 hover:text-black'
+                      }`}
+                    >
+                      {totalModalPages}
+                    </button>
+                  </>
+                )}
+
+                {/* Next Button */}
+                <button
+                  onClick={() => setQuestionsModalPage(Math.min(totalModalPages, questionsModalPage + 1))}
+                  disabled={questionsModalPage === totalModalPages}
+                  className={`text-gray-600 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
