@@ -59,6 +59,7 @@ export default function UserProfilePage() {
   const QUESTIONS_PER_PAGE = 8;
   const [selectedQuestionNumber, setSelectedQuestionNumber] = useState<number | null>(null);
   const [selectedQuestionData, setSelectedQuestionData] = useState<any[]>([]);
+  const [selectedGroupedQuestionId, setSelectedGroupedQuestionId] = useState<string | null>(null);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -709,17 +710,50 @@ export default function UserProfilePage() {
       setQuestionsModalPage(1);
       setSelectedQuestionNumber(null);
       setSelectedQuestionData([]);
+      setSelectedGroupedQuestionId(null);
     }
   }, [showQuestionsModal]);
 
   // Handle question click - show question details in modal
   const handleQuestionClick = async (questionNumber: number, questionType?: string) => {
-    // Find all questions with this question number
-    const questionsForNumber = allQuestions.filter(q => q.question_number === questionNumber);
-    
-    if (questionsForNumber.length > 0) {
-      setSelectedQuestionNumber(questionNumber);
-      setSelectedQuestionData(questionsForNumber);
+    // Always fetch questions for this specific question number to ensure we have all of them
+    try {
+      const response = await fetch(
+        `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}&page_size=100`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        let questionsForNumber = data.results || [];
+        
+        // Sort by group_number if available
+        questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
+        
+        // Update allQuestions to include these
+        setAllQuestions(prev => {
+          const existing = prev.filter(q => q.question_number !== questionNumber);
+          return [...existing, ...questionsForNumber];
+        });
+        
+        if (questionsForNumber.length > 0) {
+          setSelectedQuestionNumber(questionNumber);
+          setSelectedQuestionData(questionsForNumber);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching questions for question number:', questionNumber, error);
+      // Fallback to using questions from allQuestions if fetch fails
+      const questionsForNumber = allQuestions.filter(q => q.question_number === questionNumber);
+      if (questionsForNumber.length > 0) {
+        questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
+        setSelectedQuestionNumber(questionNumber);
+        setSelectedQuestionData(questionsForNumber);
+      }
     }
   };
 
@@ -727,6 +761,7 @@ export default function UserProfilePage() {
   const handleBackToQuestionsList = () => {
     setSelectedQuestionNumber(null);
     setSelectedQuestionData([]);
+    setSelectedGroupedQuestionId(null);
   };
 
   if (loading) {
@@ -1079,18 +1114,6 @@ export default function UserProfilePage() {
               </div>
 
               <div className="space-y-3">
-                {/* FEMALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 2) || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 2) === 6}
-                    />
-                  </div>
-                </div>
-
                 {/* MALE Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
@@ -1099,6 +1122,18 @@ export default function UserProfilePage() {
                       value={getAnswerValue(2, 1) || 3}
                       onChange={() => {}}
                       isOpenToAll={getAnswerValue(2, 1) === 6}
+                    />
+                  </div>
+                </div>
+
+                {/* FEMALE Slider Row */}
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 2) || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 2) === 6}
                     />
                   </div>
                 </div>
@@ -1124,18 +1159,6 @@ export default function UserProfilePage() {
               </div>
 
               <div className="space-y-3">
-                {/* FEMALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
-                    />
-                  </div>
-                </div>
-
                 {/* MALE Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
@@ -1144,6 +1167,18 @@ export default function UserProfilePage() {
                       value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
                       onChange={() => {}}
                       isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
+                    />
+                  </div>
+                </div>
+
+                {/* FEMALE Slider Row */}
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
@@ -1327,154 +1362,372 @@ export default function UserProfilePage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto px-24 py-6">
               {selectedQuestionNumber ? (
-                // Show question details
-                (() => {
+                // Show question details inline
+                <div className="flex flex-col items-center justify-center min-h-full">
+                {(() => {
                   const questionType = selectedQuestionData[0]?.question_type || 'basic';
                   const questionNumber = selectedQuestionNumber;
                   
-                  // Option icons mapping
-                  const optionIcons: Record<number, string> = {
-                    3: '/assets/ethn.png',
-                    4: '/assets/cpx.png',
-                    5: '/assets/lf2.png',
-                    7: '/assets/hands.png',
-                    8: '/assets/prayin.png',
-                    9: '/assets/politics.png',
-                    10: '/assets/pacifier.png',
-                    11: '/assets/prayin.png',
-                    12: '/assets/ethn.png'
+                  // Find user answers for this question
+                  const answersForQuestion = userAnswers.filter(answer => {
+                    const questionId = typeof answer.question === 'object' ? answer.question.id : answer.question;
+                    return selectedQuestionData.some(q => q.id === questionId);
+                  });
+
+                  // Read-only slider component
+                  const ReadOnlySlider = ({ value, isOpenToAll = false, isImportance = false, labels = [] }: {
+                    value: number;
+                    isOpenToAll?: boolean;
+                    isImportance?: boolean;
+                    labels?: Array<{ value: string; answer_text: string }>;
+                  }) => {
+                    const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+                    const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
+                    const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+                    const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
+                    
+                    return (
+                      <div className="w-full h-5 relative flex items-center select-none">
+                        {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
+                        <div
+                          className="w-full h-5 rounded-[20px] relative border"
+                          style={{
+                            backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
+                            borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
+                          }}
+                        >
+                          {isOpenToAll && (
+                            // When Open to All is enabled, show full purple fill (100% width)
+                            <div
+                              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
+                              style={{ width: '100%' }}
+                            />
+                          )}
+                        </div>
+                        {!isOpenToAll && (
+                          <div 
+                            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30"
+                            style={{
+                              backgroundColor: isImportance ? 'white' : '#672DB7',
+                              boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
+                              left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${percentage}% - 14px)`
+                            }}
+                          >
+                            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+                          </div>
+                        )}
+                        {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">{maxValue}</span>}
+                      </div>
+                    );
                   };
 
-                  // Find user answers for this question
-                  const answersForQuestion = userAnswers.filter(
-                    answer => answer.question.question_number === questionNumber
-                  );
-
-                  if (questionType === 'grouped') {
-                    // Show cards for grouped questions (like ethnicity, education, diet)
+                  // Special handling for Relationship question (question_number === 1) - ONLY Me section
+                  if (questionNumber === 1) {
+                    const IMPORTANCE_LABELS = [
+                      { value: "1", answer_text: "TRIVIAL" },
+                      { value: "2", answer_text: "MINOR" },
+                      { value: "3", answer_text: "AVERAGE" },
+                      { value: "4", answer_text: "SIGNIFICANT" },
+                      { value: "5", answer_text: "ESSENTIAL" }
+                    ];
+                    
                     return (
-                      <div className="max-w-2xl mx-auto">
-                        <div className="mb-6">
-                          <p className="text-gray-600 text-center">
-                            {selectedQuestionData[0]?.text || selectedQuestionData[0]?.group_name_text}
-                          </p>
+                      <div className="mb-6">
+                        <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+
+                        <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                          <div></div>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>LESS</span>
+                            <span>MORE</span>
+                          </div>
+                          <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                            {selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
+                          </div>
                         </div>
+
+                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                          {selectedQuestionData.map((question: any) => {
+                            const answer = answersForQuestion.find(a => {
+                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                              return questionId === question.id;
+                            });
+                            
+                            // If me_answer is 6, it means "Open to All" is enabled
+                            // Check both number 6 and string "6", and also check the me_open_to_all flag
+                            const rawMeAnswer = answer?.me_answer;
+                            const isOpenToAll = rawMeAnswer === 6 || 
+                                               rawMeAnswer === '6' || 
+                                               Number(rawMeAnswer) === 6 ||
+                                               answer?.me_open_to_all === true;
+                            // When Open to All is enabled, use value 3 for display (but slider will be full purple)
+                            // When disabled, use the actual answer value (1-5)
+                            const meValue = isOpenToAll ? 3 : (rawMeAnswer && rawMeAnswer !== 6 ? rawMeAnswer : 3);
+                            const meOpenToAll = isOpenToAll;
+
+                            return (
+                              <React.Fragment key={question.id}>
+                                <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                                <div className="relative">
+                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
+                                </div>
+                                <div>
+                                  {question.open_to_all_me ? (
+                                    <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
+                                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-11 h-6"></div>
+                                  )}
+                                </div>
+                              </React.Fragment>
+                            );
+                          })}
+
+                          {/* IMPORTANCE Slider Row */}
+                          <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+                          <div className="relative">
+                            <ReadOnlySlider
+                              value={answersForQuestion[0]?.me_importance || 3}
+                              isOpenToAll={false}
+                              isImportance={true}
+                              labels={IMPORTANCE_LABELS}
+                            />
+                          </div>
+                          <div className="w-11 h-6"></div>
+                        </div>
+
+                        {/* Importance labels */}
+                        <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                          <div></div>
+                          <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                            {(() => {
+                              const importance = answersForQuestion[0]?.me_importance || 3;
+                              const positions: Record<number, { left: string; label: string }> = {
+                                1: { left: '14px', label: 'TRIVIAL' },
+                                2: { left: '25%', label: 'MINOR' },
+                                3: { left: '50%', label: 'AVERAGE' },
+                                4: { left: '75%', label: 'SIGNIFICANT' },
+                                5: { left: 'calc(100% - 14px)', label: 'ESSENTIAL' }
+                              };
+                              const pos = positions[importance];
+                              return pos ? <span className="absolute" style={{ left: pos.left, transform: 'translateX(-50%)' }}>{pos.label}</span> : null;
+                            })()}
+                          </div>
+                          <div></div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Render based on question type
+                  if (questionType === 'grouped') {
+                    const optionIcons: Record<number, string> = {
+                      3: '/assets/ethn.png', 4: '/assets/cpx.png', 5: '/assets/lf2.png',
+                      7: '/assets/hands.png', 8: '/assets/prayin.png', 9: '/assets/politics.png',
+                      10: '/assets/pacifier.png', 11: '/assets/prayin.png', 12: '/assets/ethn.png'
+                    };
+
+                    // If a specific grouped question is selected, show its slider
+                    if (selectedGroupedQuestionId) {
+                      const selectedQuestion = selectedQuestionData.find(q => q.id === selectedGroupedQuestionId);
+                      if (selectedQuestion) {
+                        const answer = answersForQuestion.find(a => {
+                          const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                          return questionId === selectedQuestion.id;
+                        });
+                        
+                        // Check if me_answer is 6 (Open to All) - handle both number and string
+                        const rawMeAnswer = answer?.me_answer;
+                        const rawLookingAnswer = answer?.looking_for_answer;
+                        
+                        // Only consider Open to All if answer exists and value is explicitly 6
+                        const isOpenToAllMe = answer && (
+                          rawMeAnswer === 6 || 
+                          rawMeAnswer === '6' || 
+                          Number(rawMeAnswer) === 6 ||
+                          answer.me_open_to_all === true
+                        ) || false;
+                        
+                        const isOpenToAllLooking = answer && (
+                          rawLookingAnswer === 6 || 
+                          rawLookingAnswer === '6' || 
+                          Number(rawLookingAnswer) === 6 ||
+                          answer.looking_for_open_to_all === true
+                        ) || false;
+                        
+                        // When Open to All is enabled, use value 3 for display (but slider will be full purple)
+                        // When disabled, use the actual answer value (1-5), or default to 3 if no answer
+                        const meValue = isOpenToAllMe ? 3 : (answer && rawMeAnswer !== 6 && rawMeAnswer !== '6' && rawMeAnswer !== undefined ? rawMeAnswer : 3);
+                        const lookingValue = isOpenToAllLooking ? 3 : (answer && rawLookingAnswer !== 6 && rawLookingAnswer !== '6' && rawLookingAnswer !== undefined ? rawLookingAnswer : 3);
+
+                        return (
+                          <div>
+                            {/* Me Section */}
+                            <div className="mb-6">
+                              <h3 className="text-2xl font-bold text-center mb-1">{selectedQuestion.question_name}</h3>
+                              <h4 className="text-xl font-bold text-center mb-4">Me</h4>
+                              <div className="mx-auto" style={{ width: '500px' }}>
+                                <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={selectedQuestion.answers} />
+                              </div>
+                            </div>
+
+                            {/* Them Section */}
+                            <div className="mb-6">
+                              <h4 className="text-xl font-bold text-center mb-4" style={{ color: '#672DB7' }}>Them</h4>
+                              <div className="mx-auto" style={{ width: '500px' }}>
+                                <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={selectedQuestion.answers} />
+                              </div>
+                            </div>
+
+                            {/* Back button */}
+                            <button
+                              onClick={() => setSelectedGroupedQuestionId(null)}
+                              className="mt-4 text-black hover:text-gray-600"
+                            >
+                              Back
+                            </button>
+                          </div>
+                        );
+                      }
+                    }
+
+                    // Show all grouped question cards
+                    return (
+                      <div className="w-full max-w-lg mx-auto">
                         <div className="space-y-3">
                           {selectedQuestionData.map((question: any) => {
-                            const hasAnswer = answersForQuestion.some(
-                              answer => answer.question.id === question.id
-                            );
-                            
+                            const hasAnswer = answersForQuestion.some(answer => {
+                              const questionId = typeof answer.question === 'object' ? answer.question.id : answer.question;
+                              return questionId === question.id;
+                            });
                             return (
                               <div
                                 key={question.id}
-                                className={`flex items-center space-x-3 p-4 border rounded-lg ${
-                                  hasAnswer
-                                    ? 'border-[#672DB7] bg-purple-50'
-                                    : 'border-gray-200 bg-white'
+                                onClick={() => setSelectedGroupedQuestionId(question.id)}
+                                className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                                  hasAnswer ? 'border-black bg-gray-50' : 'border-black bg-white hover:bg-gray-50'
                                 }`}
                               >
-                                <Image
-                                  src={optionIcons[questionNumber] || '/assets/ethn.png'}
-                                  alt={question.question_name}
-                                  width={24}
-                                  height={24}
-                                  className="w-6 h-6"
-                                />
-                                <span className="flex-1 text-gray-900 font-medium">
-                                  {question.question_name}
-                                </span>
-                                {hasAnswer && (
-                                  <span className="text-xs text-[#672DB7] font-medium">
-                                    Answered
-                                  </span>
-                                )}
+                                <div className="flex items-center space-x-3">
+                                  <Image
+                                    src={optionIcons[questionNumber] || '/assets/ethn.png'}
+                                    alt="Question icon"
+                                    width={24}
+                                    height={24}
+                                    className="w-6 h-6"
+                                  />
+                                  <span className="text-black font-medium">{question.question_name}</span>
+                                  {hasAnswer && (
+                                    <span className="text-[#672DB7] text-sm">✓ Answered</span>
+                                  )}
+                                </div>
+                                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
                               </div>
                             );
                           })}
                         </div>
                       </div>
                     );
-                  } else if (['double', 'triple', 'four', 'basic'].includes(questionType)) {
-                    // Show sliders/answers for double, triple, four, and basic questions
-                    return (
-                      <div className="max-w-2xl mx-auto">
-                        <div className="mb-6">
-                          <h3 className="text-lg font-semibold mb-4 text-center">
-                            {selectedQuestionData[0]?.text || selectedQuestionData[0]?.group_name_text}
-                          </h3>
-                          
-                          {answersForQuestion.length > 0 ? (
-                            <div className="space-y-4">
-                              {selectedQuestionData.map((question: any) => {
-                                const answerForQuestion = answersForQuestion.find(
-                                  answer => answer.question.id === question.id
-                                );
-                                
-                                if (!answerForQuestion) return null;
-                                
-                                return (
-                                  <div key={question.id} className="p-4 bg-gray-50 rounded-lg">
-                                    <div className="mb-2">
-                                      <p className="text-sm font-medium text-gray-700">
-                                        {question.question_name}
-                                      </p>
-                                    </div>
-                                    <div className="space-y-2">
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Me:</span>
-                                        <span className="text-sm font-medium text-gray-900">
-                                          {answerForQuestion.me_answer}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Looking for:</span>
-                                        <span className="text-sm font-medium text-gray-900">
-                                          {answerForQuestion.looking_for_answer}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-gray-500 text-center">No answers yet</p>
-                          )}
-                        </div>
-                      </div>
-                    );
                   } else {
-                    // Fallback for unknown types
+                    // For slider questions, show Me and Them sections
+                    // Gender (question 2) should NEVER show OTA switches
+                    const isGenderQuestion = questionNumber === 2;
+
                     return (
-                      <div className="max-w-2xl mx-auto">
+                      <div>
+                        {/* Me Section */}
                         <div className="mb-6">
-                          <h3 className="text-lg font-semibold mb-2">
-                            {selectedQuestionData[0]?.text}
-                          </h3>
-                          {answersForQuestion.length > 0 && (
-                            <div className="mt-4 space-y-2">
-                              <p className="text-sm font-medium text-gray-700">Your Answers:</p>
-                              {answersForQuestion.map((answer) => (
-                                <div key={answer.id} className="p-3 bg-gray-50 rounded-lg">
-                                  <p className="text-sm text-gray-900">
-                                    Me: {answer.me_answer} | Looking for: {answer.looking_for_answer}
-                                  </p>
-                                </div>
-                              ))}
+                          <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+                          <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                            <div></div>
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>LESS</span>
+                              <span>MORE</span>
                             </div>
-                          )}
+                            <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                              {!isGenderQuestion && selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
+                            </div>
+                          </div>
+                          <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                            {selectedQuestionData.map((question: any) => {
+                              const answer = answersForQuestion.find(a => {
+                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                                return questionId === question.id;
+                              });
+                              // If me_answer is 6, it means "Open to All" is enabled
+                              const isOpenToAllMe = answer?.me_answer === 6 || answer?.me_open_to_all || false;
+                              const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
+                              const meOpenToAll = isOpenToAllMe;
+
+                              return (
+                                <React.Fragment key={`me-${question.id}`}>
+                                  <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                                  <div className="relative">
+                                    <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
+                                  </div>
+                                  <div>
+                                    {!isGenderQuestion && question.open_to_all_me ? (
+                                      <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
+                                        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                                      </div>
+                                    ) : (
+                                      <div className="w-11 h-6"></div>
+                                    )}
+                                  </div>
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Them Section */}
+                        <div className="mb-6">
+                          <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+                          <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                            <div></div>
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>LESS</span>
+                              <span>MORE</span>
+                            </div>
+                            <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                              {!isGenderQuestion && selectedQuestionData.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                            </div>
+                          </div>
+                          <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                            {selectedQuestionData.map((question: any) => {
+                              const answer = answersForQuestion.find(a => {
+                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                                return questionId === question.id;
+                              });
+                              // If looking_for_answer is 6, it means "Open to All" is enabled
+                              const isOpenToAllLooking = answer?.looking_for_answer === 6 || answer?.looking_for_open_to_all || false;
+                              const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
+                              const lookingOpenToAll = isOpenToAllLooking;
+
+                              return (
+                                <React.Fragment key={`looking-${question.id}`}>
+                                  <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                                  <div className="relative">
+                                    <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
+                                  </div>
+                                  <div className="w-11 h-6"></div>
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     );
                   }
-                })()
+                })()}
+                </div>
               ) : (
-                // Show questions list
+                // Questions List
                 <>
-                  {/* Questions List */}
                   <div className="space-y-2">
                     {paginatedGroupedQuestions.length > 0 ? (
                       paginatedGroupedQuestions.map(([key, group]) => {

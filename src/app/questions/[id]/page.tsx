@@ -1058,7 +1058,7 @@ export default function QuestionEditPage() {
             <>
               {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
               
-              <div 
+              <div
                 className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
                 style={{
                   backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -1069,13 +1069,15 @@ export default function QuestionEditPage() {
                 onMouseDown={handleSliderDrag}
                 onDragStart={handleDragStart}
               >
-                <div 
-                  className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
-                  style={{
-                    width: fillWidth,
-                    transition: 'width 1.2s ease-in-out'
-                  }}
-                />
+                {isOpenToAll && (
+                  <div
+                    className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
+                    style={{
+                      width: fillWidth,
+                      transition: 'width 1.2s ease-in-out'
+                    }}
+                  />
+                )}
               </div>
               
               {!isOpenToAll && (

@@ -824,18 +824,6 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="space-y-3">
-                  {/* FEMALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 2) || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 2) === 6}
-                      />
-                    </div>
-                  </div>
-                  
                   {/* MALE Slider Row */}
                   <div className="flex items-center gap-4">
                     <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
@@ -844,6 +832,18 @@ export default function ProfilePage() {
                         value={getAnswerValue(2, 1) || 3}
                         onChange={() => {}}
                         isOpenToAll={getAnswerValue(2, 1) === 6}
+                      />
+                    </div>
+                  </div>
+
+                  {/* FEMALE Slider Row */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
+                    <div className="flex-1">
+                      <SliderComponent
+                        value={getAnswerValue(2, 2) || 3}
+                        onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 2) === 6}
                       />
                     </div>
                   </div>
@@ -869,18 +869,6 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="space-y-3">
-                  {/* FEMALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
-                      />
-                    </div>
-                  </div>
-                  
                   {/* MALE Slider Row */}
                   <div className="flex items-center gap-4">
                     <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
@@ -889,6 +877,18 @@ export default function ProfilePage() {
                         value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
                         onChange={() => {}}
                         isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
+                      />
+                    </div>
+                  </div>
+
+                  {/* FEMALE Slider Row */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
+                    <div className="flex-1">
+                      <SliderComponent
+                        value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
+                        onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
                       />
                     </div>
                   </div>
