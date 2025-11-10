@@ -1635,8 +1635,9 @@ export default function UserProfilePage() {
                     );
                   } else {
                     // For slider questions, show Me and Them sections
-                    // Gender (question 2) should NEVER show OTA switches
+                    // Gender (question 2) and Kids (question 10) should NEVER show OTA switches
                     const isGenderQuestion = questionNumber === 2;
+                    const isKidsQuestion = questionNumber === 10;
 
                     return (
                       <div>
@@ -1650,7 +1651,7 @@ export default function UserProfilePage() {
                               <span>MORE</span>
                             </div>
                             <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                              {!isGenderQuestion && selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
+                              {!isGenderQuestion && !isKidsQuestion && selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
                             </div>
                           </div>
                           <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
@@ -1671,7 +1672,7 @@ export default function UserProfilePage() {
                                     <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
                                   </div>
                                   <div>
-                                    {!isGenderQuestion && question.open_to_all_me ? (
+                                    {!isGenderQuestion && !isKidsQuestion && question.open_to_all_me ? (
                                       <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
                                         <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                                       </div>
@@ -1694,7 +1695,7 @@ export default function UserProfilePage() {
                               <span>MORE</span>
                             </div>
                             <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                              {!isGenderQuestion && selectedQuestionData.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                              {!isGenderQuestion && !isKidsQuestion && selectedQuestionData.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
                             </div>
                           </div>
                           <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
