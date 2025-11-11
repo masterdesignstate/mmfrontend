@@ -838,13 +838,13 @@ export default function ResultsPage() {
                       className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     >
                       {/* Status Indicator */}
-                      <div className="absolute top-0 left-0 z-20 p-0">
+                      <div className="absolute top-0 left-0 z-20 p-0 cursor-pointer">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleHeartClick(profile.id);
                           }}
-                          className="flex items-center justify-center"
+                          className="flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
                         >
                           {profile.isMatched ? (
                             <Image
@@ -854,9 +854,19 @@ export default function ResultsPage() {
                               height={36}
                             />
                           ) : profile.tags.map(t => t.toLowerCase()).includes('like') ? (
-                            <i className="fas fa-heart text-red-500 text-3xl drop-shadow-lg"></i>
+                            <Image
+                              src="/assets/redheart.png"
+                              alt="Liked"
+                              width={36}
+                              height={36}
+                            />
                           ) : profile.tags.map(t => t.toLowerCase()).includes('approve') ? (
-                            <i className="far fa-heart text-[#672DB7] text-3xl drop-shadow-lg"></i>
+                            <Image
+                              src="/assets/strokeheart.png"
+                              alt="Approved"
+                              width={36}
+                              height={36}
+                            />
                           ) : (
                             <Image
                               src="/assets/approve.png"
