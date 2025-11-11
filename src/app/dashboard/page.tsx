@@ -14,7 +14,6 @@ import { apiService } from '@/services/api';
 
 // Labels and helpers
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-// Keeping full month names available for future use if needed
 const monthShortNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function getISOWeek(date: Date): number {
@@ -27,7 +26,6 @@ function getISOWeek(date: Date): number {
 }
 
 function getISOWeekStartDate(year: number, week: number): Date {
-  // ISO week 1: week containing Jan 4th. Find Monday of that week.
   const jan4 = new Date(Date.UTC(year, 0, 4));
   const dayOfWeek = (jan4.getUTCDay() + 6) % 7; // Monday=0
   const week1Monday = new Date(jan4);
@@ -46,37 +44,9 @@ function formatWeekRangeLabel(year: number, week: number): string {
   return `Week ${week} (${startStr} – ${endStr})`;
 }
 
-function createSeededRandom(seed: number): () => number {
-  let s = seed % 2147483647;
-  if (s <= 0) s += 2147483646;
-  return () => (s = (s * 16807) % 2147483647) / 2147483647;
-}
-
-function generateWeeklyData(weekNumber: number) {
-  const rand = createSeededRandom(weekNumber * 97);
-  const len = 7;
-  const users = Array.from({ length: len }, () => Math.round(130 + (rand() - 0.5) * 80));
-  const approves = Array.from({ length: len }, () => Math.round(55 + (rand() - 0.5) * 30));
-  const likes = Array.from({ length: len }, () => Math.round(100 + (rand() - 0.5) * 60));
-  const matches = Array.from({ length: len }, () => Math.round(75 + (rand() - 0.5) * 40));
-  return dayLabels.map((name, i) => ({ name, users: users[i], approves: approves[i], likes: likes[i], matches: matches[i] }));
-}
-
 function daysInMonth(year: number, monthIndex: number): number {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
-
-function generateMonthlyData(monthIndex: number, year: number) {
-  const rand = createSeededRandom((year * 100) + monthIndex);
-  const len = daysInMonth(year, monthIndex);
-  const users = Array.from({ length: len }, () => Math.round(420 + (rand() - 0.5) * 220));
-  const approves = Array.from({ length: len }, () => Math.round(160 + (rand() - 0.5) * 90));
-  const likes = Array.from({ length: len }, () => Math.round(240 + (rand() - 0.5) * 140));
-  const matches = Array.from({ length: len }, () => Math.round(190 + (rand() - 0.5) * 100));
-  return Array.from({ length: len }, (_, i) => ({ name: String(i + 1), users: users[i], approves: approves[i], likes: likes[i], matches: matches[i] }));
-}
-
-
 
 export default function DashboardOverview() {
   const [stats, setStats] = useState({
@@ -91,16 +61,29 @@ export default function DashboardOverview() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [chartPeriod, setChartPeriod] = useState<'week' | 'month'>(  'month');
 
+  // Current calendar markers
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth(); // 0-11
+  const currentWeekNumber = getISOWeek(now); // 1-53
+
+  // Selected period
+  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeekNumber);
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonthIndex);
+
+  // Data for weekly and monthly charts
+  const [weeklyChartData, setWeeklyChartData] = useState<any[]>([]);
+  const [monthlyChartData, setMonthlyChartData] = useState<any[]>([]);
+  const [loadingWeekly, setLoadingWeekly] = useState(false);
+  const [loadingMonthly, setLoadingMonthly] = useState(false);
+
+  // Fetch dashboard stats (overview cards)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchStats = async () => {
       try {
         setLoading(true);
         setError(null);
-
-        // Fetch stats
         const dashboardStats = await apiService.getDashboardStats();
         setStats({
           totalUsers: dashboardStats.total_users,
@@ -112,31 +95,125 @@ export default function DashboardOverview() {
           totalLikes: dashboardStats.total_likes,
           totalApproves: dashboardStats.total_approves,
         });
-
-        // Fetch time-series data
-        const period = chartPeriod === 'week' ? 7 : 30;
-        const timeseriesData = await apiService.getTimeseriesData(period);
-
-        // Transform data for charts
-        const transformedData = timeseriesData.data.map((item: any) => ({
-          name: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          users: item.users,
-          approves: item.approves,
-          likes: item.likes,
-          matches: item.matches,
-        }));
-
-        setChartData(transformedData);
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to fetch dashboard data');
+        console.error('Error fetching dashboard stats:', err);
+        setError('Failed to fetch dashboard stats');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, [chartPeriod]);
+    fetchStats();
+  }, []);
+
+  // Fetch weekly chart data when selectedWeek changes
+  useEffect(() => {
+    const fetchWeeklyData = async () => {
+      try {
+        setLoadingWeekly(true);
+
+        // Calculate start and end dates for the selected week
+        const weekStart = getISOWeekStartDate(currentYear, selectedWeek);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+
+        const startDate = weekStart.toISOString().split('T')[0];
+        const endDate = weekEnd.toISOString().split('T')[0];
+
+        const timeseriesData = await apiService.getTimeseriesData(startDate, endDate);
+
+        // Create a map of existing data by day of week
+        const dataMap = new Map();
+        timeseriesData.data.forEach((item: any) => {
+          const date = new Date(item.date);
+          const dayIndex = (date.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+          dataMap.set(dayIndex, {
+            name: dayLabels[dayIndex],
+            users: item.new_users || 0,
+            approves: item.approves || 0,
+            likes: item.likes || 0,
+            matches: item.matches || 0,
+            date: item.date,
+          });
+        });
+
+        // Fill in all 7 days with 0s if no data
+        const transformedData = dayLabels.map((label, index) => {
+          return dataMap.get(index) || {
+            name: label,
+            users: 0,
+            approves: 0,
+            likes: 0,
+            matches: 0,
+            date: null,
+          };
+        });
+
+        setWeeklyChartData(transformedData);
+      } catch (err) {
+        console.error('Error fetching weekly data:', err);
+      } finally {
+        setLoadingWeekly(false);
+      }
+    };
+
+    fetchWeeklyData();
+  }, [selectedWeek, currentYear]);
+
+  // Fetch monthly chart data when selectedMonth changes
+  useEffect(() => {
+    const fetchMonthlyData = async () => {
+      try {
+        setLoadingMonthly(true);
+
+        // Calculate start and end dates for the selected month
+        const monthStart = new Date(currentYear, selectedMonth, 1);
+        const monthEnd = new Date(currentYear, selectedMonth + 1, 0); // Last day of month
+
+        const startDate = monthStart.toISOString().split('T')[0];
+        const endDate = monthEnd.toISOString().split('T')[0];
+
+        const timeseriesData = await apiService.getTimeseriesData(startDate, endDate);
+
+        // Create a map of existing data by day of month
+        const dataMap = new Map();
+        timeseriesData.data.forEach((item: any) => {
+          const date = new Date(item.date);
+          const dayOfMonth = date.getDate();
+          dataMap.set(dayOfMonth, {
+            name: String(dayOfMonth),
+            users: item.new_users || 0,
+            approves: item.approves || 0,
+            likes: item.likes || 0,
+            matches: item.matches || 0,
+            date: item.date,
+          });
+        });
+
+        // Fill in all days of the month with 0s if no data
+        const daysCount = daysInMonth(currentYear, selectedMonth);
+        const transformedData = Array.from({ length: daysCount }, (_, i) => {
+          const dayNum = i + 1;
+          return dataMap.get(dayNum) || {
+            name: String(dayNum),
+            users: 0,
+            approves: 0,
+            likes: 0,
+            matches: 0,
+            date: null,
+          };
+        });
+
+        setMonthlyChartData(transformedData);
+      } catch (err) {
+        console.error('Error fetching monthly data:', err);
+      } finally {
+        setLoadingMonthly(false);
+      }
+    };
+
+    fetchMonthlyData();
+  }, [selectedMonth, currentYear]);
 
   if (loading) {
     return (
@@ -254,79 +331,169 @@ export default function DashboardOverview() {
       </div>
 
       {/* Charts Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            <i className="fas fa-chart-line mr-2"></i>
-            Activity Overview
-          </h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setChartPeriod('week')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                chartPeriod === 'week'
-                  ? 'bg-[#672DB7] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => setChartPeriod('month')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                chartPeriod === 'month'
-                  ? 'bg-[#672DB7] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Month
-            </button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Activity Chart */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              <i className="fas fa-chart-line mr-2"></i>
+              Weekly Activity
+            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedWeek((w) => Math.max(1, w - 1))}
+                disabled={selectedWeek <= 1}
+                className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Previous week"
+              >
+                <i className="fas fa-chevron-left"></i>
+              </button>
+              <span className="text-sm text-gray-700 min-w-[200px] text-center">
+                {formatWeekRangeLabel(currentYear, selectedWeek)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedWeek((w) => Math.min(currentWeekNumber, w + 1))}
+                disabled={selectedWeek >= currentWeekNumber}
+                className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Next week"
+              >
+                <i className="fas fa-chevron-right"></i>
+              </button>
+            </div>
           </div>
+
+          {/* Weekly Totals */}
+          <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#672DB7]">
+                {weeklyChartData.reduce((sum, item) => sum + (item.users || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Users</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#10B981]">
+                {weeklyChartData.reduce((sum, item) => sum + (item.approves || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Approves</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#2563eb]">
+                {weeklyChartData.reduce((sum, item) => sum + (item.likes || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Likes</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#dc2626]">
+                {weeklyChartData.reduce((sum, item) => sum + (item.matches || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Matches</div>
+            </div>
+          </div>
+
+          {loadingWeekly ? (
+            <div className="flex items-center justify-center h-[240px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#672DB7]"></div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={weeklyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
+                <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
+                <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
+                <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        {/* Totals */}
-        <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#672DB7]">
-              {chartData.reduce((sum, item) => sum + item.users, 0)}
+        {/* Monthly Growth Chart */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="mb-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                <i className="fas fa-chart-line mr-2"></i>
+                Monthly Growth
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth((m) => Math.max(0, m - 1))}
+                  disabled={selectedMonth <= 0}
+                  className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Previous month"
+                >
+                  <i className="fas fa-chevron-left"></i>
+                </button>
+                <span className="text-sm text-gray-700 min-w-[100px] text-center font-medium">
+                  {monthShortNames[selectedMonth]} {currentYear}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth((m) => Math.min(currentMonthIndex, m + 1))}
+                  disabled={selectedMonth >= currentMonthIndex}
+                  className="p-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Next month"
+                >
+                  <i className="fas fa-chevron-right"></i>
+                </button>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">Active Users</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#10B981]">
-              {chartData.reduce((sum, item) => sum + item.approves, 0)}
-            </div>
-            <div className="text-sm text-gray-600">Approves</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#2563eb]">
-              {chartData.reduce((sum, item) => sum + item.likes, 0)}
-            </div>
-            <div className="text-sm text-gray-600">Likes</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#dc2626]">
-              {chartData.reduce((sum, item) => sum + item.matches, 0)}
-            </div>
-            <div className="text-sm text-gray-600">Matches</div>
-          </div>
-        </div>
 
-        <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Active Users" />
-            <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
-            <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
-            <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
-          </LineChart>
-        </ResponsiveContainer>
+          {/* Monthly Totals */}
+          <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-white rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#672DB7]">
+                {monthlyChartData.reduce((sum, item) => sum + (item.users || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Users</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#10B981]">
+                {monthlyChartData.reduce((sum, item) => sum + (item.approves || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Approves</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#2563eb]">
+                {monthlyChartData.reduce((sum, item) => sum + (item.likes || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Likes</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#dc2626]">
+                {monthlyChartData.reduce((sum, item) => sum + (item.matches || 0), 0)}
+              </div>
+              <div className="text-sm text-gray-600">Matches</div>
+            </div>
+          </div>
+
+          {loadingMonthly ? (
+            <div className="flex items-center justify-center h-[240px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#672DB7]"></div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={monthlyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={Math.ceil(monthlyChartData.length / 12)} />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="users" stroke="#672DB7" strokeWidth={2} name="Users" />
+                <Line type="monotone" dataKey="approves" stroke="#10B981" strokeWidth={2} name="Approves" />
+                <Line type="monotone" dataKey="likes" stroke="#2563eb" strokeWidth={2} name="Likes" />
+                <Line type="monotone" dataKey="matches" stroke="#dc2626" strokeWidth={2} name="Matches" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
-
-
     </div>
   );
-} 
+}

@@ -459,7 +459,10 @@ class ApiService {
     }>;
   }
 
-  async getTimeseriesData(period: number = 30): Promise<{
+  async getTimeseriesData(
+    periodOrStartDate?: number | string,
+    endDate?: string
+  ): Promise<{
     period: number;
     start_date: string;
     end_date: string;
@@ -472,7 +475,20 @@ class ApiService {
       new_users: number;
     }>;
   }> {
-    return this.request(`/stats/timeseries/?period=${period}`, 'GET') as Promise<{
+    let url = '/stats/timeseries/';
+
+    if (typeof periodOrStartDate === 'string' && endDate) {
+      // Use date range
+      url += `?start_date=${periodOrStartDate}&end_date=${endDate}`;
+    } else if (typeof periodOrStartDate === 'number') {
+      // Use period
+      url += `?period=${periodOrStartDate}`;
+    } else {
+      // Default to 30 days
+      url += '?period=30';
+    }
+
+    return this.request(url, 'GET') as Promise<{
       period: number;
       start_date: string;
       end_date: string;

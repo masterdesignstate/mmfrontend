@@ -341,21 +341,142 @@ export default function ResultsPage() {
     }
   };
 
-  const toggleLike = (profileId: string) => {
-    setProfiles(prevProfiles =>
-      prevProfiles.map(profile => {
-        if (profile.id === profileId) {
-          if (!profile.isLiked) {
-            // Like the profile
-            return { ...profile, isLiked: true, status: 'liked' };
-          } else if (profile.isLiked && !profile.isMatched) {
-            // Unlike the profile
-            return { ...profile, isLiked: false, status: 'approved' };
-          }
-        }
-        return profile;
-      })
-    );
+  // Toggle tag via API
+  const toggleTagAPI = async (userId: string, tagName: string) => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return;
+
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/tag/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUserId,
+          result_user_id: userId,
+          tag: tagName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle tag');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error toggling tag:', error);
+      throw error;
+    }
+  };
+
+  // Check if there's a match (both users liked each other)
+  const checkForMatch = async (userId: string, currentTags: string[]) => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return false;
+
+    try {
+      const iLikedThem = currentTags.includes('like');
+      if (!iLikedThem) return false;
+
+      // Check if they've liked me
+      const theirTagsResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (theirTagsResponse.ok) {
+        const theirData = await theirTagsResponse.json();
+        const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+        return theirNormalizedTags.includes('like');
+      }
+    } catch (error) {
+      console.error('Error checking for match:', error);
+    }
+    return false;
+  };
+
+  // Handle heart button click with seamless progression logic (matching profile page behavior)
+  const handleHeartClick = async (profileId: string) => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return;
+
+    const profile = profiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    const currentTags = profile.tags.map(t => t.toLowerCase());
+    const hasMatch = profile.isMatched;
+
+    // Determine what to do based on current state
+    let action = '';
+    if (hasMatch || currentTags.includes('like')) {
+      // If matched or liked, remove like tag (go back to approve or no tags)
+      action = 'remove_like';
+    } else if (currentTags.includes('approve')) {
+      // If approved, remove approve and add like
+      action = 'approve_to_like';
+    } else {
+      // If no tags, add approve
+      action = 'add_approve';
+    }
+
+    // Update UI optimistically
+    let newTags = [...currentTags];
+
+    switch (action) {
+      case 'remove_like':
+        newTags = newTags.filter(tag => tag !== 'like');
+        setProfiles(prev => prev.map(p =>
+          p.id === profileId ? { ...p, tags: newTags, isLiked: false, isMatched: false, status: newTags.includes('approve') ? 'approved' : 'approved' } : p
+        ));
+        break;
+      case 'approve_to_like':
+        newTags = newTags.filter(tag => tag !== 'approve');
+        newTags.push('like');
+        setProfiles(prev => prev.map(p =>
+          p.id === profileId ? { ...p, tags: newTags, isLiked: true, status: 'liked' } : p
+        ));
+        break;
+      case 'add_approve':
+        newTags.push('approve');
+        setProfiles(prev => prev.map(p =>
+          p.id === profileId ? { ...p, tags: newTags, status: 'approved' } : p
+        ));
+        break;
+    }
+
+    // Sync with backend
+    try {
+      switch (action) {
+        case 'remove_like':
+          await toggleTagAPI(profileId, 'Like');
+          // Check for match after removing like
+          const stillMatched = await checkForMatch(profileId, newTags);
+          setProfiles(prev => prev.map(p =>
+            p.id === profileId ? { ...p, isMatched: stillMatched } : p
+          ));
+          break;
+        case 'approve_to_like':
+          await toggleTagAPI(profileId, 'Approve');
+          await toggleTagAPI(profileId, 'Like');
+          // Check for match after adding like
+          const nowMatched = await checkForMatch(profileId, newTags);
+          setProfiles(prev => prev.map(p =>
+            p.id === profileId ? { ...p, isMatched: nowMatched } : p
+          ));
+          break;
+        case 'add_approve':
+          await toggleTagAPI(profileId, 'Approve');
+          break;
+      }
+
+      // Refresh tags from server to stay in sync
+      const updatedTags = await fetchUserTags(profileId);
+      setProfiles(prev => prev.map(p =>
+        p.id === profileId ? { ...p, tags: updatedTags } : p
+      ));
+    } catch (error) {
+      console.error('Error updating progression:', error);
+      // Optionally revert optimistic update on error
+    }
   };
 
 
@@ -717,39 +838,34 @@ export default function ResultsPage() {
                       className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     >
                       {/* Status Indicator */}
-                      <div className="absolute top-0 left-0 z-20">
-                        {profile.status === 'approved' && !profile.isLiked && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleLike(profile.id);
-                            }}
-                            className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow"
-                          >
-                            <i className="far fa-heart text-[#672DB7] text-sm"></i>
-                          </button>
-                        )}
-                        {profile.status === 'liked' && !profile.isMatched && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleLike(profile.id);
-                            }}
-                            className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow"
-                          >
-                            <i className="fas fa-heart text-red-500 text-sm"></i>
-                          </button>
-                        )}
-                        {profile.isMatched && (
-                          <div className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow">
+                      <div className="absolute top-0 left-0 z-20 p-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleHeartClick(profile.id);
+                          }}
+                          className="flex items-center justify-center"
+                        >
+                          {profile.isMatched ? (
                             <Image
-                              src="/assets/purplecheck.png"
+                              src="/assets/purpleheart.png"
                               alt="Matched"
-                              width={16}
-                              height={16}
+                              width={36}
+                              height={36}
                             />
-                          </div>
-                        )}
+                          ) : profile.tags.map(t => t.toLowerCase()).includes('like') ? (
+                            <i className="fas fa-heart text-red-500 text-3xl drop-shadow-lg"></i>
+                          ) : profile.tags.map(t => t.toLowerCase()).includes('approve') ? (
+                            <i className="far fa-heart text-[#672DB7] text-3xl drop-shadow-lg"></i>
+                          ) : (
+                            <Image
+                              src="/assets/approve.png"
+                              alt="Approve"
+                              width={36}
+                              height={36}
+                            />
+                          )}
+                        </button>
                       </div>
 
                       {/* Profile Image */}
