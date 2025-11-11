@@ -203,21 +203,47 @@ export default function QuestionsPage() {
 
         // Questions will be fetched by the useEffect for pagination
 
-        // Fetch user answers
-        const answersResponse = await fetch(
-          `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}`,
-          {
-       
+        // Fetch ALL user answers (handle pagination to ensure we get everything)
+        let allAnswers: UserAnswer[] = [];
+        let answersUrl = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&page_size=100`;
+        let hasMoreAnswers = true;
+
+        while (hasMoreAnswers) {
+          const answersResponse = await fetch(answersUrl, {
             headers: {
               'Content-Type': 'application/json',
             },
-          }
-        );
+          });
 
-        if (answersResponse.ok) {
-          const answersData = await answersResponse.json();
-          setUserAnswers(answersData.results || []);
+          if (answersResponse.ok) {
+            const answersData = await answersResponse.json();
+            const pageAnswers = answersData.results || [];
+            allAnswers = [...allAnswers, ...pageAnswers];
+
+            // Check if there's more data
+            if (answersData.next) {
+              answersUrl = answersData.next;
+            } else {
+              hasMoreAnswers = false;
+            }
+          } else {
+            hasMoreAnswers = false;
+            console.error('Failed to fetch user answers');
+          }
         }
+
+        setUserAnswers(allAnswers);
+
+        // Debug logging
+        console.log('📋 User Answers Loaded (All Pages):', {
+          total_answers: allAnswers.length,
+          unique_question_count: new Set(allAnswers.map((a: UserAnswer) => a.question.question_number)).size,
+          answered_question_numbers: [...new Set(allAnswers.map((a: UserAnswer) => a.question.question_number))].sort((a, b) => a - b),
+          sample_answers: allAnswers.slice(0, 5).map((a: UserAnswer) => ({
+            question_number: a.question.question_number,
+            question_text: a.question.text?.substring(0, 50)
+          }))
+        });
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load questions');
@@ -558,14 +584,24 @@ export default function QuestionsPage() {
       if (!filters.questions.answered && !filters.questions.unanswered) {
         return;
       }
-      
+
       if (allQuestionNumbers.length === 0) {
+        console.log('⏳ Waiting for question numbers to load...');
         return;
       }
-      
-      // If userAnswers is empty, all questions are unanswered (if filtering by unanswered)
+
+      // Ensure userAnswers is loaded (wait for initial data fetch to complete)
+      // Note: userAnswers can be empty if user hasn't answered anything yet
+      if (loading) {
+        console.log('⏳ Still loading initial data, deferring filter...');
+        return;
+      }
+
+      console.log('✅ Ready to apply filter. UserAnswers count:', userAnswers.length);
+
       // If filtering by answered and userAnswers is empty, no questions match
       if (filters.questions.answered && userAnswers.length === 0) {
+        console.log('ℹ️ No answers found, showing empty results for ANSWERED filter');
         setFilteredQuestions([]);
         return;
       }
@@ -578,14 +614,29 @@ export default function QuestionsPage() {
       let matchingQuestionNumbers: number[];
       if (filters.questions.answered) {
         // Only show question numbers that the user has answered
-        matchingQuestionNumbers = allQuestionNumbers.filter(qNum => 
+        matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
           answeredQuestionNumbers.has(qNum)
         );
+        console.log('🔍 ANSWERED Filter Applied:', {
+          total_question_numbers: allQuestionNumbers.length,
+          answered_count: answeredQuestionNumbers.size,
+          matched_count: matchingQuestionNumbers.length,
+          answered_numbers: [...answeredQuestionNumbers].sort((a, b) => a - b),
+          matched_numbers: matchingQuestionNumbers.sort((a, b) => a - b)
+        });
       } else if (filters.questions.unanswered) {
         // Only show question numbers that the user has NOT answered
-        matchingQuestionNumbers = allQuestionNumbers.filter(qNum => 
+        matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
           !answeredQuestionNumbers.has(qNum)
         );
+        console.log('🔍 UNANSWERED Filter Applied:', {
+          total_question_numbers: allQuestionNumbers.length,
+          answered_count: answeredQuestionNumbers.size,
+          unanswered_count: matchingQuestionNumbers.length,
+          answered_numbers: [...answeredQuestionNumbers].sort((a, b) => a - b),
+          unanswered_numbers: matchingQuestionNumbers.sort((a, b) => a - b).slice(0, 20), // Show first 20
+          all_question_numbers_sample: allQuestionNumbers.slice(0, 10)
+        });
       } else {
         return;
       }
@@ -1033,10 +1084,16 @@ export default function QuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold">Questions</h1>
             <p className="text-gray-600">
-              {isFilteredByAnsweredStatus 
+              {isFilteredByAnsweredStatus
                 ? `Showing ${paginatedGroupedQuestions.length} of ${sortedGroupedQuestions.length} questions`
                 : `Showing ${sortedGroupedQuestions.length} questions`
               }
+              {/* Debug info */}
+              {(filters.questions.answered || filters.questions.unanswered) && (
+                <span className="ml-2 text-xs text-gray-500">
+                  (You've answered {new Set(userAnswers.map(a => a.question.question_number)).size} of {allQuestionNumbers.length} total)
+                </span>
+              )}
             </p>
           </div>
           <button 

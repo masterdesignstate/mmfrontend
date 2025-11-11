@@ -96,9 +96,9 @@ export default function QuestionsPage() {
     
     const matchesTag = selectedTag === 'All' || question.tags.some(tag => tag.name === selectedTag);
     
-    const matchesApproved = selectedApproved === 'All' || 
-      (selectedApproved === 'Yes' && question.question_type === 'mandatory') ||
-      (selectedApproved === 'No' && question.question_type !== 'mandatory');
+    const matchesApproved = selectedApproved === 'All' ||
+      (selectedApproved === 'Yes' && question.is_approved) ||
+      (selectedApproved === 'No' && !question.is_approved);
     
     const matchesMandatory = selectedMandatory === 'All' || 
       (selectedMandatory === 'Yes' && question.is_required_for_match) ||
