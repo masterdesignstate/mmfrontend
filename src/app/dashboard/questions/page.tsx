@@ -28,7 +28,22 @@ export default function QuestionsPage() {
     const fetchQuestions = async () => {
       try {
         setLoading(true);
-        const fetchedQuestions = await apiService.getQuestions();
+        // Dashboard needs to see ALL questions including unapproved ones
+        const fetchedQuestions = await apiService.getQuestions(true);
+
+        // Debug: Check is_approved field
+        console.log('=== QUESTIONS DEBUG ===');
+        console.log('Total questions:', fetchedQuestions.length);
+        console.log('Approved count:', fetchedQuestions.filter(q => q.is_approved).length);
+        console.log('Unapproved count:', fetchedQuestions.filter(q => !q.is_approved).length);
+        console.log('First 3 questions is_approved values:',
+          fetchedQuestions.slice(0, 3).map(q => ({
+            id: q.id,
+            text: q.text.substring(0, 50),
+            is_approved: q.is_approved
+          }))
+        );
+
         // Sort by question_number by default
         const sortedQuestions = fetchedQuestions.sort((a, b) => {
           const aNum = a.question_number || 0;
@@ -90,25 +105,38 @@ export default function QuestionsPage() {
 
   // Filter questions
   const filteredQuestions = questions.filter(question => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       question.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (question.question_name && question.question_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+
     const matchesTag = selectedTag === 'All' || question.tags.some(tag => tag.name === selectedTag);
-    
+
     const matchesApproved = selectedApproved === 'All' ||
       (selectedApproved === 'Yes' && question.is_approved) ||
       (selectedApproved === 'No' && !question.is_approved);
-    
-    const matchesMandatory = selectedMandatory === 'All' || 
+
+    const matchesMandatory = selectedMandatory === 'All' ||
       (selectedMandatory === 'Yes' && question.is_required_for_match) ||
       (selectedMandatory === 'No' && !question.is_required_for_match);
-    
+
     const matchesDateRange = (!startDate || question.created_at >= startDate) &&
                            (!endDate || question.created_at <= endDate);
-    
+
     return matchesSearch && matchesTag && matchesApproved && matchesMandatory && matchesDateRange;
   });
+
+  // Debug filter when Approved filter is active
+  if (selectedApproved !== 'All') {
+    console.log('=== APPROVED FILTER DEBUG ===');
+    console.log('Selected Approved:', selectedApproved);
+    console.log('Total questions:', questions.length);
+    console.log('Filtered questions:', filteredQuestions.length);
+    console.log('Sample is_approved values:', questions.slice(0, 5).map(q => ({
+      text: q.text.substring(0, 30),
+      is_approved: q.is_approved,
+      matches: selectedApproved === 'Yes' ? q.is_approved : !q.is_approved
+    })));
+  }
 
   // Sort questions
   const sortedQuestions = [...filteredQuestions].sort((a, b) => {
