@@ -75,6 +75,16 @@ export interface CompatibilityResult {
   mutual_questions_count: number;
 }
 
+export interface Notification {
+  id: string;
+  recipient: ApiUser;
+  sender: ApiUser;
+  notification_type: 'approve' | 'like' | 'match';
+  is_read: boolean;
+  created_at: string;
+  related_user_result?: string;
+}
+
 interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -541,6 +551,28 @@ class ApiService {
       console.error('Error changing password:', error);
       throw error;
     }
+  }
+
+  // Notification methods
+  async getNotifications(userId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<Notification>> {
+    const url = `/notifications/?user_id=${userId}&page=${page}&page_size=${pageSize}`;
+    return this.request(url, 'GET') as Promise<PaginatedResponse<Notification>>;
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<{ count: number }> {
+    return this.request(`/notifications/unread_count/?user_id=${userId}`, 'GET') as Promise<{ count: number }>;
+  }
+
+  async markNotificationRead(notificationId: string): Promise<Notification> {
+    return this.request(`/notifications/${notificationId}/mark_read/`, 'POST') as Promise<Notification>;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<{ status: string }> {
+    return this.request(`/notifications/mark_all_read/?user_id=${userId}`, 'POST') as Promise<{ status: string }>;
+  }
+
+  async deleteNotification(notificationId: string): Promise<void> {
+    return this.request(`/notifications/${notificationId}/`, 'DELETE') as Promise<void>;
   }
 
   // Generic CRUD operations

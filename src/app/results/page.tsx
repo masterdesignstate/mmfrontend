@@ -137,6 +137,8 @@ export default function ResultsPage() {
   const [hasNextPage, setHasNextPage] = useState(true);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [sortOption, setSortOption] = useState<'compatibility' | 'distance' | 'age-asc' | 'age-desc' | 'recent'>('compatibility');
+  const [showApprovalPopup, setShowApprovalPopup] = useState(false);
+  const [popupUserName, setPopupUserName] = useState('');
   const [sortedProfiles, setSortedProfiles] = useState<ResultProfile[]>([]);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
@@ -189,7 +191,21 @@ export default function ResultsPage() {
       // Fetch tags for all users in parallel
       const tagPromises = profiles.map(async (profile) => {
         const tags = await fetchUserTags(profile.user.id);
-        return { ...profile, tags };
+        const normalizedTags = tags.map(t => t.toLowerCase());
+        const hasLike = normalizedTags.includes('like');
+
+        // Check for match if user has liked this profile
+        let isMatched = false;
+        if (hasLike) {
+          isMatched = await checkForMatch(profile.user.id, normalizedTags);
+        }
+
+        return {
+          ...profile,
+          tags,
+          isLiked: hasLike,
+          isMatched
+        };
       });
 
       return await Promise.all(tagPromises);
@@ -347,7 +363,7 @@ export default function ResultsPage() {
     if (!currentUserId) return;
 
     try {
-      const response = await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/tag/`, {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -366,6 +382,28 @@ export default function ResultsPage() {
       console.error('Error toggling tag:', error);
       throw error;
     }
+  };
+
+  // Check if the other user has approved me
+  const checkIfTheyApprovedMe = async (userId: string): Promise<boolean> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return false;
+
+    try {
+      const theirTagsResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (theirTagsResponse.ok) {
+        const theirData = await theirTagsResponse.json();
+        const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+        return theirNormalizedTags.includes('approve') || theirNormalizedTags.includes('like');
+      }
+    } catch (error) {
+      console.error('Error checking if they approved me:', error);
+    }
+    return false;
   };
 
   // Check if there's a match (both users liked each other)
@@ -408,11 +446,19 @@ export default function ResultsPage() {
     // Determine what to do based on current state
     let action = '';
     if (hasMatch || currentTags.includes('like')) {
-      // If matched or liked, remove like tag (go back to approve or no tags)
+      // If matched or liked, remove like tag (go back to approved state)
       action = 'remove_like';
     } else if (currentTags.includes('approve')) {
-      // If approved, remove approve and add like
-      action = 'approve_to_like';
+      // If approved, check if they have approved me before allowing like
+      const theyApprovedMe = await checkIfTheyApprovedMe(profileId);
+      if (!theyApprovedMe) {
+        // Show popup that they need to approve you first
+        setPopupUserName(profile.user.first_name || profile.user.username);
+        setShowApprovalPopup(true);
+        return;
+      }
+      // They approved me, so add like (keep approve)
+      action = 'add_like';
     } else {
       // If no tags, add approve
       action = 'add_approve';
@@ -424,12 +470,16 @@ export default function ResultsPage() {
     switch (action) {
       case 'remove_like':
         newTags = newTags.filter(tag => tag !== 'like');
+        // Keep approve tag - user stays in approved state
+        if (!newTags.includes('approve')) {
+          newTags.push('approve');
+        }
         setProfiles(prev => prev.map(p =>
-          p.id === profileId ? { ...p, tags: newTags, isLiked: false, isMatched: false, status: newTags.includes('approve') ? 'approved' : 'approved' } : p
+          p.id === profileId ? { ...p, tags: newTags, isLiked: false, isMatched: false, status: 'approved' } : p
         ));
         break;
-      case 'approve_to_like':
-        newTags = newTags.filter(tag => tag !== 'approve');
+      case 'add_like':
+        // Add like while keeping approve
         newTags.push('like');
         setProfiles(prev => prev.map(p =>
           p.id === profileId ? { ...p, tags: newTags, isLiked: true, status: 'liked' } : p
@@ -448,14 +498,17 @@ export default function ResultsPage() {
       switch (action) {
         case 'remove_like':
           await toggleTagAPI(profileId, 'Like');
+          // Add approve back if not present
+          if (!currentTags.includes('approve')) {
+            await toggleTagAPI(profileId, 'Approve');
+          }
           // Check for match after removing like
           const stillMatched = await checkForMatch(profileId, newTags);
           setProfiles(prev => prev.map(p =>
             p.id === profileId ? { ...p, isMatched: stillMatched } : p
           ));
           break;
-        case 'approve_to_like':
-          await toggleTagAPI(profileId, 'Approve');
+        case 'add_like':
           await toggleTagAPI(profileId, 'Like');
           // Check for match after adding like
           const nowMatched = await checkForMatch(profileId, newTags);
@@ -1107,6 +1160,40 @@ export default function ResultsPage() {
                 className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-800 font-medium cursor-pointer"
               >
                 Apply filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Required Popup */}
+      {showApprovalPopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => setShowApprovalPopup(false)}
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl w-full max-w-[340px] mx-4 p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3 tracking-tight">
+                Waiting for Approval
+              </h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed mb-8">
+                You can like {popupUserName} once they approve you.
+              </p>
+              <button
+                onClick={() => setShowApprovalPopup(false)}
+                className="w-full py-3.5 text-[15px] font-medium text-white bg-black rounded-full hover:bg-gray-800 active:bg-gray-900 transition-colors"
+              >
+                OK
               </button>
             </div>
           </div>

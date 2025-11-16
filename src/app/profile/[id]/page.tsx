@@ -60,6 +60,7 @@ export default function UserProfilePage() {
   const [selectedQuestionNumber, setSelectedQuestionNumber] = useState<number | null>(null);
   const [selectedQuestionData, setSelectedQuestionData] = useState<any[]>([]);
   const [selectedGroupedQuestionId, setSelectedGroupedQuestionId] = useState<string | null>(null);
+  const [showApprovalPopup, setShowApprovalPopup] = useState(false);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -863,11 +864,18 @@ export default function UserProfilePage() {
     // Determine what to do based on current state
     let action = '';
     if (hasMatch || selectedTags.includes('like')) {
-      // If matched or liked, remove like tag (go back to approve or no tags)
+      // If matched or liked, remove like tag (go back to approved state)
       action = 'remove_like';
     } else if (selectedTags.includes('approve')) {
-      // If approved, remove approve and add like
-      action = 'approve_to_like';
+      // If approved, check if they have approved me before allowing like
+      const theyApprovedMe = await checkIfTheyApprovedMe();
+      if (!theyApprovedMe) {
+        // Show popup that they need to approve you first
+        setShowApprovalPopup(true);
+        return;
+      }
+      // They approved me, so add like (keep approve)
+      action = 'add_like';
     } else {
       // If no tags, add approve
       action = 'add_approve';
@@ -875,21 +883,25 @@ export default function UserProfilePage() {
 
     // Update UI optimistically
     let newSelectedTags = [...selectedTags];
-    
+
     switch (action) {
       case 'remove_like':
         newSelectedTags = newSelectedTags.filter(tag => tag !== 'like');
+        // Keep approve tag - user stays in approved state
+        if (!newSelectedTags.includes('approve')) {
+          newSelectedTags.push('approve');
+        }
         setHasMatch(false);
         break;
-      case 'approve_to_like':
-        newSelectedTags = newSelectedTags.filter(tag => tag !== 'approve');
+      case 'add_like':
+        // Add like while keeping approve
         newSelectedTags.push('like');
         break;
       case 'add_approve':
         newSelectedTags.push('approve');
         break;
     }
-    
+
     // Update UI immediately
     setSelectedTags(newSelectedTags);
 
@@ -898,11 +910,14 @@ export default function UserProfilePage() {
       switch (action) {
         case 'remove_like':
           await toggleTagAPI('Like');
+          // Add approve back if not present
+          if (!selectedTags.includes('approve')) {
+            await toggleTagAPI('Approve');
+          }
           // Check for match after removing like
           await checkForMatch(newSelectedTags);
           break;
-        case 'approve_to_like':
-          await toggleTagAPI('Approve');
+        case 'add_like':
           await toggleTagAPI('Like');
           // Check for match after adding like
           await checkForMatch(newSelectedTags);
@@ -919,6 +934,30 @@ export default function UserProfilePage() {
     }
   };
 
+  // Check if the other user has approved me
+  const checkIfTheyApprovedMe = async (): Promise<boolean> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !userId) return false;
+
+    try {
+      const theirTagsResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (theirTagsResponse.ok) {
+        const theirData = await theirTagsResponse.json();
+        const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+        return theirNormalizedTags.includes('approve') || theirNormalizedTags.includes('like');
+      }
+    } catch (error) {
+      console.error('Error checking if they approved me:', error);
+    }
+    return false;
+  };
+
   // Check if there's a match (both users liked each other)
   const checkForMatch = async (currentTags?: string[]) => {
     const currentUserId = localStorage.getItem('user_id');
@@ -928,7 +967,7 @@ export default function UserProfilePage() {
       // Use provided tags or fetch current tags
       const tagsToCheck = currentTags || selectedTags;
       const iLikedThem = tagsToCheck.includes('like');
-      
+
       if (!iLikedThem) {
         setHasMatch(false);
         return;
@@ -938,11 +977,11 @@ export default function UserProfilePage() {
       const theirTagsResponse = await fetch(
         `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
         {
- 
+
           headers: { 'Content-Type': 'application/json' },
         }
       );
-      
+
       if (theirTagsResponse.ok) {
         const theirData = await theirTagsResponse.json();
         const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
@@ -2076,6 +2115,40 @@ export default function UserProfilePage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Approval Required Popup */}
+      {showApprovalPopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => setShowApprovalPopup(false)}
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl w-full max-w-[340px] mx-4 p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3 tracking-tight">
+                Waiting for Approval
+              </h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed mb-8">
+                You can like {user?.first_name || 'this person'} once they approve you.
+              </p>
+              <button
+                onClick={() => setShowApprovalPopup(false)}
+                className="w-full py-3.5 text-[15px] font-medium text-white bg-black rounded-full hover:bg-gray-800 active:bg-gray-900 transition-colors"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}
