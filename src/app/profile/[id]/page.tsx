@@ -1039,8 +1039,9 @@ export default function UserProfilePage() {
       {/* Main Content */}
       <div className="flex-1 max-w-4xl mx-auto px-6 lg:px-12 xl:px-20 py-4">
         {/* Profile Photo and Name */}
-        <div className="relative mb-6">
-          <div className="w-full sm:w-95 aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative mx-auto">
+        <div className="relative mb-6 w-full sm:w-95 mx-auto">
+          {/* Photo Card - on top */}
+          <div className="w-full aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative z-10">
             {user.profile_photo ? (
               <Image
                 src={user.profile_photo}
@@ -1061,7 +1062,7 @@ export default function UserProfilePage() {
 
             {/* Action Icons - Bottom Right */}
             <div className="absolute bottom-4 right-4 flex flex-col gap-4">
-              <button 
+              <button
                 onClick={() => handleTagToggle('Hide')}
                 className="hover:scale-105 transition-transform cursor-pointer"
               >
@@ -1073,7 +1074,7 @@ export default function UserProfilePage() {
                   height={48}
                 />
               </button>
-              <button 
+              <button
                 onClick={() => handleActionButtonClick()}
                 className="hover:scale-105 transition-transform cursor-pointer"
               >
@@ -1086,25 +1087,35 @@ export default function UserProfilePage() {
               </button>
             </div>
           </div>
-          
-          {/* Tagline and Questions button below the profile photo */}
-          <div className="mt-2 w-full sm:w-95 mx-auto flex items-center justify-between">
-            {user.tagline && (
-              <div className="text-left flex-1 mr-4">
-                <p className="text-gray-700 text-lg">{user.tagline}</p>
-              </div>
-            )}
-            <button
-              onClick={() => {
-                console.log('Questions button clicked, opening modal');
-                setShowQuestionsModal(true);
-              }}
-              className="bg-black text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors flex-shrink-0 cursor-pointer"
-            >
-              Questions
-            </button>
+
+          {/* Purple Sleeve - pulled up behind the photo */}
+          <div className="bg-[#672DB7] rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0">
+            <div className="flex justify-between gap-3">
+              <button
+                onClick={() => router.push(`/chat/${userId}`)}
+                className="flex-1 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer text-center"
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => {
+                  console.log('Questions button clicked, opening modal');
+                  setShowQuestionsModal(true);
+                }}
+                className="flex-1 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer text-center"
+              >
+                Questions
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Tagline below the purple extension */}
+        {user.tagline && (
+          <div className="w-full sm:w-95 mx-auto mb-6">
+            <p className="text-gray-700 text-lg text-center">{user.tagline}</p>
+          </div>
+        )}
 
         {/* Profile Icons - horizontal layout with containers */}
         {profileIcons.length > 0 && (

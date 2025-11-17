@@ -92,8 +92,8 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
-// const API_BASE_URL = 'http://localhost:9090/api';
-const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
+const API_BASE_URL = 'http://localhost:9090/api';
+// const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
 
 console.log('API_BASE_URL:', API_BASE_URL);
 
