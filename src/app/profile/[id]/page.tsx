@@ -1112,7 +1112,7 @@ export default function UserProfilePage() {
 
         {/* Tagline below the purple extension */}
         {user.tagline && (
-          <div className="w-full sm:w-95 mx-auto mb-6">
+          <div className="w-full sm:w-95 mx-auto -mt-2 mb-6">
             <p className="text-gray-700 text-lg text-center">{user.tagline}</p>
           </div>
         )}
