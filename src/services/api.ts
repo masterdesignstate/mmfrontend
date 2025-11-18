@@ -85,6 +85,35 @@ export interface Notification {
   related_user_result?: string;
 }
 
+export interface Message {
+  id: string;
+  conversation?: string;
+  sender: ApiUser;
+  receiver: ApiUser;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface LastMessage {
+  id: string;
+  content: string;
+  sender_id: string;
+  created_at: string;
+  is_read: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  participant1: ApiUser;
+  participant2: ApiUser;
+  other_participant?: ApiUser;
+  last_message?: LastMessage;
+  unread_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -92,8 +121,8 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
-const API_BASE_URL = 'http://localhost:9090/api';
-// const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
+// const API_BASE_URL = 'http://localhost:9090/api';
+const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
 
 console.log('API_BASE_URL:', API_BASE_URL);
 
@@ -573,6 +602,57 @@ class ApiService {
 
   async deleteNotification(notificationId: string): Promise<void> {
     return this.request(`/notifications/${notificationId}/`, 'DELETE') as Promise<void>;
+  }
+
+  // Conversation/Chat methods
+  async getConversations(userId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<Conversation>> {
+    const url = `/conversations/?user_id=${userId}&page=${page}&page_size=${pageSize}`;
+    return this.request(url, 'GET') as Promise<PaginatedResponse<Conversation>>;
+  }
+
+  async getConversation(conversationId: string, userId: string): Promise<Conversation> {
+    return this.request(`/conversations/${conversationId}/?user_id=${userId}`, 'GET') as Promise<Conversation>;
+  }
+
+  async createOrGetConversation(userId: string, otherUserId: string): Promise<Conversation> {
+    return this.request('/conversations/', 'POST', {
+      user_id: userId,
+      other_user_id: otherUserId
+    }) as Promise<Conversation>;
+  }
+
+  async getMessages(conversationId: string, page = 1, pageSize = 50): Promise<{
+    results: Message[];
+    count: number;
+    page: number;
+    page_size: number;
+    has_more: boolean;
+  }> {
+    const url = `/conversations/${conversationId}/messages/?page=${page}&page_size=${pageSize}`;
+    return this.request(url, 'GET') as Promise<{
+      results: Message[];
+      count: number;
+      page: number;
+      page_size: number;
+      has_more: boolean;
+    }>;
+  }
+
+  async sendMessage(conversationId: string, senderId: string, content: string): Promise<Message> {
+    return this.request(`/conversations/${conversationId}/send_message/`, 'POST', {
+      sender_id: senderId,
+      content: content
+    }) as Promise<Message>;
+  }
+
+  async markMessagesRead(conversationId: string, userId: string): Promise<{ marked_read: number }> {
+    return this.request(`/conversations/${conversationId}/mark_messages_read/`, 'POST', {
+      user_id: userId
+    }) as Promise<{ marked_read: number }>;
+  }
+
+  async getUnreadMessageCount(userId: string): Promise<{ count: number }> {
+    return this.request(`/conversations/unread_count/?user_id=${userId}`, 'GET') as Promise<{ count: number }>;
   }
 
   // Generic CRUD operations

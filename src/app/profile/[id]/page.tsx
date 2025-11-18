@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 
 // Types for user profile and answers
@@ -934,6 +935,24 @@ export default function UserProfilePage() {
     }
   };
 
+  // Handle chat button click
+  const handleChatClick = async () => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !userId) {
+      router.push('/auth/login');
+      return;
+    }
+
+    try {
+      // Create or get existing conversation
+      const conversation = await apiService.createOrGetConversation(currentUserId, userId);
+      // Navigate to the conversation
+      router.push(`/chats/${conversation.id}`);
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+    }
+  };
+
   // Check if the other user has approved me
   const checkIfTheyApprovedMe = async (): Promise<boolean> => {
     const currentUserId = localStorage.getItem('user_id');
@@ -1092,7 +1111,7 @@ export default function UserProfilePage() {
           <div className="bg-[#672DB7] rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0">
             <div className="flex justify-between gap-3">
               <button
-                onClick={() => router.push(`/chat/${userId}`)}
+                onClick={handleChatClick}
                 className="flex-1 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer text-center"
               >
                 Chat
