@@ -585,15 +585,9 @@ export default function QuestionsPage() {
         return;
       }
 
+      // Wait for metadata to load (need allQuestionNumbers to filter)
       if (allQuestionNumbers.length === 0) {
         console.log('⏳ Waiting for question numbers to load...');
-        return;
-      }
-
-      // Ensure userAnswers is loaded (wait for initial data fetch to complete)
-      // Note: userAnswers can be empty if user hasn't answered anything yet
-      if (loading) {
-        console.log('⏳ Still loading initial data, deferring filter...');
         return;
       }
 
@@ -1088,12 +1082,6 @@ export default function QuestionsPage() {
                 ? `Showing ${paginatedGroupedQuestions.length} of ${sortedGroupedQuestions.length} questions`
                 : `Showing ${sortedGroupedQuestions.length} questions`
               }
-              {/* Debug info */}
-              {(filters.questions.answered || filters.questions.unanswered) && (
-                <span className="ml-2 text-xs text-gray-500">
-                  (You've answered {new Set(userAnswers.map(a => a.question.question_number)).size} of {allQuestionNumbers.length} total)
-                </span>
-              )}
             </p>
           </div>
           <button 
@@ -1182,7 +1170,7 @@ export default function QuestionsPage() {
         </div>
 
         {/* Pagination Controls */}
-        {(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) > 1 && (
+        {paginatedGroupedQuestions.length > 0 && (isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) > 1 && (
           <div className="flex justify-center items-center space-x-4 mt-8">
             {/* Previous Button */}
             <button

@@ -60,7 +60,7 @@ export default function NotificationsPage() {
     }
   }, [userId]);
 
-  // Mark notification as read and navigate to profile
+  // Mark notification as read and navigate to profile or chat
   const handleNotificationClick = async (notification: Notification) => {
     try {
       if (!notification.is_read) {
@@ -69,10 +69,19 @@ export default function NotificationsPage() {
           prev.map(n => (n.id === notification.id ? { ...n, is_read: true } : n))
         );
       }
-      router.push(`/profile/${notification.sender.id}`);
+
+      // If it's a note notification, navigate to chat
+      if (notification.notification_type === 'note') {
+        // Get or create conversation with this user
+        const conversation = await apiService.createOrGetConversation(userId, notification.sender.id);
+        router.push(`/chats/${conversation.id}`);
+      } else {
+        // For other notifications, navigate to profile
+        router.push(`/profile/${notification.sender.id}`);
+      }
     } catch (error) {
-      console.error('Error marking notification as read:', error);
-      // Still navigate even if marking as read fails
+      console.error('Error handling notification click:', error);
+      // Still navigate to profile even if something fails
       router.push(`/profile/${notification.sender.id}`);
     }
   };
@@ -117,6 +126,8 @@ export default function NotificationsPage() {
         return `${senderName} liked you`;
       case 'match':
         return `You matched with ${senderName}!`;
+      case 'note':
+        return notification.note || `${senderName} sent you a note`;
       default:
         return `${senderName} interacted with you`;
     }
@@ -131,6 +142,8 @@ export default function NotificationsPage() {
         return '❤️';
       case 'match':
         return '🎉';
+      case 'note':
+        return '💌';
       default:
         return '🔔';
     }

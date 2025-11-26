@@ -6,6 +6,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MatchCelebration from '@/components/MatchCelebration';
+import ActivityStatus from '@/components/ActivityStatus';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -20,6 +22,9 @@ interface UserProfile {
   live?: string;
   from_location?: string;
   tagline?: string;
+  is_online?: boolean;
+  last_active?: string | null;
+  questions_answered_count?: number;
 }
 
 interface UserAnswer {
@@ -62,6 +67,41 @@ export default function UserProfilePage() {
   const [selectedQuestionData, setSelectedQuestionData] = useState<any[]>([]);
   const [selectedGroupedQuestionId, setSelectedGroupedQuestionId] = useState<string | null>(null);
   const [showApprovalPopup, setShowApprovalPopup] = useState(false);
+  const [showMatchCelebration, setShowMatchCelebration] = useState(false);
+  const [celebratedMatch, setCelebratedMatch] = useState(false);
+  const [compatibility, setCompatibility] = useState<{
+    overall_compatibility: number;
+    compatible_with_me: number;
+    im_compatible_with: number;
+    mutual_questions_count: number;
+  } | null>(null);
+  const [showLikePopup, setShowLikePopup] = useState(false);
+  const [showNotePopup, setShowNotePopup] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [showReportPopup, setShowReportPopup] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [showPrivateAnswerPopup, setShowPrivateAnswerPopup] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [sortOption, setSortOption] = useState<'number' | 'randomized' | 'popular' | 'new'>('number');
+  const [filters, setFilters] = useState({
+    questions: {
+      mandatory: false,
+      answered: false,
+      unanswered: false,
+      required: false,
+      submitted: false
+    },
+    tags: {
+      value: false,
+      lifestyle: false,
+      look: false,
+      trait: false,
+      hobby: false,
+      interest: false
+    }
+  });
+  const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -78,87 +118,138 @@ export default function UserProfilePage() {
         const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
         const now = Date.now();
 
+        let useCache = false;
         if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
           console.log('Using cached profile data');
           const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
           setUser(cachedUser);
           setUserAnswers(cachedAnswers);
           setLoading(false);
-          return;
+          useCache = true;
         }
 
-        // Fetch user and questions
-        const [userResponse, questionsResponse] = await Promise.all([
-          fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
- 
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }),
-          fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, {
- 
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          })
-        ]);
+        if (!useCache) {
+          // Fetch user and questions
+          const [userResponse, questionsResponse] = await Promise.all([
+            fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
 
-        if (!userResponse.ok) {
-          throw new Error('User not found');
-        }
-
-        if (!questionsResponse.ok) {
-          throw new Error('Failed to fetch questions');
-        }
-
-        const [userData, questionsData] = await Promise.all([
-          userResponse.json(),
-          questionsResponse.json()
-        ]);
-
-        const questions = questionsData.results || [];
-
-        // Fetch all user answers with pagination
-        let allAnswers: any[] = [];
-        let page = 1;
-        const pageSize = 100;
-        const maxPages = 20; // Safety limit
-        
-        while (page <= maxPages) {
-          const answersResponse = await fetch(
-            `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=${page}&page_size=${pageSize}`,
-            {
               headers: {
                 'Content-Type': 'application/json',
               },
+            }),
+            fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, {
+
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+          ]);
+
+          if (!userResponse.ok) {
+            throw new Error('User not found');
+          }
+
+          if (!questionsResponse.ok) {
+            throw new Error('Failed to fetch questions');
+          }
+
+          const [userData, questionsData] = await Promise.all([
+            userResponse.json(),
+            questionsResponse.json()
+          ]);
+
+          const questions = questionsData.results || [];
+
+          // Fetch all user answers with pagination
+          let allAnswers: any[] = [];
+          let page = 1;
+          const pageSize = 100;
+          const maxPages = 20; // Safety limit
+
+          while (page <= maxPages) {
+            const answersResponse = await fetch(
+              `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=${page}&page_size=${pageSize}`,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+
+            if (!answersResponse.ok) {
+              throw new Error('Failed to fetch user answers');
             }
-          );
 
-          if (!answersResponse.ok) {
-            throw new Error('Failed to fetch user answers');
+            const answersData = await answersResponse.json();
+            const pageAnswers = answersData.results || [];
+            allAnswers = allAnswers.concat(pageAnswers);
+
+            // Stop if there's no next page or no more results
+            if (!answersData.next || pageAnswers.length === 0) {
+              break;
+            }
+
+            page++;
           }
 
-          const answersData = await answersResponse.json();
-          const pageAnswers = answersData.results || [];
-          allAnswers = allAnswers.concat(pageAnswers);
+          const answers = allAnswers;
 
-          // Stop if there's no next page or no more results
-          if (!answersData.next || pageAnswers.length === 0) {
-            break;
-          }
+          // Cache the data
+          sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
+          sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
 
-          page++;
+          setUser(userData);
+          setUserAnswers(answers);
+          setAllQuestions(questions);
         }
 
-        const answers = allAnswers;
+        // Fetch compatibility data from the results/compatible endpoint
+        const currentUserId = localStorage.getItem('user_id');
+        console.log('🔍 Fetching compatibility:', { currentUserId, userId });
+        if (currentUserId && currentUserId !== userId) {
+          try {
+            // Use the user's compatible endpoint which includes compatibility data
+            const compatibleResponse = await fetch(
+              `http://localhost:9090/api/users/compatible/?user_id=${currentUserId}&page_size=100`,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
 
-        // Cache the data
-        sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
-        sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+            if (compatibleResponse.ok) {
+              const compatibleData = await compatibleResponse.json();
+              const results = compatibleData.results || [];
+              console.log('📊 Compatible users received:', results.length, 'records');
 
-        setUser(userData);
-        setUserAnswers(answers);
-        setAllQuestions(questions);
+              // Find this specific user in the compatible results
+              const userProfile = results.find((profile: any) => profile.user.id === userId);
+
+              console.log('🎯 Found user profile:', userProfile);
+
+              if (userProfile && userProfile.compatibility) {
+                console.log('🔍 Raw compatibility object:', userProfile.compatibility);
+                const compatData = {
+                  overall_compatibility: userProfile.compatibility.overall_compatibility,
+                  im_compatible_with: userProfile.compatibility.im_compatible_with,
+                  compatible_with_me: userProfile.compatibility.compatible_with_me,
+                  mutual_questions_count: userProfile.compatibility.mutual_questions_count || 0,
+                };
+                console.log('✅ Setting compatibility:', compatData);
+                setCompatibility(compatData);
+              } else {
+                console.log('❌ No compatibility data found for this user');
+                console.log('   Available user IDs:', results.map((r: any) => r.user.id).slice(0, 5));
+                console.log('   Looking for user ID:', userId);
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching compatibility:', error);
+          }
+        } else {
+          console.log('⏭️ Skipping compatibility fetch (same user or no currentUserId)');
+        }
 
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -487,22 +578,220 @@ export default function UserProfilePage() {
     return icons.filter(icon => icon.show);
   };
 
-  // Handle tag toggle
-  const handleTagToggle = async (tag: string) => {
+  // No longer needed - we go straight to note popup
+  // const handleConfirmLike = () => {
+  //   setShowLikePopup(false);
+  //   setShowNotePopup(true);
+  // };
+
+  // Handle sending like with optional note
+  const handleSendLike = async () => {
+    setShowNotePopup(false);
     const currentUserId = localStorage.getItem('user_id');
     if (!currentUserId || !userId) return;
 
-    // Optimistically update UI
-    const normalizedTag = tag.toLowerCase();
-    const isCurrentlySelected = selectedTags.includes(normalizedTag);
-    
-    setSelectedTags(prev =>
-      isCurrentlySelected
-        ? prev.filter(t => t !== normalizedTag)
-        : [...prev, normalizedTag]
-    );
+    // Add like while keeping approve, remove hide if present
+    const newSelectedTags = selectedTags.filter(tag => tag !== 'hide');
+    if (!newSelectedTags.includes('like')) {
+      newSelectedTags.push('like');
+    }
+
+    // Update UI immediately
+    setSelectedTags(newSelectedTags);
 
     try {
+      // Remove hide tag if present before adding like
+      if (selectedTags.includes('hide')) {
+        await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUserId,
+            result_user_id: userId,
+            tag: 'Hide',
+          }),
+        });
+      }
+
+      // Add like tag
+      await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUserId,
+          result_user_id: userId,
+          tag: 'Like',
+        }),
+      });
+
+      // Check for match after adding like
+      await checkForMatch(newSelectedTags);
+
+      // If there's a note, send it to the backend
+      if (noteText.trim()) {
+        const noteResponse = await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/send_note/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender_id: currentUserId,
+            recipient_id: userId,
+            note: noteText.trim(),
+          }),
+        });
+
+        if (noteResponse.ok) {
+          console.log('✅ Note sent successfully');
+        } else {
+          console.error('❌ Failed to send note');
+        }
+      }
+
+      // Refresh tags from server to ensure sync
+      const response = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const refreshedTags = (data.tags || []).map((tag: string) => tag.toLowerCase());
+        setSelectedTags(refreshedTags);
+      }
+    } catch (error) {
+      console.error('Error sending like:', error);
+      // Revert on error
+      setSelectedTags(selectedTags);
+    }
+
+    // Clear note text for next time
+    setNoteText('');
+  };
+
+  // Handle tag toggle
+  const handleTagToggle = async (tag: string) => {
+    const normalizedTag = tag.toLowerCase();
+    const isCurrentlySelected = selectedTags.includes(normalizedTag);
+
+    // Check if trying to like when other user hasn't approved you yet
+    if (normalizedTag === 'like' && !isCurrentlySelected) {
+      const theyApprovedMe = await checkIfTheyApprovedMe();
+      if (!theyApprovedMe) {
+        // Show approval required popup
+        setShowApprovalPopup(true);
+        return;
+      }
+      // They approved me, show note popup directly
+      setShowNotePopup(true);
+      return;
+    }
+
+    // For all other tags, process normally
+    await processTagToggle(tag);
+  };
+
+  // Process the actual tag toggle
+  const processTagToggle = async (tag: string) => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !userId) return;
+
+    const normalizedTag = tag.toLowerCase();
+    const isCurrentlySelected = selectedTags.includes(normalizedTag);
+
+    // If hiding a user, remove approve and like tags
+    if (normalizedTag === 'hide' && !isCurrentlySelected) {
+      // Adding hide tag - remove approve and like
+      setSelectedTags(prev => {
+        const filtered = prev.filter(t => t !== 'approve' && t !== 'like');
+        return [...filtered, normalizedTag];
+      });
+      setHasMatch(false); // Reset match status when hiding
+    }
+    // If approving or liking, remove hide tag
+    else if ((normalizedTag === 'approve' || normalizedTag === 'like') && !isCurrentlySelected) {
+      // Adding approve/like tag - remove hide
+      setSelectedTags(prev => {
+        const filtered = prev.filter(t => t !== 'hide');
+        return [...filtered, normalizedTag];
+      });
+    }
+    // If removing approve, also remove like (can't like someone who isn't approved)
+    else if (normalizedTag === 'approve' && isCurrentlySelected) {
+      // Removing approve tag - also remove like
+      setSelectedTags(prev => prev.filter(t => t !== 'approve' && t !== 'like'));
+      setHasMatch(false); // Reset match status when un-approving
+    }
+    else {
+      setSelectedTags(prev =>
+        isCurrentlySelected
+          ? prev.filter(t => t !== normalizedTag)
+          : [...prev, normalizedTag]
+      );
+    }
+
+    try {
+      // If hiding, first remove approve and like tags
+      if (normalizedTag === 'hide' && !isCurrentlySelected) {
+        // Remove approve tag if present
+        if (selectedTags.includes('approve')) {
+          await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: currentUserId,
+              result_user_id: userId,
+              tag: 'Approve',
+            }),
+          });
+        }
+
+        // Remove like tag if present
+        if (selectedTags.includes('like')) {
+          await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: currentUserId,
+              result_user_id: userId,
+              tag: 'Like',
+            }),
+          });
+        }
+      }
+
+      // If approving or liking, first remove hide tag
+      if ((normalizedTag === 'approve' || normalizedTag === 'like') && !isCurrentlySelected) {
+        // Remove hide tag if present
+        if (selectedTags.includes('hide')) {
+          console.log('🚫 Removing hide tag before adding', normalizedTag);
+          await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: currentUserId,
+              result_user_id: userId,
+              tag: 'Hide',
+            }),
+          });
+        }
+      }
+
+      // If removing approve, first remove like tag
+      if (normalizedTag === 'approve' && isCurrentlySelected) {
+        // Remove like tag if present
+        if (selectedTags.includes('like')) {
+          console.log('🚫 Removing like tag because approve is being removed');
+          await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: currentUserId,
+              result_user_id: userId,
+              tag: 'Like',
+            }),
+          });
+        }
+      }
+
+      // Now toggle the requested tag
       const response = await fetch(
         `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`,
         {
@@ -711,22 +1000,97 @@ export default function UserProfilePage() {
     );
   }, [userAnswers, allQuestions, questionDisplayNames]);
 
-  // Paginate grouped questions for modal (8 per page)
+  // Filter and sort grouped questions for modal
+  const filteredAndSortedQuestions = useMemo(() => {
+    let filtered = [...groupedQuestionsForModal];
+
+    // Apply filters
+    const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
+    const hasTagFilters = Object.values(filters.tags).some(filter => filter);
+
+    if (hasQuestionFilters || hasTagFilters) {
+      filtered = filtered.filter(([key, group]) => {
+        const questionNumber = group.questionNumber;
+        const firstQuestion = group.questions[0]?.question;
+
+        let passesQuestionFilters = !hasQuestionFilters;
+        let passesTagFilters = !hasTagFilters;
+
+        // Question type filters
+        if (hasQuestionFilters) {
+          if (filters.questions.mandatory && firstQuestion?.is_mandatory) {
+            passesQuestionFilters = true;
+          }
+          if (filters.questions.answered && group.questions.length > 0) {
+            passesQuestionFilters = true;
+          }
+          if (filters.questions.required && firstQuestion?.is_required_for_match) {
+            passesQuestionFilters = true;
+          }
+          // Note: submitted filter requires checking if submitted_by matches current user
+          if (filters.questions.submitted) {
+            const currentUserId = localStorage.getItem('user_id');
+            if (firstQuestion?.submitted_by?.id === currentUserId || firstQuestion?.is_submitted_by_me) {
+              passesQuestionFilters = true;
+            }
+          }
+        }
+
+        // Tag filters
+        if (hasTagFilters && firstQuestion?.tags) {
+          const questionTags = firstQuestion.tags.map((t: any) =>
+            typeof t === 'string' ? t.toLowerCase() : t.name?.toLowerCase()
+          );
+
+          if (filters.tags.value && questionTags.includes('value')) passesTagFilters = true;
+          if (filters.tags.lifestyle && questionTags.includes('lifestyle')) passesTagFilters = true;
+          if (filters.tags.look && questionTags.includes('look')) passesTagFilters = true;
+          if (filters.tags.trait && questionTags.includes('trait')) passesTagFilters = true;
+          if (filters.tags.hobby && questionTags.includes('hobby')) passesTagFilters = true;
+          if (filters.tags.interest && questionTags.includes('interest')) passesTagFilters = true;
+        }
+
+        return passesQuestionFilters && passesTagFilters;
+      });
+    }
+
+    // Apply sorting
+    const sorted = [...filtered];
+    switch (sortOption) {
+      case 'randomized':
+        sorted.sort(() => Math.random() - 0.5);
+        break;
+      case 'popular':
+        sorted.sort((a, b) => b[1].answerCount - a[1].answerCount);
+        break;
+      case 'new':
+        sorted.sort((a, b) => b[1].questionNumber - a[1].questionNumber);
+        break;
+      case 'number':
+      default:
+        sorted.sort((a, b) => a[1].questionNumber - b[1].questionNumber);
+        break;
+    }
+
+    return sorted;
+  }, [groupedQuestionsForModal, filters, sortOption]);
+
+  // Paginate filtered and sorted questions for modal (8 per page)
   const paginatedGroupedQuestions = useMemo(() => {
     const startIndex = (questionsModalPage - 1) * QUESTIONS_PER_PAGE;
     const endIndex = startIndex + QUESTIONS_PER_PAGE;
-    return groupedQuestionsForModal.slice(startIndex, endIndex);
-  }, [groupedQuestionsForModal, questionsModalPage]);
+    return filteredAndSortedQuestions.slice(startIndex, endIndex);
+  }, [filteredAndSortedQuestions, questionsModalPage]);
 
   // Calculate total pages for modal (handle both grouped and fallback cases)
   const totalModalPages = useMemo(() => {
-    if (groupedQuestionsForModal.length > 0) {
-      return Math.ceil(groupedQuestionsForModal.length / QUESTIONS_PER_PAGE);
+    if (filteredAndSortedQuestions.length > 0) {
+      return Math.ceil(filteredAndSortedQuestions.length / QUESTIONS_PER_PAGE);
     }
     // Fallback: calculate pages based on unique question numbers
     const uniqueQuestionNumbers = new Set(userAnswers.map(answer => answer.question.question_number));
     return Math.ceil(uniqueQuestionNumbers.size / QUESTIONS_PER_PAGE);
-  }, [groupedQuestionsForModal, userAnswers]);
+  }, [filteredAndSortedQuestions, userAnswers]);
 
   // Reset pagination and selected question when modal opens
   useEffect(() => {
@@ -737,6 +1101,28 @@ export default function UserProfilePage() {
       setSelectedGroupedQuestionId(null);
     }
   }, [showQuestionsModal]);
+
+  // Sync pendingFilters with filters when filter modal opens
+  useEffect(() => {
+    if (showFilterModal) {
+      setPendingFilters(filters);
+    }
+  }, [showFilterModal, filters]);
+
+  // Close sort dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showSortDropdown && !target.closest('.sort-dropdown-container')) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    if (showSortDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSortDropdown]);
 
   // Handle question click - show question details in modal
   const handleQuestionClick = async (questionNumber: number, questionType?: string) => {
@@ -862,6 +1248,8 @@ export default function UserProfilePage() {
     const currentUserId = localStorage.getItem('user_id');
     if (!currentUserId || !userId) return;
 
+    console.log('🔘 Action button clicked. Current tags:', selectedTags);
+
     // Determine what to do based on current state
     let action = '';
     if (hasMatch || selectedTags.includes('like')) {
@@ -875,12 +1263,15 @@ export default function UserProfilePage() {
         setShowApprovalPopup(true);
         return;
       }
-      // They approved me, so add like (keep approve)
-      action = 'add_like';
+      // They approved me, show note popup directly
+      setShowNotePopup(true);
+      return;
     } else {
       // If no tags, add approve
       action = 'add_approve';
     }
+
+    console.log('🎬 Action determined:', action);
 
     // Update UI optimistically
     let newSelectedTags = [...selectedTags];
@@ -894,11 +1285,9 @@ export default function UserProfilePage() {
         }
         setHasMatch(false);
         break;
-      case 'add_like':
-        // Add like while keeping approve
-        newSelectedTags.push('like');
-        break;
       case 'add_approve':
+        // Add approve, remove hide if present
+        newSelectedTags = newSelectedTags.filter(tag => tag !== 'hide');
         newSelectedTags.push('approve');
         break;
     }
@@ -915,17 +1304,36 @@ export default function UserProfilePage() {
           if (!selectedTags.includes('approve')) {
             await toggleTagAPI('Approve');
           }
+          // Reset celebration flag when unmatching to allow re-celebration
+          setCelebratedMatch(false);
           // Check for match after removing like
           await checkForMatch(newSelectedTags);
           break;
-        case 'add_like':
-          await toggleTagAPI('Like');
-          // Check for match after adding like
-          await checkForMatch(newSelectedTags);
-          break;
         case 'add_approve':
+          // Remove hide tag if present before adding approve
+          if (selectedTags.includes('hide')) {
+            console.log('🚫 Removing hide tag before approving');
+            await toggleTagAPI('Hide');
+          }
+          console.log('✅ Adding approve tag');
           await toggleTagAPI('Approve');
           break;
+      }
+
+      // Refresh tags from server to ensure sync
+      const currentUserId = localStorage.getItem('user_id');
+      if (currentUserId && userId) {
+        console.log('🔄 Refreshing tags from server...');
+        const response = await fetch(
+          `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const refreshedTags = (data.tags || []).map((tag: string) => tag.toLowerCase());
+          console.log('✅ Tags refreshed from server:', refreshedTags);
+          setSelectedTags(refreshedTags);
+        }
       }
     } catch (error) {
       // Revert on error
@@ -1005,7 +1413,15 @@ export default function UserProfilePage() {
         const theirData = await theirTagsResponse.json();
         const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
         const theyLikedMe = theirNormalizedTags.includes('like');
-        setHasMatch(iLikedThem && theyLikedMe);
+        const isMatch = iLikedThem && theyLikedMe;
+
+        // Trigger celebration if it's a new match and hasn't been celebrated yet
+        if (isMatch && !hasMatch && !celebratedMatch) {
+          setShowMatchCelebration(true);
+          setCelebratedMatch(true);
+        }
+
+        setHasMatch(isMatch);
       }
     } catch (error) {
       console.error('Error checking for match:', error);
@@ -1108,11 +1524,16 @@ export default function UserProfilePage() {
           </div>
 
           {/* Purple Sleeve - pulled up behind the photo */}
-          <div className="bg-[#672DB7] rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0">
+          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
             <div className="flex justify-between gap-3">
               <button
                 onClick={handleChatClick}
-                className="flex-1 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer text-center"
+                disabled={!hasMatch}
+                className={`flex-1 px-4 py-2 rounded-full font-medium text-sm transition-colors text-center ${
+                  hasMatch
+                    ? 'bg-white text-black hover:bg-gray-100 cursor-pointer'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                }`}
               >
                 Chat
               </button>
@@ -1129,12 +1550,21 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Tagline below the purple extension */}
-        {user.tagline && (
-          <div className="w-full sm:w-95 mx-auto -mt-2 mb-6">
-            <p className="text-gray-700 text-lg text-center">{user.tagline}</p>
+        {/* Tagline and Activity Status - below the purple extension */}
+        <div className="w-full sm:w-95 mx-auto -mt-2 mb-6">
+          <div className="flex items-center justify-between gap-4">
+            {/* Tagline - Left/Center side */}
+            {user.tagline && (
+              <p className="text-gray-700 text-lg flex-1">{user.tagline}</p>
+            )}
+
+            {/* Activity Status - Right side */}
+            <ActivityStatus
+              isOnline={user.is_online || false}
+              lastActive={user.last_active}
+            />
           </div>
-        )}
+        </div>
 
         {/* Profile Icons - horizontal layout with containers */}
         {profileIcons.length > 0 && (
@@ -1154,6 +1584,110 @@ export default function UserProfilePage() {
                 <span className="text-base text-black font-medium">{icon.label}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Compatibility Section - Minimal Elegant Design */}
+        {compatibility && (
+          <div className="mb-8">
+            <div className="py-6">
+              {/* All Three Scores in One Row */}
+              <div className="flex items-center justify-center gap-12">
+                {/* Me */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    Me
+                  </div>
+                  <div className="text-center">
+                    <span
+                      className="text-4xl font-black leading-none"
+                      style={{
+                        background: 'linear-gradient(135deg, #A855F7 0%, #9333EA 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      {Math.round(compatibility.im_compatible_with)}
+                    </span>
+                    <span
+                      className="text-2xl font-bold ml-0.5"
+                      style={{
+                        background: 'linear-gradient(135deg, #A855F7 0%, #9333EA 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      %
+                    </span>
+                  </div>
+                </div>
+
+                {/* Overall - Center */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    Overall
+                  </div>
+                  <div className="text-center">
+                    <span
+                      className="text-5xl font-black leading-none tracking-tighter"
+                      style={{
+                        background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #5B21B6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      {Math.round(compatibility.overall_compatibility)}
+                    </span>
+                    <span
+                      className="text-3xl font-bold ml-0.5"
+                      style={{
+                        background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #5B21B6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      %
+                    </span>
+                  </div>
+                </div>
+
+                {/* Them */}
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    Them
+                  </div>
+                  <div className="text-center">
+                    <span
+                      className="text-4xl font-black leading-none"
+                      style={{
+                        background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      {Math.round(compatibility.compatible_with_me)}
+                    </span>
+                    <span
+                      className="text-2xl font-bold ml-0.5"
+                      style={{
+                        background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      %
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
 
@@ -1177,10 +1711,24 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Bio */}
-        <div className="mb-8">
-          <h3 className="font-semibold text-gray-900 mb-4">Bio</h3>
-          <p className="text-gray-600 text-sm">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
+        {/* Bio, Mutual Questions, and Questions Answered - same layout as Username section */}
+        <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-16 mb-6">
+          <div>
+            <h3 className="font-semibold text-gray-900">Bio</h3>
+            <p className="text-gray-600">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
+          </div>
+          {compatibility && (
+            <>
+              <div>
+                <h3 className="font-semibold text-gray-900">Mutual Questions</h3>
+                <p className="text-gray-600">{compatibility.mutual_questions_count}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Questions Answered</h3>
+                <p className="text-gray-600">{user.questions_answered_count || 0}</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* My Gender Section - left aligned content block */}
@@ -1441,14 +1989,93 @@ export default function UserProfilePage() {
               ) : (
                 <>
                   <h2 className="text-xl font-semibold">Questions Answered</h2>
-                  <button 
-                    onClick={() => setShowQuestionsModal(false)}
-                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {/* Filter Button */}
+                    <button
+                      onClick={() => setShowFilterModal(true)}
+                      className="px-3 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
+                    >
+                      <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
+                      </svg>
+                      Filter
+                    </button>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative sort-dropdown-container">
+                      <button
+                        onClick={() => setShowSortDropdown(!showSortDropdown)}
+                        className="px-3 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
+                      >
+                        <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                        </svg>
+                        Sort
+                      </button>
+
+                      {/* Sort Dropdown Menu */}
+                      {showSortDropdown && (
+                        <div
+                          className="absolute top-full mt-2 right-0 w-64 bg-white rounded-2xl shadow-lg border border-gray-200 py-2 z-50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => {
+                              setSortOption('number');
+                              setShowSortDropdown(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            <div className="font-semibold text-black">Number</div>
+                            <div className="text-sm text-gray-500">Questions in numerical order</div>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSortOption('randomized');
+                              setShowSortDropdown(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            <div className="font-semibold text-black">Explore</div>
+                            <div className="text-sm text-gray-500">Randomized</div>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSortOption('popular');
+                              setShowSortDropdown(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            <div className="font-semibold text-black">Popular</div>
+                            <div className="text-sm text-gray-500">Questions with the most answers</div>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSortOption('new');
+                              setShowSortDropdown(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            <div className="font-semibold text-black">New</div>
+                            <div className="text-sm text-gray-500">Recently asked</div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => setShowQuestionsModal(false)}
+                      className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -1606,8 +2233,26 @@ export default function UserProfilePage() {
                         <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                           <div></div>
                           <div className="flex justify-between text-xs text-gray-500">
-                            <span>LESS</span>
-                            <span>MORE</span>
+                            {(() => {
+                              // For non-mandatory questions, show actual answer labels for value 1 and 5
+                              if (questionNumber > 10 && selectedQuestionData[0]?.answers?.length > 0) {
+                                const answers = selectedQuestionData[0].answers;
+                                const answer1 = answers.find((a: any) => a.value === '1' || a.value === 1);
+                                const answer5 = answers.find((a: any) => a.value === '5' || a.value === 5);
+                                return (
+                                  <>
+                                    <span>{answer1?.answer_text?.toUpperCase() || 'LESS'}</span>
+                                    <span>{answer5?.answer_text?.toUpperCase() || 'MORE'}</span>
+                                  </>
+                                );
+                              }
+                              return (
+                                <>
+                                  <span>LESS</span>
+                                  <span>MORE</span>
+                                </>
+                              );
+                            })()}
                           </div>
                           <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
                             {selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
@@ -1651,6 +2296,23 @@ export default function UserProfilePage() {
                               </React.Fragment>
                             );
                           })}
+
+                          {/* SHARE ANSWER Row - only for non-mandatory questions */}
+                          {questionNumber > 10 && (
+                            <>
+                              <div className="text-xs font-semibold text-gray-400">SHARE ANSWER</div>
+                              <div className="flex items-center">
+                                <span className="text-sm text-gray-600">
+                                  {answersForQuestion[0]?.me_share !== false ? 'Enabled' : 'Disabled'}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-center">
+                                <div className={`block w-11 h-6 rounded-full ${answersForQuestion[0]?.me_share !== false ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
+                                  <div className={`dot absolute top-0.5 w-5 h-5 rounded-full transition ${answersForQuestion[0]?.me_share !== false ? 'transform translate-x-5 bg-white' : 'left-0.5 bg-white'}`}></div>
+                                </div>
+                              </div>
+                            </>
+                          )}
 
                           {/* IMPORTANCE Slider Row */}
                           <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
@@ -1740,15 +2402,126 @@ export default function UserProfilePage() {
                             {/* Me Section */}
                             <div className="mb-6">
                               <h3 className="text-2xl font-bold text-center mb-1">{selectedQuestion.question_name}</h3>
+
+                              {/* Switches for non-mandatory questions - above Me title */}
+                              {questionNumber > 10 && (
+                                <div className="mx-auto mt-4 mb-4 flex items-center justify-between" style={{ width: '500px' }}>
+                                  {/* Required For Match - Left */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                      <div className={`block w-11 h-6 rounded-full ${answer?.me_importance === 5 ? 'bg-black' : 'bg-[#ADADAD]'}`}>
+                                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition ${answer?.me_importance === 5 ? 'left-5.5' : 'left-0.5'}`}></div>
+                                      </div>
+                                    </div>
+                                    <span className="text-sm text-black">Required For Match</span>
+                                  </div>
+
+                                  {/* Share Answer - Right */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                      <div className={`block w-11 h-6 rounded-full ${answer?.me_share !== false ? 'bg-black' : 'bg-[#ADADAD]'}`}>
+                                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition ${answer?.me_share !== false ? 'left-5.5' : 'left-0.5'}`}></div>
+                                      </div>
+                                    </div>
+                                    <span className="text-sm text-black">Share Answer</span>
+                                  </div>
+                                </div>
+                              )}
+
                               <h4 className="text-xl font-bold text-center mb-4">Me</h4>
+
+                              {/* Labels above slider */}
+                              <div className="mx-auto mb-2" style={{ width: '500px' }}>
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  {isEducationQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                    </div>
+                                  )}
+                                  {isDietQuestion && (
+                                    <div className="flex justify-between text-xs text-gray-500 w-full">
+                                      <span>NO</span>
+                                      <span>YES</span>
+                                    </div>
+                                  )}
+                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                    </div>
+                                  )}
+                                  {questionNumber === 3 && (
+                                    <>
+                                      <span>LESS</span>
+                                      <span>MORE</span>
+                                    </>
+                                  )}
+                                  {/* For non-mandatory questions (> 10), show value 1 and value 5 labels */}
+                                  {questionNumber > 10 && selectedQuestion.answers && selectedQuestion.answers.length > 0 && (
+                                    <>
+                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
+                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
                               <div className="mx-auto" style={{ width: '500px' }}>
                                 <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={selectedQuestion.answers} />
                               </div>
+
                             </div>
 
                             {/* Them Section */}
                             <div className="mb-6">
                               <h4 className="text-xl font-bold text-center mb-4" style={{ color: '#672DB7' }}>Them</h4>
+
+                              {/* Labels above slider */}
+                              <div className="mx-auto mb-2" style={{ width: '500px' }}>
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  {isEducationQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                    </div>
+                                  )}
+                                  {isDietQuestion && (
+                                    <div className="flex justify-between text-xs text-gray-500 w-full">
+                                      <span>NO</span>
+                                      <span>YES</span>
+                                    </div>
+                                  )}
+                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                    </div>
+                                  )}
+                                  {questionNumber === 3 && (
+                                    <>
+                                      <span>LESS</span>
+                                      <span>MORE</span>
+                                    </>
+                                  )}
+                                  {/* For non-mandatory questions (> 10), show value 1 and value 5 labels */}
+                                  {questionNumber > 10 && selectedQuestion.answers && selectedQuestion.answers.length > 0 && (
+                                    <>
+                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
+                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
                               <div className="mx-auto" style={{ width: '500px' }}>
                                 <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={selectedQuestion.answers} />
                               </div>
@@ -1771,16 +2544,28 @@ export default function UserProfilePage() {
                       <div className="w-full max-w-lg mx-auto">
                         <div className="space-y-3">
                           {selectedQuestionData.map((question: any) => {
-                            const hasAnswer = answersForQuestion.some(answer => {
-                              const questionId = typeof answer.question === 'object' ? answer.question.id : answer.question;
+                            const answer = answersForQuestion.find(a => {
+                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                               return questionId === question.id;
                             });
+                            const hasAnswer = !!answer;
+                            const isPrivate = questionNumber > 10 && answer?.me_share === false;
+
                             return (
                               <div
                                 key={question.id}
-                                onClick={() => setSelectedGroupedQuestionId(question.id)}
-                                className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                                  hasAnswer ? 'border-black bg-gray-50' : 'border-black bg-white hover:bg-gray-50'
+                                onClick={() => {
+                                  if (!hasAnswer) return;
+                                  if (isPrivate) {
+                                    setShowPrivateAnswerPopup(true);
+                                  } else {
+                                    setSelectedGroupedQuestionId(question.id);
+                                  }
+                                }}
+                                className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
+                                  hasAnswer
+                                    ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
+                                    : 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
                                 }`}
                               >
                                 <div className="flex items-center space-x-3">
@@ -1789,16 +2574,20 @@ export default function UserProfilePage() {
                                     alt="Question icon"
                                     width={24}
                                     height={24}
-                                    className="w-6 h-6"
+                                    className={`w-6 h-6 ${!hasAnswer && 'opacity-50'}`}
                                   />
-                                  <span className="text-black font-medium">{question.question_name}</span>
+                                  <span className={`font-medium ${hasAnswer ? 'text-black' : 'text-gray-400'}`}>
+                                    {question.question_name}
+                                  </span>
                                   {hasAnswer && (
                                     <span className="text-[#672DB7] text-sm">✓ Answered</span>
                                   )}
                                 </div>
-                                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                {hasAnswer && (
+                                  <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                )}
                               </div>
                             );
                           })}
@@ -1808,6 +2597,7 @@ export default function UserProfilePage() {
                   } else {
                     // For slider questions, show Me and Them sections
                     // Gender (question 2) and Kids (question 10) should NEVER show OTA switches
+                    const isRelationshipQuestion = questionNumber === 1;
                     const isGenderQuestion = questionNumber === 2;
                     const isKidsQuestion = questionNumber === 10;
                     const isEducationQuestion = questionNumber === 4;
@@ -1815,6 +2605,7 @@ export default function UserProfilePage() {
                     const isExerciseQuestion = questionNumber === 6;
                     const isHabitsQuestion = questionNumber === 7;
                     const isReligionQuestion = questionNumber === 8;
+                    const isPoliticsQuestion = questionNumber === 9;
 
                     return (
                       <div>
@@ -1824,6 +2615,14 @@ export default function UserProfilePage() {
                           <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500">
+                              {isRelationshipQuestion && (
+                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                  <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
+                                  <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
+                                  <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
+                                  <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
+                                </div>
+                              )}
                               {isEducationQuestion && (
                                 <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
                                   <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
@@ -1837,7 +2636,7 @@ export default function UserProfilePage() {
                                   <span>YES</span>
                                 </div>
                               )}
-                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
                                 <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
                                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
                                   <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
@@ -1846,7 +2645,7 @@ export default function UserProfilePage() {
                                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
                                 </div>
                               )}
-                              {!isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && (
+                              {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
                                 <>
                                   <span>LESS</span>
                                   <span>MORE</span>
@@ -1905,6 +2704,14 @@ export default function UserProfilePage() {
                           <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500">
+                              {isRelationshipQuestion && (
+                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                  <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
+                                  <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
+                                  <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
+                                  <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
+                                </div>
+                              )}
                               {isEducationQuestion && (
                                 <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
                                   <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
@@ -1918,7 +2725,7 @@ export default function UserProfilePage() {
                                   <span>YES</span>
                                 </div>
                               )}
-                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
                                 <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
                                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
                                   <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
@@ -1927,7 +2734,7 @@ export default function UserProfilePage() {
                                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
                                 </div>
                               )}
-                              {!isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && (
+                              {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
                                 <>
                                   <span>LESS</span>
                                   <span>MORE</span>
@@ -2149,6 +2956,122 @@ export default function UserProfilePage() {
         </div>
       )}
 
+      {/* Report Button */}
+      <div className="mt-8 mb-8 text-center">
+        <button
+          onClick={() => setShowReportPopup(true)}
+          className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors"
+        >
+          Report
+        </button>
+      </div>
+
+      {/* Report Popup */}
+      {showReportPopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowReportPopup(false)}
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl w-full max-w-[400px] mx-4 p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-center mb-6">Report User</h2>
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Please describe the reason for reporting this user..."
+              className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 mb-6"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowReportPopup(false);
+                  setReportReason('');
+                }}
+                className="flex-1 py-3 px-6 rounded-full border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!reportReason.trim()) {
+                    alert('Please enter a reason for reporting');
+                    return;
+                  }
+
+                  const currentUserId = localStorage.getItem('user_id');
+                  if (!currentUserId) return;
+
+                  try {
+                    const response = await fetch('http://localhost:9090/api/reports/', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        reporter: currentUserId,
+                        reported_user: userId,
+                        reason: reportReason,
+                      }),
+                    });
+
+                    if (response.ok) {
+                      alert('Report submitted successfully');
+                      setShowReportPopup(false);
+                      setReportReason('');
+                    } else {
+                      alert('Failed to submit report');
+                    }
+                  } catch (error) {
+                    console.error('Error submitting report:', error);
+                    alert('Error submitting report');
+                  }
+                }}
+                className="flex-1 py-3 px-6 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+              >
+                Submit Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Private Answer Popup */}
+      {showPrivateAnswerPopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowPrivateAnswerPopup(false)}
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl w-full max-w-[340px] mx-4 p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-gray-900">
+                Private Answer
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                This user has chosen to keep their answer to this question private.
+              </p>
+              <button
+                onClick={() => setShowPrivateAnswerPopup(false)}
+                className="w-full bg-black text-white py-3 px-6 rounded-full font-semibold hover:bg-gray-800 transition-colors"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Approval Required Popup */}
       {showApprovalPopup && (
         <div
@@ -2182,6 +3105,273 @@ export default function UserProfilePage() {
           </div>
         </div>
       )}
+
+
+      {/* Send Note Popup */}
+      {showNotePopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => {
+            setShowNotePopup(false);
+            setNoteText('');
+          }}
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl w-full max-w-[400px] mx-4 p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <div className="flex items-center justify-center mb-6">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                </div>
+              </div>
+
+              <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center tracking-tight">
+                Send a note to {user?.first_name || 'them'}
+              </h3>
+              <p className="text-[14px] text-gray-500 text-center mb-6 leading-relaxed">
+                Make a great first impression! They&apos;ll see your note in their notifications.
+              </p>
+
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Write something nice..."
+                maxLength={200}
+                className="w-full h-28 px-4 py-3 border border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-[15px] mb-2"
+              />
+              <div className="text-right text-xs text-gray-400 mb-6">
+                {noteText.length}/200
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSendLike}
+                  className="w-full py-3.5 text-[15px] font-medium text-white rounded-full hover:opacity-90 active:opacity-80 transition-opacity"
+                  style={{ background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}
+                >
+                  {noteText.trim() ? 'Send Like & Note' : 'Send Like'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNotePopup(false);
+                    setNoteText('');
+                  }}
+                  className="w-full py-3.5 text-[15px] font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => setShowFilterModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-lg w-full max-w-2xl mx-4 h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold">Filters</h2>
+              <button
+                onClick={() => setShowFilterModal(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 flex-1 overflow-y-auto">
+              {/* Questions Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4">Questions</h3>
+                <div className="grid grid-cols-5 gap-3 max-w-xl">
+                  {/* Mandatory */}
+                  <button
+                    onClick={() => setPendingFilters(prev => ({
+                      ...prev,
+                      questions: { ...prev.questions, mandatory: !prev.questions.mandatory }
+                    }))}
+                    className={`relative p-1 rounded-3xl border-2 transition-colors aspect-square cursor-pointer ${
+                      pendingFilters.questions.mandatory
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <Image src="/assets/asterisk.png" alt="Mandatory" width={40} height={40} />
+                      <span className="text-xs font-medium text-gray-900 text-center leading-none">Mandatory</span>
+                    </div>
+                  </button>
+
+                  {/* Answered */}
+                  <button
+                    onClick={() => setPendingFilters(prev => ({
+                      ...prev,
+                      questions: { ...prev.questions, answered: !prev.questions.answered }
+                    }))}
+                    className={`flex flex-col items-center justify-center p- rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                      pendingFilters.questions.answered
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div>
+                      <Image src="/assets/answered.png" alt="Answered" width={40} height={40} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Answered</span>
+                  </button>
+
+                  {/* Required */}
+                  <button
+                    onClick={() => setPendingFilters(prev => ({
+                      ...prev,
+                      questions: { ...prev.questions, required: !prev.questions.required }
+                    }))}
+                    className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                      pendingFilters.questions.required
+                        ? 'border-gray-800 bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div>
+                      <Image src="/assets/req.png" alt="Required" width={40} height={40} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Required</span>
+                  </button>
+
+                  {/* Submitted */}
+                  <button
+                    onClick={() => setPendingFilters(prev => ({
+                      ...prev,
+                      questions: { ...prev.questions, submitted: !prev.questions.submitted }
+                    }))}
+                    className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                      pendingFilters.questions.submitted
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div>
+                      <Image src="/assets/submitted.png" alt="Submitted" width={40} height={40} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Submitted</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tags Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4">Tags</h3>
+                <div className="flex flex-wrap gap-3">
+                  {['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'].map((tag) => {
+                    const tagKey = tag.toLowerCase() as keyof typeof pendingFilters.tags;
+                    const isSelected = pendingFilters.tags[tagKey];
+
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => setPendingFilters(prev => ({
+                          ...prev,
+                          tags: { ...prev.tags, [tagKey]: !prev.tags[tagKey] }
+                        }))}
+                        className={`relative px-4 py-2 rounded-full border text-sm font-medium transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-black text-gray-700 border-2'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-black opacity-3" style={{ borderRadius: '24px' }}></div>
+                        )}
+                        <span className="relative z-10">{tag}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-200">
+              <button
+                onClick={() => setPendingFilters({
+                  questions: {
+                    mandatory: false,
+                    answered: false,
+                    unanswered: false,
+                    required: false,
+                    submitted: false
+                  },
+                  tags: {
+                    value: false,
+                    lifestyle: false,
+                    look: false,
+                    trait: false,
+                    hobby: false,
+                    interest: false
+                  }
+                })}
+                className="text-gray-600 hover:text-gray-800 font-medium cursor-pointer"
+              >
+                Clear all
+              </button>
+              <button
+                onClick={() => {
+                  setFilters(pendingFilters);
+                  setShowFilterModal(false);
+                  setQuestionsModalPage(1); // Reset to page 1 when filters change
+                }}
+                className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-800 font-medium cursor-pointer"
+              >
+                Apply filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Celebration */}
+      <MatchCelebration
+        show={showMatchCelebration}
+        onClose={() => setShowMatchCelebration(false)}
+        onChat={async () => {
+          if (!userId) return;
+          const currentUserId = localStorage.getItem('user_id');
+          if (!currentUserId) return;
+
+          try {
+            // Create or get existing conversation
+            const conversation = await apiService.createOrGetConversation(currentUserId, userId);
+            // Navigate to the conversation
+            router.push(`/chats/${conversation.id}`);
+          } catch (error) {
+            console.error('Error starting conversation:', error);
+            // Close modal on error
+            setShowMatchCelebration(false);
+          }
+        }}
+        matchedUserId={userId}
+        currentUserPhoto={localStorage.getItem('user_profile_photo') || undefined}
+        matchedUserPhoto={user?.profile_photo}
+        matchedUserName={user?.first_name || user?.username}
+        showModal={true}
+      />
     </div>
   );
 }

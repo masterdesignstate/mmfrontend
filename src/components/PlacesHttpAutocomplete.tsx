@@ -39,6 +39,9 @@ export default function PlacesHttpAutocomplete({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Debug logging for API key
+  console.log('🔑 Places API Key:', apiKey ? `EXISTS (length: ${apiKey.length})` : 'MISSING');
   const abortController = useRef<AbortController | null>(null);
   const sessionTokenRef = useRef<string>(createSessionToken());
 
@@ -105,7 +108,8 @@ export default function PlacesHttpAutocomplete({
         if (!response.ok) {
           // Don't show error if API key is invalid - just silently fail and work as regular input
           const errorBody = await response.text();
-          console.warn('Google Places API error:', response.status, errorBody);
+          console.warn('❌ Google Places API error:', response.status, errorBody);
+          console.warn('API Key used:', apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'NONE');
           setSuggestions([]);
           setOpen(false);
           return;

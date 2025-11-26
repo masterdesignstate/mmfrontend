@@ -13,6 +13,8 @@ export interface ApiUser {
   date_joined?: string;
   is_banned?: boolean;
   questions_answered_count?: number;
+  is_online?: boolean;
+  last_active?: string | null;
   question_answers?: {
     male?: number;
     female?: number;
@@ -79,7 +81,8 @@ export interface Notification {
   id: string;
   recipient: ApiUser;
   sender: ApiUser;
-  notification_type: 'approve' | 'like' | 'match';
+  notification_type: 'approve' | 'like' | 'match' | 'note';
+  note?: string;
   is_read: boolean;
   created_at: string;
   related_user_result?: string;

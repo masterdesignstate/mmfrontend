@@ -7,6 +7,7 @@ import ReactSlider from 'react-slider';
 import { apiService, type ApiUser, type CompatibilityResult } from '@/services/api';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MatchCelebration from '@/components/MatchCelebration';
 
 interface ResultProfile {
   id: string;
@@ -142,6 +143,16 @@ export default function ResultsPage() {
   const [sortedProfiles, setSortedProfiles] = useState<ResultProfile[]>([]);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const [showMatchCelebration, setShowMatchCelebration] = useState(false);
+  const [matchCelebrationData, setMatchCelebrationData] = useState<{
+    matchedUserId: string;
+    matchedUserName: string;
+    matchedUserPhoto: string;
+  } | null>(null);
+  const [celebratedMatches, setCelebratedMatches] = useState<Set<string>>(new Set());
+  const [showNotePopup, setShowNotePopup] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [pendingLikeProfileId, setPendingLikeProfileId] = useState<string | null>(null);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -174,7 +185,10 @@ export default function ResultsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log(`🏷️ Tags for user ${userId}:`, data.tags);
         return data.tags || [];
+      } else {
+        console.error(`❌ Failed to fetch tags for user ${userId}, status:`, response.status);
       }
     } catch (error) {
       console.error('Error fetching tags for user:', userId, error);
@@ -291,10 +305,22 @@ export default function ResultsPage() {
       const profilesWithTags = await fetchTagsForProfiles(transformedProfiles);
       console.log('✅ Tags fetched for profiles:', profilesWithTags.map(p => ({ id: p.user.id, tags: p.tags })));
 
+      // Filter out hidden users unless specifically filtering for Hide tag
+      const isFilteringForHide = applyFilters && (filters.tags.includes('Hide') || filters.tags.includes('Hidden'));
+
+      console.log('🏷️ Filter tags:', filters.tags);
+      console.log('📋 Profiles with tags:', profilesWithTags.map(p => ({ id: p.user.id, name: p.user.first_name, tags: p.tags })));
+
+      const filteredProfiles = isFilteringForHide
+        ? profilesWithTags.filter(p => p.tags.map(t => t.toLowerCase()).includes('hide')) // Only show profiles with hide tag
+        : profilesWithTags.filter(p => !p.tags.map(t => t.toLowerCase()).includes('hide')); // Exclude profiles with hide tag
+
+      console.log(`🔍 Filtering hidden users: isFilteringForHide=${isFilteringForHide}, before=${profilesWithTags.length}, after=${filteredProfiles.length}`);
+
       if (page === 1) {
-        setProfiles(profilesWithTags);
+        setProfiles(filteredProfiles);
       } else {
-        setProfiles(prev => [...prev, ...profilesWithTags]);
+        setProfiles(prev => [...prev, ...filteredProfiles]);
       }
 
       setTotalCount(response.total_count || response.count);
@@ -432,6 +458,82 @@ export default function ResultsPage() {
     return false;
   };
 
+  // Handle sending like with optional note
+  const handleSendLike = async () => {
+    if (!pendingLikeProfileId) return;
+
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return;
+
+    setShowNotePopup(false);
+
+    const profileId = pendingLikeProfileId;
+    const profile = profiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    const currentTags = profile.tags.map(t => t.toLowerCase());
+
+    try {
+      // Add like tag
+      const newTags = currentTags.filter(tag => tag !== 'hide');
+      newTags.push('like');
+
+      // Update UI optimistically
+      setProfiles(prev => prev.map(p =>
+        p.id === profileId ? { ...p, tags: newTags, isLiked: true, status: 'liked' } : p
+      ));
+
+      // Remove hide tag if present before adding like
+      if (currentTags.includes('hide')) {
+        await toggleTagAPI(profileId, 'Hide');
+      }
+
+      // Add like tag to backend
+      await toggleTagAPI(profileId, 'Like');
+
+      // Send note if provided
+      if (noteText.trim()) {
+        await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/send_note/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender_id: currentUserId,
+            recipient_id: profileId,
+            note: noteText.trim(),
+          }),
+        });
+      }
+
+      // Check for match after adding like
+      const nowMatched = await checkForMatch(profileId, newTags);
+      setProfiles(prev => prev.map(p =>
+        p.id === profileId ? { ...p, isMatched: nowMatched } : p
+      ));
+
+      // Trigger celebration if it's a new match and hasn't been celebrated yet
+      if (nowMatched && !celebratedMatches.has(profileId)) {
+        setMatchCelebrationData({
+          matchedUserId: profileId,
+          matchedUserName: profile.user.first_name || profile.user.username,
+          matchedUserPhoto: profile.user.profile_photo || '/assets/default-avatar.png',
+        });
+        setShowMatchCelebration(true);
+        setCelebratedMatches(prev => new Set(prev).add(profileId));
+      }
+
+      // Refresh tags from server to stay in sync
+      const updatedTags = await fetchUserTags(profileId);
+      setProfiles(prev => prev.map(p =>
+        p.id === profileId ? { ...p, tags: updatedTags } : p
+      ));
+    } catch (error) {
+      console.error('Error sending like:', error);
+    } finally {
+      setNoteText('');
+      setPendingLikeProfileId(null);
+    }
+  };
+
   // Handle heart button click with seamless progression logic (matching profile page behavior)
   const handleHeartClick = async (profileId: string) => {
     const currentUserId = localStorage.getItem('user_id');
@@ -457,8 +559,10 @@ export default function ResultsPage() {
         setShowApprovalPopup(true);
         return;
       }
-      // They approved me, so add like (keep approve)
-      action = 'add_like';
+      // They approved me, show note popup directly
+      setPendingLikeProfileId(profileId);
+      setShowNotePopup(true);
+      return;
     } else {
       // If no tags, add approve
       action = 'add_approve';
@@ -478,14 +582,9 @@ export default function ResultsPage() {
           p.id === profileId ? { ...p, tags: newTags, isLiked: false, isMatched: false, status: 'approved' } : p
         ));
         break;
-      case 'add_like':
-        // Add like while keeping approve
-        newTags.push('like');
-        setProfiles(prev => prev.map(p =>
-          p.id === profileId ? { ...p, tags: newTags, isLiked: true, status: 'liked' } : p
-        ));
-        break;
       case 'add_approve':
+        // Add approve, remove hide if present
+        newTags = newTags.filter(tag => tag !== 'hide');
         newTags.push('approve');
         setProfiles(prev => prev.map(p =>
           p.id === profileId ? { ...p, tags: newTags, status: 'approved' } : p
@@ -507,16 +606,21 @@ export default function ResultsPage() {
           setProfiles(prev => prev.map(p =>
             p.id === profileId ? { ...p, isMatched: stillMatched } : p
           ));
-          break;
-        case 'add_like':
-          await toggleTagAPI(profileId, 'Like');
-          // Check for match after adding like
-          const nowMatched = await checkForMatch(profileId, newTags);
-          setProfiles(prev => prev.map(p =>
-            p.id === profileId ? { ...p, isMatched: nowMatched } : p
-          ));
+
+          // Reset celebration flag when unmatching to allow re-celebration
+          if (!stillMatched && celebratedMatches.has(profileId)) {
+            setCelebratedMatches(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(profileId);
+              return newSet;
+            });
+          }
           break;
         case 'add_approve':
+          // Remove hide tag if present before adding approve
+          if (currentTags.includes('hide')) {
+            await toggleTagAPI(profileId, 'Hide');
+          }
           await toggleTagAPI(profileId, 'Approve');
           break;
       }
@@ -576,7 +680,10 @@ export default function ResultsPage() {
           step={1}
           ariaLabel={[`${label} minimum`, `${label} maximum`]}
           ariaValuetext={(state) => `${label} value ${state.valueNow}${unit}`}
-          renderThumb={(props) => <div {...props} />}
+          renderThumb={(props, state) => {
+            const { key, ...restProps } = props;
+            return <div key={key} {...restProps} />;
+          }}
           onChange={(vals) => setSliderValues(vals as [number, number])}
           onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
         />
@@ -1126,7 +1233,7 @@ export default function ResultsPage() {
                 <div className="flex flex-wrap gap-3">
                   {[
                     'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
-                    'Liked Me', 'Matched', 'Required', 'Pending', 'Saved', 'Not Approved', 'Hidden'
+                    'Liked Me', 'Matched', 'Required', 'Pending', 'Saved', 'Not Approved', 'Hide'
                   ].map((tag) => (
                     <button
                       key={tag}
@@ -1199,6 +1306,88 @@ export default function ResultsPage() {
           </div>
         </div>
       )}
+
+      {/* Send Note Popup */}
+      {showNotePopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => {
+            setShowNotePopup(false);
+            setNoteText('');
+            setPendingLikeProfileId(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl w-full max-w-[400px] mx-4 p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-semibold text-gray-900 mb-2 tracking-tight">
+              Send a Note
+            </h3>
+            <p className="text-[14px] text-gray-500 mb-6">
+              Write something nice to stand out (optional)
+            </p>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Write something nice..."
+              maxLength={200}
+              className="w-full h-28 px-4 py-3 border border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-[15px] mb-2"
+              autoFocus
+            />
+            <div className="text-right text-xs text-gray-400 mb-6">
+              {noteText.length}/200
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleSendLike}
+                className="w-full py-3.5 text-[15px] font-medium text-white rounded-full hover:opacity-90 active:opacity-80 transition-opacity"
+                style={{ background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}
+              >
+                {noteText.trim() ? 'Send Like & Note' : 'Send Like'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowNotePopup(false);
+                  setNoteText('');
+                  setPendingLikeProfileId(null);
+                }}
+                className="w-full py-3.5 text-[15px] font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Celebration */}
+      <MatchCelebration
+        show={showMatchCelebration}
+        onClose={() => setShowMatchCelebration(false)}
+        onChat={async () => {
+          if (!matchCelebrationData?.matchedUserId) return;
+          const currentUserId = localStorage.getItem('user_id');
+          if (!currentUserId) return;
+
+          try {
+            // Create or get existing conversation
+            const conversation = await apiService.createOrGetConversation(currentUserId, matchCelebrationData.matchedUserId);
+            // Navigate to the conversation
+            router.push(`/chats/${conversation.id}`);
+          } catch (error) {
+            console.error('Error starting conversation:', error);
+            // Close modal on error
+            setShowMatchCelebration(false);
+          }
+        }}
+        matchedUserId={matchCelebrationData?.matchedUserId}
+        currentUserPhoto={matchCelebrationData ? localStorage.getItem('user_profile_photo') || undefined : undefined}
+        matchedUserPhoto={matchCelebrationData?.matchedUserPhoto}
+        matchedUserName={matchCelebrationData?.matchedUserName}
+        showModal={true}
+      />
     </div>
   );
 }
