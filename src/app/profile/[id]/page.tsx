@@ -1592,13 +1592,13 @@ export default function UserProfilePage() {
           <div className="mb-8">
             <div className="py-6">
               {/* All Three Scores in One Row */}
-              <div className="flex items-center justify-center gap-12">
+              <div className="flex items-start justify-center gap-12">
                 {/* Me */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="flex flex-col items-center justify-start">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
                     Me
                   </div>
-                  <div className="text-center">
+                  <div className="flex items-baseline justify-center">
                     <span
                       className="text-4xl font-black leading-none"
                       style={{
@@ -1625,11 +1625,11 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Overall - Center */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="flex flex-col items-center justify-start">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
                     Overall
                   </div>
-                  <div className="text-center">
+                  <div className="flex items-baseline justify-center">
                     <span
                       className="text-5xl font-black leading-none tracking-tighter"
                       style={{
@@ -1656,11 +1656,11 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Them */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="flex flex-col items-center justify-start">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
                     Them
                   </div>
-                  <div className="text-center">
+                  <div className="flex items-baseline justify-center">
                     <span
                       className="text-4xl font-black leading-none"
                       style={{
