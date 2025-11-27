@@ -1725,7 +1725,7 @@ export default function UserProfilePage() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Questions Answered</h3>
-                <p className="text-gray-600">{user.questions_answered_count || 0}</p>
+                <p className="text-gray-600">{new Set(userAnswers.map(a => a.question.question_number)).size}</p>
               </div>
             </>
           )}
