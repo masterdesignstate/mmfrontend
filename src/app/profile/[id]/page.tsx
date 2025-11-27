@@ -1594,24 +1594,22 @@ export default function UserProfilePage() {
               {/* All Three Scores in One Row */}
               <div className="flex items-start justify-center gap-12">
                 {/* Me */}
-                <div className="flex flex-col items-start justify-start">
-                  <div className="flex items-baseline">
-                    <div className="flex flex-col items-center">
-                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-                        Me
-                      </div>
-                      <span
-                        className="text-4xl font-black leading-none"
-                        style={{
-                          background: 'linear-gradient(135deg, #A855F7 0%, #9333EA 100%)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text',
-                        }}
-                      >
-                        {Math.round(compatibility.im_compatible_with)}
-                      </span>
-                    </div>
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
+                    Me
+                  </div>
+                  <div className="flex items-baseline justify-center">
+                    <span
+                      className="text-4xl font-black leading-none"
+                      style={{
+                        background: 'linear-gradient(135deg, #A855F7 0%, #9333EA 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      {Math.round(compatibility.im_compatible_with)}
+                    </span>
                     <span
                       className="text-2xl font-bold ml-0.5"
                       style={{
@@ -1627,24 +1625,22 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Overall - Center */}
-                <div className="flex flex-col items-start justify-start">
-                  <div className="flex items-baseline">
-                    <div className="flex flex-col items-center">
-                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-                        Overall
-                      </div>
-                      <span
-                        className="text-5xl font-black leading-none tracking-tighter"
-                        style={{
-                          background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #5B21B6 100%)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text',
-                        }}
-                      >
-                        {Math.round(compatibility.overall_compatibility)}
-                      </span>
-                    </div>
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
+                    Overall
+                  </div>
+                  <div className="flex items-baseline justify-center">
+                    <span
+                      className="text-5xl font-black leading-none tracking-tighter"
+                      style={{
+                        background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #5B21B6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      {Math.round(compatibility.overall_compatibility)}
+                    </span>
                     <span
                       className="text-3xl font-bold ml-0.5"
                       style={{
@@ -1660,24 +1656,22 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Them */}
-                <div className="flex flex-col items-start justify-start">
-                  <div className="flex items-baseline">
-                    <div className="flex flex-col items-center">
-                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-                        Them
-                      </div>
-                      <span
-                        className="text-4xl font-black leading-none"
-                        style={{
-                          background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text',
-                        }}
-                      >
-                        {Math.round(compatibility.compatible_with_me)}
-                      </span>
-                    </div>
+                <div className="flex flex-col items-center">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
+                    Them
+                  </div>
+                  <div className="flex items-baseline justify-center">
+                    <span
+                      className="text-4xl font-black leading-none"
+                      style={{
+                        background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                      }}
+                    >
+                      {Math.round(compatibility.compatible_with_me)}
+                    </span>
                     <span
                       className="text-2xl font-bold ml-0.5"
                       style={{
