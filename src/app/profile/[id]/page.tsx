@@ -210,7 +210,7 @@ export default function UserProfilePage() {
           try {
             // Use the user's compatible endpoint which includes compatibility data
             const compatibleResponse = await fetch(
-              `http://localhost:9090/api/users/compatible/?user_id=${currentUserId}&page_size=100`,
+              `${getApiUrl(API_ENDPOINTS.USERS)}compatible/?user_id=${currentUserId}&page_size=100`,
               {
                 headers: {
                   'Content-Type': 'application/json',
