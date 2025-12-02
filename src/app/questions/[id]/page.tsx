@@ -1635,9 +1635,11 @@ export default function QuestionEditPage() {
                   key={question.id}
                   onClick={() => handleSingleOptionClick(question)}
                   className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                    isAnswered
+                    isSelected
                       ? 'border-black bg-gray-50'
-                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                      : isAnswered
+                        ? 'border-[#672DB7] bg-purple-50'
+                        : 'border-black bg-white hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -1649,14 +1651,13 @@ export default function QuestionEditPage() {
                       className="w-6 h-6"
                     />
                     <span className="text-black font-medium">{question.question_name}</span>
+                    {isAnswered && (
+                      <span className="text-[#672DB7] text-sm">✓ Answered</span>
+                    )}
                   </div>
-                  {isAnswered ? (
-                    <span className="text-xs text-[#672DB7] font-medium">Answered</span>
-                  ) : (
-                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  )}
+                  <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               );
             })}
@@ -1715,22 +1716,27 @@ export default function QuestionEditPage() {
                 <button
                   key={question.id}
                   onClick={() => handleSingleOptionClick(question)}
-                  className={`w-full flex items-center space-x-4 p-4 rounded-lg border transition-colors cursor-pointer ${
+                  className={`w-full flex items-center justify-between p-4 rounded-lg border transition-colors cursor-pointer ${
                     isAnswered
-                      ? 'border-black bg-gray-50'
-                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                      ? 'border-[#672DB7] bg-purple-50'
+                      : 'border-black bg-white hover:bg-gray-50'
                   }`}
                 >
-                  <Image
-                    src={optionIcons[questionNumber]}
-                    alt=""
-                    width={24}
-                    height={24}
-                  />
-                  <span className="flex-1 text-left">{question.question_name}</span>
-                  {isAnswered && (
-                    <span className="text-xs text-[#672DB7] font-medium">Answered</span>
-                  )}
+                  <div className="flex items-center space-x-3">
+                    <Image
+                      src={optionIcons[questionNumber]}
+                      alt=""
+                      width={24}
+                      height={24}
+                    />
+                    <span className="text-left">{question.question_name}</span>
+                    {isAnswered && (
+                      <span className="text-[#672DB7] text-sm">✓ Answered</span>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               );
             })}
