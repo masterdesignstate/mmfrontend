@@ -1623,11 +1623,22 @@ export default function QuestionEditPage() {
             {visibleQuestions.map((question) => {
               const isSelected = selectedOptions.includes(question.question_name);
 
+              // Check if this question has been answered
+              const existingAnswer = existingAnswers.find(a => {
+                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                return questionId === question.id;
+              });
+              const isAnswered = existingAnswer && existingAnswer.me_answer > 1;
+
               return (
                 <div
                   key={question.id}
                   onClick={() => handleSingleOptionClick(question)}
-                  className="flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 border-black bg-white hover:bg-gray-50"
+                  className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                    isAnswered
+                      ? 'border-black bg-gray-50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
                 >
                   <div className="flex items-center space-x-3">
                     <Image
@@ -1639,9 +1650,13 @@ export default function QuestionEditPage() {
                     />
                     <span className="text-black font-medium">{question.question_name}</span>
                   </div>
-                  <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                  {isAnswered ? (
+                    <span className="text-xs text-[#672DB7] font-medium">Answered</span>
+                  ) : (
+                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
                 </div>
               );
             })}
@@ -1688,25 +1703,37 @@ export default function QuestionEditPage() {
       return (
         <div className="max-w-2xl mx-auto">
           <div className="space-y-3">
-            {questions.map((question) => (
-              <button
-                key={question.id}
-                onClick={() => handleSingleOptionClick(question)}
-                className={`w-full flex items-center space-x-4 p-4 rounded-lg border transition-colors cursor-pointer ${
-                  selectedOption === question.question_name
-                    ? 'border-black bg-gray-50'
-                    : 'border-black bg-white hover:bg-gray-50'
-                }`}
-              >
-                <Image
-                  src={optionIcons[questionNumber]}
-                  alt=""
-                  width={24}
-                  height={24}
-                />
-                <span className="flex-1 text-left">{question.question_name}</span>
-              </button>
-            ))}
+            {questions.map((question) => {
+              // Check if this question has been answered
+              const existingAnswer = existingAnswers.find(a => {
+                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                return questionId === question.id;
+              });
+              const isAnswered = existingAnswer && existingAnswer.me_answer > 1;
+
+              return (
+                <button
+                  key={question.id}
+                  onClick={() => handleSingleOptionClick(question)}
+                  className={`w-full flex items-center space-x-4 p-4 rounded-lg border transition-colors cursor-pointer ${
+                    isAnswered
+                      ? 'border-black bg-gray-50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <Image
+                    src={optionIcons[questionNumber]}
+                    alt=""
+                    width={24}
+                    height={24}
+                  />
+                  <span className="flex-1 text-left">{question.question_name}</span>
+                  {isAnswered && (
+                    <span className="text-xs text-[#672DB7] font-medium">Answered</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       );

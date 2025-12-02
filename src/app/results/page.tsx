@@ -243,6 +243,10 @@ export default function ResultsPage() {
         compatibility_type?: string;
         min_compatibility?: number;
         max_compatibility?: number;
+        min_age?: number;
+        max_age?: number;
+        min_distance?: number;
+        max_distance?: number;
         required_only?: boolean;
         tags?: string[];
         user_id?: string;
@@ -262,13 +266,17 @@ export default function ResultsPage() {
         params.compatibility_type = compatibilityTypeMap[filters.compatibilityType] || 'overall_compatibility';
         params.min_compatibility = filters.compatibility.min;
         params.max_compatibility = filters.compatibility.max;
+        params.min_age = filters.age.min;
+        params.max_age = filters.age.max;
+        params.min_distance = filters.distance.min;
+        params.max_distance = filters.distance.max;
         params.required_only = filters.requiredOnly;
-        
+
         // Add tag filters
         if (filters.tags && filters.tags.length > 0) {
           params.tags = filters.tags;
         }
-        
+
         // Add user_id for proper filtering
         const currentUserId = localStorage.getItem('user_id');
         if (currentUserId) {
@@ -305,17 +313,21 @@ export default function ResultsPage() {
       const profilesWithTags = await fetchTagsForProfiles(transformedProfiles);
       console.log('✅ Tags fetched for profiles:', profilesWithTags.map(p => ({ id: p.user.id, tags: p.tags })));
 
-      // Filter out hidden users unless specifically filtering for Hide tag
+      // Note: Hidden users are now filtered on the backend, so we don't need to filter them here
+      // The backend ensures we always get the requested number of non-hidden users per page
+      // Only filter if explicitly filtering for Hide tag
       const isFilteringForHide = applyFilters && (filters.tags.includes('Hide') || filters.tags.includes('Hidden'));
 
       console.log('🏷️ Filter tags:', filters.tags);
       console.log('📋 Profiles with tags:', profilesWithTags.map(p => ({ id: p.user.id, name: p.user.first_name, tags: p.tags })));
 
+      // Only apply client-side filtering if explicitly filtering for hidden users
+      // Otherwise, backend has already filtered them out
       const filteredProfiles = isFilteringForHide
         ? profilesWithTags.filter(p => p.tags.map(t => t.toLowerCase()).includes('hide')) // Only show profiles with hide tag
-        : profilesWithTags.filter(p => !p.tags.map(t => t.toLowerCase()).includes('hide')); // Exclude profiles with hide tag
+        : profilesWithTags; // Backend already filtered out hidden users
 
-      console.log(`🔍 Filtering hidden users: isFilteringForHide=${isFilteringForHide}, before=${profilesWithTags.length}, after=${filteredProfiles.length}`);
+      console.log(`🔍 Profiles after filtering: ${filteredProfiles.length} (backend already excluded hidden users)`);
 
       if (page === 1) {
         setProfiles(filteredProfiles);
@@ -342,14 +354,217 @@ export default function ResultsPage() {
 
   useEffect(() => {
     fetchCompatibleUsers(1, false);
+    // Check for matches on page load
+    checkForMatchesOnLoad();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Apply sorting whenever profiles or sortOption changes
+  // Load ALL remaining pages when searching if no match found
+  useEffect(() => {
+    if (searchTerm.trim() && !loading) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      
+      // Check if we already have a match in loaded profiles
+      const hasMatch = profiles.some(profile => {
+        const firstName = (profile.user.first_name || '').toLowerCase();
+        const lastName = (profile.user.last_name || '').toLowerCase();
+        const username = (profile.user.username || '').toLowerCase();
+        const fullName = `${firstName} ${lastName}`.trim();
+        
+        return firstName.includes(searchLower) ||
+               lastName.includes(searchLower) ||
+               username.includes(searchLower) ||
+               fullName.includes(searchLower);
+      });
+
+      // If no match and there are more pages, load ALL remaining pages
+      if (!hasMatch && hasNextPage) {
+        const loadAllPagesForSearch = async () => {
+          try {
+            setLoading(true);
+            const currentUserId = localStorage.getItem('user_id');
+            if (!currentUserId) {
+              setLoading(false);
+              return;
+            }
+
+            // Load ALL remaining pages until we find a match or run out of pages
+            // IMPORTANT: Use the same page_size (15) as the initial load to maintain consistent pagination
+            let allNewProfiles: ResultProfile[] = [];
+            let pageNum = currentPage + 1;
+            let foundMatch = false;
+            let lastHasNext = true;
+            let lastPage = currentPage;
+            const pageSize = 15; // Match the initial page_size
+            // Calculate expected pages based on totalCount
+            const expectedPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 20;
+            const maxPages = Math.max(expectedPages, 20); // Use at least 20 pages, or more if totalCount suggests more
+
+            console.log(`📊 Loading pages: currentPage=${currentPage}, totalCount=${totalCount}, expectedPages=${expectedPages}, maxPages=${maxPages}, pageSize=${pageSize}`);
+
+            while (!foundMatch && pageNum <= maxPages) {
+              // Fetch pages in batches of 10 for efficiency (smaller batches since page_size is 15)
+              const batchSize = 10;
+              const pagePromises = [];
+              const startPage = pageNum;
+              
+              for (let i = 0; i < batchSize && pageNum <= maxPages; i++) {
+                const params = {
+                  page: pageNum,
+                  page_size: pageSize, // Use consistent page_size
+                  user_id: currentUserId
+                };
+                pagePromises.push(apiService.getCompatibleUsers(params));
+                pageNum++;
+              }
+
+              const responses = await Promise.all(pagePromises);
+              let batchProfiles: ResultProfile[] = [];
+              
+              // Process responses and track the last page's has_next
+              for (let i = 0; i < responses.length; i++) {
+                const response = responses[i];
+                const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
+                  id: item.user.id,
+                  user: item.user,
+                  compatibility: item.compatibility,
+                  status: 'approved',
+                  isLiked: false,
+                  isMatched: false,
+                  tags: []
+                }));
+
+                batchProfiles = [...batchProfiles, ...transformedProfiles];
+              }
+
+              // Fetch tags for this batch
+              const batchProfilesWithTags = await fetchTagsForProfiles(batchProfiles);
+              // Backend already filters out hidden users, so no need to filter here
+              const batchFilteredProfiles = batchProfilesWithTags;
+              
+              // Log batch profiles for debugging
+              const batchNames = batchFilteredProfiles.map(p => `${p.user.first_name || ''} ${p.user.last_name || ''} ${p.user.username || ''}`).join(', ');
+              const endPage = startPage + responses.length - 1;
+              console.log(`📦 Batch pages ${startPage} to ${endPage}: ${batchFilteredProfiles.length} profiles (${batchProfiles.length} before filtering) - ${batchNames.substring(0, 200)}...`);
+              
+              // If ALL responses in this batch returned 0 results, we've likely reached the end
+              const allEmpty = responses.every(r => r.results.length === 0);
+              if (allEmpty && batchFilteredProfiles.length === 0) {
+                console.log(`⚠️ All pages ${startPage} to ${endPage} returned empty results. Stopping search.`);
+                lastHasNext = false;
+                break;
+              }
+              
+              // Add batch to all profiles
+              allNewProfiles = [...allNewProfiles, ...batchFilteredProfiles];
+              
+              // Check if we found a match in ALL loaded profiles (existing + new)
+              // Note: profiles is from closure, allNewProfiles accumulates all batches loaded so far
+              const allProfilesToCheck = [...profiles, ...allNewProfiles];
+              foundMatch = allProfilesToCheck.some(profile => {
+                const firstName = (profile.user.first_name || '').toLowerCase();
+                const lastName = (profile.user.last_name || '').toLowerCase();
+                const username = (profile.user.username || '').toLowerCase();
+                const fullName = `${firstName} ${lastName}`.trim();
+                
+                const matches = firstName.includes(searchLower) ||
+                       lastName.includes(searchLower) ||
+                       username.includes(searchLower) ||
+                       fullName.includes(searchLower);
+                
+                if (matches) {
+                  console.log('🎯 Found match during loading:', profile.user.first_name, profile.user.last_name, profile.user.username);
+                }
+                
+                return matches;
+              });
+              
+              // Update lastHasNext from the last response
+              if (responses.length > 0) {
+                const lastResponse = responses[responses.length - 1];
+                lastHasNext = lastResponse.has_next || false;
+                lastPage = lastResponse.page;
+              }
+              
+              console.log(`🔍 After batch pages ${startPage} to ${endPage}: Checked ${allProfilesToCheck.length} total profiles, foundMatch=${foundMatch}, lastHasNext=${lastHasNext}, pageNum=${pageNum}, maxPages=${maxPages}`);
+
+              // If found match, stop loading more
+              if (foundMatch) {
+                break;
+              }
+              
+              // Also stop if we've loaded all expected pages based on totalCount
+              // But only if we've loaded at least as many profiles as totalCount suggests
+              if (totalCount > 0 && allProfilesToCheck.length >= totalCount) {
+                console.log(`📊 Loaded ${allProfilesToCheck.length} profiles, which matches or exceeds totalCount ${totalCount}. Stopping.`);
+                break;
+              }
+            }
+            
+            // Add all new profiles to state
+            // Use functional update to ensure we don't lose any profiles
+            setProfiles(prev => {
+              const updated = [...prev, ...allNewProfiles];
+              console.log(`✅ Added ${allNewProfiles.length} new profiles. Total: ${updated.length}`);
+              return updated;
+            });
+            setHasNextPage(lastHasNext);
+            setCurrentPage(lastPage);
+          } catch (error) {
+            console.error('Error loading pages for search:', error);
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        // Debounce to avoid too rapid loading
+        const timeoutId = setTimeout(() => {
+          loadAllPagesForSearch();
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [searchTerm, profiles.length, hasNextPage, currentPage, loading, totalCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply filtering and sorting whenever profiles, sortOption, or searchTerm changes
   useEffect(() => {
     if (profiles.length > 0) {
-      setSortedProfiles(sortProfiles(profiles));
+      // First filter by search term if provided
+      let filteredProfiles = profiles;
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        console.log('🔍 Searching for:', searchLower, 'in', profiles.length, 'profiles');
+        console.log('📋 Sample profile names:', profiles.slice(0, 5).map(p => `${p.user.first_name} ${p.user.last_name} ${p.user.username}`));
+        filteredProfiles = profiles.filter(profile => {
+          const firstName = (profile.user.first_name || '').toLowerCase();
+          const lastName = (profile.user.last_name || '').toLowerCase();
+          const username = (profile.user.username || '').toLowerCase();
+          const fullName = `${firstName} ${lastName}`.trim();
+          
+          const matches = firstName.includes(searchLower) ||
+                 lastName.includes(searchLower) ||
+                 username.includes(searchLower) ||
+                 fullName.includes(searchLower);
+          
+          if (matches) {
+            console.log('✅ Match found:', profile.user.first_name, profile.user.last_name, profile.user.username);
+          }
+          
+          return matches;
+        });
+        console.log('📊 Filtered results:', filteredProfiles.length, 'matches');
+        if (filteredProfiles.length === 0 && profiles.length > 0 && !loading) {
+          console.log('⚠️ No matches found. All profile names:', profiles.map(p => `${p.user.first_name || ''} ${p.user.last_name || ''} ${p.user.username || ''}`).join(', '));
+        }
+      }
+      
+      // Then sort the filtered profiles
+      setSortedProfiles(sortProfiles(filteredProfiles));
+    } else {
+      // If no profiles, clear sorted profiles
+      setSortedProfiles([]);
     }
-  }, [profiles, sortOption]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -458,6 +673,75 @@ export default function ResultsPage() {
     return false;
   };
 
+  // Check for matches on page load and show celebrations for uncelebrated matches
+  const checkForMatchesOnLoad = async () => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) return;
+
+    try {
+      // Get all users I've liked
+      const myLikesResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/by_tag/?tag=like&user_id=${currentUserId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (!myLikesResponse.ok) return;
+
+      const myLikes = await myLikesResponse.json();
+      
+      // Get celebrated matches from localStorage
+      const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
+      const celebratedMatchesStr = localStorage.getItem(celebratedMatchesKey);
+      const celebratedMatches = celebratedMatchesStr ? new Set(JSON.parse(celebratedMatchesStr)) : new Set();
+
+      // Check each user I've liked to see if they've liked me back
+      for (const like of myLikes) {
+        const matchedUserId = like.result_user?.id || like.result_user_id;
+        if (!matchedUserId) continue;
+
+        // Skip if already celebrated
+        if (celebratedMatches.has(matchedUserId)) continue;
+
+        // Check if they've liked me back
+        const theirTagsResponse = await fetch(
+          `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${matchedUserId}&result_user_id=${currentUserId}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        if (theirTagsResponse.ok) {
+          const theirData = await theirTagsResponse.json();
+          const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+          
+          if (theirNormalizedTags.includes('like')) {
+            // It's a match! Show celebration
+            const matchedUser = like.result_user || { 
+              id: matchedUserId,
+              first_name: like.result_user?.first_name || 'Someone',
+              username: like.result_user?.username || 'someone',
+              profile_photo: like.result_user?.profile_photo || '/assets/default-avatar.png'
+            };
+
+            setMatchCelebrationData({
+              matchedUserId: matchedUserId,
+              matchedUserName: matchedUser.first_name || matchedUser.username,
+              matchedUserPhoto: matchedUser.profile_photo || '/assets/default-avatar.png',
+            });
+            setShowMatchCelebration(true);
+            
+            // Mark as celebrated
+            celebratedMatches.add(matchedUserId);
+            localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
+            
+            // Only show one celebration at a time
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for matches on load:', error);
+    }
+  };
+
   // Handle sending like with optional note
   const handleSendLike = async () => {
     if (!pendingLikeProfileId) return;
@@ -511,14 +795,26 @@ export default function ResultsPage() {
       ));
 
       // Trigger celebration if it's a new match and hasn't been celebrated yet
-      if (nowMatched && !celebratedMatches.has(profileId)) {
-        setMatchCelebrationData({
-          matchedUserId: profileId,
-          matchedUserName: profile.user.first_name || profile.user.username,
-          matchedUserPhoto: profile.user.profile_photo || '/assets/default-avatar.png',
-        });
-        setShowMatchCelebration(true);
-        setCelebratedMatches(prev => new Set(prev).add(profileId));
+      if (nowMatched) {
+        // Check localStorage to see if already celebrated
+        const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
+        const existingMatches = localStorage.getItem(celebratedMatchesKey);
+        const matchesSet = existingMatches ? new Set(JSON.parse(existingMatches)) : new Set();
+        
+        if (!matchesSet.has(profileId)) {
+          // It's a new match! Show celebration
+          setMatchCelebrationData({
+            matchedUserId: profileId,
+            matchedUserName: profile.user.first_name || profile.user.username,
+            matchedUserPhoto: profile.user.profile_photo || '/assets/default-avatar.png',
+          });
+          setShowMatchCelebration(true);
+          
+          // Update both state and localStorage
+          setCelebratedMatches(prev => new Set(prev).add(profileId));
+          matchesSet.add(profileId);
+          localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(matchesSet)));
+        }
       }
 
       // Refresh tags from server to stay in sync
@@ -667,37 +963,47 @@ export default function ResultsPage() {
       <div className="mb-10">
         <h3 className="text-lg font-semibold text-black mb-3">{label}</h3>
 
-        <ReactSlider
-          key={`${label}-${sliderKey}`}
-          className="range-slider"
-          thumbClassName="range-slider__thumb"
-          trackClassName="range-slider__track"
-          defaultValue={sliderValues}
-          pearling
-          minDistance={1}
-          min={min}
-          max={max}
-          step={1}
-          ariaLabel={[`${label} minimum`, `${label} maximum`]}
-          ariaValuetext={(state) => `${label} value ${state.valueNow}${unit}`}
-          renderThumb={(props, state) => {
-            const { key, ...restProps } = props;
-            return <div key={key} {...restProps} />;
-          }}
-          onChange={(vals) => setSliderValues(vals as [number, number])}
-          onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
-        />
-
-        <div className="flex justify-between text-sm text-gray-600 mt-2">
-          <span>{`${sliderValues[0]}${unit}`}</span>
-          <span>{`${sliderValues[1]}${unit}`}</span>
+        {/* Slider */}
+        <div className="flex items-center gap-3 mb-2 w-full">
+          <span className="text-sm text-gray-500 w-12 text-left shrink-0">{min}{unit}</span>
+          <div className="flex-1 relative min-w-0 max-w-full overflow-visible">
+            <ReactSlider
+              key={`${label}-${sliderKey}`}
+              className="range-slider"
+              thumbClassName="range-slider__thumb"
+              trackClassName="range-slider__track"
+              defaultValue={sliderValues}
+              pearling
+              minDistance={0}
+              min={min}
+              max={max}
+              step={1}
+              ariaLabel={[`${label} minimum`, `${label} maximum`]}
+              ariaValuetext={(state) => `${label} value ${state.valueNow}`}
+              renderThumb={(props, state) => {
+                const { key, ...restProps } = props;
+                return (
+                  <div key={key} {...restProps}>
+                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-sm text-gray-600 whitespace-nowrap">
+                      {state.valueNow}
+                    </div>
+                  </div>
+                );
+              }}
+              onChange={(vals) => setSliderValues(vals as [number, number])}
+              onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
+            />
+          </div>
+          <span className="text-sm text-gray-500 w-12 text-right shrink-0">{max}{unit}</span>
         </div>
 
         <style jsx global>{`
           .range-slider {
-            width: 100%;
+            width: calc(100% - 24px);
             height: 28px;
             position: relative;
+            overflow: visible;
+            margin: 0 12px;
           }
 
           .range-slider .range-slider__track {
@@ -721,8 +1027,10 @@ export default function ResultsPage() {
             box-shadow: 0 3px 10px rgba(45, 35, 66, 0.25);
             cursor: grab;
             top: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateY(-50%);
             outline: none;
+            z-index: 1;
+            position: absolute;
           }
 
           .range-slider .range-slider__thumb:active {
@@ -958,7 +1266,8 @@ export default function ResultsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
           <p className="text-base text-gray-500">
-            Showing {profiles.length} of {totalCount > 0 ? totalCount : 'many'} people
+            Showing {searchTerm.trim() ? sortedProfiles.length : profiles.length} of {totalCount > 0 ? totalCount : 'many'} people
+            {searchTerm.trim() && ` (searching for "${searchTerm}")`}
           </p>
         </div>
 
@@ -969,6 +1278,14 @@ export default function ResultsPage() {
         ) : error && profiles.length === 0 ? (
           <div className="flex justify-center items-center py-12">
             <div className="text-red-500">{error}</div>
+          </div>
+        ) : sortedProfiles.length === 0 && searchTerm.trim() && !loading && !hasNextPage && profiles.length > 0 ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-gray-500">No users found matching "{searchTerm}"</div>
+          </div>
+        ) : sortedProfiles.length === 0 && searchTerm.trim() && (loading || hasNextPage || profiles.length === 0) ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-gray-500">Searching...</div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -1070,8 +1387,8 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Show More Button */}
-        {(visibleCount < profiles.length || hasNextPage) && (
+        {/* Show More Button - hide when searching */}
+        {!searchTerm.trim() && (visibleCount < profiles.length || hasNextPage) && (
           <div className="flex justify-center mt-8">
             <button
               onClick={handleShowMore}
@@ -1080,6 +1397,13 @@ export default function ResultsPage() {
             >
               {loading ? 'Loading...' : 'Show More'}
             </button>
+          </div>
+        )}
+        
+        {/* Show loader when searching and loading more pages */}
+        {searchTerm.trim() && loading && sortedProfiles.length > 0 && (
+          <div className="flex justify-center mt-8">
+            <div className="text-gray-500">Loading more results...</div>
           </div>
         )}
       </div>
@@ -1365,7 +1689,11 @@ export default function ResultsPage() {
       {/* Match Celebration */}
       <MatchCelebration
         show={showMatchCelebration}
-        onClose={() => setShowMatchCelebration(false)}
+        onClose={() => {
+          setShowMatchCelebration(false);
+          // After closing, check for more matches
+          setTimeout(() => checkForMatchesOnLoad(), 500);
+        }}
         onChat={async () => {
           if (!matchCelebrationData?.matchedUserId) return;
           const currentUserId = localStorage.getItem('user_id');

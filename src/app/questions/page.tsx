@@ -422,10 +422,10 @@ export default function QuestionsPage() {
     }
   }, [allQuestionNumbers, currentPage, sortOption, answerCounts]);
 
-  // Effect to handle page changes (skip if filtering by answered/unanswered since we do client-side pagination)
+  // Effect to handle page changes (skip if using client-side filters since we do client-side pagination)
   useEffect(() => {
-    // Don't fetch if filtering by answered/unanswered (we already have all filtered questions)
-    if (filters.questions.answered || filters.questions.unanswered) {
+    // Don't fetch if using client-side filters (we already have all filtered questions)
+    if (isClientSideFiltered) {
       return;
     }
     fetchQuestionsForCurrentPage();
@@ -800,24 +800,26 @@ export default function QuestionsPage() {
     }
   }, [groupedQuestions, sortOption]);
 
-  // Calculate pagination for filtered results (when filtering by answered/unanswered)
-  const isFilteredByAnsweredStatus = filters.questions.answered || filters.questions.unanswered;
-  const filteredTotalPages = isFilteredByAnsweredStatus 
+  // Calculate pagination for filtered results (when using client-side filters)
+  const isClientSideFiltered = filters.questions.answered || filters.questions.unanswered ||
+                                filters.questions.required || filters.questions.mandatory ||
+                                filters.questions.submitted || Object.values(filters.tags).some(Boolean);
+  const filteredTotalPages = isClientSideFiltered
     ? Math.ceil(sortedGroupedQuestions.length / ROWS_PER_PAGE)
     : totalPages;
-  
-  // Paginate sortedGroupedQuestions for display (only when filtering by answered/unanswered)
+
+  // Paginate sortedGroupedQuestions for display (when using client-side filters)
   const paginatedGroupedQuestions = React.useMemo(() => {
-    if (!isFilteredByAnsweredStatus) {
-      // Not filtering by answered/unanswered, show all grouped questions
+    if (!isClientSideFiltered) {
+      // No client-side filters, show all grouped questions
       return sortedGroupedQuestions;
     }
-    
+
     // Client-side pagination for filtered results
     const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
     const endIndex = startIndex + ROWS_PER_PAGE;
     return sortedGroupedQuestions.slice(startIndex, endIndex);
-  }, [sortedGroupedQuestions, currentPage, isFilteredByAnsweredStatus]);
+  }, [sortedGroupedQuestions, currentPage, isClientSideFiltered]);
 
 
   // Get answer count for a question number from fetched data
@@ -1078,7 +1080,7 @@ export default function QuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold">Questions</h1>
             <p className="text-gray-600">
-              {isFilteredByAnsweredStatus
+              {isClientSideFiltered
                 ? `Showing ${paginatedGroupedQuestions.length} of ${sortedGroupedQuestions.length} questions`
                 : `Showing ${sortedGroupedQuestions.length} questions`
               }
@@ -1170,7 +1172,7 @@ export default function QuestionsPage() {
         </div>
 
         {/* Pagination Controls */}
-        {paginatedGroupedQuestions.length > 0 && (isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) > 1 && (
+        {paginatedGroupedQuestions.length > 0 && (isClientSideFiltered ? filteredTotalPages : totalPages) > 1 && (
           <div className="flex justify-center items-center space-x-4 mt-8">
             {/* Previous Button */}
             <button
@@ -1184,8 +1186,8 @@ export default function QuestionsPage() {
             </button>
 
             {/* Page Numbers */}
-            {Array.from({ length: Math.min(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages, 7) }, (_, i) => {
-              const displayTotalPages = isFilteredByAnsweredStatus ? filteredTotalPages : totalPages;
+            {Array.from({ length: Math.min(isClientSideFiltered ? filteredTotalPages : totalPages, 7) }, (_, i) => {
+              const displayTotalPages = isClientSideFiltered ? filteredTotalPages : totalPages;
               let pageNum;
               if (displayTotalPages <= 7) {
                 pageNum = i + 1;
@@ -1215,22 +1217,22 @@ export default function QuestionsPage() {
             })}
 
             {/* Show ellipsis and last page if needed */}
-            {(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) > 7 && currentPage < (isFilteredByAnsweredStatus ? filteredTotalPages : totalPages) - 3 && (
+            {(isClientSideFiltered ? filteredTotalPages : totalPages) > 7 && currentPage < (isClientSideFiltered ? filteredTotalPages : totalPages) - 3 && (
               <>
                 <span className="text-gray-400">...</span>
                 <button
-                  onClick={() => setCurrentPage(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages)}
+                  onClick={() => setCurrentPage(isClientSideFiltered ? filteredTotalPages : totalPages)}
                   className="w-8 h-8 text-gray-600 flex items-center justify-center text-sm hover:text-black"
                 >
-                  {isFilteredByAnsweredStatus ? filteredTotalPages : totalPages}
+                  {isClientSideFiltered ? filteredTotalPages : totalPages}
                 </button>
               </>
             )}
 
             {/* Next Button */}
             <button
-              onClick={() => setCurrentPage(Math.min(isFilteredByAnsweredStatus ? filteredTotalPages : totalPages, currentPage + 1))}
-              disabled={currentPage === (isFilteredByAnsweredStatus ? filteredTotalPages : totalPages)}
+              onClick={() => setCurrentPage(Math.min(isClientSideFiltered ? filteredTotalPages : totalPages, currentPage + 1))}
+              disabled={currentPage === (isClientSideFiltered ? filteredTotalPages : totalPages)}
               className={`text-gray-600 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

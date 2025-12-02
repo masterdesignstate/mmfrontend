@@ -122,6 +122,10 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         return `${senderName} liked you`;
       case 'match':
         return `You matched with ${senderName}!`;
+      case 'note':
+        return notification.note 
+          ? `${senderName} sent a note: ${notification.note}`
+          : `${senderName} sent a note`;
       default:
         return `${senderName} interacted with you`;
     }

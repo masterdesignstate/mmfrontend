@@ -284,6 +284,10 @@ class ApiService {
     compatibility_type?: string;
     min_compatibility?: number;
     max_compatibility?: number;
+    min_age?: number;
+    max_age?: number;
+    min_distance?: number;
+    max_distance?: number;
     required_only?: boolean;
     page?: number;
     page_size?: number;
@@ -295,15 +299,19 @@ class ApiService {
     if (params.compatibility_type) queryParams.append('compatibility_type', params.compatibility_type);
     if (params.min_compatibility !== undefined) queryParams.append('min_compatibility', params.min_compatibility.toString());
     if (params.max_compatibility !== undefined) queryParams.append('max_compatibility', params.max_compatibility.toString());
+    if (params.min_age !== undefined) queryParams.append('min_age', params.min_age.toString());
+    if (params.max_age !== undefined) queryParams.append('max_age', params.max_age.toString());
+    if (params.min_distance !== undefined) queryParams.append('min_distance', params.min_distance.toString());
+    if (params.max_distance !== undefined) queryParams.append('max_distance', params.max_distance.toString());
     if (params.required_only !== undefined) queryParams.append('required_only', params.required_only.toString());
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.page_size) queryParams.append('page_size', params.page_size.toString());
-    
+
     // Add tag parameters
     if (params.tags && params.tags.length > 0) {
       params.tags.forEach(tag => queryParams.append('tags', tag));
     }
-    
+
     // Add user_id parameter
     if (params.user_id) {
       queryParams.append('user_id', params.user_id);

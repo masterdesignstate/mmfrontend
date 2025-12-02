@@ -60,7 +60,7 @@ export default function NotificationsPage() {
     }
   }, [userId]);
 
-  // Mark notification as read and navigate to profile or chat
+  // Mark notification as read and navigate to profile
   const handleNotificationClick = async (notification: Notification) => {
     try {
       if (!notification.is_read) {
@@ -70,15 +70,8 @@ export default function NotificationsPage() {
         );
       }
 
-      // If it's a note notification, navigate to chat
-      if (notification.notification_type === 'note') {
-        // Get or create conversation with this user
-        const conversation = await apiService.createOrGetConversation(userId, notification.sender.id);
-        router.push(`/chats/${conversation.id}`);
-      } else {
-        // For other notifications, navigate to profile
-        router.push(`/profile/${notification.sender.id}`);
-      }
+      // Navigate to profile for all notifications
+      router.push(`/profile/${notification.sender.id}`);
     } catch (error) {
       console.error('Error handling notification click:', error);
       // Still navigate to profile even if something fails
@@ -127,7 +120,9 @@ export default function NotificationsPage() {
       case 'match':
         return `You matched with ${senderName}!`;
       case 'note':
-        return notification.note || `${senderName} sent you a note`;
+        return notification.note 
+          ? `${senderName} sent a note: ${notification.note}`
+          : `${senderName} sent a note`;
       default:
         return `${senderName} interacted with you`;
     }

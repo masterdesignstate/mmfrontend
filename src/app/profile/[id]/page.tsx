@@ -262,6 +262,59 @@ export default function UserProfilePage() {
     fetchProfile();
   }, [userId]);
 
+  // Check for matches on page load and show celebrations for uncelebrated matches
+  const checkForMatchesOnLoad = async () => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !userId) return;
+
+    try {
+      // Check if I've liked this user
+      const myTagsResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (!myTagsResponse.ok) return;
+
+      const myTagsData = await myTagsResponse.json();
+      const myNormalizedTags = (myTagsData.tags || []).map((tag: string) => tag.toLowerCase());
+      const iLikedThem = myNormalizedTags.includes('like');
+
+      if (!iLikedThem) return;
+
+      // Get celebrated matches from localStorage
+      const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
+      const celebratedMatchesStr = localStorage.getItem(celebratedMatchesKey);
+      const celebratedMatches = celebratedMatchesStr ? new Set(JSON.parse(celebratedMatchesStr)) : new Set();
+
+      // Skip if already celebrated
+      if (celebratedMatches.has(userId)) return;
+
+      // Check if they've liked me back
+      const theirTagsResponse = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (theirTagsResponse.ok) {
+        const theirData = await theirTagsResponse.json();
+        const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+        
+        if (theirNormalizedTags.includes('like')) {
+          // It's a match! Show celebration
+          setShowMatchCelebration(true);
+          setCelebratedMatch(true);
+          
+          // Mark as celebrated
+          celebratedMatches.add(userId);
+          localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for matches on load:', error);
+    }
+  };
+
   // Fetch tags for this user and check for match
   useEffect(() => {
     const fetchTags = async () => {
@@ -273,7 +326,7 @@ export default function UserProfilePage() {
         const myTagsResponse = await fetch(
           `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
           {
- 
+
             headers: { 'Content-Type': 'application/json' },
           }
         );
@@ -283,6 +336,9 @@ export default function UserProfilePage() {
           // Normalize tags to lowercase for consistent comparison
           const normalizedTags = (data.tags || []).map((tag: string) => tag.toLowerCase());
           setSelectedTags(normalizedTags);
+          
+          // Check for matches on page load
+          checkForMatchesOnLoad();
           
           // Check if I've liked this user
           const iLikedThem = normalizedTags.includes('like');
@@ -755,6 +811,23 @@ export default function UserProfilePage() {
             }),
           });
         }
+
+        // Remove the other user's like tag for the current user (if they liked us)
+        console.log('🚫 Removing like tag from other user because we are hiding them');
+        try {
+          await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId, // The other user
+              result_user_id: currentUserId, // The current user
+              tag: 'Like',
+            }),
+          });
+        } catch (error) {
+          // If the like tag doesn't exist, that's fine - just log and continue
+          console.log('ℹ️ Other user may not have liked us, or tag already removed');
+        }
       }
 
       // If approving or liking, first remove hide tag
@@ -788,6 +861,23 @@ export default function UserProfilePage() {
               tag: 'Like',
             }),
           });
+        }
+
+        // Remove the other user's like tag for the current user (if they liked us)
+        console.log('🚫 Removing like tag from other user because we are unapproving them');
+        try {
+          await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId, // The other user
+              result_user_id: currentUserId, // The current user
+              tag: 'Like',
+            }),
+          });
+        } catch (error) {
+          // If the like tag doesn't exist, that's fine - just log and continue
+          console.log('ℹ️ Other user may not have liked us, or tag already removed');
         }
       }
 
@@ -1419,6 +1509,13 @@ export default function UserProfilePage() {
         if (isMatch && !hasMatch && !celebratedMatch) {
           setShowMatchCelebration(true);
           setCelebratedMatch(true);
+          
+          // Save to localStorage to prevent showing again
+          const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
+          const existingMatches = localStorage.getItem(celebratedMatchesKey);
+          const matchesSet = existingMatches ? new Set(JSON.parse(existingMatches)) : new Set();
+          matchesSet.add(userId);
+          localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(matchesSet)));
         }
 
         setHasMatch(isMatch);

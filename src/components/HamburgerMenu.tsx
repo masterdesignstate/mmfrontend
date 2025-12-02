@@ -38,7 +38,12 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
   const isProfilePage = pathname === '/profile' || pathname === '/profile/';
 
   const handleNavigation = (path: string) => {
-    router.push(path);
+    // For "All Questions", force a full reload to clear any filter state
+    if (path === '/questions') {
+      window.location.href = path;
+    } else {
+      router.push(path);
+    }
     setShowMenu(false);
   };
 
@@ -92,7 +97,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
             onClick={() => handleNavigation('/questions?filter=answered')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
-            My Questions
+            My Answers
           </button>
 
           <button
