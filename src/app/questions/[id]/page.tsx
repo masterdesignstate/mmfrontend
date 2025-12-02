@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 interface Question {
   id: string;
@@ -1774,11 +1775,7 @@ export default function QuestionEditPage() {
             className="mr-2"
           />
         </div>
-        <button className="p-2">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <HamburgerMenu />
       </div>
 
       {/* Main Content */}
