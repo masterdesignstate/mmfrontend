@@ -520,13 +520,24 @@ export default function QuestionsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                      {/* Single toggle: check if approved, x if not */}
+                      {/* Toggle approval: checkmark if approved, x if not */}
                       <button 
-                        onClick={() => setQuestions(prev => prev.map(q => q.id === question.id ? { ...q, is_required_for_match: !q.is_required_for_match } : q))}
-                        className={`transition-colors duration-200 cursor-pointer ${question.is_required_for_match ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
-                        title={question.is_required_for_match ? 'Mandatory' : 'Optional'}
+                        onClick={async () => {
+                          try {
+                            const updatedQuestion = await apiService.toggleQuestionApproval(
+                              question.id, 
+                              !question.is_approved
+                            );
+                            setQuestions(prev => prev.map(q => q.id === question.id ? updatedQuestion : q));
+                          } catch (error) {
+                            console.error('Error toggling approval:', error);
+                            alert('Failed to update approval status. Please try again.');
+                          }
+                        }}
+                        className={`transition-colors duration-200 cursor-pointer ${question.is_approved ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
+                        title={question.is_approved ? 'Approved - Click to unapprove' : 'Not approved - Click to approve'}
                       >
-                        <i className={`fas ${question.is_required_for_match ? 'fa-check' : 'fa-times'}`}></i>
+                        <i className={`fas ${question.is_approved ? 'fa-check' : 'fa-times'}`}></i>
                       </button>
                       <button 
                         onClick={() => showDeleteConfirmModal(question)}

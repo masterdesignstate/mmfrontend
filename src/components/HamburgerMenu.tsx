@@ -38,6 +38,15 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
   const isProfilePage = pathname === '/profile' || pathname === '/profile/';
 
   const handleNavigation = (path: string) => {
+    // Clear filter state when explicitly navigating to Results or Questions from menu
+    if (path === '/results' || path === '/questions') {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('results_page_filters');
+        sessionStorage.removeItem('results_page_filters_applied');
+        sessionStorage.removeItem('questions_page_filters');
+      }
+    }
+    
     // For "All Questions", force a full reload to clear any filter state
     if (path === '/questions') {
       window.location.href = path;
@@ -130,7 +139,15 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           </button>
 
           <button
-            onClick={() => handleNavigation('/auth/login')}
+            onClick={() => {
+              // Clear filter state on logout
+              if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('results_page_filters');
+                sessionStorage.removeItem('results_page_filters_applied');
+                sessionStorage.removeItem('questions_page_filters');
+              }
+              handleNavigation('/auth/login');
+            }}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
             Log out

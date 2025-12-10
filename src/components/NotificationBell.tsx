@@ -188,7 +188,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                 >
                   <div className="flex items-start gap-3">
                     {/* Sender's profile photo */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 relative">
                       {notification.sender.profile_photo ? (
                         <img
                           src={notification.sender.profile_photo}
@@ -199,6 +199,10 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                         <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-medium">
                           {notification.sender.first_name?.[0] || notification.sender.username?.[0] || '?'}
                         </div>
+                      )}
+                      {/* Green dot indicator if user is online */}
+                      {notification.sender.is_online && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                       )}
                     </div>
 

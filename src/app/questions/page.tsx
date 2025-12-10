@@ -69,24 +69,44 @@ export default function QuestionsPage() {
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filterAppliedFromUrl = useRef<boolean>(false);
   const ROWS_PER_PAGE = 10;
-  const [filters, setFilters] = useState({
-    questions: {
-      mandatory: false,
-      answered: false,
-      unanswered: false,
-      required: false,
-      submitted: false
-    },
-    tags: {
-      value: false,
-      lifestyle: false,
-      look: false,
-      trait: false,
-      hobby: false,
-      interest: false
+  // Filter state - load from sessionStorage on mount
+  const [filters, setFilters] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = sessionStorage.getItem('questions_page_filters');
+      if (savedFilters) {
+        try {
+          return JSON.parse(savedFilters);
+        } catch (e) {
+          console.error('Error parsing saved filters:', e);
+        }
+      }
     }
+    return {
+      questions: {
+        mandatory: false,
+        answered: false,
+        unanswered: false,
+        required: false,
+        submitted: false
+      },
+      tags: {
+        value: false,
+        lifestyle: false,
+        look: false,
+        trait: false,
+        hobby: false,
+        interest: false
+      }
+    };
   });
   const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
+
+  // Save filters to sessionStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('questions_page_filters', JSON.stringify(filters));
+    }
+  }, [filters]);
 
   // Sync pendingFilters with filters when modal opens or when filters change externally
   useEffect(() => {
@@ -742,7 +762,7 @@ export default function QuestionsPage() {
       question_numbers: filteredQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b)
     });
 
-    const grouped: Record<string, { questions: Question[], displayName: string, questionNumber: number, answerCount: number }> = {};
+    const grouped: Record<string, { questions: Question[], displayName: string, questionNumber: number, answerCount: number, totalAnswerCount?: number }> = {};
 
     filteredQuestions.forEach(question => {
       const questionType = question.question_type || 'basic';
@@ -1080,10 +1100,7 @@ export default function QuestionsPage() {
           <div>
             <h1 className="text-2xl font-bold">Questions</h1>
             <p className="text-gray-600">
-              {isClientSideFiltered
-                ? `Showing ${paginatedGroupedQuestions.length} of ${sortedGroupedQuestions.length} questions`
-                : `Showing ${sortedGroupedQuestions.length} questions`
-              }
+              Showing {paginatedGroupedQuestions.length} of {isClientSideFiltered ? sortedGroupedQuestions.length : totalQuestionGroups} questions
             </p>
           </div>
           <button 
@@ -1145,7 +1162,6 @@ export default function QuestionsPage() {
           {paginatedGroupedQuestions
             .map(([key, group]) => {
               const answerCount = getAnswerCount(group.questionNumber);
-
               return (
                 <div
                   key={key}

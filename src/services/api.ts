@@ -153,7 +153,19 @@ class ApiService {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    // Handle 204 No Content responses (no body)
+    if (response.status === 204) {
+      return null;
+    }
+
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+
+    return null;
   }
 
   // Helper method to fetch all pages
@@ -474,6 +486,10 @@ class ApiService {
 
   async rejectQuestion(id: string): Promise<Question> {
     return this.request(`/questions/${id}/reject/`, 'POST') as Promise<Question>;
+  }
+
+  async toggleQuestionApproval(id: string, isApproved: boolean): Promise<Question> {
+    return this.request(`/questions/${id}/`, 'PATCH', { is_approved: isApproved }) as Promise<Question>;
   }
 
   async getQuestionMetadata(): Promise<QuestionMetadata> {

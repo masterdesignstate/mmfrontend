@@ -38,6 +38,13 @@ export default function NotificationsPage() {
     try {
       const response = await apiService.getNotifications(userId, pageNum, 20);
 
+      // Debug: Log notification types to see if likes are being returned
+      console.log('📬 Notifications fetched:', {
+        total: response.results.length,
+        types: response.results.map(n => n.notification_type),
+        likes: response.results.filter(n => n.notification_type === 'like').length
+      });
+
       if (append) {
         setNotifications(prev => [...prev, ...response.results]);
       } else {
@@ -202,7 +209,7 @@ export default function NotificationsPage() {
               >
                 <div className="flex items-center gap-4">
                   {/* Sender's profile photo */}
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 relative">
                     {notification.sender.profile_photo ? (
                       <img
                         src={notification.sender.profile_photo}
@@ -213,6 +220,10 @@ export default function NotificationsPage() {
                       <div className="w-14 h-14 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-lg font-medium">
                         {notification.sender.first_name?.[0] || notification.sender.username?.[0] || '?'}
                       </div>
+                    )}
+                    {/* Green dot indicator if user is online */}
+                    {notification.sender.is_online && (
+                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                     )}
                   </div>
 

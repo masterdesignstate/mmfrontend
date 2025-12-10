@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import HamburgerMenu from '@/components/HamburgerMenu';
 
 export default function QuestionPage() {
   const router = useRouter();
@@ -32,6 +33,8 @@ export default function QuestionPage() {
     meOpen: false,
     lookingForOpen: false
   });
+  const [meShare, setMeShare] = useState(true);
+  const [meRequired, setMeRequired] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
@@ -749,8 +752,8 @@ export default function QuestionPage() {
         question_id: question.id,
         me_answer: openToAll.meOpen ? 6 : meAnswer,
         me_open_to_all: openToAll.meOpen,
-        me_importance: importance.me,
-        me_share: true,
+        me_importance: meRequired ? 5 : importance.me,
+        me_share: meShare,
         looking_for_answer: openToAll.lookingForOpen ? 6 : lookingForAnswer,
         looking_for_open_to_all: openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
@@ -1234,11 +1237,7 @@ export default function QuestionPage() {
             className="mr-2"
           />
         </div>
-        <button className="p-2">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <HamburgerMenu />
       </div>
 
       {/* Main Content */}
@@ -1256,12 +1255,51 @@ export default function QuestionPage() {
                params.id === 'next-question' ? `${question?.question_number || 6}. ${question?.question_name || 'Next Question'}` :
                question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'}
             </h1>
-            <p className="text-3xl font-bold text-black mb-12">
-              {params.id === '8' ? 'How often do you practice religion?' :
-               params.id === '9' ? 'How important is politics in your life?' :
-               params.id === 'education' ? 'What is your highest level of education?' :
-               question?.text || 'What ethnicity do you identify with?'}
-            </p>
+            <div className="inline-block">
+              <p className="text-3xl font-bold text-black mb-4">
+                {params.id === '8' ? 'How often do you practice religion?' :
+                 params.id === '9' ? 'How important is politics in your life?' :
+                 params.id === 'education' ? 'What is your highest level of education?' :
+                 question?.text || 'What ethnicity do you identify with?'}
+              </p>
+              
+              {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
+              {question && question.question_number > 10 && (
+                <div className="flex items-center justify-between w-full mb-8">
+              {/* Required For Match - Left */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMeRequired(!meRequired)}
+                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                  style={{ backgroundColor: meRequired ? '#000000' : '#ADADAD' }}
+                >
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                    style={{ transform: meRequired ? 'translateX(20px)' : 'translateX(2px)' }}
+                  />
+                </button>
+                <span className="text-sm text-black">Required For Match</span>
+              </div>
+
+              {/* Share Answer - Right */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMeShare(!meShare)}
+                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                  style={{ backgroundColor: meShare ? '#000000' : '#ADADAD' }}
+                >
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                    style={{ transform: meShare ? 'translateX(20px)' : 'translateX(2px)' }}
+                  />
+                </button>
+                <span className="text-sm text-black">Share Answer</span>
+              </div>
+            </div>
+              )}
+            </div>
           </div>
 
           {/* Error Message */}

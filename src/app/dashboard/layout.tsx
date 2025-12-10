@@ -40,18 +40,30 @@ export default function DashboardLayout({
   }, []);
 
   const handleLogout = () => {
+    // Get user_id before clearing it, so we can clear user-specific data
+    const currentUserId = localStorage.getItem('user_id');
+    
     // Clear ALL user-related data on logout
     localStorage.removeItem('user_id');
     localStorage.removeItem('is_admin');
     localStorage.removeItem('user_email');
-    // Clear all profile caches from sessionStorage
+    
+    // Clear user-specific celebrated matches (but keep them if user logs back in with same ID)
+    // Actually, we want to KEEP celebrated matches so they don't see the popup again
+    // So we're NOT clearing celebrated_matches_${currentUserId}
+    
+    // Clear all profile caches and filter state from sessionStorage
     Object.keys(sessionStorage).forEach(key => {
       if (key.startsWith('profile_')) {
         sessionStorage.removeItem(key);
         sessionStorage.removeItem(`${key}_timestamp`);
       }
     });
-    console.log('🧹 Cleared all user data on logout');
+    // Clear filter state
+    sessionStorage.removeItem('results_page_filters');
+    sessionStorage.removeItem('results_page_filters_applied');
+    sessionStorage.removeItem('questions_page_filters');
+    console.log('🧹 Cleared all user data on logout (kept celebrated matches)');
     
     // Redirect to login page
     router.push('/auth/login');

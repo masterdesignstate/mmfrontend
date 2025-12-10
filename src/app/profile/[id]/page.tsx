@@ -83,11 +83,10 @@ export default function UserProfilePage() {
   const [showPrivateAnswerPopup, setShowPrivateAnswerPopup] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [sortOption, setSortOption] = useState<'number' | 'randomized' | 'popular' | 'new'>('number');
+  const [sortOption, setSortOption] = useState<'number' | 'popular' | 'new'>('number');
   const [filters, setFilters] = useState({
     questions: {
       mandatory: false,
-      answered: false,
       unanswered: false,
       required: false,
       submitted: false
@@ -263,6 +262,13 @@ export default function UserProfilePage() {
   }, [userId]);
 
   // Check for matches on page load and show celebrations for uncelebrated matches
+  // Helper function to create a consistent match key from two user IDs
+  const getMatchKey = (userId1: string, userId2: string): string => {
+    // Sort IDs to ensure consistent key regardless of order
+    const sorted = [userId1, userId2].sort();
+    return `${sorted[0]}_${sorted[1]}`;
+  };
+
   const checkForMatchesOnLoad = async () => {
     const currentUserId = localStorage.getItem('user_id');
     if (!currentUserId || !userId) return;
@@ -282,13 +288,34 @@ export default function UserProfilePage() {
 
       if (!iLikedThem) return;
 
-      // Get celebrated matches from localStorage
+      // Get celebrated matches from localStorage (stored as match pairs)
       const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
       const celebratedMatchesStr = localStorage.getItem(celebratedMatchesKey);
       const celebratedMatches = celebratedMatchesStr ? new Set(JSON.parse(celebratedMatchesStr)) : new Set();
 
-      // Skip if already celebrated
-      if (celebratedMatches.has(userId)) return;
+      // Create match key for this pair
+      const matchKey = getMatchKey(currentUserId, userId);
+
+      // Skip if already celebrated, but verify match still exists
+      if (celebratedMatches.has(matchKey)) {
+        // Verify the match still exists - if not, remove from celebrated list
+        const theirTagsResponse = await fetch(
+          `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        if (theirTagsResponse.ok) {
+          const theirData = await theirTagsResponse.json();
+          const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+          
+          // If match no longer exists, remove from celebrated list
+          if (!theirNormalizedTags.includes('like')) {
+            celebratedMatches.delete(matchKey);
+            localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
+          }
+        }
+        return;
+      }
 
       // Check if they've liked me back
       const theirTagsResponse = await fetch(
@@ -305,8 +332,8 @@ export default function UserProfilePage() {
           setShowMatchCelebration(true);
           setCelebratedMatch(true);
           
-          // Mark as celebrated
-          celebratedMatches.add(userId);
+          // Mark as celebrated using match key
+          celebratedMatches.add(matchKey);
           localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
         }
       }
@@ -1022,7 +1049,8 @@ export default function UserProfilePage() {
       questions: UserAnswer[], 
       displayName: string, 
       questionNumber: number, 
-      answerCount: number 
+      answerCount: number,
+      mostRecentAnswerTime?: string | null
     }> = {};
 
     // Process each answered question number
@@ -1075,12 +1103,21 @@ export default function UserProfilePage() {
             questions: [],
             displayName: displayText,
             questionNumber: questionNumber,
-            answerCount: 0
+            answerCount: 0,
+            mostRecentAnswerTime: null
           };
         }
         // Add all answers for this question number
         grouped[key].questions.push(...answersForQuestion);
         grouped[key].answerCount = answersForQuestion.length;
+        // Track most recent answer time (use updated_at if available, otherwise created_at)
+        const mostRecent = answersForQuestion.reduce((latest, answer: any) => {
+          const answerTime = answer.updated_at || answer.created_at;
+          if (!answerTime) return latest;
+          if (!latest) return answerTime;
+          return new Date(answerTime) > new Date(latest) ? answerTime : latest;
+        }, null as string | null);
+        grouped[key].mostRecentAnswerTime = mostRecent;
       }
     });
 
@@ -1109,9 +1146,6 @@ export default function UserProfilePage() {
         // Question type filters
         if (hasQuestionFilters) {
           if (filters.questions.mandatory && firstQuestion?.is_mandatory) {
-            passesQuestionFilters = true;
-          }
-          if (filters.questions.answered && group.questions.length > 0) {
             passesQuestionFilters = true;
           }
           if (filters.questions.required && firstQuestion?.is_required_for_match) {
@@ -1147,14 +1181,25 @@ export default function UserProfilePage() {
     // Apply sorting
     const sorted = [...filtered];
     switch (sortOption) {
-      case 'randomized':
-        sorted.sort(() => Math.random() - 0.5);
-        break;
       case 'popular':
         sorted.sort((a, b) => b[1].answerCount - a[1].answerCount);
         break;
       case 'new':
-        sorted.sort((a, b) => b[1].questionNumber - a[1].questionNumber);
+        // Sort by most recently answered (most recent first)
+        sorted.sort((a, b) => {
+          const timeA = a[1].mostRecentAnswerTime;
+          const timeB = b[1].mostRecentAnswerTime;
+          
+          // If both have timestamps, compare them
+          if (timeA && timeB) {
+            return new Date(timeB).getTime() - new Date(timeA).getTime();
+          }
+          // If only one has a timestamp, prioritize it
+          if (timeA && !timeB) return -1;
+          if (!timeA && timeB) return 1;
+          // If neither has a timestamp, fall back to question number
+          return b[1].questionNumber - a[1].questionNumber;
+        });
         break;
       case 'number':
       default:
@@ -1514,7 +1559,9 @@ export default function UserProfilePage() {
           const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
           const existingMatches = localStorage.getItem(celebratedMatchesKey);
           const matchesSet = existingMatches ? new Set(JSON.parse(existingMatches)) : new Set();
-          matchesSet.add(userId);
+          // Use match key (sorted pair) instead of just userId
+          const matchKey = getMatchKey(currentUserId, userId);
+          matchesSet.add(matchKey);
           localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(matchesSet)));
         }
 
@@ -1696,26 +1743,10 @@ export default function UserProfilePage() {
                     Me
                   </div>
                   <div className="flex items-baseline justify-center">
-                    <span
-                      className="text-4xl font-black leading-none"
-                      style={{
-                        background: 'linear-gradient(135deg, #A855F7 0%, #9333EA 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                    <span className="text-4xl font-black leading-none text-[#672DB7]">
                       {Math.round(compatibility.im_compatible_with)}
                     </span>
-                    <span
-                      className="text-2xl font-bold ml-0.5"
-                      style={{
-                        background: 'linear-gradient(135deg, #A855F7 0%, #9333EA 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                    <span className="text-2xl font-bold ml-0.5 text-[#672DB7]">
                       %
                     </span>
                   </div>
@@ -1727,26 +1758,10 @@ export default function UserProfilePage() {
                     Overall
                   </div>
                   <div className="flex items-baseline justify-center">
-                    <span
-                      className="text-5xl font-black leading-none tracking-tighter"
-                      style={{
-                        background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #5B21B6 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                    <span className="text-5xl font-black leading-none tracking-tighter text-[#672DB7]">
                       {Math.round(compatibility.overall_compatibility)}
                     </span>
-                    <span
-                      className="text-3xl font-bold ml-0.5"
-                      style={{
-                        background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #5B21B6 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                    <span className="text-3xl font-bold ml-0.5 text-[#672DB7]">
                       %
                     </span>
                   </div>
@@ -1758,26 +1773,10 @@ export default function UserProfilePage() {
                     Them
                   </div>
                   <div className="flex items-baseline justify-center">
-                    <span
-                      className="text-4xl font-black leading-none"
-                      style={{
-                        background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                    <span className="text-4xl font-black leading-none text-[#672DB7]">
                       {Math.round(compatibility.compatible_with_me)}
                     </span>
-                    <span
-                      className="text-2xl font-bold ml-0.5"
-                      style={{
-                        background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
+                    <span className="text-2xl font-bold ml-0.5 text-[#672DB7]">
                       %
                     </span>
                   </div>
@@ -2129,17 +2128,6 @@ export default function UserProfilePage() {
 
                           <button
                             onClick={() => {
-                              setSortOption('randomized');
-                              setShowSortDropdown(false);
-                            }}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
-                          >
-                            <div className="font-semibold text-black">Explore</div>
-                            <div className="text-sm text-gray-500">Randomized</div>
-                          </button>
-
-                          <button
-                            onClick={() => {
                               setSortOption('popular');
                               setShowSortDropdown(false);
                             }}
@@ -2157,7 +2145,7 @@ export default function UserProfilePage() {
                             className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
                           >
                             <div className="font-semibold text-black">New</div>
-                            <div className="text-sm text-gray-500">Recently asked</div>
+                            <div className="text-sm text-gray-500">Recently answered</div>
                           </button>
                         </div>
                       )}
@@ -2493,11 +2481,15 @@ export default function UserProfilePage() {
                         const isExerciseQuestion = questionNumber === 6;
                         const isHabitsQuestion = questionNumber === 7;
                         const isReligionQuestion = questionNumber === 8;
+                        
+                        // Check if answer is shared
+                        const isShared = answer?.me_share !== false; // Default to true if not set
+                        const isDisabled = !isShared;
 
                         return (
-                          <div>
+                          <div className={isDisabled ? 'opacity-50' : ''}>
                             {/* Me Section */}
-                            <div className="mb-6">
+                            <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
                               <h3 className="text-2xl font-bold text-center mb-1">{selectedQuestion.question_name}</h3>
 
                               {/* Switches for non-mandatory questions - above Me title */}
@@ -2625,12 +2617,14 @@ export default function UserProfilePage() {
                             </div>
 
                             {/* Back button */}
-                            <button
-                              onClick={() => setSelectedGroupedQuestionId(null)}
-                              className="mt-4 text-black hover:text-gray-600"
-                            >
-                              Back
-                            </button>
+                            <div className="mx-auto mt-4" style={{ width: '500px' }}>
+                              <button
+                                onClick={() => setSelectedGroupedQuestionId(null)}
+                                className="text-black hover:text-gray-600"
+                              >
+                                Back to group
+                              </button>
+                            </div>
                           </div>
                         );
                       }
@@ -2646,21 +2640,18 @@ export default function UserProfilePage() {
                               return questionId === question.id;
                             });
                             const hasAnswer = !!answer;
-                            const isPrivate = questionNumber > 10 && answer?.me_share === false;
+                            const isShared = answer?.me_share !== false; // Default to true if not set
+                            const isDisabled = !hasAnswer || !isShared;
 
                             return (
                               <div
                                 key={question.id}
                                 onClick={() => {
-                                  if (!hasAnswer) return;
-                                  if (isPrivate) {
-                                    setShowPrivateAnswerPopup(true);
-                                  } else {
-                                    setSelectedGroupedQuestionId(question.id);
-                                  }
+                                  if (isDisabled) return;
+                                  setSelectedGroupedQuestionId(question.id);
                                 }}
                                 className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
-                                  hasAnswer
+                                  !isDisabled
                                     ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
                                     : 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
                                 }`}
@@ -2671,16 +2662,16 @@ export default function UserProfilePage() {
                                     alt="Question icon"
                                     width={24}
                                     height={24}
-                                    className={`w-6 h-6 ${!hasAnswer && 'opacity-50'}`}
+                                    className={`w-6 h-6 ${isDisabled && 'opacity-50'}`}
                                   />
-                                  <span className={`font-medium ${hasAnswer ? 'text-black' : 'text-gray-400'}`}>
+                                  <span className={`font-medium ${!isDisabled ? 'text-black' : 'text-gray-400'}`}>
                                     {question.question_name}
                                   </span>
                                   {hasAnswer && (
-                                    <span className="text-[#672DB7] text-sm">✓ Answered</span>
+                                    <span className={`text-sm ${isShared ? 'text-[#672DB7]' : 'text-gray-400'}`}>✓ Answered</span>
                                   )}
                                 </div>
-                                {hasAnswer && (
+                                {!isDisabled && (
                                   <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                   </svg>
@@ -2703,178 +2694,240 @@ export default function UserProfilePage() {
                     const isHabitsQuestion = questionNumber === 7;
                     const isReligionQuestion = questionNumber === 8;
                     const isPoliticsQuestion = questionNumber === 9;
+                    
+                    // Check if all answers are shared (for non-grouped questions, check each answer)
+                    // Default to true if me_share is not set (undefined/null)
+                    const isShared = answersForQuestion.length > 0 && 
+                                     answersForQuestion.every(answer => answer?.me_share !== false);
+                    const isDisabled = !isShared;
 
                     return (
-                      <div>
+                      <div className={isDisabled ? 'opacity-50' : ''}>
                         {/* Me Section */}
-                        <div className="mb-6">
+                        <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
                           <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-                          <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                            <div></div>
-                            <div className="flex justify-between text-xs text-gray-500">
-                              {isRelationshipQuestion && (
-                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                  <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
-                                  <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
-                                  <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
-                                  <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
-                                </div>
-                              )}
-                              {isEducationQuestion && (
-                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                  <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                  <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                </div>
-                              )}
-                              {isDietQuestion && (
-                                <div className="flex justify-between text-xs text-gray-500 w-full">
-                                  <span>NO</span>
-                                  <span>YES</span>
-                                </div>
-                              )}
-                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
-                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                </div>
-                              )}
-                              {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
-                                <>
-                                  <span>LESS</span>
-                                  <span>MORE</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                              {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
-                            </div>
-                          </div>
-                          <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                            {selectedQuestionData.map((question: any) => {
+                          {(() => {
+                            // Check if any answer has OTA enabled
+                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
                               const answer = answersForQuestion.find(a => {
                                 const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                                 return questionId === question.id;
                               });
-                              // If me_answer is 6, it means "Open to All" is enabled
-                              const isOpenToAllMe = answer?.me_answer === 6 || answer?.me_open_to_all || false;
-                              const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
-                              const meOpenToAll = isOpenToAllMe;
-
-                              // For Kids question, use WANT KIDS / HAVE KIDS labels
-                              let rowLabel = question.question_name.toUpperCase();
-                              if (isKidsQuestion) {
-                                if (question.group_number === 1) {
-                                  rowLabel = 'HAVE KIDS';
-                                } else if (question.group_number === 2) {
-                                  rowLabel = 'WANT KIDS';
-                                }
-                              }
-
-                              return (
-                                <React.Fragment key={`me-${question.id}`}>
-                                  <div className="text-xs font-semibold text-gray-400">{rowLabel}</div>
-                                  <div className="relative">
-                                    {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                    <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
+                              return answer && (answer.me_answer === 6 || answer.me_answer === '6' || Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
+                            });
+                            
+                            return (
+                              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  {isRelationshipQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
+                                      <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
+                                      <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
+                                      <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
+                                    </div>
+                                  )}
+                                  {isEducationQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                    </div>
+                                  )}
+                                  {isDietQuestion && (
+                                    <div className="flex justify-between text-xs text-gray-500 w-full">
+                                      <span>NO</span>
+                                      <span>YES</span>
+                                    </div>
+                                  )}
+                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                    </div>
+                                  )}
+                                  {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
+                                    <>
+                                      <span>LESS</span>
+                                      <span>MORE</span>
+                                    </>
+                                  )}
+                                </div>
+                                {hasAnyOTA && !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && (
+                                  <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                                    OTA
                                   </div>
-                                  <div>
-                                    {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && question.open_to_all_me ? (
-                                      <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                                        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            // Check if any answer has OTA enabled
+                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
+                              const answer = answersForQuestion.find(a => {
+                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                                return questionId === question.id;
+                              });
+                              return answer && (answer.me_answer === 6 || answer.me_answer === '6' || Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
+                            });
+                            
+                            return (
+                              <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                                {selectedQuestionData.map((question: any) => {
+                                  const answer = answersForQuestion.find(a => {
+                                    const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                                    return questionId === question.id;
+                                  });
+                                  // If me_answer is 6, it means "Open to All" is enabled
+                                  const isOpenToAllMe = answer?.me_answer === 6 || answer?.me_open_to_all || false;
+                                  const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
+                                  const meOpenToAll = isOpenToAllMe;
+
+                                  // For Kids question, use WANT KIDS / HAVE KIDS labels
+                                  let rowLabel = question.question_name.toUpperCase();
+                                  if (isKidsQuestion) {
+                                    if (question.group_number === 1) {
+                                      rowLabel = 'HAVE KIDS';
+                                    } else if (question.group_number === 2) {
+                                      rowLabel = 'WANT KIDS';
+                                    }
+                                  }
+
+                                  return (
+                                    <React.Fragment key={`me-${question.id}`}>
+                                      <div className="relative">
+                                        {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
+                                        <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
                                       </div>
-                                    ) : (
-                                      <div className="w-11 h-6"></div>
-                                    )}
-                                  </div>
-                                </React.Fragment>
-                              );
-                            })}
-                          </div>
+                                      {hasAnyOTA && (
+                                        <div>
+                                          {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && question.open_to_all_me && meOpenToAll ? (
+                                            <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
+                                              <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                                            </div>
+                                          ) : (
+                                            <div className="w-11 h-6"></div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                         {/* Them Section */}
                         <div className="mb-6">
                           <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-                          <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                            <div></div>
-                            <div className="flex justify-between text-xs text-gray-500">
-                              {isRelationshipQuestion && (
-                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                  <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
-                                  <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
-                                  <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
-                                  <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
-                                </div>
-                              )}
-                              {isEducationQuestion && (
-                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                  <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                  <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                </div>
-                              )}
-                              {isDietQuestion && (
-                                <div className="flex justify-between text-xs text-gray-500 w-full">
-                                  <span>NO</span>
-                                  <span>YES</span>
-                                </div>
-                              )}
-                              {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
-                                <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                </div>
-                              )}
-                              {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
-                                <>
-                                  <span>LESS</span>
-                                  <span>MORE</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                              {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && selectedQuestionData.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
-                            </div>
-                          </div>
-                          <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                            {selectedQuestionData.map((question: any) => {
+                          {(() => {
+                            // Check if any answer has OTA enabled for "looking for"
+                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
                               const answer = answersForQuestion.find(a => {
                                 const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                                 return questionId === question.id;
                               });
-                              // If looking_for_answer is 6, it means "Open to All" is enabled
-                              const isOpenToAllLooking = answer?.looking_for_answer === 6 || answer?.looking_for_open_to_all || false;
-                              const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
-                              const lookingOpenToAll = isOpenToAllLooking;
-
-                              // For Kids question, use WANT KIDS / HAVE KIDS labels
-                              let rowLabel = question.question_name.toUpperCase();
-                              if (isKidsQuestion) {
-                                if (question.group_number === 1) {
-                                  rowLabel = 'HAVE KIDS';
-                                } else if (question.group_number === 2) {
-                                  rowLabel = 'WANT KIDS';
-                                }
-                              }
-
-                              return (
-                                <React.Fragment key={`looking-${question.id}`}>
-                                  <div className="text-xs font-semibold text-gray-400">{rowLabel}</div>
-                                  <div className="relative">
-                                    {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                    <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
+                              return answer && (answer.looking_for_answer === 6 || answer.looking_for_answer === '6' || Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
+                            });
+                            
+                            return (
+                              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  {isRelationshipQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
+                                      <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
+                                      <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
+                                      <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
+                                    </div>
+                                  )}
+                                  {isEducationQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                    </div>
+                                  )}
+                                  {isDietQuestion && (
+                                    <div className="flex justify-between text-xs text-gray-500 w-full">
+                                      <span>NO</span>
+                                      <span>YES</span>
+                                    </div>
+                                  )}
+                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                    </div>
+                                  )}
+                                  {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
+                                    <>
+                                      <span>LESS</span>
+                                      <span>MORE</span>
+                                    </>
+                                  )}
+                                </div>
+                                {hasAnyOTA && !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && (
+                                  <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                                    OTA
                                   </div>
-                                  <div className="w-11 h-6"></div>
-                                </React.Fragment>
-                              );
-                            })}
-                          </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            // Check if any answer has OTA enabled for "looking for"
+                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
+                              const answer = answersForQuestion.find(a => {
+                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                                return questionId === question.id;
+                              });
+                              return answer && (answer.looking_for_answer === 6 || answer.looking_for_answer === '6' || Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
+                            });
+                            
+                            return (
+                              <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                                {selectedQuestionData.map((question: any) => {
+                                  const answer = answersForQuestion.find(a => {
+                                    const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                                    return questionId === question.id;
+                                  });
+                                  // If looking_for_answer is 6, it means "Open to All" is enabled
+                                  const isOpenToAllLooking = answer?.looking_for_answer === 6 || answer?.looking_for_open_to_all || false;
+                                  const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
+                                  const lookingOpenToAll = isOpenToAllLooking;
+
+                                  // For Kids question, use WANT KIDS / HAVE KIDS labels
+                                  let rowLabel = question.question_name.toUpperCase();
+                                  if (isKidsQuestion) {
+                                    if (question.group_number === 1) {
+                                      rowLabel = 'HAVE KIDS';
+                                    } else if (question.group_number === 2) {
+                                      rowLabel = 'WANT KIDS';
+                                    }
+                                  }
+
+                                  return (
+                                    <React.Fragment key={`looking-${question.id}`}>
+                                      <div className="relative">
+                                        {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
+                                        <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
+                                      </div>
+                                      {hasAnyOTA && (
+                                        <div className="w-11 h-6"></div>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -2891,26 +2944,37 @@ export default function UserProfilePage() {
                         const firstQuestion = group.questions[0]?.question;
                         const questionType = firstQuestion?.question_type || 'basic';
                         
+                        // For basic questions, check if answer is shared
+                        // For grouped questions, always allow navigation (user can still see cards)
+                        const firstAnswer = group.questions[0];
+                        const isBasicQuestion = questionType === 'basic';
+                        const isNotShared = firstAnswer?.me_share === false;
+                        const isDisabled = isBasicQuestion && isNotShared;
+                        
                         return (
                           <div
                             key={key}
-                            onClick={() => handleQuestionClick(group.questionNumber, questionType)}
-                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (isDisabled) return;
+                              handleQuestionClick(group.questionNumber, questionType);
+                            }}
+                            className={`flex items-center justify-between p-4 bg-white border rounded-lg transition-colors ${
+                              isDisabled
+                                ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
+                                : 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+                            }`}
                           >
                             <div className="flex-1">
                               <div className="flex items-start">
                                 <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
-                                <span className="text-gray-900 flex-1">{group.displayName}</span>
+                                <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{group.displayName}</span>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
-                                <span className="text-sm text-gray-700 font-medium">{group.answerCount}</span>
-                              </div>
+                            {!isDisabled && (
                               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                            </div>
+                            )}
                           </div>
                         );
                       })
@@ -2939,27 +3003,38 @@ export default function UserProfilePage() {
                           const answers = groupedAnswers[qNum];
                           const firstAnswer = answers[0];
                           const questionText = firstAnswer.question.text;
+                          const questionType = firstAnswer.question.question_type || 'basic';
+                          
+                          // For basic questions, check if answer is shared
+                          // For grouped questions, always allow navigation
+                          const isBasicQuestion = questionType === 'basic';
+                          const isNotShared = firstAnswer?.me_share === false;
+                          const isDisabled = isBasicQuestion && isNotShared;
                           
                           return (
                             <div
                               key={qNum}
-                              onClick={() => handleQuestionClick(qNum)}
-                              className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                              onClick={() => {
+                                if (isDisabled) return;
+                                handleQuestionClick(qNum);
+                              }}
+                              className={`flex items-center justify-between p-4 bg-white border rounded-lg transition-colors ${
+                                isDisabled
+                                  ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
+                                  : 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+                              }`}
                             >
                               <div className="flex-1">
                                 <div className="flex items-start">
                                   <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
-                                  <span className="text-gray-900 flex-1">{questionText}</span>
+                                  <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{questionText}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
-                                  <span className="text-sm text-gray-700 font-medium">{answers.length}</span>
-                                </div>
+                              {!isDisabled && (
                                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
-                              </div>
+                              )}
                             </div>
                           );
                         });
@@ -3297,7 +3372,7 @@ export default function UserProfilePage() {
               {/* Questions Section */}
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">Questions</h3>
-                <div className="grid grid-cols-5 gap-3 max-w-xl">
+                <div className="grid grid-cols-4 gap-3 max-w-xl">
                   {/* Mandatory */}
                   <button
                     onClick={() => setPendingFilters(prev => ({
@@ -3314,24 +3389,6 @@ export default function UserProfilePage() {
                       <Image src="/assets/asterisk.png" alt="Mandatory" width={40} height={40} />
                       <span className="text-xs font-medium text-gray-900 text-center leading-none">Mandatory</span>
                     </div>
-                  </button>
-
-                  {/* Answered */}
-                  <button
-                    onClick={() => setPendingFilters(prev => ({
-                      ...prev,
-                      questions: { ...prev.questions, answered: !prev.questions.answered }
-                    }))}
-                    className={`flex flex-col items-center justify-center p- rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                      pendingFilters.questions.answered
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <Image src="/assets/answered.png" alt="Answered" width={40} height={40} />
-                    </div>
-                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Answered</span>
                   </button>
 
                   {/* Required */}
@@ -3410,7 +3467,6 @@ export default function UserProfilePage() {
                 onClick={() => setPendingFilters({
                   questions: {
                     mandatory: false,
-                    answered: false,
                     unanswered: false,
                     required: false,
                     submitted: false
@@ -3472,3 +3528,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+

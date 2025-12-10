@@ -8,6 +8,7 @@ import { apiService, type ApiUser, type CompatibilityResult } from '@/services/a
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
+import { getDistance } from '@/utils/distance';
 
 interface ResultProfile {
   id: string;
@@ -130,11 +131,19 @@ export default function ResultsPage() {
   const [visibleCount, setVisibleCount] = useState(15); // Show 3 rows initially (5 columns x 3 rows)
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filtersApplied, setFiltersApplied] = useState(false);
+  // Load filtersApplied from sessionStorage on mount
+  const [filtersApplied, setFiltersApplied] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('results_page_filters_applied');
+      return saved === 'true';
+    }
+    return false;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [filteredTotalCount, setFilteredTotalCount] = useState<number | null>(null);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [sortOption, setSortOption] = useState<'compatibility' | 'distance' | 'age-asc' | 'age-desc' | 'recent'>('compatibility');
@@ -153,9 +162,25 @@ export default function ResultsPage() {
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [pendingLikeProfileId, setPendingLikeProfileId] = useState<string | null>(null);
+  const [currentUserLive, setCurrentUserLive] = useState<string | null>(null);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
+  const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
+  const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter state
-  const [filters, setFilters] = useState({
+  // Filter state - load from sessionStorage on mount
+  const [filters, setFilters] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = sessionStorage.getItem('results_page_filters');
+      if (savedFilters) {
+        try {
+          return JSON.parse(savedFilters);
+        } catch (e) {
+          console.error('Error parsing saved filters:', e);
+        }
+      }
+    }
+    return {
     compatibilityType: 'overall', // overall, me_to_them, them_to_me
     compatibility: {
       min: 0,
@@ -171,6 +196,7 @@ export default function ResultsPage() {
     },
     tags: [] as string[],
     requiredOnly: false
+    };
   });
 
   // Fetch tags for a specific user
@@ -271,12 +297,12 @@ export default function ResultsPage() {
         params.min_distance = filters.distance.min;
         params.max_distance = filters.distance.max;
         params.required_only = filters.requiredOnly;
-
+        
         // Add tag filters
         if (filters.tags && filters.tags.length > 0) {
           params.tags = filters.tags;
         }
-
+        
         // Add user_id for proper filtering
         const currentUserId = localStorage.getItem('user_id');
         if (currentUserId) {
@@ -352,11 +378,81 @@ export default function ResultsPage() {
     }
   };
 
+  // Fetch current user's live field on mount
   useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) return;
+
+      try {
+        const user = await apiService.getUser(currentUserId);
+        setCurrentUserLive(user.live || null);
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
+
+  // Load celebrated matches from localStorage on mount
+  useEffect(() => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (currentUserId) {
+      const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
+      const celebratedMatchesStr = localStorage.getItem(celebratedMatchesKey);
+      if (celebratedMatchesStr) {
+        try {
+          const matchesArray = JSON.parse(celebratedMatchesStr) as string[];
+          const matches = new Set<string>(matchesArray);
+          setCelebratedMatches(matches);
+          console.log('📦 Loaded celebrated matches from localStorage on mount:', Array.from(matches));
+        } catch (error) {
+          console.error('Error parsing celebrated matches from localStorage:', error);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Only fetch on initial mount if filters haven't been applied yet
+    if (!filtersApplied && !isApplyingFilters) {
     fetchCompatibleUsers(1, false);
-    // Check for matches on page load
+    }
+    // Always check for matches on page load, regardless of filters
     checkForMatchesOnLoad();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check for matches when page becomes visible (user navigates back to results page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const currentUserId = localStorage.getItem('user_id');
+        if (currentUserId && !showMatchCelebration) {
+          // Small delay to avoid checking immediately on every visibility change
+          setTimeout(() => {
+            checkForMatchesOnLoad();
+          }, 500);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMatchCelebration]);
+
+  // Also check for matches when profiles are loaded (in case new matches appeared)
+  useEffect(() => {
+    if (profiles.length > 0 && !showMatchCelebration) {
+      // Small delay to avoid checking too frequently
+      const timeoutId = setTimeout(() => {
+        checkForMatchesOnLoad();
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles.length, showMatchCelebration]);
 
   // Load ALL remaining pages when searching if no match found
   useEffect(() => {
@@ -365,15 +461,28 @@ export default function ResultsPage() {
       
       // Check if we already have a match in loaded profiles
       const hasMatch = profiles.some(profile => {
-        const firstName = (profile.user.first_name || '').toLowerCase();
-        const lastName = (profile.user.last_name || '').toLowerCase();
-        const username = (profile.user.username || '').toLowerCase();
-        const fullName = `${firstName} ${lastName}`.trim();
+        let matches = false;
         
-        return firstName.includes(searchLower) ||
-               lastName.includes(searchLower) ||
-               username.includes(searchLower) ||
-               fullName.includes(searchLower);
+        switch (searchField) {
+          case 'name':
+            const firstName = (profile.user.first_name || '').toLowerCase();
+            matches = firstName.includes(searchLower);
+            break;
+          case 'username':
+            const username = (profile.user.username || '').toLowerCase();
+            matches = username.includes(searchLower);
+            break;
+          case 'live':
+            const live = (profile.user.live || '').toLowerCase();
+            matches = live.includes(searchLower);
+            break;
+          case 'bio':
+            const bio = (profile.user.bio || '').toLowerCase();
+            matches = bio.includes(searchLower);
+            break;
+        }
+        
+        return matches;
       });
 
       // If no match and there are more pages, load ALL remaining pages
@@ -461,18 +570,30 @@ export default function ResultsPage() {
               // Note: profiles is from closure, allNewProfiles accumulates all batches loaded so far
               const allProfilesToCheck = [...profiles, ...allNewProfiles];
               foundMatch = allProfilesToCheck.some(profile => {
-                const firstName = (profile.user.first_name || '').toLowerCase();
-                const lastName = (profile.user.last_name || '').toLowerCase();
-                const username = (profile.user.username || '').toLowerCase();
-                const fullName = `${firstName} ${lastName}`.trim();
+                let matches = false;
                 
-                const matches = firstName.includes(searchLower) ||
-                       lastName.includes(searchLower) ||
-                       username.includes(searchLower) ||
-                       fullName.includes(searchLower);
+                switch (searchField) {
+                  case 'name':
+                    const firstName = (profile.user.first_name || '').toLowerCase();
+                    matches = firstName.includes(searchLower);
+                    break;
+                  case 'username':
+                    const username = (profile.user.username || '').toLowerCase();
+                    matches = username.includes(searchLower);
+                    break;
+                  case 'live':
+                    const live = (profile.user.live || '').toLowerCase();
+                    matches = live.includes(searchLower);
+                    break;
+                  case 'bio':
+                    const bio = (profile.user.bio || '').toLowerCase();
+                    matches = bio.includes(searchLower);
+                    break;
+                }
                 
                 if (matches) {
-                  console.log('🎯 Found match during loading:', profile.user.first_name, profile.user.last_name, profile.user.username);
+                  const fieldValue = searchField === 'name' ? profile.user.first_name : searchField === 'username' ? profile.user.username : searchField === 'live' ? profile.user.live : profile.user.bio;
+                  console.log('🎯 Found match during loading:', profile.user.first_name, `(${searchField}: ${fieldValue})`);
                 }
                 
                 return matches;
@@ -524,7 +645,7 @@ export default function ResultsPage() {
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [searchTerm, profiles.length, hasNextPage, currentPage, loading, totalCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchTerm, searchField, profiles.length, hasNextPage, currentPage, loading, totalCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply filtering and sorting whenever profiles, sortOption, or searchTerm changes
   useEffect(() => {
@@ -533,38 +654,102 @@ export default function ResultsPage() {
       let filteredProfiles = profiles;
       if (searchTerm.trim()) {
         const searchLower = searchTerm.toLowerCase().trim();
-        console.log('🔍 Searching for:', searchLower, 'in', profiles.length, 'profiles');
-        console.log('📋 Sample profile names:', profiles.slice(0, 5).map(p => `${p.user.first_name} ${p.user.last_name} ${p.user.username}`));
+        console.log('🔍 Searching for:', searchLower, 'in', profiles.length, 'profiles by field:', searchField);
         filteredProfiles = profiles.filter(profile => {
-          const firstName = (profile.user.first_name || '').toLowerCase();
-          const lastName = (profile.user.last_name || '').toLowerCase();
-          const username = (profile.user.username || '').toLowerCase();
-          const fullName = `${firstName} ${lastName}`.trim();
+          let matches = false;
           
-          const matches = firstName.includes(searchLower) ||
-                 lastName.includes(searchLower) ||
-                 username.includes(searchLower) ||
-                 fullName.includes(searchLower);
+          switch (searchField) {
+            case 'name':
+              const firstName = (profile.user.first_name || '').toLowerCase();
+              matches = firstName.includes(searchLower);
+              break;
+            case 'username':
+              const username = (profile.user.username || '').toLowerCase();
+              matches = username.includes(searchLower);
+              break;
+            case 'live':
+              const live = (profile.user.live || '').toLowerCase();
+              matches = live.includes(searchLower);
+              break;
+            case 'bio':
+              const bio = (profile.user.bio || '').toLowerCase();
+              matches = bio.includes(searchLower);
+              break;
+          }
           
           if (matches) {
-            console.log('✅ Match found:', profile.user.first_name, profile.user.last_name, profile.user.username);
+            console.log('✅ Match found:', profile.user.first_name, searchField, profile.user[searchField === 'name' ? 'first_name' : searchField === 'username' ? 'username' : searchField === 'live' ? 'live' : 'bio']);
           }
           
           return matches;
         });
         console.log('📊 Filtered results:', filteredProfiles.length, 'matches');
         if (filteredProfiles.length === 0 && profiles.length > 0 && !loading) {
-          console.log('⚠️ No matches found. All profile names:', profiles.map(p => `${p.user.first_name || ''} ${p.user.last_name || ''} ${p.user.username || ''}`).join(', '));
+          console.log('⚠️ No matches found for search term:', searchTerm, 'in field:', searchField);
         }
+      }
+
+      // Apply distance filtering if filters are applied and current user's live field is available
+      if (filtersApplied && currentUserLive && filters.distance) {
+        const beforeFilterCount = filteredProfiles.length;
+        let excludedByDistance = 0;
+        let includedUnknownCities = 0;
+        
+        // Maximum distance in the CSV is 64 miles (Hutto to San Marcos)
+        // If max distance filter is >= 65, include all profiles since they're all within range
+        const maxDistanceInCSV = 64;
+        const shouldIncludeAll = filters.distance.max >= maxDistanceInCSV;
+        
+        if (shouldIncludeAll) {
+          console.log(`📍 Distance filter max (${filters.distance.max}mi) exceeds CSV max (${maxDistanceInCSV}mi), including all profiles`);
+        } else {
+          filteredProfiles = filteredProfiles.filter(profile => {
+            const profileLive = profile.user.live;
+            const distance = getDistance(currentUserLive, profileLive);
+
+            // If distance is null (city not found), include the profile
+            // This handles cases where cities aren't in the CSV or user hasn't set their live field
+            if (distance === null) {
+              includedUnknownCities++;
+              return true;
+            }
+
+            // Check if distance is within the filter range
+            const isWithinRange = distance >= filters.distance.min && distance <= filters.distance.max;
+            if (!isWithinRange) {
+              excludedByDistance++;
+            }
+            return isWithinRange;
+          });
+          
+          console.log(`📍 Distance filtered: ${filteredProfiles.length} profiles within ${filters.distance.min}-${filters.distance.max} miles`);
+          console.log(`   - Started with: ${beforeFilterCount} profiles`);
+          console.log(`   - Excluded by distance: ${excludedByDistance} profiles`);
+          console.log(`   - Included unknown cities: ${includedUnknownCities} profiles`);
+          console.log(`   - Current user live: ${currentUserLive}`);
+        }
+      } else if (filtersApplied && filters.distance && !currentUserLive) {
+        console.warn('⚠️ Distance filter applied but current user live field is not available');
+      }
+      
+      // Calculate filtered total count when filters are applied
+      // Use the count of filteredProfiles AFTER all filtering is applied
+      // This ensures the count matches what's actually displayed
+      if (filtersApplied) {
+        // Use the filtered profiles count as the total
+        // This represents how many profiles match the filters from what we've loaded
+        setFilteredTotalCount(filteredProfiles.length);
+      } else {
+        setFilteredTotalCount(null);
       }
       
       // Then sort the filtered profiles
-      setSortedProfiles(sortProfiles(filteredProfiles));
+      setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive));
     } else {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -585,6 +770,32 @@ export default function ResultsPage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showSortDropdown]);
+
+  // Save filters to sessionStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('results_page_filters', JSON.stringify(filters));
+    }
+  }, [filters]);
+
+  // Save filtersApplied to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('results_page_filters_applied', filtersApplied.toString());
+    }
+  }, [filtersApplied]);
+
+  // Reset sliders to extremes when filter modal opens (if filters not already applied)
+  useEffect(() => {
+    if (showFilterModal && !filtersApplied) {
+      setFilters(prev => ({
+        ...prev,
+        compatibility: { min: 0, max: 100 },
+        distance: { min: 1, max: 100 },
+        age: { min: 18, max: 80 }
+      }));
+    }
+  }, [showFilterModal, filtersApplied]);
 
   const handleShowMore = async () => {
     if (visibleCount < profiles.length) {
@@ -673,10 +884,22 @@ export default function ResultsPage() {
     return false;
   };
 
+  // Helper function to create a consistent match key from two user IDs
+  const getMatchKey = (userId1: string, userId2: string): string => {
+    // Sort IDs to ensure consistent key regardless of order
+    const sorted = [userId1, userId2].sort();
+    return `${sorted[0]}_${sorted[1]}`;
+  };
+
   // Check for matches on page load and show celebrations for uncelebrated matches
   const checkForMatchesOnLoad = async () => {
+    console.log('🔍 checkForMatchesOnLoad called');
     const currentUserId = localStorage.getItem('user_id');
-    if (!currentUserId) return;
+    console.log('🔍 currentUserId:', currentUserId);
+    if (!currentUserId) {
+      console.log('❌ No currentUserId, returning early');
+      return;
+    }
 
     try {
       // Get all users I've liked
@@ -689,18 +912,59 @@ export default function ResultsPage() {
 
       const myLikes = await myLikesResponse.json();
       
-      // Get celebrated matches from localStorage
+      // Get celebrated matches from localStorage (stored as match pairs)
       const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
       const celebratedMatchesStr = localStorage.getItem(celebratedMatchesKey);
-      const celebratedMatches = celebratedMatchesStr ? new Set(JSON.parse(celebratedMatchesStr)) : new Set();
+      let celebratedMatches = new Set<string>();
+      
+      if (celebratedMatchesStr) {
+        try {
+          const parsed = JSON.parse(celebratedMatchesStr) as string[];
+          celebratedMatches = new Set(parsed);
+        } catch (error) {
+          console.error('❌ Error parsing celebrated matches from localStorage:', error);
+          // If parsing fails, clear the corrupted data
+          localStorage.removeItem(celebratedMatchesKey);
+        }
+      }
+      
+      console.log('🎯 Checking for matches. Current userId:', currentUserId);
+      console.log('🎯 Celebrated matches key:', celebratedMatchesKey);
+      console.log('🎯 Celebrated matches in localStorage:', Array.from(celebratedMatches));
 
       // Check each user I've liked to see if they've liked me back
       for (const like of myLikes) {
         const matchedUserId = like.result_user?.id || like.result_user_id;
         if (!matchedUserId) continue;
 
+        // Create match key for this pair
+        const matchKey = getMatchKey(currentUserId, matchedUserId);
+        console.log(`🔍 Checking match with user ${matchedUserId}, matchKey: ${matchKey}, already celebrated: ${celebratedMatches.has(matchKey)}`);
+
         // Skip if already celebrated
-        if (celebratedMatches.has(matchedUserId)) continue;
+        if (celebratedMatches.has(matchKey)) {
+          console.log(`✅ Match ${matchKey} already celebrated, verifying it still exists...`);
+          // Verify the match still exists - if not, remove from celebrated list
+          const theirTagsResponse = await fetch(
+            `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${matchedUserId}&result_user_id=${currentUserId}`,
+            { headers: { 'Content-Type': 'application/json' } }
+          );
+
+          if (theirTagsResponse.ok) {
+            const theirData = await theirTagsResponse.json();
+            const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+            
+            // If match no longer exists, remove from celebrated list
+            if (!theirNormalizedTags.includes('like')) {
+              console.log(`❌ Match ${matchKey} no longer exists, removing from celebrated list`);
+              celebratedMatches.delete(matchKey);
+              localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
+            } else {
+              console.log(`✅ Match ${matchKey} still exists, skipping celebration`);
+            }
+          }
+          continue;
+        }
 
         // Check if they've liked me back
         const theirTagsResponse = await fetch(
@@ -714,6 +978,7 @@ export default function ResultsPage() {
           
           if (theirNormalizedTags.includes('like')) {
             // It's a match! Show celebration
+            console.log(`🎉 NEW MATCH FOUND! User ${matchedUserId}, matchKey: ${matchKey}`);
             const matchedUser = like.result_user || { 
               id: matchedUserId,
               first_name: like.result_user?.first_name || 'Someone',
@@ -728,9 +993,10 @@ export default function ResultsPage() {
             });
             setShowMatchCelebration(true);
             
-            // Mark as celebrated
-            celebratedMatches.add(matchedUserId);
+            // Mark as celebrated using match key
+            celebratedMatches.add(matchKey);
             localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
+            console.log(`💾 Saved match ${matchKey} to localStorage. Updated celebrated matches:`, Array.from(celebratedMatches));
             
             // Only show one celebration at a time
             break;
@@ -801,18 +1067,21 @@ export default function ResultsPage() {
         const existingMatches = localStorage.getItem(celebratedMatchesKey);
         const matchesSet = existingMatches ? new Set(JSON.parse(existingMatches)) : new Set();
         
-        if (!matchesSet.has(profileId)) {
+        // Use match key (sorted pair) instead of just profileId
+        const matchKey = getMatchKey(currentUserId, profileId);
+        
+        if (!matchesSet.has(matchKey)) {
           // It's a new match! Show celebration
-          setMatchCelebrationData({
-            matchedUserId: profileId,
-            matchedUserName: profile.user.first_name || profile.user.username,
-            matchedUserPhoto: profile.user.profile_photo || '/assets/default-avatar.png',
-          });
-          setShowMatchCelebration(true);
+        setMatchCelebrationData({
+          matchedUserId: profileId,
+          matchedUserName: profile.user.first_name || profile.user.username,
+          matchedUserPhoto: profile.user.profile_photo || '/assets/default-avatar.png',
+        });
+        setShowMatchCelebration(true);
           
-          // Update both state and localStorage
-          setCelebratedMatches(prev => new Set(prev).add(profileId));
-          matchesSet.add(profileId);
+          // Update both state and localStorage using match key
+        setCelebratedMatches(prev => new Set(prev).add(matchKey));
+          matchesSet.add(matchKey);
           localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(matchesSet)));
         }
       }
@@ -904,10 +1173,14 @@ export default function ResultsPage() {
           ));
 
           // Reset celebration flag when unmatching to allow re-celebration
-          if (!stillMatched && celebratedMatches.has(profileId)) {
+          const matchKey = getMatchKey(currentUserId, profileId);
+          if (!stillMatched && celebratedMatches.has(matchKey)) {
             setCelebratedMatches(prev => {
               const newSet = new Set(prev);
-              newSet.delete(profileId);
+              newSet.delete(matchKey);
+              // Also update localStorage
+              const celebratedMatchesKey = `celebrated_matches_${currentUserId}`;
+              localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(newSet)));
               return newSet;
             });
           }
@@ -965,23 +1238,22 @@ export default function ResultsPage() {
 
         {/* Slider */}
         <div className="flex items-center gap-3 mb-2 w-full">
-          <span className="text-sm text-gray-500 w-12 text-left shrink-0">{min}{unit}</span>
           <div className="flex-1 relative min-w-0 max-w-full overflow-visible">
-            <ReactSlider
-              key={`${label}-${sliderKey}`}
-              className="range-slider"
-              thumbClassName="range-slider__thumb"
-              trackClassName="range-slider__track"
-              defaultValue={sliderValues}
-              pearling
+        <ReactSlider
+          key={`${label}-${sliderKey}`}
+          className="range-slider"
+          thumbClassName="range-slider__thumb"
+          trackClassName="range-slider__track"
+          defaultValue={sliderValues}
+          pearling
               minDistance={0}
-              min={min}
-              max={max}
-              step={1}
-              ariaLabel={[`${label} minimum`, `${label} maximum`]}
+          min={min}
+          max={max}
+          step={1}
+          ariaLabel={[`${label} minimum`, `${label} maximum`]}
               ariaValuetext={(state) => `${label} value ${state.valueNow}`}
-              renderThumb={(props, state) => {
-                const { key, ...restProps } = props;
+          renderThumb={(props, state) => {
+            const { key, ...restProps } = props;
                 return (
                   <div key={key} {...restProps}>
                     <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-sm text-gray-600 whitespace-nowrap">
@@ -989,12 +1261,11 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 );
-              }}
-              onChange={(vals) => setSliderValues(vals as [number, number])}
-              onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
-            />
+          }}
+          onChange={(vals) => setSliderValues(vals as [number, number])}
+          onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
+        />
           </div>
-          <span className="text-sm text-gray-500 w-12 text-right shrink-0">{max}{unit}</span>
         </div>
 
         <style jsx global>{`
@@ -1082,17 +1353,24 @@ export default function ResultsPage() {
   const applyFiltersAndClose = async () => {
     console.log('🔍 Applying filters:', filters);
 
+    // Prevent multiple simultaneous calls
+    if (isApplyingFilters) {
+      console.log('⚠️ Already applying filters, skipping...');
+      return;
+    }
+
     try {
+      setIsApplyingFilters(true);
       // Mark that filters have been applied
       setFiltersApplied(true);
+      setLoading(true);
 
-      // Reset to first page and fetch with filters
+      // Reset to first page
       setCurrentPage(1);
       setVisibleCount(15);
 
-      console.log('📡 Calling fetchCompatibleUsers with filters...');
+      // Just load the first page - don't automatically load all pages
       await fetchCompatibleUsers(1, true);
-      console.log('✅ Fetch completed successfully');
 
       // Close the modal
       setShowFilterModal(false);
@@ -1102,11 +1380,14 @@ export default function ResultsPage() {
       setError('Failed to apply filters. Please try again.');
       // Still close the modal even on error to avoid stuck state
       setShowFilterModal(false);
+    } finally {
+      setLoading(false);
+      setIsApplyingFilters(false);
     }
   };
 
   // Sort profiles based on selected sort option
-  const sortProfiles = (profilesToSort: ResultProfile[]) => {
+  const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null) => {
     const sorted = [...profilesToSort];
 
     switch (sortOption) {
@@ -1115,9 +1396,23 @@ export default function ResultsPage() {
         sorted.sort((a, b) => b.compatibility.overall_compatibility - a.compatibility.overall_compatibility);
         break;
       case 'distance':
-        // Sort by distance (closest first) - Note: distance field not yet in API
-        // For now, sort by a placeholder or random
+        // Sort by distance (closest first)
+        if (userLive) {
+          sorted.sort((a, b) => {
+            const distanceA = getDistance(userLive, a.user.live);
+            const distanceB = getDistance(userLive, b.user.live);
+            
+            // Handle null distances (cities not in CSV) - put them at the end
+            if (distanceA === null && distanceB === null) return 0;
+            if (distanceA === null) return 1;
+            if (distanceB === null) return -1;
+            
+            return distanceA - distanceB;
+          });
+        } else {
+          // If user's live field is not available, sort randomly as fallback
         sorted.sort(() => Math.random() - 0.5);
+        }
         break;
       case 'age-asc':
         // Sort by age (youngest to oldest)
@@ -1160,7 +1455,7 @@ export default function ResultsPage() {
         {/* Centered Search Bar */}
         <div className="flex items-center justify-center w-full">
           <div className="flex items-center max-w-2xl">
-            <div className="relative">
+            <div className="relative flex items-center">
               <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none">
                 <svg className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1168,11 +1463,84 @@ export default function ResultsPage() {
               </div>
               <input
                 type="text"
-                placeholder="Search people"
+                placeholder={searchField === 'name' ? 'Search by Name' : searchField === 'username' ? 'Search by Username' : searchField === 'live' ? 'Search by Location' : 'Search by Bio'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-[220px] sm:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                className="w-[220px] sm:w-[400px] pl-8 sm:pl-10 pr-3 md:pr-20 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full md:rounded-l-full md:rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
               />
+              {/* Search Field Dropdown Button - visible on md+ screens */}
+              <div className="hidden md:block relative" ref={searchFieldDropdownRef}>
+                <button
+                  onClick={() => setShowSearchFieldDropdown(!showSearchFieldDropdown)}
+                  className="h-full px-3 sm:px-4 py-2 sm:py-3 border border-l-0 border-gray-300 rounded-r-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-1 relative shadow-sm"
+                >
+                  <span className="text-xs sm:text-sm">
+                    {searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'Bio'}
+                  </span>
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Search Field Dropdown */}
+                {showSearchFieldDropdown && (
+                  <div
+                    className="absolute top-full mt-2 right-0 w-48 bg-white rounded-2xl shadow-lg border border-gray-200 py-2 z-50"
+                  >
+                    <button
+                      onClick={() => {
+                        setSearchField('name');
+                        setShowSearchFieldDropdown(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer ${
+                        searchField === 'name' ? 'bg-gray-50' : ''
+                      }`}
+                    >
+                      <div className={`font-semibold ${searchField === 'name' ? 'text-indigo-600' : 'text-black'}`}>Name</div>
+                      <div className="text-sm text-gray-500">Search by first name</div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSearchField('username');
+                        setShowSearchFieldDropdown(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer ${
+                        searchField === 'username' ? 'bg-gray-50' : ''
+                      }`}
+                    >
+                      <div className={`font-semibold ${searchField === 'username' ? 'text-indigo-600' : 'text-black'}`}>Username</div>
+                      <div className="text-sm text-gray-500">Search by username</div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSearchField('live');
+                        setShowSearchFieldDropdown(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer ${
+                        searchField === 'live' ? 'bg-gray-50' : ''
+                      }`}
+                    >
+                      <div className={`font-semibold ${searchField === 'live' ? 'text-indigo-600' : 'text-black'}`}>Live</div>
+                      <div className="text-sm text-gray-500">Search by location</div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSearchField('bio');
+                        setShowSearchFieldDropdown(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer ${
+                        searchField === 'bio' ? 'bg-gray-50' : ''
+                      }`}
+                    >
+                      <div className={`font-semibold ${searchField === 'bio' ? 'text-indigo-600' : 'text-black'}`}>Bio</div>
+                      <div className="text-sm text-gray-500">Search by bio text</div>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <button
@@ -1266,7 +1634,7 @@ export default function ResultsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
           <p className="text-base text-gray-500">
-            Showing {searchTerm.trim() ? sortedProfiles.length : profiles.length} of {totalCount > 0 ? totalCount : 'many'} people
+            Showing {Math.min(sortedProfiles.length, visibleCount)} of {filtersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many')} people
             {searchTerm.trim() && ` (searching for "${searchTerm}")`}
           </p>
         </div>
@@ -1281,7 +1649,7 @@ export default function ResultsPage() {
           </div>
         ) : sortedProfiles.length === 0 && searchTerm.trim() && !loading && !hasNextPage && profiles.length > 0 ? (
           <div className="flex justify-center items-center py-12">
-            <div className="text-gray-500">No users found matching "{searchTerm}"</div>
+            <div className="text-gray-500">No users found matching &quot;{searchTerm}&quot;</div>
           </div>
         ) : sortedProfiles.length === 0 && searchTerm.trim() && (loading || hasNextPage || profiles.length === 0) ? (
           <div className="flex justify-center items-center py-12">
@@ -1374,10 +1742,12 @@ export default function ResultsPage() {
                           </h3>
                         </div>
 
-                        {/* Active Indicator - Green circle at bottom right */}
+                        {/* Active Indicator - Green circle at bottom right (only if online) */}
+                        {profile.user.is_online && (
                         <div className="absolute bottom-2 right-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         </div>
+                        )}
                       </div>
                     </div>
                   </CardWithProgressBorder>

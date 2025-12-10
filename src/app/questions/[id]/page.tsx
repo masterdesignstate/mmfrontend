@@ -543,6 +543,8 @@ export default function QuestionEditPage() {
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [showAllGroupedOptions, setShowAllGroupedOptions] = useState(false);
+  const [meShare, setMeShare] = useState(true);
+  const [meRequired, setMeRequired] = useState(false);
 
   // Static importance labels for importance sliders
   const IMPORTANCE_LABELS = [
@@ -715,6 +717,12 @@ export default function QuestionEditPage() {
           me: answer.me_importance || 3,
           lookingFor: answer.looking_for_importance || 3
         });
+        
+        // Initialize meShare and meRequired for non-grouped questions > 10
+        if (question.question_number > 10 && question.question_type !== 'grouped') {
+          setMeShare(answer.me_share !== false); // Default to true if not set
+          setMeRequired(answer.me_importance === 5);
+        }
       } else {
         // Default values
         sliders[`${key}_me`] = 3;
@@ -798,8 +806,8 @@ export default function QuestionEditPage() {
 
       const updates = [];
 
-      if ([1, 2, 6, 7, 8, 9, 10].includes(questionNumber)) {
-        // Slider-based questions
+      if ([1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || (questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped')) {
+        // Slider-based questions (including non-grouped questions > 10)
         for (const question of questions) {
           const key = `q${question.group_number || question.id}`;
           const existingAnswer = existingAnswers.find(a => {
@@ -807,13 +815,17 @@ export default function QuestionEditPage() {
             return questionId === question.id;
           });
 
+          // For non-grouped questions > 10, use meShare and meRequired from state
+          // For other questions, use defaults
+          const isNonGroupedQuestionOver10 = questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped';
+
           const answerData = {
             user_id: userId,
             question_id: question.id,
             me_answer: openToAllStates[`${key}_me`] ? 6 : sliderAnswers[`${key}_me`] || 3,
             me_open_to_all: openToAllStates[`${key}_me`] || false,
-            me_importance: importanceValues.me,
-            me_share: true,
+            me_importance: isNonGroupedQuestionOver10 ? (meRequired ? 5 : importanceValues.me) : importanceValues.me,
+            me_share: isNonGroupedQuestionOver10 ? meShare : true,
             looking_for_answer: openToAllStates[`${key}_looking`] ? 6 : sliderAnswers[`${key}_looking`] || 3,
             looking_for_open_to_all: openToAllStates[`${key}_looking`] || false,
             looking_for_importance: importanceValues.lookingFor,
@@ -1746,6 +1758,139 @@ export default function QuestionEditPage() {
       );
     }
 
+    // Basic single questions (non-grouped questions > 10) - render with Me and Them sliders
+    // Check if this is NOT a grouped question and question_number > 10
+    const isBasicSingleQuestion = questions.length > 0 && 
+                                   questions[0].question_type !== 'grouped' && 
+                                   questionNumber > 10;
+    
+    if (isBasicSingleQuestion && questions.length === 1) {
+      const question = questions[0];
+      const key = `q${question.id}`;
+      const meKey = `${key}_me`;
+      const lookingKey = `${key}_looking`;
+
+      return (
+        <div className="flex flex-col items-center w-full">
+          {/* Them Section */}
+          <div className="mb-6 w-full flex flex-col items-center">
+            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div>
+              <div className="flex justify-between text-xs text-gray-500">
+                {question.answers && question.answers.length > 0 ? (
+                  <>
+                    <span>{question.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
+                    <span>{question.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>LESS</span>
+                    <span>MORE</span>
+                  </>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {question.open_to_all_looking_for ? 'OTA' : ''}
+              </div>
+            </div>
+
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div>
+              <div className="relative">
+                <SliderComponent
+                  value={sliderAnswers[lookingKey] || 3}
+                  onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
+                  isOpenToAll={openToAllStates[lookingKey] || false}
+                  labels={question.answers}
+                />
+              </div>
+              <div>
+                {question.open_to_all_looking_for ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAllStates[lookingKey] || false}
+                        onChange={() => setOpenToAllStates(prev => ({
+                          ...prev,
+                          [lookingKey]: !prev[lookingKey]
+                        }))}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAllStates[lookingKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[lookingKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Me Section */}
+          <div className="mb-6 w-full flex flex-col items-center">
+            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div>
+              <div className="flex justify-between text-xs text-gray-500">
+                {question.answers && question.answers.length > 0 ? (
+                  <>
+                    <span>{question.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
+                    <span>{question.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>LESS</span>
+                    <span>MORE</span>
+                  </>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                {question.open_to_all_me ? 'OTA' : ''}
+              </div>
+            </div>
+
+            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+              <div></div>
+              <div className="relative">
+                <SliderComponent
+                  value={sliderAnswers[meKey] || 3}
+                  onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
+                  isOpenToAll={openToAllStates[meKey] || false}
+                  labels={question.answers}
+                />
+              </div>
+              <div>
+                {question.open_to_all_me ? (
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={openToAllStates[meKey] || false}
+                        onChange={() => setOpenToAllStates(prev => ({
+                          ...prev,
+                          [meKey]: !prev[meKey]
+                        }))}
+                        className="sr-only"
+                      />
+                      <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="w-11 h-6"></div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Other questions - need to implement based on onboarding structure
     return (
       <div>
@@ -1783,9 +1928,51 @@ export default function QuestionEditPage() {
         <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
+            <div className="inline-block">
             <h1 className="text-3xl font-bold text-black mb-2">
-              {questionNumber}. {questions && questions.length > 0 && questions[0].group_name ? questions[0].group_name : questionTitles[questionNumber]}
+                {questionNumber}. {questions && questions.length > 0 ? (
+                  questions[0].group_name ? questions[0].group_name : 
+                  (questions[0].question_name || questionTitles[questionNumber])
+                ) : questionTitles[questionNumber]}
             </h1>
+              
+              {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
+              {questionNumber > 10 && questions && questions.length > 0 && questions[0].question_type !== 'grouped' && (
+                <div className="flex items-center justify-between w-full mt-4">
+                  {/* Required For Match - Left */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMeRequired(!meRequired)}
+                      className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                      style={{ backgroundColor: meRequired ? '#000000' : '#ADADAD' }}
+                    >
+                      <span
+                        className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                        style={{ transform: meRequired ? 'translateX(20px)' : 'translateX(2px)' }}
+                      />
+                    </button>
+                    <span className="text-sm text-black">Required For Match</span>
+                  </div>
+
+                  {/* Share Answer - Right */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMeShare(!meShare)}
+                      className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                      style={{ backgroundColor: meShare ? '#000000' : '#ADADAD' }}
+                    >
+                      <span
+                        className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                        style={{ transform: meShare ? 'translateX(20px)' : 'translateX(2px)' }}
+                      />
+                    </button>
+                    <span className="text-sm text-black">Share Answer</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <p className="text-3xl font-bold text-black mb-12">
               {questions && questions.length > 0 && questions[0].group_name_text ? questions[0].group_name_text : questionTexts[questionNumber]}
             </p>

@@ -13,9 +13,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Clear all stored data when landing on login page
+  // Clear all stored data when landing on login page (but preserve celebrated matches)
   useEffect(() => {
+    // Save celebrated matches before clearing
+    const celebratedMatchesKeys: { [key: string]: string } = {};
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('celebrated_matches_')) {
+        celebratedMatchesKeys[key] = localStorage.getItem(key) || '';
+      }
+    });
+    
+    // Clear all localStorage
     localStorage.clear();
+    
+    // Restore celebrated matches
+    Object.keys(celebratedMatchesKeys).forEach(key => {
+      localStorage.setItem(key, celebratedMatchesKeys[key]);
+    });
+    
     sessionStorage.clear();
   }, []);
 
