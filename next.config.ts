@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // trailingSlash: true, // DISABLED - causes redirect loops with API proxy
+  // Suppress warnings about dynamic rendering
+  logging: {
+    fetches: {
+      fullUrl: false,
+    },
+  },
   images: {
     remotePatterns: [
       {
