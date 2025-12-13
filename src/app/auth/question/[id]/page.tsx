@@ -1257,11 +1257,11 @@ export default function QuestionPage() {
             </h1>
             <div className="inline-block">
               <p className="text-3xl font-bold text-black mb-4">
-                {params.id === '8' ? 'How often do you practice religion?' :
-                 params.id === '9' ? 'How important is politics in your life?' :
-                 params.id === 'education' ? 'What is your highest level of education?' :
-                 question?.text || 'What ethnicity do you identify with?'}
-              </p>
+              {params.id === '8' ? 'How often do you practice religion?' :
+               params.id === '9' ? 'How important is politics in your life?' :
+               params.id === 'education' ? 'What is your highest level of education?' :
+               question?.text || 'What ethnicity do you identify with?'}
+            </p>
               
               {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
               {question && question.question_number > 10 && (

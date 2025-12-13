@@ -127,6 +127,7 @@ interface PaginatedResponse<T> {
 // const API_BASE_URL = 'http://localhost:9090/api';
 const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
 
+
 class ApiService {
   private async request(endpoint: string, method: string, data?: Record<string, unknown>): Promise<unknown> {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -194,7 +195,7 @@ class ApiService {
         
         console.log('Fetch completed!');
         console.log('Response URL:', response.url);
-        console.log('Response status:', response.status);
+        console.log('Response status :', response.status);
         console.log('Response statusText:', response.statusText);
         
         if (!response.ok) {

@@ -78,7 +78,7 @@ export default function NotificationsPage() {
       }
 
       // Navigate to profile for all notifications
-      router.push(`/profile/${notification.sender.id}`);
+        router.push(`/profile/${notification.sender.id}`);
     } catch (error) {
       console.error('Error handling notification click:', error);
       // Still navigate to profile even if something fails
