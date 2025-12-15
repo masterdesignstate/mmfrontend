@@ -417,9 +417,25 @@ export default function ResultsPage() {
   }, []);
 
   useEffect(() => {
-    // Only fetch on initial mount if filters haven't been applied yet
-    if (!filtersApplied && !isApplyingFilters) {
-    fetchCompatibleUsers(1, false);
+    // Check if filters are active (not just default values)
+    const hasActiveFilters = filtersApplied || 
+      filters.compatibility.min !== 0 || 
+      filters.compatibility.max !== 100 ||
+      filters.distance.min !== 1 || 
+      filters.distance.max !== 50 ||
+      filters.age.min !== 18 || 
+      filters.age.max !== 35 ||
+      (filters.tags && filters.tags.length > 0) ||
+      filters.requiredOnly;
+
+    // If filters are active, fetch with filters applied
+    // Otherwise, fetch without filters
+    if (!isApplyingFilters) {
+      if (hasActiveFilters) {
+        fetchCompatibleUsers(1, true);
+      } else {
+        fetchCompatibleUsers(1, false);
+      }
     }
     // Always check for matches on page load, regardless of filters
     checkForMatchesOnLoad();
@@ -746,12 +762,12 @@ export default function ResultsPage() {
       }
       
       // Then sort the filtered profiles
-      setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive));
+      setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive, filters.compatibilityType));
     } else {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, filters.compatibilityType, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -1389,13 +1405,23 @@ export default function ResultsPage() {
   };
 
   // Sort profiles based on selected sort option
-  const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null) => {
+  const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null, compatibilityType: string = 'overall') => {
     const sorted = [...profilesToSort];
 
     switch (sortOption) {
       case 'compatibility':
-        // Sort by overall compatibility (highest first)
-        sorted.sort((a, b) => b.compatibility.overall_compatibility - a.compatibility.overall_compatibility);
+        // Sort by the selected compatibility type (highest first)
+        const getCompatibilityValue = (profile: ResultProfile) => {
+          switch (compatibilityType) {
+            case 'compatible_with_me':
+              return profile.compatibility.compatible_with_me;
+            case 'im_compatible_with':
+              return profile.compatibility.im_compatible_with;
+            default:
+              return profile.compatibility.overall_compatibility;
+          }
+        };
+        sorted.sort((a, b) => getCompatibilityValue(b) - getCompatibilityValue(a));
         break;
       case 'distance':
         // Sort by distance (closest first)

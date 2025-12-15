@@ -70,6 +70,8 @@ export default function QuestionsPage() {
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filterAppliedFromUrl = useRef<boolean>(false);
+  const isFetchingFilteredQuestions = useRef<boolean>(false);
+  const lastFilterState = useRef<string>('');
   const ROWS_PER_PAGE = 10;
   // Filter state - load from sessionStorage on mount
   const [filters, setFilters] = useState(() => {
@@ -435,7 +437,13 @@ export default function QuestionsPage() {
       });
 
       setQuestions(pageQuestions);
-      setFilteredQuestions(pageQuestions);
+      // Only set filteredQuestions if no filters are active
+      // Otherwise, let the filter effects handle filteredQuestions
+      const hasAnyFilters = Object.values(filters.questions).some(filter => filter) ||
+                           Object.values(filters.tags).some(filter => filter);
+      if (!hasAnyFilters) {
+        setFilteredQuestions(pageQuestions);
+      }
     } catch (error) {
       console.error('Error fetching questions for page:', error);
       setError('Failed to load questions');
@@ -446,12 +454,17 @@ export default function QuestionsPage() {
 
   // Effect to handle page changes (skip if using client-side filters since we do client-side pagination)
   useEffect(() => {
-    // Don't fetch if using client-side filters (we already have all filtered questions)
-    if (isClientSideFiltered) {
+    // Don't fetch if using answered/unanswered filters AND we already have questions
+    // But for other filters (mandatory, required, submitted, tags), we need to fetch questions first
+    const hasAnsweredUnansweredFilter = filters.questions.answered || filters.questions.unanswered;
+    if (hasAnsweredUnansweredFilter && questions.length > 0) {
       return;
     }
-    fetchQuestionsForCurrentPage();
-  }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered]);
+    // Only fetch if we have question numbers
+    if (allQuestionNumbers.length > 0) {
+      fetchQuestionsForCurrentPage();
+    }
+  }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, questions.length]);
 
   // Filtering system functions
   const applyFilters = useCallback(() => {
@@ -604,6 +617,11 @@ export default function QuestionsPage() {
     const fetchFilteredQuestions = async () => {
       // Only fetch if filtering by answered/unanswered
       if (!filters.questions.answered && !filters.questions.unanswered) {
+        // Clear filtered questions if filter is turned off
+        if (filteredQuestions.length > 0) {
+          setFilteredQuestions([]);
+        }
+        isFetchingFilteredQuestions.current = false;
         return;
       }
 
@@ -613,12 +631,26 @@ export default function QuestionsPage() {
         return;
       }
 
+      // Create a stable key for the current filter state to prevent duplicate fetches
+      const filterKey = `${filters.questions.answered}-${filters.questions.unanswered}-${allQuestionNumbers.length}-${userAnswers.length}`;
+      
+      // Prevent concurrent fetches and duplicate fetches with same filter state
+      if (isFetchingFilteredQuestions.current || lastFilterState.current === filterKey) {
+        console.log('⏭️ Skipping fetch - already in progress or same filter state');
+        return;
+      }
+
+      // Mark as fetching and store current state
+      isFetchingFilteredQuestions.current = true;
+      lastFilterState.current = filterKey;
+
       console.log('✅ Ready to apply filter. UserAnswers count:', userAnswers.length);
 
       // If filtering by answered and userAnswers is empty, no questions match
       if (filters.questions.answered && userAnswers.length === 0) {
         console.log('ℹ️ No answers found, showing empty results for ANSWERED filter');
         setFilteredQuestions([]);
+        isFetchingFilteredQuestions.current = false;
         return;
       }
 
@@ -659,6 +691,7 @@ export default function QuestionsPage() {
 
       if (matchingQuestionNumbers.length === 0) {
         setFilteredQuestions([]);
+        isFetchingFilteredQuestions.current = false;
         return;
       }
 
@@ -709,11 +742,12 @@ export default function QuestionsPage() {
         setError('Failed to load filtered questions');
       } finally {
         setLoading(false);
+        isFetchingFilteredQuestions.current = false;
       }
     };
 
     fetchFilteredQuestions();
-  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers, userAnswers]);
+  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, userAnswers.length]);
 
   // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
   useEffect(() => {
@@ -722,11 +756,17 @@ export default function QuestionsPage() {
       return;
     }
 
-    if (questions.length > 0) {
-      // Check if any filters are active
-      const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
-      const hasTagFilters = Object.values(filters.tags).some(filter => filter);
+    // Check if any filters are active
+    const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
+    const hasTagFilters = Object.values(filters.tags).some(filter => filter);
 
+    // If filters are active but questions haven't been loaded yet, trigger fetch
+    if ((hasQuestionFilters || hasTagFilters) && questions.length === 0 && allQuestionNumbers.length > 0) {
+      fetchQuestionsForCurrentPage();
+      return; // Will re-run when questions are loaded
+    }
+
+    if (questions.length > 0) {
       if (!hasQuestionFilters && !hasTagFilters) {
         // No filters active, show all questions
         setFilteredQuestions(questions);
@@ -735,7 +775,7 @@ export default function QuestionsPage() {
         applyFilters();
       }
     }
-  }, [questions, filters, applyFilters]);
+  }, [questions, filters, applyFilters, allQuestionNumbers.length]);
 
   // Sort handler
   const handleSortOptionSelect = (option: typeof sortOption) => {
