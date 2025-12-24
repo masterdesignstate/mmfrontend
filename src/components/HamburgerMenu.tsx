@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import NotificationBell from './NotificationBell';
+import ChatBell from './ChatBell';
 
 interface HamburgerMenuProps {
   className?: string;
@@ -38,28 +39,19 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
   const isProfilePage = pathname === '/profile' || pathname === '/profile/';
 
   const handleNavigation = (path: string) => {
-    // Clear filter state when explicitly navigating to Results or Questions from menu
-    if (path === '/results' || path === '/questions') {
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('results_page_filters');
-        sessionStorage.removeItem('results_page_filters_applied');
-        sessionStorage.removeItem('questions_page_filters');
-      }
-    }
-    
-    // For "All Questions", force a full reload to clear any filter state
-    if (path === '/questions') {
-      window.location.href = path;
-    } else {
-      router.push(path);
-    }
+    router.push(path);
     setShowMenu(false);
   };
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Notification Bell */}
-      {userId && <NotificationBell userId={userId} />}
+      {/* Chat and Notification Bells */}
+      {userId && (
+        <>
+          <ChatBell userId={userId} />
+          <NotificationBell userId={userId} />
+        </>
+      )}
 
       {/* Hamburger Menu Button */}
       <div className="relative">

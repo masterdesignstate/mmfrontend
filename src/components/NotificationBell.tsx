@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { apiService, Notification } from '@/services/api';
 
 interface NotificationBellProps {
@@ -15,6 +15,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
   // Fetch unread count
   const fetchUnreadCount = async () => {
@@ -80,8 +81,13 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           prev.map(n => (n.id === notification.id ? { ...n, is_read: true } : n))
         );
       }
-      // Navigate to notifications page
-      router.push('/notifications');
+      // Navigate to notifications page; if already there, refresh to pull latest
+      if (pathname === '/notifications') {
+        // Force a client-side reload to ensure list updates
+        window.location.reload();
+      } else {
+        router.push('/notifications');
+      }
       setIsOpen(false);
     } catch (error) {
       console.error('Error marking notification as read:', error);

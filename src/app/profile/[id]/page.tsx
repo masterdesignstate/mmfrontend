@@ -3179,7 +3179,7 @@ export default function UserProfilePage() {
                   if (!currentUserId) return;
 
                   try {
-                    const response = await fetch('http://localhost:9090/api/reports/', {
+                    const response = await fetch(getApiUrl(API_ENDPOINTS.REPORTS), {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',

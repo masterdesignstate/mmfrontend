@@ -56,6 +56,12 @@ export default function QuestionsPage() {
   const [shareAnswer, setShareAnswer] = useState(true);
   const [sliderValue, setSliderValue] = useState(3);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Question[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchIndexTimestamp = useRef<number | null>(null);
+  const searchIndexBuilding = useRef<boolean>(false);
+  const [searchIndex, setSearchIndex] = useState<Question[]>([]);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,6 +78,8 @@ export default function QuestionsPage() {
   const filterAppliedFromUrl = useRef<boolean>(false);
   const isFetchingFilteredQuestions = useRef<boolean>(false);
   const lastFilterState = useRef<string>('');
+  const metadataRefreshInProgress = useRef<boolean>(false);
+  const lastFetchedQuestionNumbersRef = useRef<string>('');
   const ROWS_PER_PAGE = 10;
   // Filter state - load from sessionStorage on mount
   const [filters, setFilters] = useState(() => {
@@ -120,17 +128,29 @@ export default function QuestionsPage() {
   }, [showFilterModal, filters]);
 
   // Fetch question metadata (question numbers and answer counts) from backend in single optimized request
-  const fetchQuestionMetadata = async () => {
+  const fetchQuestionMetadata = async (forceRefresh: boolean = false) => {
     try {
-      // Check sessionStorage cache first (5 min TTL)
       const cacheKey = 'questions_metadata';
       const cachedData = sessionStorage.getItem(cacheKey);
       const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+      const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
+      const shouldClearInvalidationFlag = !!invalidationFlag;
       const now = Date.now();
 
-      if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 300000) { // 5 min cache
+      // Check if cache was invalidated (question was approved/rejected)
+      if (invalidationFlag) {
+        console.log('🔄 Cache invalidation flag detected, forcing refresh');
+        forceRefresh = true;
+      }
+      if (forceRefresh) {
+        lastFetchedQuestionNumbersRef.current = '';
+      }
+
+      // Use cached metadata immediately for fast render, but still fetch fresh below
+      const cacheIsFresh = cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 60000; // 1 min cache
+      if (!forceRefresh && cacheIsFresh) {
         console.log('Using cached question metadata');
-        const metadata = JSON.parse(cachedData);
+        const metadata = JSON.parse(cachedData as string);
         console.log('📊 Cached Metadata:', {
           distinct_question_numbers: metadata.distinct_question_numbers,
           total_question_groups: metadata.total_question_groups,
@@ -142,16 +162,21 @@ export default function QuestionsPage() {
         setTotalQuestionGroups(metadata.total_question_groups);
         setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
         setAnswerCounts(metadata.answer_counts);
-        return validQuestionNumbers;
+        // Don't return early; continue to fetch fresh data to pick up approvals immediately
+      }
+      
+      // Build metadata URL; bypass backend cache on every network fetch (frontend caches in sessionStorage)
+      const metadataUrl = new URL(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`);
+      metadataUrl.searchParams.set('bypass_cache', 'true');
+      if (forceRefresh) {
+        console.log('🔄 Force refresh: bypassing backend cache');
+      } else {
+        console.log('🔄 Defaulting to backend cache bypass (frontend handles caching)');
       }
 
-      // Fetch from new optimized metadata endpoint
-      const metadataUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`;
-      console.log('🔍 Fetching metadata from:', metadataUrl);
-      console.log('🔍 Full metadata URL:', metadataUrl);
+      console.log('🔍 Fetching metadata from:', metadataUrl.toString());
       
-      const response = await fetch(metadataUrl, {
-   
+      const response = await fetch(metadataUrl.toString(), {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -167,10 +192,29 @@ export default function QuestionsPage() {
           answer_counts: metadata.answer_counts
         });
         console.log('📊 All question numbers in metadata:', metadata.distinct_question_numbers);
+        const sortedNumbers = metadata.distinct_question_numbers.sort((a: number, b: number) => a - b);
+        console.log('📊 Missing numbers check:', {
+          all_numbers: sortedNumbers,
+          missing_13: !metadata.distinct_question_numbers.includes(13),
+          missing_18: !metadata.distinct_question_numbers.includes(18),
+          has_18: metadata.distinct_question_numbers.includes(18),
+          note: 'If missing, these questions either don\'t exist or are not approved (is_approved=False)',
+          was_force_refresh: forceRefresh,
+          cache_bypassed: forceRefresh
+        });
+        
+        // If we were force refreshing and 18 is still missing, log a warning
+        if (forceRefresh && !metadata.distinct_question_numbers.includes(18)) {
+          console.warn('⚠️ Force refresh completed but question 18 is still missing from metadata!');
+          console.warn('⚠️ This means question 18 either: 1) Doesn\'t exist, 2) Is not approved, or 3) Backend cache wasn\'t cleared');
+        }
 
         // Cache the metadata
         sessionStorage.setItem(cacheKey, JSON.stringify(metadata));
         sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+        if (shouldClearInvalidationFlag) {
+          sessionStorage.removeItem('questions_metadata_invalidated');
+        }
 
         // Filter out any null values from distinct_question_numbers
         const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
@@ -222,8 +266,39 @@ export default function QuestionsPage() {
         }
         setUserId(storedUserId);
 
+        // Check for refresh parameter and cache invalidation flag first (set when question is approved in dashboard)
+        let hasRefreshParam = false;
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          hasRefreshParam = url.searchParams.get('refresh') === 'true';
+          if (hasRefreshParam) {
+            url.searchParams.delete('refresh');
+            window.history.replaceState({}, '', url.toString());
+            sessionStorage.removeItem('questions_metadata');
+            sessionStorage.removeItem('questions_metadata_timestamp');
+          }
+        }
+
+        const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
+        const shouldForceRefresh = !!invalidationFlag || hasRefreshParam;
+        
+        if (invalidationFlag) {
+          console.log('🔄 Cache invalidation flag found on mount, will force refresh');
+        }
+        if (hasRefreshParam) {
+          console.log('🔄 Refresh parameter found on mount, will force refresh');
+        }
+
         // Fetch question metadata (question numbers + answer counts) in single optimized request
-        const questionNumbers = await fetchQuestionMetadata();
+        // Force refresh if invalidation flag exists
+        metadataRefreshInProgress.current = true;
+        const questionNumbers = await fetchQuestionMetadata(shouldForceRefresh);
+        
+        // Debug: Check if 18 is in the results
+        if (questionNumbers && questionNumbers.length > 0) {
+          console.log('✅ Metadata fetched, has question 18?', questionNumbers.includes(18));
+          console.log('✅ All question numbers:', questionNumbers.sort((a, b) => a - b));
+        }
 
         // Questions will be fetched by the useEffect for pagination
 
@@ -272,6 +347,7 @@ export default function QuestionsPage() {
         console.error('Error fetching data:', error);
         setError('Failed to load questions');
       } finally {
+        metadataRefreshInProgress.current = false;
         setLoading(false);
       }
     };
@@ -279,32 +355,70 @@ export default function QuestionsPage() {
     fetchQuestionsAndAnswers();
   }, [router]);
 
-  // Check for refresh parameter and refetch metadata
+  // Refetch metadata when page becomes visible or focused (user navigates back from dashboard)
   useEffect(() => {
-    const refresh = searchParams.get('refresh');
-    if (refresh === 'true') {
-      // Clear the refresh parameter from URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('refresh');
-      window.history.replaceState({}, '', url.toString());
+    const checkAndRefetch = async () => {
+      if (metadataRefreshInProgress.current) return;
 
-      // Clear cache and refetch metadata
-      sessionStorage.removeItem('questions_metadata');
-      sessionStorage.removeItem('questions_metadata_timestamp');
-      fetchQuestionMetadata();
-    }
-  }, [searchParams]);
+      // Check if cache invalidation flag exists (set when question is approved/rejected)
+      const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
+      if (invalidationFlag) {
+        console.log('🔄 Cache invalidation detected, refetching metadata');
+        metadataRefreshInProgress.current = true;
+        try {
+          const questionNumbers = await fetchQuestionMetadata(true);
+          if (questionNumbers && questionNumbers.length > 0) {
+            console.log('✅ Metadata refetched, new question numbers:', questionNumbers);
+            console.log('✅ Has question 18?', questionNumbers.includes(18));
+          }
+        } catch (error) {
+          console.error('Error refetching metadata:', error);
+        } finally {
+          metadataRefreshInProgress.current = false;
+        }
+        return;
+      }
+      
+      // Also check if cache is missing or expired
+      const cacheKey = 'questions_metadata';
+      const cachedData = sessionStorage.getItem(cacheKey);
+      const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+      
+      if (!cachedData || !cacheTimestamp || (Date.now() - parseInt(cacheTimestamp)) > 60000) { // 1 min cache
+        console.log('🔄 Cache missing/expired, refetching metadata');
+        try {
+          metadataRefreshInProgress.current = true;
+          await fetchQuestionMetadata(true);
+        } catch (error) {
+          console.error('Error refetching metadata:', error);
+        } finally {
+          metadataRefreshInProgress.current = false;
+        }
+      }
+    };
 
-  // Clear stale cache on mount (one-time cache bust)
-  useEffect(() => {
-    const cacheBustKey = 'questions_cache_v2';
-    if (!sessionStorage.getItem(cacheBustKey)) {
-      console.log('🔄 Cache bust: Clearing stale question metadata');
-      sessionStorage.removeItem('questions_metadata');
-      sessionStorage.removeItem('questions_metadata_timestamp');
-      sessionStorage.setItem(cacheBustKey, 'true');
-    }
-  }, []);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Page became visible, checking for cache invalidation');
+        checkAndRefetch();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('🎯 Window focused, checking for cache invalidation');
+      checkAndRefetch();
+    };
+
+    // Check when page becomes visible/focused
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // fetchQuestionMetadata is stable, don't need in deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -349,6 +463,17 @@ export default function QuestionsPage() {
   const fetchQuestionsForCurrentPage = React.useCallback(async () => {
     if (allQuestionNumbers.length === 0) return;
 
+    // Debug: Log what's in allQuestionNumbers
+    const sortedAllNumbers = [...allQuestionNumbers].sort((a, b) => a - b);
+    console.log('🔍 allQuestionNumbers content:', {
+      total_count: allQuestionNumbers.length,
+      all_numbers: sortedAllNumbers,
+      has_13: allQuestionNumbers.includes(13),
+      has_18: allQuestionNumbers.includes(18),
+      missing_from_sequence: Array.from({length: Math.max(...sortedAllNumbers, 0)}, (_, i) => i + 1)
+        .filter(n => !sortedAllNumbers.includes(n))
+    });
+
     // Sort question numbers based on sort option
     const questionNumbersWithMetadata = allQuestionNumbers.map(qNum => ({
       questionNumber: qNum,
@@ -376,18 +501,46 @@ export default function QuestionsPage() {
     const sortedQuestionNumbers = sorted.map(item => item.questionNumber);
 
     try {
-      setLoading(true);
-
       // Calculate which question numbers to show on current page
       const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
       const endIndex = startIndex + ROWS_PER_PAGE;
       const pageQuestionNumbers = sortedQuestionNumbers.slice(startIndex, endIndex);
+      const pageKey = pageQuestionNumbers.join(',');
+
+      // Debug: Check what question numbers we're requesting
+      const sortedAllNumbers = [...allQuestionNumbers].sort((a, b) => a - b);
+      console.log('📤 Requesting questions for page:', {
+        currentPage,
+        startIndex,
+        endIndex,
+        all_question_numbers: sortedAllNumbers,
+        sorted_question_numbers: sortedQuestionNumbers,
+        page_question_numbers: pageQuestionNumbers,
+        specifically_checking_13: pageQuestionNumbers.includes(13),
+        specifically_checking_18: pageQuestionNumbers.includes(18),
+        position_of_13_in_sorted: sortedQuestionNumbers.indexOf(13),
+        position_of_18_in_sorted: sortedQuestionNumbers.indexOf(18),
+        position_of_13_in_all: sortedAllNumbers.indexOf(13),
+        position_of_18_in_all: sortedAllNumbers.indexOf(18),
+        slice_details: {
+          before_slice: sortedQuestionNumbers.slice(0, startIndex),
+          slice_content: sortedQuestionNumbers.slice(startIndex, endIndex),
+          after_slice: sortedQuestionNumbers.slice(endIndex)
+        }
+      });
+
+      if (pageKey && pageKey === lastFetchedQuestionNumbersRef.current) {
+        console.log('⏭️ Skipping fetch; page question numbers unchanged');
+        return;
+      }
 
       if (pageQuestionNumbers.length === 0) {
         setQuestions([]);
         setFilteredQuestions([]);
         return;
       }
+
+      setLoading(true);
 
       // Build single batch API call with multiple question_number params
       const questionNumberParams = pageQuestionNumbers.map(num => `question_number=${num}`).join('&');
@@ -436,7 +589,21 @@ export default function QuestionsPage() {
         return (a.group_number || 0) - (b.group_number || 0);
       });
 
+      // Debug: Check what question numbers we fetched
+      const fetchedQuestionNumbers = pageQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+      console.log('📥 Fetched questions - Question numbers received:', fetchedQuestionNumbers);
+      console.log('📥 Fetched questions - Requested vs Received:', {
+        requested_question_numbers: pageQuestionNumbers.sort((a, b) => a - b),
+        received_question_numbers: fetchedQuestionNumbers,
+        missing_from_response: pageQuestionNumbers.filter(n => !fetchedQuestionNumbers.includes(n)),
+        specifically_checking_13: fetchedQuestionNumbers.includes(13),
+        specifically_checking_18: fetchedQuestionNumbers.includes(18),
+        questions_with_13: pageQuestions.filter(q => q.question_number === 13),
+        questions_with_18: pageQuestions.filter(q => q.question_number === 18)
+      });
+
       setQuestions(pageQuestions);
+      lastFetchedQuestionNumbersRef.current = pageKey;
       // Only set filteredQuestions if no filters are active
       // Otherwise, let the filter effects handle filteredQuestions
       const hasAnyFilters = Object.values(filters.questions).some(filter => filter) ||
@@ -465,6 +632,169 @@ export default function QuestionsPage() {
       fetchQuestionsForCurrentPage();
     }
   }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, questions.length]);
+
+  // Search questions by text (backend search)
+  useEffect(() => {
+    const term = searchTerm.trim();
+
+    if (!term) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const debounceId = setTimeout(async () => {
+      const activeTerm = term;
+      const applyResults = (items: Question[]) => {
+        if (cancelled || searchTerm.trim() !== activeTerm) return;
+        setSearchResults(items);
+        setFilteredQuestions(items);
+        setCurrentPage(1);
+      };
+
+      try {
+        setIsSearching(true);
+
+        // 1) Server-side search first
+        let serverResults: Question[] = [];
+        try {
+          let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?search=${encodeURIComponent(activeTerm)}&page_size=200&include_unapproved=true&skip_user_answers=true`;
+          let page = 0;
+          while (nextUrl && page < 10) { // safety limit
+            const response = await fetch(nextUrl, {
+              headers: { 'Content-Type': 'application/json' },
+              signal: controller.signal
+            });
+            if (!response.ok) {
+              throw new Error(`Failed to search questions: ${response.status}`);
+            }
+            const data = await response.json();
+            const pageResults = data.results || [];
+            serverResults.push(...pageResults);
+            nextUrl = data.next || null;
+            page += 1;
+          }
+        } catch (err) {
+          if (controller.signal.aborted || cancelled) return;
+          // fall through to client-side search
+        }
+
+        if (!cancelled && serverResults.length > 0) {
+          serverResults.sort((a, b) => {
+            if (a.question_number !== b.question_number) {
+              return (a.question_number || 0) - (b.question_number || 0);
+            }
+            return (a.group_number || 0) - (b.group_number || 0);
+          });
+          applyResults(serverResults);
+          return;
+        }
+
+        // 2) Client-side search: reuse cached index (<=5 minutes) or rebuild
+        const now = Date.now();
+        const indexIsFresh = searchIndex.length > 0 && searchIndexTimestamp.current && (now - searchIndexTimestamp.current) < 5 * 60 * 1000;
+
+        let indexToUse = searchIndex;
+
+        if (!indexIsFresh && !searchIndexBuilding.current) {
+          searchIndexBuilding.current = true;
+          try {
+            let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=200&include_unapproved=true&skip_user_answers=true`;
+            let page = 0;
+            const results: Question[] = [];
+
+            while (nextUrl && page < 25) { // safety limit
+              const response = await fetch(nextUrl, {
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal
+          });
+
+              if (!response.ok) {
+                throw new Error(`Failed to build search index: ${response.status}`);
+              }
+
+              const data = await response.json();
+              const pageResults = data.results || [];
+              results.push(...pageResults);
+              nextUrl = data.next || null;
+              page += 1;
+            }
+
+            results.sort((a, b) => {
+              if (a.question_number !== b.question_number) {
+                return (a.question_number || 0) - (b.question_number || 0);
+              }
+              return (a.group_number || 0) - (b.group_number || 0);
+            });
+
+            if (!cancelled) {
+              setSearchIndex(results);
+              searchIndexTimestamp.current = now;
+              indexToUse = results;
+            }
+          } finally {
+            searchIndexBuilding.current = false;
+          }
+        }
+
+        // If still no index (e.g., fetch failed), fall back to current questions list
+        if (!indexToUse || indexToUse.length === 0) {
+          indexToUse = questions;
+        }
+
+        const needle = term.toLowerCase();
+        const matches = indexToUse.filter(q => {
+          const isGrouped = q.is_group || ['grouped', 'four', 'triple', 'double'].includes(q.question_type || '');
+          const groupNameText = (q.group_name_text || '').toLowerCase();
+          const groupName = (q.group_name || '').toLowerCase();
+          const text = (q.text || '').toLowerCase();
+          const name = (q.question_name || '').toLowerCase();
+          const num = (q.question_number ?? '').toString();
+          // Only show approved questions
+          if (q.is_approved === false) return false;
+          // For grouped questions, match ONLY on group_name_text/group_name/question_name/number (ignore per-question text)
+          if (isGrouped) {
+            return (
+              groupNameText.includes(needle) ||
+              groupName.includes(needle) ||
+              name.includes(needle) ||
+              num.includes(needle)
+            );
+          }
+          // For basic questions, match on text/question_name/number
+          return text.includes(needle) || name.includes(needle) || num.includes(needle);
+        });
+
+        // Sort matches for stable display
+        matches.sort((a, b) => {
+          if (a.question_number !== b.question_number) {
+            return (a.question_number || 0) - (b.question_number || 0);
+          }
+          return (a.group_number || 0) - (b.group_number || 0);
+        });
+
+        if (!cancelled) {
+          applyResults(matches);
+        }
+      } catch (err: any) {
+        if (controller.signal.aborted || cancelled) return;
+        console.error('Error searching questions:', err);
+      } finally {
+        if (!cancelled) {
+          setIsSearching(false);
+        }
+      }
+    }, 300); // debounce keystrokes
+
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceId);
+      controller.abort();
+      setIsSearching(false);
+    };
+  }, [searchTerm, searchIndex, questions]);
 
   // Filtering system functions
   const applyFilters = useCallback(() => {
@@ -614,6 +944,10 @@ export default function QuestionsPage() {
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
+    if (searchTerm.trim()) {
+      return;
+    }
+
     const fetchFilteredQuestions = async () => {
       // Only fetch if filtering by answered/unanswered
       if (!filters.questions.answered && !filters.questions.unanswered) {
@@ -747,12 +1081,26 @@ export default function QuestionsPage() {
     };
 
     fetchFilteredQuestions();
-  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, userAnswers.length]);
+  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, userAnswers.length, searchTerm]);
 
   // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
   useEffect(() => {
     // Skip if filtering by answered/unanswered (handled by separate effect above)
     if (filters.questions.answered || filters.questions.unanswered) {
+      return;
+    }
+
+    // If search is active, display search results and skip filter recalculation
+    if (searchTerm.trim()) {
+      setFilteredQuestions(searchResults);
+      // When search results change, also keep search index in sync for fast re-search
+      if (searchResults.length > 0 && searchIndex.length === 0) {
+        setSearchIndex(searchResults);
+        searchIndexTimestamp.current = Date.now();
+      }
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
       return;
     }
 
@@ -775,7 +1123,7 @@ export default function QuestionsPage() {
         applyFilters();
       }
     }
-  }, [questions, filters, applyFilters, allQuestionNumbers.length]);
+  }, [questions, filters, applyFilters, allQuestionNumbers.length, searchTerm, searchResults, currentPage]);
 
   // Sort handler
   const handleSortOptionSelect = (option: typeof sortOption) => {
@@ -799,9 +1147,16 @@ export default function QuestionsPage() {
 
   // Group questions intelligently based on question_type
   const groupedQuestions = React.useMemo(() => {
+    const searchActive = searchTerm.trim().length > 0;
     console.log('🔍 Grouping questions. filteredQuestions:', {
       count: filteredQuestions.length,
-      question_numbers: filteredQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b)
+      question_numbers: filteredQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b),
+      all_question_numbers_with_details: filteredQuestions.map(q => ({
+        question_number: q.question_number,
+        id: q.id,
+        text: q.text.substring(0, 50),
+        question_type: q.question_type
+      }))
     });
 
     const grouped: Record<string, { questions: Question[], displayName: string, questionNumber: number, answerCount: number, totalAnswerCount?: number }> = {};
@@ -810,22 +1165,29 @@ export default function QuestionsPage() {
       const questionType = question.question_type || 'basic';
 
       if (questionType === 'basic') {
-        // Basic questions - each stands alone
-        const key = `${question.question_number}_${question.id}`;
-        grouped[key] = {
-          questions: [question],
-          displayName: question.text,
-          questionNumber: question.question_number,
-          answerCount: answerCounts[question.question_number] || 0
-        };
+        // Basic questions - group by question_number to handle duplicates
+        // If multiple basic questions have same question_number, show only the first one
+        const key = `basic_${question.question_number}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            questions: [question],
+            displayName: question.text,
+            questionNumber: question.question_number,
+            answerCount: answerCounts[question.question_number] || 0
+          };
+        }
+        // If duplicate, just add to questions array but don't change display
+        else {
+          grouped[key].questions.push(question);
+        }
       } else if (['four', 'grouped', 'double', 'triple'].includes(questionType)) {
         // Grouped questions - combine by question_number
         const key = `group_${question.question_number}`;
         if (!grouped[key]) {
           // Use group_name_text if available, otherwise use the first question's text
           const displayText = question.group_name_text ||
-                             questionDisplayNames[question.question_number] ||
-                             question.text;
+                              (searchActive ? '' : questionDisplayNames[question.question_number]) ||
+                              question.text;
           grouped[key] = {
             questions: [],
             displayName: displayText,
@@ -837,33 +1199,85 @@ export default function QuestionsPage() {
       }
     });
 
+    // Debug: Check what question numbers we have after grouping
+    const groupedQuestionNumbers = Object.values(grouped).map(g => g.questionNumber).sort((a, b) => a - b);
+    console.log('📊 After grouping - Question numbers present:', groupedQuestionNumbers);
+    console.log('📊 After grouping - Missing numbers check:', {
+      all_question_numbers_in_metadata: allQuestionNumbers.sort((a, b) => a - b),
+      grouped_question_numbers: groupedQuestionNumbers,
+      missing_from_grouped: allQuestionNumbers.filter(n => !groupedQuestionNumbers.includes(n)).sort((a, b) => a - b),
+      specifically_checking_13: groupedQuestionNumbers.includes(13),
+      specifically_checking_18: groupedQuestionNumbers.includes(18),
+      questions_with_13: filteredQuestions.filter(q => q.question_number === 13),
+      questions_with_18: filteredQuestions.filter(q => q.question_number === 18)
+    });
+
     return grouped;
-  }, [filteredQuestions, questionDisplayNames, answerCounts]);
+  }, [filteredQuestions, questionDisplayNames, answerCounts, allQuestionNumbers, searchTerm]);
 
   // Sort the grouped questions based on selected sort option
+  // Simple approach: just use question_number from database, no complex calculations
   const sortedGroupedQuestions = React.useMemo(() => {
     const entries = Object.entries(groupedQuestions);
 
+    let sorted;
     switch (sortOption) {
       case 'randomized':
         // Randomize order
-        return entries.sort(() => Math.random() - 0.5);
+        sorted = entries.sort(() => Math.random() - 0.5);
+        break;
       case 'popular':
         // Sort by answer count (most answers first)
-        return entries.sort((a, b) => b[1].answerCount - a[1].answerCount);
+        sorted = entries.sort((a, b) => b[1].answerCount - a[1].answerCount);
+        break;
       case 'new':
         // Sort by question number descending (recently asked)
-        return entries.sort((a, b) => b[1].questionNumber - a[1].questionNumber);
+        sorted = entries.sort((a, b) => b[1].questionNumber - a[1].questionNumber);
+        break;
       case 'number':
         // Sort by question number ascending (numerical order)
-        return entries.sort((a, b) => a[1].questionNumber - b[1].questionNumber);
+        // But prioritize mandatory questions (1-10) to appear first
+        sorted = entries.sort((a, b) => {
+          const aIsMandatory = a[1].questions[0]?.is_mandatory && a[1].questionNumber <= 10;
+          const bIsMandatory = b[1].questions[0]?.is_mandatory && b[1].questionNumber <= 10;
+          
+          // Mandatory questions come first
+          if (aIsMandatory && !bIsMandatory) return -1;
+          if (!aIsMandatory && bIsMandatory) return 1;
+          
+          // Within same category, sort by question_number
+          return a[1].questionNumber - b[1].questionNumber;
+        });
+        break;
       default:
-        return entries.sort((a, b) => a[1].questionNumber - b[1].questionNumber);
+        sorted = entries.sort((a, b) => {
+          const aIsMandatory = a[1].questions[0]?.is_mandatory && a[1].questionNumber <= 10;
+          const bIsMandatory = b[1].questions[0]?.is_mandatory && b[1].questionNumber <= 10;
+          
+          if (aIsMandatory && !bIsMandatory) return -1;
+          if (!aIsMandatory && bIsMandatory) return 1;
+          
+          return a[1].questionNumber - b[1].questionNumber;
+        });
     }
+
+    // Debug: Check what question numbers are in the sorted list
+    const sortedQuestionNumbers = sorted.map(([key, group]) => group.questionNumber).sort((a, b) => a - b);
+    console.log('📊 After sorting - Question numbers in display order:', sortedQuestionNumbers);
+    console.log('📊 After sorting - Missing numbers:', {
+      expected_range: Array.from({length: Math.max(...sortedQuestionNumbers, 0)}, (_, i) => i + 1),
+      actual_numbers: sortedQuestionNumbers,
+      missing: Array.from({length: Math.max(...sortedQuestionNumbers, 0)}, (_, i) => i + 1)
+        .filter(n => !sortedQuestionNumbers.includes(n))
+    });
+
+    // Just use question_number directly - no display number calculation needed
+    return sorted;
   }, [groupedQuestions, sortOption]);
 
   // Calculate pagination for filtered results (when using client-side filters)
-  const isClientSideFiltered = filters.questions.answered || filters.questions.unanswered ||
+  const isClientSideFiltered = searchTerm.trim().length > 0 ||
+                               filters.questions.answered || filters.questions.unanswered ||
                                 filters.questions.required || filters.questions.mandatory ||
                                 filters.questions.submitted || Object.values(filters.tags).some(Boolean);
   const filteredTotalPages = isClientSideFiltered
@@ -1062,8 +1476,27 @@ export default function QuestionsPage() {
             <input
               type="text"
               placeholder="Search questions"
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
             />
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              {isSearching && (
+                <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"></path>
+                </svg>
+              )}
+              {!isSearching && searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="text-gray-500 hover:text-black text-sm focus:outline-none"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
           
           <button 
@@ -1206,7 +1639,7 @@ export default function QuestionsPage() {
               const answerCount = getAnswerCount(group.questionNumber);
               return (
                 <div
-                  key={key}
+                  key={String(key)}
                   onClick={() => handleQuestionClick(group.questionNumber)}
                   className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
                 >

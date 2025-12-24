@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { getApiBaseUrl } from "./src/config/api-base";
 
 const nextConfig: NextConfig = {
   // trailingSlash: true, // DISABLED - causes redirect loops with API proxy
@@ -37,20 +38,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (apiUrl) {
-      const normalized = apiUrl.replace(/\/$/, '');
-      return [
-        {
-          source: '/api/:path*',
-          destination: `${normalized}/:path*`,
-        },
-      ];
-    }
+    // Use the same base URL logic as api.ts
+    const apiUrl = getApiBaseUrl();
+    const normalized = apiUrl.replace(/\/$/, '');
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:9090/api/:path*',
+        destination: `${normalized}/:path*`,
       },
     ];
   },

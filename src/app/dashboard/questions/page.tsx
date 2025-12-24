@@ -529,6 +529,12 @@ export default function QuestionsPage() {
                               !question.is_approved
                             );
                             setQuestions(prev => prev.map(q => q.id === question.id ? updatedQuestion : q));
+                            
+                            // Clear frontend cache and set invalidation flag so questions list refreshes immediately
+                            sessionStorage.removeItem('questions_metadata');
+                            sessionStorage.removeItem('questions_metadata_timestamp');
+                            sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+                            console.log('✅ Question approval toggled, cache cleared');
                           } catch (error) {
                             console.error('Error toggling approval:', error);
                             alert('Failed to update approval status. Please try again.');

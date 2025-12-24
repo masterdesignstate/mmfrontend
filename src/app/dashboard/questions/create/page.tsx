@@ -170,6 +170,15 @@ export default function CreateQuestionPage() {
       
       if (response && response.id) {
         console.log('Question created successfully:', response.id);
+        
+        // If question is approved, clear cache so it appears in questions list immediately
+        if (isApproved) {
+          sessionStorage.removeItem('questions_metadata');
+          sessionStorage.removeItem('questions_metadata_timestamp');
+          sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+          console.log('✅ Approved question created, cache cleared');
+        }
+        
         // Redirect to questions list
         router.push('/dashboard/questions');
       } else {
@@ -227,6 +236,14 @@ export default function CreateQuestionPage() {
       
       if (response && response.id) {
         console.log('Question created successfully:', response.id);
+        
+        // If question is approved, clear cache so it appears in questions list immediately
+        if (isApproved) {
+          sessionStorage.removeItem('questions_metadata');
+          sessionStorage.removeItem('questions_metadata_timestamp');
+          sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+          console.log('✅ Approved question created, cache cleared');
+        }
         
         // Reset form for another question
         setQuestionNumber(prev => prev + 1);

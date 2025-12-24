@@ -1,10 +1,10 @@
 // API Configuration
+import { getApiBaseUrl } from './api-base';
+
 const API_CONFIG = {
   // Backend base URL - change this based on your environment
   // Trying with www prefix in case that helps with DNS
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api',
-
-  // BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090/api',
+  BASE_URL: getApiBaseUrl(),
   // API endpoints
   ENDPOINTS: {
     SIGNUP: '/auth/signup/',
@@ -20,6 +20,7 @@ const API_CONFIG = {
     USER_RESULTS: '/results',
     CONTROLS: '/controls/',
     CONTROLS_CURRENT: '/controls/current/',
+    REPORTS: '/reports/',
   }
 };
 

@@ -16,11 +16,19 @@ interface ResultProfile {
   id: string;
   user: ApiUser;
   compatibility: CompatibilityResult;
+  compatibilityNonRequired?: CompatibilityResult;
+  missingRequired?: boolean;
   status: 'approved' | 'liked' | 'matched';
   isLiked: boolean;
   isMatched: boolean;
   tags: string[]; // Add tags to the interface
 }
+
+const COMPATIBILITY_TYPE_MAP: Record<string, string> = {
+  overall: 'overall_compatibility',
+  compatible_with_me: 'compatible_with_me',
+  im_compatible_with: 'im_compatible_with'
+};
 
 // Generate dummy profiles (fallback only)
 const generateDummyProfiles = (): ResultProfile[] => {
@@ -87,6 +95,8 @@ const generateDummyProfiles = (): ResultProfile[] => {
         im_compatible_with: compatibilityScore + Math.random() * 10 - 5,
         mutual_questions_count: Math.floor(Math.random() * 20) + 10
       },
+      compatibilityNonRequired: undefined,
+      missingRequired: false,
       status,
       isLiked,
       isMatched,
@@ -98,16 +108,28 @@ const generateDummyProfiles = (): ResultProfile[] => {
 };
 
 // Card Progress Border Component
-const CardWithProgressBorder = ({ percentage, children }: { percentage: number; children: React.ReactNode }) => {
+const CardWithProgressBorder = ({
+  percentage,
+  variant = 'default',
+  children
+}: {
+  percentage: number;
+  variant?: 'default' | 'pending';
+  children: React.ReactNode;
+}) => {
   const borderWidth = 4; // Slightly thicker border
-
-  return (
-    <div className="relative p-1">
-      {/* Progress border background with enhanced gradient purple */}
-      <div
-        className="absolute inset-0 rounded-2xl"
-        style={{
-          background: `conic-gradient(from -90deg,
+  const gradient =
+    variant === 'pending'
+      ? `conic-gradient(from -90deg,
+            #FDBA74 0deg,
+            #FB923C ${percentage * 0.9}deg,
+            #F97316 ${percentage * 1.8}deg,
+            #EA580C ${percentage * 2.7}deg,
+            #C2410C ${percentage * 3.6}deg,
+            #C2410C ${percentage * 3.6 + 2}deg,
+            #d1d5db ${percentage * 3.6 + 3}deg,
+            #d1d5db 360deg)`
+      : `conic-gradient(from -90deg,
             #A855F7 0deg,
             #8B5CF6 ${percentage * 0.9}deg,
             #7C3AED ${percentage * 1.8}deg,
@@ -115,7 +137,15 @@ const CardWithProgressBorder = ({ percentage, children }: { percentage: number; 
             #5B21B6 ${percentage * 3.6}deg,
             #5B21B6 ${percentage * 3.6 + 2}deg,
             #d1d5db ${percentage * 3.6 + 3}deg,
-            #d1d5db 360deg)`,
+            #d1d5db 360deg)`;
+
+  return (
+    <div className="relative p-1">
+      {/* Progress border background */}
+      <div
+        className="absolute inset-0 rounded-2xl"
+        style={{
+          background: gradient,
         }}
       />
 
@@ -129,10 +159,12 @@ const CardWithProgressBorder = ({ percentage, children }: { percentage: number; 
 
 export default function ResultsPage() {
   const router = useRouter();
+  const PAGE_SIZE = 15;
   const [profiles, setProfiles] = useState<ResultProfile[]>([]);
-  const [visibleCount, setVisibleCount] = useState(15); // Show 3 rows initially (5 columns x 3 rows)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
   // Load filtersApplied from sessionStorage on mount
   const [filtersApplied, setFiltersApplied] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -169,6 +201,8 @@ export default function ResultsPage() {
   const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
+  const lastCompatibilityTypeRef = useRef<string>('');
+  const showFiltersApplied = hasHydrated && filtersApplied;
 
   // Filter state - load from sessionStorage on mount
   const [filters, setFilters] = useState(() => {
@@ -190,11 +224,11 @@ export default function ResultsPage() {
     },
     distance: {
       min: 1,
-      max: 50
+      max: 100
     },
     age: {
       min: 18,
-      max: 35
+      max: 80
     },
     tags: [] as string[],
     requiredOnly: false
@@ -265,6 +299,9 @@ export default function ResultsPage() {
       setLoading(true);
       setError(null);
 
+      const compatibilityTypeParam =
+        COMPATIBILITY_TYPE_MAP[filters.compatibilityType] || 'overall_compatibility';
+
       const params: {
         page: number;
         page_size: number;
@@ -280,18 +317,11 @@ export default function ResultsPage() {
         user_id?: string;
       } = {
         page,
-        page_size: 15
+        page_size: PAGE_SIZE,
+        compatibility_type: compatibilityTypeParam
       };
 
       if (applyFilters) {
-        // Map compatibility type names to API format
-        const compatibilityTypeMap: Record<string, string> = {
-          'overall': 'overall_compatibility',
-          'compatible_with_me': 'compatible_with_me',
-          'im_compatible_with': 'im_compatible_with'
-        };
-
-        params.compatibility_type = compatibilityTypeMap[filters.compatibilityType] || 'overall_compatibility';
         params.min_compatibility = filters.compatibility.min;
         params.max_compatibility = filters.compatibility.max;
         params.min_age = filters.age.min;
@@ -330,6 +360,8 @@ export default function ResultsPage() {
         id: item.user.id,
         user: item.user,
         compatibility: item.compatibility,
+        compatibilityNonRequired: item.compatibility_non_required,
+        missingRequired: Boolean(item.missing_required),
         status: 'approved', // Default status - could be determined by user tags/reactions
         isLiked: false, // Could be determined by user tags
         isMatched: false, // Could be determined by user tags
@@ -363,7 +395,9 @@ export default function ResultsPage() {
         setProfiles(prev => [...prev, ...filteredProfiles]);
       }
 
-      setTotalCount(response.total_count || response.count);
+      const totalFromResponse = response.total_count || response.count;
+      setTotalCount(totalFromResponse);
+      setFilteredTotalCount(applyFilters ? totalFromResponse : null);
       setHasNextPage(response.has_next || false);
       setCurrentPage(page);
 
@@ -379,6 +413,10 @@ export default function ResultsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   // Fetch current user's live field on mount
   useEffect(() => {
@@ -422,9 +460,9 @@ export default function ResultsPage() {
       filters.compatibility.min !== 0 || 
       filters.compatibility.max !== 100 ||
       filters.distance.min !== 1 || 
-      filters.distance.max !== 50 ||
+      filters.distance.max !== 100 ||
       filters.age.min !== 18 || 
-      filters.age.max !== 35 ||
+      filters.age.max !== 80 ||
       (filters.tags && filters.tags.length > 0) ||
       filters.requiredOnly;
 
@@ -515,13 +553,13 @@ export default function ResultsPage() {
             }
 
             // Load ALL remaining pages until we find a match or run out of pages
-            // IMPORTANT: Use the same page_size (15) as the initial load to maintain consistent pagination
+            // IMPORTANT: Use the same page_size as the initial load to maintain consistent pagination
             let allNewProfiles: ResultProfile[] = [];
             let pageNum = currentPage + 1;
             let foundMatch = false;
             let lastHasNext = true;
             let lastPage = currentPage;
-            const pageSize = 15; // Match the initial page_size
+            const pageSize = PAGE_SIZE; // Match the initial page_size
             // Calculate expected pages based on totalCount
             const expectedPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 20;
             const maxPages = Math.max(expectedPages, 20); // Use at least 20 pages, or more if totalCount suggests more
@@ -529,15 +567,18 @@ export default function ResultsPage() {
             console.log(`📊 Loading pages: currentPage=${currentPage}, totalCount=${totalCount}, expectedPages=${expectedPages}, maxPages=${maxPages}, pageSize=${pageSize}`);
 
             while (!foundMatch && pageNum <= maxPages) {
-              // Fetch pages in batches of 10 for efficiency (smaller batches since page_size is 15)
+              // Fetch pages in batches of 10 for efficiency
               const batchSize = 10;
               const pagePromises = [];
               const startPage = pageNum;
+              const compatibilityTypeParam =
+                COMPATIBILITY_TYPE_MAP[filters.compatibilityType] || 'overall_compatibility';
               
               for (let i = 0; i < batchSize && pageNum <= maxPages; i++) {
                 const params = {
                   page: pageNum,
                   page_size: pageSize, // Use consistent page_size
+                  compatibility_type: compatibilityTypeParam,
                   user_id: currentUserId
                 };
                 pagePromises.push(apiService.getCompatibleUsers(params));
@@ -554,6 +595,8 @@ export default function ResultsPage() {
                   id: item.user.id,
                   user: item.user,
                   compatibility: item.compatibility,
+                  compatibilityNonRequired: item.compatibility_non_required,
+                  missingRequired: Boolean(item.missing_required),
                   status: 'approved',
                   isLiked: false,
                   isMatched: false,
@@ -750,24 +793,13 @@ export default function ResultsPage() {
         console.warn('⚠️ Distance filter applied but current user live field is not available');
       }
       
-      // Calculate filtered total count when filters are applied
-      // Use the count of filteredProfiles AFTER all filtering is applied
-      // This ensures the count matches what's actually displayed
-      if (filtersApplied) {
-        // Use the filtered profiles count as the total
-        // This represents how many profiles match the filters from what we've loaded
-        setFilteredTotalCount(filteredProfiles.length);
-      } else {
-        setFilteredTotalCount(null);
-      }
-      
       // Then sort the filtered profiles
       setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive, filters.compatibilityType));
     } else {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, filters.compatibilityType, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, filters.compatibilityType, filters.requiredOnly, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -815,6 +847,30 @@ export default function ResultsPage() {
     }
   }, [showFilterModal, filtersApplied]);
 
+  useEffect(() => {
+    if (!lastCompatibilityTypeRef.current) {
+      lastCompatibilityTypeRef.current = filters.compatibilityType;
+      return;
+    }
+
+    if (lastCompatibilityTypeRef.current === filters.compatibilityType) {
+      return;
+    }
+
+    lastCompatibilityTypeRef.current = filters.compatibilityType;
+
+    if (isApplyingFilters) {
+      return;
+    }
+
+    setCurrentPage(1);
+    setVisibleCount(PAGE_SIZE);
+    setProfiles([]);
+    setSortedProfiles([]);
+    setHasNextPage(true);
+    fetchCompatibleUsers(1, filtersApplied);
+  }, [filters.compatibilityType, filtersApplied, isApplyingFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleShowMore = async () => {
     if (visibleCount < profiles.length) {
       // Show all current profiles
@@ -823,7 +879,7 @@ export default function ResultsPage() {
       // Load next page
       await fetchCompatibleUsers(currentPage + 1, filtersApplied);
       // After loading, update visibleCount to show the new profiles
-      setVisibleCount(prev => prev + 15);
+      setVisibleCount(prev => prev + PAGE_SIZE);
     }
   };
 
@@ -1360,8 +1416,8 @@ export default function ResultsPage() {
     setFilters({
       compatibilityType: 'overall',
       compatibility: { min: 0, max: 100 },
-      distance: { min: 1, max: 50 },
-      age: { min: 18, max: 35 },
+      distance: { min: 1, max: 100 },
+      age: { min: 18, max: 80 },
       tags: [],
       requiredOnly: false
     });
@@ -1385,7 +1441,10 @@ export default function ResultsPage() {
 
       // Reset to first page
       setCurrentPage(1);
-      setVisibleCount(15);
+      setVisibleCount(PAGE_SIZE);
+      setProfiles([]);
+      setSortedProfiles([]);
+      setHasNextPage(true);
 
       // Just load the first page - don't automatically load all pages
       await fetchCompatibleUsers(1, true);
@@ -1407,57 +1466,62 @@ export default function ResultsPage() {
   // Sort profiles based on selected sort option
   const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null, compatibilityType: string = 'overall') => {
     const sorted = [...profilesToSort];
+    const getCompatibilityValue = (profile: ResultProfile) => {
+      const useNonRequired = filters.requiredOnly && profile.missingRequired && profile.compatibilityNonRequired;
+      const compatibility = useNonRequired ? profile.compatibilityNonRequired : profile.compatibility;
+      switch (compatibilityType) {
+        case 'compatible_with_me':
+          return compatibility?.compatible_with_me ?? 0;
+        case 'im_compatible_with':
+          return compatibility?.im_compatible_with ?? 0;
+        default:
+          return compatibility?.overall_compatibility ?? 0;
+      }
+    };
 
-    switch (sortOption) {
-      case 'compatibility':
-        // Sort by the selected compatibility type (highest first)
-        const getCompatibilityValue = (profile: ResultProfile) => {
-          switch (compatibilityType) {
-            case 'compatible_with_me':
-              return profile.compatibility.compatible_with_me;
-            case 'im_compatible_with':
-              return profile.compatibility.im_compatible_with;
-            default:
-              return profile.compatibility.overall_compatibility;
-          }
-        };
-        sorted.sort((a, b) => getCompatibilityValue(b) - getCompatibilityValue(a));
-        break;
-      case 'distance':
-        // Sort by distance (closest first)
-        if (userLive) {
-          sorted.sort((a, b) => {
+    const compareMissingRequired = (a: ResultProfile, b: ResultProfile) => {
+      if (!filters.requiredOnly) return 0;
+      const aMissing = Boolean(a.missingRequired);
+      const bMissing = Boolean(b.missingRequired);
+      if (aMissing === bMissing) return 0;
+      return aMissing ? 1 : -1;
+    };
+
+    sorted.sort((a, b) => {
+      const missingCompare = compareMissingRequired(a, b);
+      if (missingCompare !== 0) return missingCompare;
+
+      switch (sortOption) {
+        case 'compatibility':
+          return getCompatibilityValue(b) - getCompatibilityValue(a);
+        case 'distance':
+          if (userLive) {
             const distanceA = getDistance(userLive, a.user.live);
             const distanceB = getDistance(userLive, b.user.live);
-            
+
             // Handle null distances (cities not in CSV) - put them at the end
             if (distanceA === null && distanceB === null) return 0;
             if (distanceA === null) return 1;
             if (distanceB === null) return -1;
-            
+
             return distanceA - distanceB;
-          });
-        } else {
+          }
           // If user's live field is not available, sort randomly as fallback
-        sorted.sort(() => Math.random() - 0.5);
-        }
-        break;
-      case 'age-asc':
-        // Sort by age (youngest to oldest)
-        sorted.sort((a, b) => (a.user.age || 25) - (b.user.age || 25));
-        break;
-      case 'age-desc':
-        // Sort by age (oldest to youngest)
-        sorted.sort((a, b) => (b.user.age || 25) - (a.user.age || 25));
-        break;
-      case 'recent':
-        // Sort by recent activity - using profile ID as proxy for now
-        // In production, would use last_seen or online_status
-        sorted.sort(() => Math.random() - 0.5);
-        break;
-      default:
-        break;
-    }
+          return Math.random() - 0.5;
+        case 'age-asc':
+          // Sort by age (youngest to oldest)
+          return (a.user.age || 25) - (b.user.age || 25);
+        case 'age-desc':
+          // Sort by age (oldest to youngest)
+          return (b.user.age || 25) - (a.user.age || 25);
+        case 'recent':
+          // Sort by recent activity - using profile ID as proxy for now
+          // In production, would use last_seen or online_status
+          return Math.random() - 0.5;
+        default:
+          return 0;
+      }
+    });
 
     return sorted;
   };
@@ -1574,10 +1638,10 @@ export default function ResultsPage() {
             <button
               onClick={() => setShowFilterModal(true)}
               className={`ml-2 sm:ml-4 inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
-                filtersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
+                showFiltersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
               }`}
             >
-              {filtersApplied && (
+              {showFiltersApplied && (
                 <div className="absolute inset-0 bg-black opacity-[0.05]"></div>
               )}
               <span className="relative z-10 flex items-center">
@@ -1662,7 +1726,7 @@ export default function ResultsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
           <p className="text-base text-gray-500">
-            Showing {Math.min(sortedProfiles.length, visibleCount)} of {filtersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many')} people
+            Showing {Math.min(sortedProfiles.length, visibleCount)} of {showFiltersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many')} people
             {searchTerm.trim() && ` (searching for "${searchTerm}")`}
           </p>
         </div>
@@ -1687,25 +1751,29 @@ export default function ResultsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {sortedProfiles.slice(0, visibleCount).map(profile => {
               // Get the appropriate compatibility score based on selected type
-              const getCompatibilityScore = () => {
+              const getCompatibilityScore = (compatibility: CompatibilityResult | undefined) => {
                 switch (filters.compatibilityType) {
                   case 'compatible_with_me':
-                    return profile.compatibility.compatible_with_me;
+                    return compatibility?.compatible_with_me ?? 0;
                   case 'im_compatible_with':
-                    return profile.compatibility.im_compatible_with;
+                    return compatibility?.im_compatible_with ?? 0;
                   default:
-                    return profile.compatibility.overall_compatibility;
+                    return compatibility?.overall_compatibility ?? 0;
                 }
               };
 
-              const compatibilityScore = getCompatibilityScore();
+              const isPending = Boolean(filters.requiredOnly && profile.missingRequired);
+              const compatibilitySource = isPending && profile.compatibilityNonRequired
+                ? profile.compatibilityNonRequired
+                : profile.compatibility;
+              const compatibilityScore = getCompatibilityScore(compatibilitySource);
               const firstName = profile.user.first_name || profile.user.username;
               const age = profile.user.age || 25;
               const profilePhoto = profile.user.profile_photo || '/assets/default-avatar.png';
 
               return (
                 <div key={profile.id} className="relative">
-                  <CardWithProgressBorder percentage={compatibilityScore}>
+                  <CardWithProgressBorder percentage={compatibilityScore} variant={isPending ? 'pending' : 'default'}>
                     <div
                       onClick={() => router.push(`/profile/${profile.user.id}`)}
                       className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
@@ -1719,7 +1787,14 @@ export default function ResultsPage() {
                           }}
                           className="flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
                         >
-                          {profile.isMatched ? (
+                          {isPending ? (
+                            <div className="w-9 h-9 rounded-full bg-orange-100 border border-orange-400 flex items-center justify-center transform -translate-x-0.5 -translate-y-0.5">
+                              <svg className="w-5 h-5 text-orange-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="9" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 3" />
+                              </svg>
+                            </div>
+                          ) : profile.isMatched ? (
                             <Image
                               src="/assets/purpleheart.png"
                               alt="Matched"
@@ -1900,7 +1975,7 @@ export default function ResultsPage() {
                       <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                     </div>
                     <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                      When enabled, compatibility scores will be calculated using only the required questions instead of all questions you&apos;ve answered.
+                      When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
                       <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
                     </div>
                   </div>

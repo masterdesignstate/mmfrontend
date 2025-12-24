@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import NotificationBell from '@/components/NotificationBell';
+import ChatBell from '@/components/ChatBell';
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: 'fas fa-chart-bar' },
@@ -88,8 +89,13 @@ export default function DashboardLayout({
           
           {/* Right side - Notification bell, Log out button, and hamburger menu */}
           <div className="flex items-center gap-3">
-            {/* Notification Bell */}
-            {userId && <NotificationBell userId={userId} />}
+            {/* Chat & Notification Bells */}
+            {userId && (
+              <>
+                <ChatBell userId={userId} />
+                <NotificationBell userId={userId} />
+              </>
+            )}
 
             {/* Log Out Button */}
             <button

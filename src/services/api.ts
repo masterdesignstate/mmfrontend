@@ -1,4 +1,6 @@
 // Type definitions for API responses
+import { API_BASE_URL as CONFIG_API_BASE_URL } from '@/config/api';
+
 export interface ApiUser {
   id: string;
   username: string;
@@ -124,8 +126,7 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
-// const API_BASE_URL = 'http://localhost:9090/api';
-const API_BASE_URL = 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
+const API_BASE_URL = CONFIG_API_BASE_URL;
 
 
 class ApiService {
@@ -304,7 +305,7 @@ class ApiService {
     page_size?: number;
     tags?: string[];
     user_id?: string;
-  }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
+  }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult; missing_required?: boolean; compatibility_non_required?: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
     const queryParams = new URLSearchParams();
 
     if (params.compatibility_type) queryParams.append('compatibility_type', params.compatibility_type);

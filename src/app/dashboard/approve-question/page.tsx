@@ -140,6 +140,12 @@ export default function ApproveQuestionsPage() {
       setQuestions(prev => prev.filter(q => q.id !== questionId));
       setSelectedQuestions(prev => prev.filter(id => id !== questionId));
       setShowBulkActions(selectedQuestions.length > 1);
+      
+      // Clear frontend cache and set invalidation flag so questions list refreshes immediately
+      sessionStorage.removeItem('questions_metadata');
+      sessionStorage.removeItem('questions_metadata_timestamp');
+      sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+      console.log('✅ Question approved, cache cleared');
     } catch (error) {
       console.error('Error approving question:', error);
       setError('Failed to approve question');
@@ -155,6 +161,12 @@ export default function ApproveQuestionsPage() {
       setQuestions(prev => prev.filter(q => q.id !== questionId));
       setSelectedQuestions(prev => prev.filter(id => id !== questionId));
       setShowBulkActions(selectedQuestions.length > 1);
+      
+      // Clear frontend cache and set invalidation flag so questions list refreshes immediately
+      sessionStorage.removeItem('questions_metadata');
+      sessionStorage.removeItem('questions_metadata_timestamp');
+      sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+      console.log('✅ Question rejected, cache cleared');
     } catch (error) {
       console.error('Error rejecting question:', error);
       setError('Failed to reject question');
@@ -170,6 +182,12 @@ export default function ApproveQuestionsPage() {
       setQuestions(prev => prev.filter(q => !selectedQuestions.includes(q.id)));
       setSelectedQuestions([]);
       setShowBulkActions(false);
+      
+      // Clear frontend cache and set invalidation flag so questions list refreshes immediately
+      sessionStorage.removeItem('questions_metadata');
+      sessionStorage.removeItem('questions_metadata_timestamp');
+      sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+      console.log('✅ Questions bulk approved, cache cleared');
     } catch (error) {
       console.error('Error bulk approving questions:', error);
       setError('Failed to approve questions');
@@ -185,6 +203,12 @@ export default function ApproveQuestionsPage() {
       setQuestions(prev => prev.filter(q => !selectedQuestions.includes(q.id)));
       setSelectedQuestions([]);
       setShowBulkActions(false);
+      
+      // Clear frontend cache and set invalidation flag so questions list refreshes immediately
+      sessionStorage.removeItem('questions_metadata');
+      sessionStorage.removeItem('questions_metadata_timestamp');
+      sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
+      console.log('✅ Questions bulk rejected, cache cleared');
     } catch (error) {
       console.error('Error bulk rejecting questions:', error);
       setError('Failed to reject questions');
