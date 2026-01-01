@@ -19,7 +19,8 @@ export default function EditQuestionPage() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [questionNumber, setQuestionNumber] = useState(0);
+  // question_number is read-only - displayed but not editable
+  const [questionNumber, setQuestionNumber] = useState<number | null>(null);
   const [groupNumber, setGroupNumber] = useState<number | null>(null);
   const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
@@ -70,7 +71,7 @@ export default function EditQuestionPage() {
         // Update state with fetched data
         console.log('📋 Fetched question data:', questionData);
         console.log('🔢 Group number from API:', questionData.group_number);
-        setQuestionNumber(questionData.question_number || 0);
+        setQuestionNumber(questionData.question_number || null);
         setGroupNumber(questionData.group_number || null);
         setQuestionName(questionData.question_name || '');
         setGroupName(questionData.group_name || '');
@@ -246,10 +247,11 @@ export default function EditQuestionPage() {
       console.log('  - Value 5:', getAnswerText('5'));
       
       // Prepare the question data for update
+      // question_number is NOT included - assigned only on approval
       const questionData = {
         text: question.trim(),
         question_name: questionName.trim(),
-        question_number: questionNumber,
+        // question_number is NOT included - assigned only on approval
         group_number: groupNumber || undefined,
         group_name: groupName.trim(),
         group_name_text: groupNameText.trim(),
@@ -327,18 +329,17 @@ export default function EditQuestionPage() {
             </div>
           )}
 
-          {/* Question Number Section */}
+          {/* Question Number Section - Read Only */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question Number
+              Published Number
             </label>
-            <input
-              type="text"
-              value={questionNumber}
-              onChange={(e) => setQuestionNumber(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-              placeholder="Enter question number"
-            />
+            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+              {questionNumber !== null ? questionNumber : 'Not assigned (will be assigned on approval)'}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Question numbers are assigned automatically when a question is approved. Draft questions do not have a number.
+            </p>
           </div>
 
           {/* Group Number Section */}

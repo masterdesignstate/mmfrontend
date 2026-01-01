@@ -14,7 +14,7 @@ const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
 
 export default function CreateQuestionPage() {
   const router = useRouter();
-  const [questionNumber, setQuestionNumber] = useState(65); // Start with next available number
+  // question_number is no longer manually assigned - it's assigned automatically on approval
   const [groupNumber, setGroupNumber] = useState<number | null>(null);
   const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
@@ -142,7 +142,7 @@ export default function CreateQuestionPage() {
       const questionData = {
         text: question.trim(),
         question_name: questionName.trim(),
-        question_number: questionNumber,
+        // question_number is NOT included - assigned only on approval
         group_number: groupNumber || undefined,
         group_name: groupName.trim(),
         group_name_text: groupNameText.trim(),
@@ -208,7 +208,7 @@ export default function CreateQuestionPage() {
       const questionData = {
         text: question.trim(),
         question_name: questionName.trim(),
-        question_number: questionNumber,
+        // question_number is NOT included - assigned only on approval
         group_number: groupNumber || undefined,
         group_name: groupName.trim(),
         group_name_text: groupNameText.trim(),
@@ -246,7 +246,6 @@ export default function CreateQuestionPage() {
         }
         
         // Reset form for another question
-        setQuestionNumber(prev => prev + 1);
         setGroupNumber(null);
         setQuestionName('');
         setGroupName('');
@@ -308,18 +307,17 @@ export default function CreateQuestionPage() {
             </div>
           )}
 
-          {/* Question Number Section */}
+          {/* Question Number Section - Read Only */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question Number
+              Published Number
             </label>
-            <input
-              type="text"
-              value={questionNumber}
-              onChange={(e) => setQuestionNumber(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-              placeholder="Enter question number"
-            />
+            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+              {isApproved ? 'Will be assigned on approval' : 'Assigned automatically when approved'}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Question numbers are assigned automatically when a question is approved. Draft questions do not have a number.
+            </p>
           </div>
 
           {/* Group Number Section */}

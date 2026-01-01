@@ -3,6 +3,7 @@
 
 export const getApiBaseUrl = (): string => {
   return process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
+  // return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090/api';
 };
 
 // Export the base URL directly for use in next.config.ts

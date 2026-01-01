@@ -2115,41 +2115,14 @@ export default function QuestionsPage() {
                   setIsSubmittingQuestion(true);
                   
                   try {
-                    // First, fetch the max question_number to determine the next number
-                    const maxResponse = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?ordering=-question_number&page_size=1`, {
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                    });
-
-                    let nextQuestionNumber = 1;
-                    if (maxResponse.ok) {
-                      const maxData = await maxResponse.json();
-                      console.log('📊 Max question data:', maxData);
-                      console.log('📊 Results array:', maxData.results);
-                      if (maxData.results && maxData.results.length > 0) {
-                        // Find the highest question_number from all results
-                        let maxNum = 0;
-                        for (const q of maxData.results) {
-                          if (q.question_number && q.question_number > maxNum) {
-                            maxNum = q.question_number;
-                          }
-                        }
-                        if (maxNum > 0) {
-                          nextQuestionNumber = maxNum + 1;
-                          console.log(`📝 Next question number will be: ${nextQuestionNumber}`);
-                        }
-                      }
-                    }
-
                     // Get user ID from localStorage
                     const storedUserId = localStorage.getItem('user_id');
                     
-                    // Now create the question with the next number
+                    // Create the question - question_number is NOT sent, assigned only on approval
                     const questionData = {
                         text: questionText.trim(),
                         question_name: questionText.trim().substring(0, 50),  // Auto-generate name from text
-                        question_number: nextQuestionNumber,  // Use the next available question number
+                        // question_number is NOT included - assigned only when approved by admin
                         question_type: 'basic',  // Default to basic type
                         tags: selectedTags.map(tag => tag.toLowerCase()),
                         is_approved: false,  // User-submitted questions need approval
@@ -2177,8 +2150,8 @@ export default function QuestionsPage() {
                     console.log('📡 Response status:', response.status);
                     const responseData = await response.json();
                     console.log('📡 Response data:', responseData);
-                    console.log('📝 Created question number:', responseData.question_number);
                     console.log('📝 Created question id:', responseData.id);
+                    console.log('📝 Question number (will be assigned on approval):', responseData.question_number || 'NULL (pending approval)');
 
                     if (response.ok) {
                       // Reset form and close modal
