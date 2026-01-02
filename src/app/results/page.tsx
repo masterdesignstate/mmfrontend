@@ -329,6 +329,10 @@ export default function ResultsPage() {
         params.min_distance = filters.distance.min;
         params.max_distance = filters.distance.max;
         params.required_only = filters.requiredOnly;
+        // If requiredOnly is enabled, sort by required compatibility
+        if (filters.requiredOnly) {
+          params.sort = `required_${compatibilityTypeParam}`;
+        }
         
         // Add tag filters
         if (filters.tags && filters.tags.length > 0) {
@@ -579,6 +583,7 @@ export default function ResultsPage() {
                   page: pageNum,
                   page_size: pageSize, // Use consistent page_size
                   compatibility_type: compatibilityTypeParam,
+                  sort: filters.requiredOnly ? `required_${compatibilityTypeParam}` : undefined,
                   user_id: currentUserId
                 };
                 pagePromises.push(apiService.getCompatibleUsers(params));
@@ -1467,6 +1472,25 @@ export default function ResultsPage() {
   const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null, compatibilityType: string = 'overall') => {
     const sorted = [...profilesToSort];
     const getCompatibilityValue = (profile: ResultProfile) => {
+      // If requiredOnly is enabled, prefer required compatibility scores
+      if (filters.requiredOnly && profile.compatibility) {
+        // Only use required scores if they're actually computed (has mutual required questions)
+        const hasRequiredScores = profile.compatibility.required_mutual_questions_count !== undefined &&
+                                 profile.compatibility.required_mutual_questions_count > 0;
+        const requiredScore = profile.compatibility.required_overall_compatibility;
+        
+        if (hasRequiredScores && requiredScore !== undefined && requiredScore !== null) {
+          switch (compatibilityType) {
+            case 'compatible_with_me':
+              return profile.compatibility.required_compatible_with_me ?? 0;
+            case 'im_compatible_with':
+              return profile.compatibility.required_im_compatible_with ?? 0;
+            default:
+              return requiredScore;
+          }
+        }
+      }
+      // Fallback to regular compatibility or non-required if missing required
       const useNonRequired = filters.requiredOnly && profile.missingRequired && profile.compatibilityNonRequired;
       const compatibility = useNonRequired ? profile.compatibilityNonRequired : profile.compatibility;
       switch (compatibilityType) {
@@ -1763,9 +1787,31 @@ export default function ResultsPage() {
               };
 
               const isPending = Boolean(filters.requiredOnly && profile.missingRequired);
-              const compatibilitySource = isPending && profile.compatibilityNonRequired
-                ? profile.compatibilityNonRequired
-                : profile.compatibility;
+              // When requiredOnly is enabled, show required compatibility if available
+              let compatibilitySource = profile.compatibility;
+              if (filters.requiredOnly) {
+                // Check if required scores are actually computed (not just default 0)
+                // We check if required_mutual_questions_count > 0 OR if there are required questions answered
+                const hasRequiredScores = profile.compatibility?.required_mutual_questions_count !== undefined &&
+                                         profile.compatibility?.required_mutual_questions_count > 0;
+                
+                if (hasRequiredScores && profile.compatibility?.required_overall_compatibility !== undefined) {
+                  // Use required scores but keep the full compatibility object
+                  compatibilitySource = {
+                    ...profile.compatibility,
+                    overall_compatibility: profile.compatibility.required_overall_compatibility || 0,
+                    compatible_with_me: profile.compatibility.required_compatible_with_me || 0,
+                    im_compatible_with: profile.compatibility.required_im_compatible_with || 0,
+                    mutual_questions_count: profile.compatibility.required_mutual_questions_count || 0,
+                  };
+                } else if (isPending && profile.compatibilityNonRequired) {
+                  // Fallback to non-required if missing required questions
+                  compatibilitySource = profile.compatibilityNonRequired;
+                }
+                // If no required scores computed yet, fall through to regular compatibility
+              } else if (isPending && profile.compatibilityNonRequired) {
+                compatibilitySource = profile.compatibilityNonRequired;
+              }
               const compatibilityScore = getCompatibilityScore(compatibilitySource);
               const firstName = profile.user.first_name || profile.user.username;
               const age = profile.user.age || 25;

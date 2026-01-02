@@ -73,10 +73,17 @@ export interface QuestionMetadata {
 }
 
 export interface CompatibilityResult {
+  // Regular compatibility scores
   overall_compatibility: number;
   compatible_with_me: number;
   im_compatible_with: number;
   mutual_questions_count: number;
+  // Required compatibility scores
+  required_overall_compatibility?: number;
+  required_compatible_with_me?: number;
+  required_im_compatible_with?: number;
+  required_mutual_questions_count?: number;
+  required_completeness_ratio?: number;
 }
 
 export interface Notification {
