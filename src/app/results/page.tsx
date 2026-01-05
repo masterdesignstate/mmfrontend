@@ -315,6 +315,7 @@ export default function ResultsPage() {
         required_only?: boolean;
         tags?: string[];
         user_id?: string;
+        sort?: string;
       } = {
         page,
         page_size: PAGE_SIZE,
@@ -1472,14 +1473,12 @@ export default function ResultsPage() {
   const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null, compatibilityType: string = 'overall') => {
     const sorted = [...profilesToSort];
     const getCompatibilityValue = (profile: ResultProfile) => {
-      // If requiredOnly is enabled, prefer required compatibility scores
+      // If requiredOnly is enabled, use required compatibility scores
       if (filters.requiredOnly && profile.compatibility) {
-        // Only use required scores if they're actually computed (has mutual required questions)
-        const hasRequiredScores = profile.compatibility.required_mutual_questions_count !== undefined &&
-                                 profile.compatibility.required_mutual_questions_count > 0;
         const requiredScore = profile.compatibility.required_overall_compatibility;
         
-        if (hasRequiredScores && requiredScore !== undefined && requiredScore !== null) {
+        // Always use required scores when filter is enabled, if they exist
+        if (requiredScore !== undefined && requiredScore !== null) {
           switch (compatibilityType) {
             case 'compatible_with_me':
               return profile.compatibility.required_compatible_with_me ?? 0;
@@ -1747,12 +1746,29 @@ export default function ResultsPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Title and Count */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
-          <p className="text-base text-gray-500">
-            Showing {Math.min(sortedProfiles.length, visibleCount)} of {showFiltersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many')} people
-            {searchTerm.trim() && ` (searching for "${searchTerm}")`}
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
+            <p className="text-base text-gray-500">
+              Showing {Math.min(sortedProfiles.length, visibleCount)} of {showFiltersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many')} people
+              {searchTerm.trim() && ` (searching for "${searchTerm}")`}
+            </p>
+          </div>
+
+          {/* Required Compatibility Badge */}
+          {hasHydrated && filters.requiredOnly && (
+            <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-2xl border border-purple-200/60 shadow-sm backdrop-blur-sm">
+              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 shadow-sm">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-gray-900 leading-tight tracking-tight">Required Compatibility</span>
+                <span className="text-xs text-gray-500 leading-tight mt-0.5">Showing compatibility based on required questions only</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {loading && profiles.length === 0 ? (
@@ -1790,25 +1806,22 @@ export default function ResultsPage() {
               // When requiredOnly is enabled, show required compatibility if available
               let compatibilitySource = profile.compatibility;
               if (filters.requiredOnly) {
-                // Check if required scores are actually computed (not just default 0)
-                // We check if required_mutual_questions_count > 0 OR if there are required questions answered
-                const hasRequiredScores = profile.compatibility?.required_mutual_questions_count !== undefined &&
-                                         profile.compatibility?.required_mutual_questions_count > 0;
-                
-                if (hasRequiredScores && profile.compatibility?.required_overall_compatibility !== undefined) {
+                // Always use required scores when filter is enabled, if they exist
+                if (profile.compatibility?.required_overall_compatibility !== undefined && 
+                    profile.compatibility?.required_overall_compatibility !== null) {
                   // Use required scores but keep the full compatibility object
                   compatibilitySource = {
                     ...profile.compatibility,
                     overall_compatibility: profile.compatibility.required_overall_compatibility || 0,
-                    compatible_with_me: profile.compatibility.required_compatible_with_me || 0,
-                    im_compatible_with: profile.compatibility.required_im_compatible_with || 0,
-                    mutual_questions_count: profile.compatibility.required_mutual_questions_count || 0,
+                    compatible_with_me: profile.compatibility.required_compatible_with_me ?? 0,
+                    im_compatible_with: profile.compatibility.required_im_compatible_with ?? 0,
+                    mutual_questions_count: profile.compatibility.required_mutual_questions_count ?? 0,
                   };
                 } else if (isPending && profile.compatibilityNonRequired) {
                   // Fallback to non-required if missing required questions
                   compatibilitySource = profile.compatibilityNonRequired;
                 }
-                // If no required scores computed yet, fall through to regular compatibility
+                // If no required scores computed yet, still show regular compatibility (will be 0 if not computed)
               } else if (isPending && profile.compatibilityNonRequired) {
                 compatibilitySource = profile.compatibilityNonRequired;
               }

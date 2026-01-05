@@ -76,7 +76,15 @@ export default function UserProfilePage() {
     compatible_with_me: number;
     im_compatible_with: number;
     mutual_questions_count: number;
+    required_overall_compatibility?: number;
+    required_compatible_with_me?: number;
+    required_im_compatible_with?: number;
+    required_mutual_questions_count?: number;
+    user1_required_completeness?: number;
+    user2_required_completeness?: number;
+    required_completeness_ratio?: number; // Deprecated
   } | null>(null);
+  const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(false);
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -236,9 +244,33 @@ export default function UserProfilePage() {
                   im_compatible_with: userProfile.compatibility.im_compatible_with,
                   compatible_with_me: userProfile.compatibility.compatible_with_me,
                   mutual_questions_count: userProfile.compatibility.mutual_questions_count || 0,
+                  required_overall_compatibility: userProfile.compatibility.required_overall_compatibility,
+                  required_compatible_with_me: userProfile.compatibility.required_compatible_with_me,
+                  required_im_compatible_with: userProfile.compatibility.required_im_compatible_with,
+                  required_mutual_questions_count: userProfile.compatibility.required_mutual_questions_count,
+                  user1_required_completeness: userProfile.compatibility.user1_required_completeness,
+                  user2_required_completeness: userProfile.compatibility.user2_required_completeness,
+                  required_completeness_ratio: userProfile.compatibility.required_completeness_ratio, // Deprecated
                 };
                 console.log('✅ Setting compatibility:', compatData);
                 setCompatibility(compatData);
+                
+                // Check if required filter was enabled from results page
+                if (typeof window !== 'undefined') {
+                  const savedFilters = sessionStorage.getItem('results_page_filters');
+                  if (savedFilters) {
+                    try {
+                      const filters = JSON.parse(savedFilters);
+                      const hasRequiredScores = compatData.required_mutual_questions_count !== undefined &&
+                                             compatData.required_mutual_questions_count > 0;
+                      if (filters.requiredOnly && hasRequiredScores) {
+                        setShowRequiredCompatibility(true);
+                      }
+                    } catch (e) {
+                      console.error('Error parsing saved filters:', e);
+                    }
+                  }
+                }
               } else {
                 console.log('❌ No compatibility data found for this user');
                 console.log('   Available user IDs:', results.map((r: any) => r.user.id).slice(0, 5));
@@ -1733,61 +1765,82 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        {/* Compatibility Section - Minimal Elegant Design */}
+        {/* Compatibility Section */}
         {compatibility && (
           <div className="mb-8">
-            <div className="py-6">
-              {/* All Three Scores in One Row */}
-              <div className="flex items-start justify-center gap-12">
-                {/* Me */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-                    Me
-                  </div>
-                  <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-black leading-none text-[#672DB7]">
-                      {Math.round(compatibility.im_compatible_with)}
-                    </span>
-                    <span className="text-2xl font-bold ml-0.5 text-[#672DB7]">
-                      %
-                    </span>
-                  </div>
+            {/* Grid of 4 Metrics */}
+            <div className="flex flex-wrap gap-3">
+              {/* Me */}
+              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Me
                 </div>
-
-                {/* Overall - Center */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-                    Overall
-                  </div>
-                  <div className="flex items-baseline justify-center">
-                    <span className="text-5xl font-black leading-none tracking-tighter text-[#672DB7]">
-                      {Math.round(compatibility.overall_compatibility)}
-                    </span>
-                    <span className="text-3xl font-bold ml-0.5 text-[#672DB7]">
-                      %
-                    </span>
-                  </div>
-                </div>
-
-                {/* Them */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-                    Them
-                  </div>
-                  <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-black leading-none text-[#672DB7]">
-                      {Math.round(compatibility.compatible_with_me)}
-                    </span>
-                    <span className="text-2xl font-bold ml-0.5 text-[#672DB7]">
-                      %
-                    </span>
-                  </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {Math.round(showRequiredCompatibility &&
+                                compatibility.required_im_compatible_with !== undefined &&
+                                compatibility.required_im_compatible_with !== null
+                      ? compatibility.required_im_compatible_with
+                      : compatibility.im_compatible_with)}
+                  </span>
+                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
                 </div>
               </div>
 
+              {/* Overall */}
+              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Overall
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {Math.round(showRequiredCompatibility &&
+                                compatibility.required_overall_compatibility !== undefined &&
+                                compatibility.required_overall_compatibility !== null
+                      ? compatibility.required_overall_compatibility
+                      : compatibility.overall_compatibility)}
+                  </span>
+                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                </div>
+              </div>
+
+              {/* Them */}
+              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Them
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {Math.round(showRequiredCompatibility &&
+                                compatibility.required_compatible_with_me !== undefined &&
+                                compatibility.required_compatible_with_me !== null
+                      ? compatibility.required_compatible_with_me
+                      : compatibility.compatible_with_me)}
+                  </span>
+                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                </div>
+              </div>
+
+              {/* Completeness */}
+              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Completeness
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {compatibility.user1_required_completeness !== undefined
+                      ? Math.round(compatibility.user1_required_completeness * 100)
+                      : 'N/A'}
+                  </span>
+                  {compatibility.user1_required_completeness !== undefined && (
+                    <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
+
 
         {/* User Info - responsive layout */}
         <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-16 mb-6">
