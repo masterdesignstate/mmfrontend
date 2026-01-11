@@ -1770,25 +1770,8 @@ export default function UserProfilePage() {
           <div className="mb-8">
             {/* Grid of 4 Metrics */}
             <div className="flex flex-wrap gap-3">
-              {/* Me */}
-              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
-                <div className="text-sm font-normal text-black capitalize mb-2">
-                  Me
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
-                    {Math.round(showRequiredCompatibility &&
-                                compatibility.required_im_compatible_with !== undefined &&
-                                compatibility.required_im_compatible_with !== null
-                      ? compatibility.required_im_compatible_with
-                      : compatibility.im_compatible_with)}
-                  </span>
-                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
-                </div>
-              </div>
-
               {/* Overall */}
-              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[115px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Overall
                 </div>
@@ -1804,8 +1787,25 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
+              {/* Me */}
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[115px]">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Me
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {Math.round(showRequiredCompatibility &&
+                                compatibility.required_im_compatible_with !== undefined &&
+                                compatibility.required_im_compatible_with !== null
+                      ? compatibility.required_im_compatible_with
+                      : compatibility.im_compatible_with)}
+                  </span>
+                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                </div>
+              </div>
+
               {/* Them */}
-              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[115px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Them
                 </div>
@@ -1821,10 +1821,10 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
-              {/* Completeness */}
-              <div className="bg-[#F3F3F3] rounded-xl px-5 py-2 w-[140px]">
+              {/* My Completeness */}
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[130px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  Completeness
+                  My Completeness
                 </div>
                 <div className="flex items-baseline">
                   <span className="text-3xl font-black text-[#672DB7]">
@@ -1833,7 +1833,40 @@ export default function UserProfilePage() {
                       : 'N/A'}
                   </span>
                   {compatibility.user1_required_completeness !== undefined && (
-                    <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                    <>
+                      <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                      {compatibility.required_mutual_questions_count !== undefined && 
+                       compatibility.user1_required_completeness > 0 && (
+                        <span className="text-gray-600 ml-2">
+                          {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user1_required_completeness)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Their Completeness */}
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[130px]">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Their Completeness
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {compatibility.user2_required_completeness !== undefined
+                      ? Math.round(compatibility.user2_required_completeness * 100)
+                      : 'N/A'}
+                  </span>
+                  {compatibility.user2_required_completeness !== undefined && (
+                    <>
+                      <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                      {compatibility.required_mutual_questions_count !== undefined && 
+                       compatibility.user2_required_completeness > 0 && (
+                        <span className="text-gray-600 ml-2">
+                          {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user2_required_completeness)}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
