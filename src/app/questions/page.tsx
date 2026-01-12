@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
@@ -35,6 +35,14 @@ interface UserAnswer {
 }
 
 export default function QuestionsPage() {
+  // Debug: log render with sessionStorage state
+  if (typeof window !== 'undefined') {
+    console.log('🚀 QuestionsPage RENDER - sessionStorage:', {
+      questions_current_page: sessionStorage.getItem('questions_current_page'),
+      url: window.location.href
+    });
+  }
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -63,8 +71,32 @@ export default function QuestionsPage() {
   const searchIndexBuilding = useRef<boolean>(false);
   const [searchIndex, setSearchIndex] = useState<Question[]>([]);
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  // Pagination state - default to 1, will be restored from sessionStorage in useLayoutEffect
+  const [currentPage, setCurrentPageInternal] = useState(1);
+  const pageRestoredRef = useRef(false);
+  const restoredPageNumberRef = useRef<number | null>(null); // Track what page we restored to
+
+  // Debug: wrapper to log all setCurrentPage calls with stack trace
+  const setCurrentPage = React.useCallback((newPage: number | ((prev: number) => number)) => {
+    if (typeof newPage === 'function') {
+      setCurrentPageInternal((prev) => {
+        const result = newPage(prev);
+        console.log(`📍 setCurrentPage(fn): ${prev} -> ${result}`, {
+          pageRestoredRef: pageRestoredRef.current,
+          restoredPageNumberRef: restoredPageNumberRef.current,
+          stack: new Error().stack?.split('\n').slice(2, 5).join('\n')
+        });
+        return result;
+      });
+    } else {
+      console.log(`📍 setCurrentPage: -> ${newPage}`, {
+        pageRestoredRef: pageRestoredRef.current,
+        restoredPageNumberRef: restoredPageNumberRef.current,
+        stack: new Error().stack?.split('\n').slice(2, 5).join('\n')
+      });
+      setCurrentPageInternal(newPage);
+    }
+  }, []);
   const [totalPages, setTotalPages] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [totalQuestionGroups, setTotalQuestionGroups] = useState(0);
@@ -119,6 +151,78 @@ export default function QuestionsPage() {
       sessionStorage.setItem('questions_page_filters', JSON.stringify(filters));
     }
   }, [filters]);
+
+  // Restore page from URL or sessionStorage on mount (only once) - runs synchronously before paint
+  useLayoutEffect(() => {
+    if (pageRestoredRef.current) {
+      console.log('⏭️ Page already restored, skipping');
+      return; // Only restore once
+    }
+    if (typeof window === 'undefined') return;
+
+    console.log('🔍 Starting page restoration...');
+
+    // Check URL query parameter first (synchronously from window.location to avoid timing issues)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPage = urlParams.get('page') || searchParams?.get('page');
+    console.log('🔍 URL page param:', urlPage);
+
+    if (urlPage) {
+      const pageNum = parseInt(urlPage, 10);
+      if (!isNaN(pageNum) && pageNum > 0) {
+        console.log('✅ Restoring page from URL:', pageNum);
+        pageRestoredRef.current = true;
+        restoredPageNumberRef.current = pageNum;
+        sessionStorage.setItem('questions_current_page', pageNum.toString());
+        setCurrentPage(pageNum); // This will trigger the fetch effect
+        return;
+      }
+    }
+
+    // Fall back to sessionStorage
+    const savedPage = sessionStorage.getItem('questions_current_page');
+    console.log('🔍 Saved page from sessionStorage:', savedPage);
+
+    if (savedPage) {
+      const pageNum = parseInt(savedPage, 10);
+      if (!isNaN(pageNum) && pageNum > 0) {
+        console.log('✅ Restoring page from sessionStorage:', pageNum);
+        pageRestoredRef.current = true;
+        restoredPageNumberRef.current = pageNum;
+        setCurrentPage(pageNum); // This will trigger the fetch effect
+        return;
+      }
+    }
+
+    console.log('ℹ️ No page to restore, using default page 1');
+    pageRestoredRef.current = true;
+    restoredPageNumberRef.current = 1;
+    // Don't need to setCurrentPage(1) since it's already 1 by default
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
+
+  // Save current page to sessionStorage whenever it changes (but not on initial restore)
+  // Also update restoredPageNumberRef so guards protect the new page number
+  useEffect(() => {
+    console.log('💾 Save effect running:', {
+      currentPage,
+      pageRestoredRef: pageRestoredRef.current,
+      restoredPageNumberRef: restoredPageNumberRef.current,
+      willSave: pageRestoredRef.current
+    });
+    if (!pageRestoredRef.current) {
+      console.log('💾 Save effect: skipping (page not restored yet)');
+      return; // Don't save during initial restore
+    }
+    if (typeof window !== 'undefined') {
+      console.log(`💾 Saving page ${currentPage} to sessionStorage, updating ref from ${restoredPageNumberRef.current} to ${currentPage}`);
+      sessionStorage.setItem('questions_current_page', currentPage.toString());
+      // Update the ref so filter effects don't reset to page 1
+      // This is crucial - without this, navigating to page 2 then triggering a filter
+      // would reset to page 1 because restoredPageNumberRef would still be 1
+      restoredPageNumberRef.current = currentPage;
+    }
+  }, [currentPage]);
 
   // Sync pendingFilters with filters when modal opens or when filters change externally
   useEffect(() => {
@@ -621,6 +725,12 @@ export default function QuestionsPage() {
 
   // Effect to handle page changes (skip if using client-side filters since we do client-side pagination)
   useEffect(() => {
+    // Don't fetch until page restoration is complete
+    if (!pageRestoredRef.current) {
+      console.log('⏳ Waiting for page restoration before fetching questions...');
+      return;
+    }
+    
     // Don't fetch if using answered/unanswered filters AND we already have questions
     // But for other filters (mandatory, required, submitted, tags), we need to fetch questions first
     const hasAnsweredUnansweredFilter = filters.questions.answered || filters.questions.unanswered;
@@ -629,9 +739,10 @@ export default function QuestionsPage() {
     }
     // Only fetch if we have question numbers
     if (allQuestionNumbers.length > 0) {
+      console.log('📥 Fetching questions for restored page:', currentPage);
       fetchQuestionsForCurrentPage();
     }
-  }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, questions.length]);
+  }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, questions.length, currentPage]);
 
   // Search questions by text (backend search)
   useEffect(() => {
@@ -651,7 +762,18 @@ export default function QuestionsPage() {
         if (cancelled || searchTerm.trim() !== activeTerm) return;
         setSearchResults(items);
         setFilteredQuestions(items);
-        setCurrentPage(1);
+        // Only reset page if we didn't just restore a non-1 page
+        console.log('🔵 applyResults (search) - checking page reset guard:', {
+          pageRestoredRef: pageRestoredRef.current,
+          restoredPageNumberRef: restoredPageNumberRef.current,
+          guardWillPass: pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1
+        });
+        if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+          console.log('🛡️ applyResults: Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+        } else {
+          console.log('🔴 applyResults: RESETTING page to 1');
+          setCurrentPage(1);
+        }
       };
 
       try {
@@ -936,7 +1058,19 @@ export default function QuestionsPage() {
     setFilteredQuestions(filteredQuestionData);
 
     // Reset to page 1 when filters change (only if not already on page 1 to prevent duplicate fetch)
+    // But don't reset if we just restored a page (user navigated back)
+    console.log('🔶 applyFilters effect - checking page reset guard:', {
+      pageRestoredRef: pageRestoredRef.current,
+      restoredPageNumberRef: restoredPageNumberRef.current,
+      currentPage,
+      guardWillPass: pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1
+    });
+    if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+      console.log('🛡️ applyFilters: Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+      return; // Don't reset if we restored to a non-1 page
+    }
     if (currentPage !== 1) {
+      console.log('🔴 applyFilters: RESETTING page from', currentPage, 'to 1');
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
@@ -1069,8 +1203,12 @@ export default function QuestionsPage() {
         });
 
         setFilteredQuestions(allQuestions);
-        // Reset to page 1 when filter changes
-        setCurrentPage(1);
+        // Reset to page 1 when filter changes, but don't reset if we just restored a page
+        if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+          console.log('🛡️ Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+        } else {
+          setCurrentPage(1);
+        }
       } catch (error) {
         console.error('Error fetching filtered questions:', error);
         setError('Failed to load filtered questions');
@@ -1098,7 +1236,17 @@ export default function QuestionsPage() {
         setSearchIndex(searchResults);
         searchIndexTimestamp.current = Date.now();
       }
-      if (currentPage !== 1) {
+      // Only reset page if we didn't just restore a non-1 page
+      console.log('🔷 searchResults effect - checking page reset guard:', {
+        pageRestoredRef: pageRestoredRef.current,
+        restoredPageNumberRef: restoredPageNumberRef.current,
+        currentPage,
+        guardWillPass: pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1
+      });
+      if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+        console.log('🛡️ searchResults: Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+      } else if (currentPage !== 1) {
+        console.log('🔴 searchResults: RESETTING page from', currentPage, 'to 1');
         setCurrentPage(1);
       }
       return;
@@ -1109,7 +1257,9 @@ export default function QuestionsPage() {
     const hasTagFilters = Object.values(filters.tags).some(filter => filter);
 
     // If filters are active but questions haven't been loaded yet, trigger fetch
-    if ((hasQuestionFilters || hasTagFilters) && questions.length === 0 && allQuestionNumbers.length > 0) {
+    // But only if page restoration is complete
+    if ((hasQuestionFilters || hasTagFilters) && questions.length === 0 && allQuestionNumbers.length > 0 && pageRestoredRef.current) {
+      console.log('📥 Fetching filtered questions for page:', currentPage);
       fetchQuestionsForCurrentPage();
       return; // Will re-run when questions are loaded
     }
@@ -1304,10 +1454,20 @@ export default function QuestionsPage() {
   };
 
   const handleQuestionClick = (questionNumber: number) => {
+    console.log('🖱️ handleQuestionClick - saving page before navigation:', {
+      currentPage,
+      questionNumber,
+      restoredPageNumberRef: restoredPageNumberRef.current
+    });
+
     // Store questions and answers in sessionStorage to avoid refetching while preventing URL issues
     sessionStorage.setItem('questionsData', JSON.stringify(questions));
     sessionStorage.setItem('userAnswersData', JSON.stringify(userAnswers));
     sessionStorage.setItem('questionsDataTimestamp', Date.now().toString());
+
+    // Store current page so we can restore it when coming back
+    sessionStorage.setItem('questions_current_page', currentPage.toString());
+    console.log('🖱️ handleQuestionClick - sessionStorage after save:', sessionStorage.getItem('questions_current_page'));
 
     router.push(`/questions/${questionNumber}`);
   };

@@ -272,7 +272,7 @@ export default function AddPhotoClient() {
         <div className="flex justify-between items-center px-6 py-4">
           <button
             onClick={() => router.back()}
-            className="text-gray-900 font-medium hover:text-gray-700 transition-colors cursor-pointer"
+            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
           >
             Back
           </button>

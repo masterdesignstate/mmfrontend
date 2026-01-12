@@ -316,11 +316,19 @@ export default function ResultsPage() {
         tags?: string[];
         user_id?: string;
         sort?: string;
+        search?: string;
+        search_field?: 'name' | 'username' | 'live' | 'bio';
       } = {
         page,
         page_size: PAGE_SIZE,
         compatibility_type: compatibilityTypeParam
       };
+
+      // Add search parameters if search is active
+      if (searchTerm.trim()) {
+        params.search = searchTerm.trim();
+        params.search_field = searchField;
+      }
 
       if (applyFilters) {
         params.min_compatibility = filters.compatibility.min;
@@ -515,204 +523,21 @@ export default function ResultsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profiles.length, showMatchCelebration]);
 
-  // Load ALL remaining pages when searching if no match found
+  // When search term changes, refetch from page 1 with search parameters
+  // Debounce to avoid refetching on every keystroke
   useEffect(() => {
-    if (searchTerm.trim() && !loading) {
-      const searchLower = searchTerm.toLowerCase().trim();
-      
-      // Check if we already have a match in loaded profiles
-      const hasMatch = profiles.some(profile => {
-        let matches = false;
-        
-        switch (searchField) {
-          case 'name':
-            const firstName = (profile.user.first_name || '').toLowerCase();
-            matches = firstName.includes(searchLower);
-            break;
-          case 'username':
-            const username = (profile.user.username || '').toLowerCase();
-            matches = username.includes(searchLower);
-            break;
-          case 'live':
-            const live = (profile.user.live || '').toLowerCase();
-            matches = live.includes(searchLower);
-            break;
-          case 'bio':
-            const bio = (profile.user.bio || '').toLowerCase();
-            matches = bio.includes(searchLower);
-            break;
-        }
-        
-        return matches;
-      });
+    if (loading) return; // Don't refetch if already loading
+    
+    const timeoutId = setTimeout(() => {
+      // Reset to page 1 and refetch with search parameters
+      setCurrentPage(1);
+      setProfiles([]);
+      fetchCompatibleUsers(1, filtersApplied);
+    }, 500); // 500ms debounce
 
-      // If no match and there are more pages, load ALL remaining pages
-      if (!hasMatch && hasNextPage) {
-        const loadAllPagesForSearch = async () => {
-          try {
-            setLoading(true);
-            const currentUserId = localStorage.getItem('user_id');
-            if (!currentUserId) {
-              setLoading(false);
-              return;
-            }
-
-            // Load ALL remaining pages until we find a match or run out of pages
-            // IMPORTANT: Use the same page_size as the initial load to maintain consistent pagination
-            let allNewProfiles: ResultProfile[] = [];
-            let pageNum = currentPage + 1;
-            let foundMatch = false;
-            let lastHasNext = true;
-            let lastPage = currentPage;
-            const pageSize = PAGE_SIZE; // Match the initial page_size
-            // Calculate expected pages based on totalCount
-            const expectedPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 20;
-            const maxPages = Math.max(expectedPages, 20); // Use at least 20 pages, or more if totalCount suggests more
-
-            console.log(`📊 Loading pages: currentPage=${currentPage}, totalCount=${totalCount}, expectedPages=${expectedPages}, maxPages=${maxPages}, pageSize=${pageSize}`);
-
-            while (!foundMatch && pageNum <= maxPages) {
-              // Fetch pages in batches of 10 for efficiency
-              const batchSize = 10;
-              const pagePromises = [];
-              const startPage = pageNum;
-              const compatibilityTypeParam =
-                COMPATIBILITY_TYPE_MAP[filters.compatibilityType] || 'overall_compatibility';
-              
-              for (let i = 0; i < batchSize && pageNum <= maxPages; i++) {
-                const params = {
-                  page: pageNum,
-                  page_size: pageSize, // Use consistent page_size
-                  compatibility_type: compatibilityTypeParam,
-                  sort: filters.requiredOnly ? `required_${compatibilityTypeParam}` : undefined,
-                  user_id: currentUserId
-                };
-                pagePromises.push(apiService.getCompatibleUsers(params));
-                pageNum++;
-              }
-
-              const responses = await Promise.all(pagePromises);
-              let batchProfiles: ResultProfile[] = [];
-              
-              // Process responses and track the last page's has_next
-              for (let i = 0; i < responses.length; i++) {
-                const response = responses[i];
-                const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
-                  id: item.user.id,
-                  user: item.user,
-                  compatibility: item.compatibility,
-                  compatibilityNonRequired: item.compatibility_non_required,
-                  missingRequired: Boolean(item.missing_required),
-                  status: 'approved',
-                  isLiked: false,
-                  isMatched: false,
-                  tags: []
-                }));
-
-                batchProfiles = [...batchProfiles, ...transformedProfiles];
-              }
-
-              // Fetch tags for this batch
-              const batchProfilesWithTags = await fetchTagsForProfiles(batchProfiles);
-              // Backend already filters out hidden users, so no need to filter here
-              const batchFilteredProfiles = batchProfilesWithTags;
-              
-              // Log batch profiles for debugging
-              const batchNames = batchFilteredProfiles.map(p => `${p.user.first_name || ''} ${p.user.last_name || ''} ${p.user.username || ''}`).join(', ');
-              const endPage = startPage + responses.length - 1;
-              console.log(`📦 Batch pages ${startPage} to ${endPage}: ${batchFilteredProfiles.length} profiles (${batchProfiles.length} before filtering) - ${batchNames.substring(0, 200)}...`);
-              
-              // If ALL responses in this batch returned 0 results, we've likely reached the end
-              const allEmpty = responses.every(r => r.results.length === 0);
-              if (allEmpty && batchFilteredProfiles.length === 0) {
-                console.log(`⚠️ All pages ${startPage} to ${endPage} returned empty results. Stopping search.`);
-                lastHasNext = false;
-                break;
-              }
-              
-              // Add batch to all profiles
-              allNewProfiles = [...allNewProfiles, ...batchFilteredProfiles];
-              
-              // Check if we found a match in ALL loaded profiles (existing + new)
-              // Note: profiles is from closure, allNewProfiles accumulates all batches loaded so far
-              const allProfilesToCheck = [...profiles, ...allNewProfiles];
-              foundMatch = allProfilesToCheck.some(profile => {
-                let matches = false;
-                
-                switch (searchField) {
-                  case 'name':
-                    const firstName = (profile.user.first_name || '').toLowerCase();
-                    matches = firstName.includes(searchLower);
-                    break;
-                  case 'username':
-                    const username = (profile.user.username || '').toLowerCase();
-                    matches = username.includes(searchLower);
-                    break;
-                  case 'live':
-                    const live = (profile.user.live || '').toLowerCase();
-                    matches = live.includes(searchLower);
-                    break;
-                  case 'bio':
-                    const bio = (profile.user.bio || '').toLowerCase();
-                    matches = bio.includes(searchLower);
-                    break;
-                }
-                
-                if (matches) {
-                  const fieldValue = searchField === 'name' ? profile.user.first_name : searchField === 'username' ? profile.user.username : searchField === 'live' ? profile.user.live : profile.user.bio;
-                  console.log('🎯 Found match during loading:', profile.user.first_name, `(${searchField}: ${fieldValue})`);
-                }
-                
-                return matches;
-              });
-              
-              // Update lastHasNext from the last response
-              if (responses.length > 0) {
-                const lastResponse = responses[responses.length - 1];
-                lastHasNext = lastResponse.has_next || false;
-                lastPage = lastResponse.page;
-              }
-              
-              console.log(`🔍 After batch pages ${startPage} to ${endPage}: Checked ${allProfilesToCheck.length} total profiles, foundMatch=${foundMatch}, lastHasNext=${lastHasNext}, pageNum=${pageNum}, maxPages=${maxPages}`);
-
-              // If found match, stop loading more
-              if (foundMatch) {
-                break;
-              }
-              
-              // Also stop if we've loaded all expected pages based on totalCount
-              // But only if we've loaded at least as many profiles as totalCount suggests
-              if (totalCount > 0 && allProfilesToCheck.length >= totalCount) {
-                console.log(`📊 Loaded ${allProfilesToCheck.length} profiles, which matches or exceeds totalCount ${totalCount}. Stopping.`);
-                break;
-              }
-            }
-            
-            // Add all new profiles to state
-            // Use functional update to ensure we don't lose any profiles
-            setProfiles(prev => {
-              const updated = [...prev, ...allNewProfiles];
-              console.log(`✅ Added ${allNewProfiles.length} new profiles. Total: ${updated.length}`);
-              return updated;
-            });
-            setHasNextPage(lastHasNext);
-            setCurrentPage(lastPage);
-          } catch (error) {
-            console.error('Error loading pages for search:', error);
-          } finally {
-            setLoading(false);
-          }
-        };
-
-        // Debounce to avoid too rapid loading
-        const timeoutId = setTimeout(() => {
-          loadAllPagesForSearch();
-        }, 300);
-
-        return () => clearTimeout(timeoutId);
-      }
-    }
-  }, [searchTerm, searchField, profiles.length, hasNextPage, currentPage, loading, totalCount]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, searchField]);
 
   // Apply filtering and sorting whenever profiles, sortOption, or searchTerm changes
   useEffect(() => {

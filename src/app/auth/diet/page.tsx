@@ -268,7 +268,7 @@ export default function DietPage() {
           {/* Back Button */}
           <button
             onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-700 transition-colors cursor-pointer"
+            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
           >
             Back
           </button>

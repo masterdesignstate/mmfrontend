@@ -312,6 +312,8 @@ class ApiService {
     page_size?: number;
     tags?: string[];
     user_id?: string;
+    search?: string;
+    search_field?: 'name' | 'username' | 'live' | 'bio';
   }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult; missing_required?: boolean; compatibility_non_required?: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
     const queryParams = new URLSearchParams();
 
@@ -334,6 +336,14 @@ class ApiService {
     // Add user_id parameter
     if (params.user_id) {
       queryParams.append('user_id', params.user_id);
+    }
+
+    // Add search parameters
+    if (params.search) {
+      queryParams.append('search', params.search);
+    }
+    if (params.search_field) {
+      queryParams.append('search_field', params.search_field);
     }
 
     return this.request(`/users/compatible/?${queryParams.toString()}`, 'GET') as Promise<{

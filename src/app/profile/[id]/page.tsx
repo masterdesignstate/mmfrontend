@@ -2708,7 +2708,7 @@ export default function UserProfilePage() {
                             <div className="mx-auto mt-4" style={{ width: '500px' }}>
                               <button
                                 onClick={() => setSelectedGroupedQuestionId(null)}
-                                className="text-black hover:text-gray-600"
+                                className="text-black hover:text-gray-500"
                               >
                                 Back to group
                               </button>

@@ -1994,8 +1994,15 @@ export default function QuestionEditPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="flex justify-between items-center px-6 py-4">
           <button
-            onClick={() => router.push('/questions')}
-            className="text-gray-900 font-medium hover:text-gray-700 transition-colors"
+            onClick={() => {
+              // Restore the page from sessionStorage if available
+              const savedPage = typeof window !== 'undefined' 
+                ? sessionStorage.getItem('questions_current_page') 
+                : null;
+              const pageParam = savedPage ? `?page=${savedPage}` : '';
+              router.push(`/questions${pageParam}`);
+            }}
+            className="text-gray-900 font-medium hover:text-gray-500 transition-colors"
           >
             Back
           </button>
