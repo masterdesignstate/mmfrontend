@@ -112,6 +112,25 @@ export default function UserProfilePage() {
   });
   const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
 
+  // Check if required filter was enabled from results page
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = sessionStorage.getItem('results_page_filters');
+      if (savedFilters) {
+        try {
+          const filters = JSON.parse(savedFilters);
+          console.log('🔍 Results page filters:', filters);
+          if (filters.requiredOnly) {
+            console.log('✅ Setting showRequiredCompatibility to true');
+            setShowRequiredCompatibility(true);
+          }
+        } catch (e) {
+          console.error('Error parsing saved filters:', e);
+        }
+      }
+    }
+  }, []);
+
   // Fetch user profile and answers
   useEffect(() => {
     const fetchProfile = async () => {
@@ -212,14 +231,14 @@ export default function UserProfilePage() {
           setAllQuestions(questions);
         }
 
-        // Fetch compatibility data from the results/compatible endpoint
+        // Fetch compatibility data directly between the two users
         const currentUserId = localStorage.getItem('user_id');
         console.log('🔍 Fetching compatibility:', { currentUserId, userId });
         if (currentUserId && currentUserId !== userId) {
           try {
-            // Use the user's compatible endpoint which includes compatibility data
-            const compatibleResponse = await fetch(
-              `${getApiUrl(API_ENDPOINTS.USERS)}compatible/?user_id=${currentUserId}&page_size=100`,
+            // Use the new compatibility_with endpoint for direct lookup
+            const compatibilityResponse = await fetch(
+              `${getApiUrl(API_ENDPOINTS.USERS)}compatibility_with/?user_id=${currentUserId}&other_user_id=${userId}`,
               {
                 headers: {
                   'Content-Type': 'application/json',
@@ -227,55 +246,25 @@ export default function UserProfilePage() {
               }
             );
 
-            if (compatibleResponse.ok) {
-              const compatibleData = await compatibleResponse.json();
-              const results = compatibleData.results || [];
-              console.log('📊 Compatible users received:', results.length, 'records');
-
-              // Find this specific user in the compatible results
-              const userProfile = results.find((profile: any) => profile.user.id === userId);
-
-              console.log('🎯 Found user profile:', userProfile);
-
-              if (userProfile && userProfile.compatibility) {
-                console.log('🔍 Raw compatibility object:', userProfile.compatibility);
-                const compatData = {
-                  overall_compatibility: userProfile.compatibility.overall_compatibility,
-                  im_compatible_with: userProfile.compatibility.im_compatible_with,
-                  compatible_with_me: userProfile.compatibility.compatible_with_me,
-                  mutual_questions_count: userProfile.compatibility.mutual_questions_count || 0,
-                  required_overall_compatibility: userProfile.compatibility.required_overall_compatibility,
-                  required_compatible_with_me: userProfile.compatibility.required_compatible_with_me,
-                  required_im_compatible_with: userProfile.compatibility.required_im_compatible_with,
-                  required_mutual_questions_count: userProfile.compatibility.required_mutual_questions_count,
-                  user1_required_completeness: userProfile.compatibility.user1_required_completeness,
-                  user2_required_completeness: userProfile.compatibility.user2_required_completeness,
-                  required_completeness_ratio: userProfile.compatibility.required_completeness_ratio, // Deprecated
-                };
-                console.log('✅ Setting compatibility:', compatData);
-                setCompatibility(compatData);
-                
-                // Check if required filter was enabled from results page
-                if (typeof window !== 'undefined') {
-                  const savedFilters = sessionStorage.getItem('results_page_filters');
-                  if (savedFilters) {
-                    try {
-                      const filters = JSON.parse(savedFilters);
-                      const hasRequiredScores = compatData.required_mutual_questions_count !== undefined &&
-                                             compatData.required_mutual_questions_count > 0;
-                      if (filters.requiredOnly && hasRequiredScores) {
-                        setShowRequiredCompatibility(true);
-                      }
-                    } catch (e) {
-                      console.error('Error parsing saved filters:', e);
-                    }
-                  }
-                }
-              } else {
-                console.log('❌ No compatibility data found for this user');
-                console.log('   Available user IDs:', results.map((r: any) => r.user.id).slice(0, 5));
-                console.log('   Looking for user ID:', userId);
-              }
+            if (compatibilityResponse.ok) {
+              const compatData = await compatibilityResponse.json();
+              console.log('✅ Compatibility data received:', compatData);
+              setCompatibility({
+                overall_compatibility: compatData.overall_compatibility,
+                im_compatible_with: compatData.im_compatible_with,
+                compatible_with_me: compatData.compatible_with_me,
+                mutual_questions_count: compatData.mutual_questions_count || 0,
+                required_overall_compatibility: compatData.required_overall_compatibility,
+                required_compatible_with_me: compatData.required_compatible_with_me,
+                required_im_compatible_with: compatData.required_im_compatible_with,
+                required_mutual_questions_count: compatData.required_mutual_questions_count,
+                user1_required_completeness: compatData.user1_required_completeness,
+                user2_required_completeness: compatData.user2_required_completeness,
+              });
+            } else if (compatibilityResponse.status === 404) {
+              console.log('❌ No compatibility record found between these users');
+            } else {
+              console.error('Error fetching compatibility:', compatibilityResponse.statusText);
             }
           } catch (error) {
             console.error('Error fetching compatibility:', error);
@@ -1701,8 +1690,8 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Purple Sleeve - pulled up behind the photo */}
-          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
+          {/* Purple/Orange Sleeve - pulled up behind the photo */}
+          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: showRequiredCompatibility ? 'linear-gradient(135deg, #FB923C 0%, #F97316 50%, #EA580C 100%)' : 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
             <div className="flex justify-between gap-3">
               <button
                 onClick={handleChatClick}
@@ -1771,71 +1760,71 @@ export default function UserProfilePage() {
             {/* Grid of 4 Metrics */}
             <div className="flex flex-wrap gap-3">
               {/* Overall */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[115px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 w-[95px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Overall
                 </div>
                 <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
+                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {Math.round(showRequiredCompatibility &&
                                 compatibility.required_overall_compatibility !== undefined &&
                                 compatibility.required_overall_compatibility !== null
                       ? compatibility.required_overall_compatibility
                       : compatibility.overall_compatibility)}
                   </span>
-                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                  <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
 
               {/* Me */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[115px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 w-[95px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Me
                 </div>
                 <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
+                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {Math.round(showRequiredCompatibility &&
                                 compatibility.required_im_compatible_with !== undefined &&
                                 compatibility.required_im_compatible_with !== null
                       ? compatibility.required_im_compatible_with
                       : compatibility.im_compatible_with)}
                   </span>
-                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                  <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
 
               {/* Them */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[115px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 w-[95px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Them
                 </div>
                 <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
+                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {Math.round(showRequiredCompatibility &&
                                 compatibility.required_compatible_with_me !== undefined &&
                                 compatibility.required_compatible_with_me !== null
                       ? compatibility.required_compatible_with_me
                       : compatibility.compatible_with_me)}
                   </span>
-                  <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
+                  <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
 
               {/* My Completeness */}
               <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[130px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  My Completeness
+                  My Required
                 </div>
                 <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
+                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {compatibility.user1_required_completeness !== undefined
                       ? Math.round(compatibility.user1_required_completeness * 100)
                       : 'N/A'}
                   </span>
                   {compatibility.user1_required_completeness !== undefined && (
                     <>
-                      <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
-                      {compatibility.required_mutual_questions_count !== undefined && 
+                      <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                      {compatibility.required_mutual_questions_count !== undefined &&
                        compatibility.user1_required_completeness > 0 && (
                         <span className="text-gray-600 ml-2">
                           {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user1_required_completeness)}
@@ -1849,18 +1838,18 @@ export default function UserProfilePage() {
               {/* Their Completeness */}
               <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[130px]">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  Their Completeness
+                  Their Required
                 </div>
                 <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
+                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {compatibility.user2_required_completeness !== undefined
                       ? Math.round(compatibility.user2_required_completeness * 100)
                       : 'N/A'}
                   </span>
                   {compatibility.user2_required_completeness !== undefined && (
                     <>
-                      <span className="text-lg font-bold ml-1 text-[#672DB7]">%</span>
-                      {compatibility.required_mutual_questions_count !== undefined && 
+                      <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                      {compatibility.required_mutual_questions_count !== undefined &&
                        compatibility.user2_required_completeness > 0 && (
                         <span className="text-gray-600 ml-2">
                           {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user2_required_completeness)}
@@ -1909,7 +1898,7 @@ export default function UserProfilePage() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Questions Answered</h3>
-                <p className="text-gray-600">{new Set(userAnswers.map(a => a.question.question_number)).size}</p>
+                <p className="text-gray-600">{userAnswers.length}</p>
               </div>
             </>
           )}

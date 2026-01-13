@@ -18,6 +18,8 @@ interface Question {
   answers: Array<{ value: string; answer_text: string }>;
   open_to_all_me: boolean;
   open_to_all_looking_for: boolean;
+  is_answered?: boolean;  // From backend - whether current user has answered this question
+  is_required_for_match?: boolean;  // From backend - whether this question is required for matching
 }
 
 interface UserAnswer {
@@ -587,63 +589,33 @@ export default function QuestionEditPage() {
       try {
         // Get user ID
         const storedUserId = localStorage.getItem('user_id');
+        console.log('👤 Current user_id from localStorage:', storedUserId);
         if (!storedUserId) {
           router.push('/auth/login');
           return;
         }
         setUserId(storedUserId);
 
-        // Check if questions were stored in sessionStorage first (optimization from questions list page)
+        // Always fetch fresh questions from API to get accurate is_answered values
+        // (sessionStorage data may be stale or from a different user session)
         let questionsList: Question[] = [];
-        let answersList: any[] = [];
-        
-        const storedQuestions = sessionStorage.getItem('questionsData');
-        const storedAnswers = sessionStorage.getItem('userAnswersData');
-        const timestamp = sessionStorage.getItem('questionsDataTimestamp');
-        
-        // Use sessionStorage data if it's recent (within 5 minutes)
-        const isRecentData = timestamp && (Date.now() - parseInt(timestamp)) < 5 * 60 * 1000;
-        
-        if (storedQuestions && isRecentData) {
-          try {
-            const parsedQuestions = JSON.parse(storedQuestions);
-            // Filter to ONLY the specific question number we're viewing
-            const filteredQuestions = parsedQuestions.filter((q: Question) => q.question_number === questionNumber);
-            // Sort by group_number
-            questionsList = filteredQuestions.sort((a: Question, b: Question) => 
-              (a.group_number || 0) - (b.group_number || 0)
-            );
-            console.log('📋 Using filtered questions from sessionStorage for question', questionNumber, ':', questionsList);
-          } catch (error) {
-            console.error('❌ Error parsing questions from sessionStorage:', error);
+
+        console.log('🚀 Fetching questions from API...');
+        const questionsResponse = await fetch(
+          `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`,
+          {
+            headers: { 'Content-Type': 'application/json' }
           }
-        }
-        
-        if (storedAnswers && isRecentData) {
-          try {
-            answersList = JSON.parse(storedAnswers);
-            console.log('📋 Using answers from sessionStorage:', answersList);
-          } catch (error) {
-            console.error('❌ Error parsing answers from sessionStorage:', error);
-          }
-        }
-        
-        // Only fetch from API if we don't have questions from sessionStorage
-        if (questionsList.length === 0) {
-          console.log('🚀 Fetching questions from API...');
-          const questionsResponse = await fetch(
-            `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`
-          );
-          const questionsData = await questionsResponse.json();
-          questionsList = questionsData.results || [];
-          
-          // Sort by group_number
-          questionsList.sort((a: Question, b: Question) => 
-            (a.group_number || 0) - (b.group_number || 0)
-          );
-          console.log('📋 Fetched questions from API:', questionsList);
-        }
-        
+        );
+        const questionsData = await questionsResponse.json();
+        questionsList = questionsData.results || [];
+
+        // Sort by group_number
+        questionsList.sort((a: Question, b: Question) =>
+          (a.group_number || 0) - (b.group_number || 0)
+        );
+        console.log('📋 Fetched questions from API:', questionsList);
+
         console.log('✅ Setting questions state:', {
           questionNumber,
           questionsList,
@@ -653,32 +625,52 @@ export default function QuestionEditPage() {
         });
         setQuestions(questionsList);
 
-        // Use answers from URL params if available, otherwise fetch from API
-        let relevantAnswers: any[] = [];
-        
-        if (answersList.length > 0) {
-          // Use answers from URL params
-          relevantAnswers = answersList;
-          console.log('📋 Using relevant answers from URL params:', relevantAnswers);
-        } else {
-          // Fetch user's existing answers from API
-          console.log('🚀 Fetching answers from API...');
-          const answersResponse = await fetch(
-            `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}`,
-            {
-       
-              headers: { 'Content-Type': 'application/json' }
-            }
-          );
-          
+        // Initialize meRequired based on question's is_required_for_match field
+        if (questionsList.length > 0 && questionNumber > 10 && questionsList[0].question_type !== 'grouped') {
+          setMeRequired(questionsList[0].is_required_for_match === true);
+        }
+
+        // Fetch user's existing answers from API (handle pagination)
+        console.log('🚀 Fetching answers from API...');
+        let allAnswers: UserAnswer[] = [];
+        let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&page_size=100`;
+
+        while (nextUrl) {
+          const answersResponse = await fetch(nextUrl, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+
           if (answersResponse.ok) {
             const answersData = await answersResponse.json();
-            relevantAnswers = (answersData.results || []).filter(
-              (answer: any) => answer.question.question_number === questionNumber
-            );
-            console.log('📋 Fetched relevant answers from API:', relevantAnswers);
+            allAnswers = [...allAnswers, ...(answersData.results || [])];
+            nextUrl = answersData.next || null;
+          } else {
+            break;
           }
         }
+
+        const relevantAnswers = allAnswers.filter(
+          (answer: UserAnswer) => {
+            const questionId = typeof answer.question === 'object' ? answer.question : answer.question;
+            // Find the question number from our questionsList
+            const matchingQuestion = questionsList.find(q => q.id === questionId ||
+              (typeof answer.question === 'object' && (answer.question as { question_number?: number }).question_number === questionNumber));
+            return matchingQuestion !== undefined ||
+              (typeof answer.question === 'object' && (answer.question as { question_number?: number }).question_number === questionNumber);
+          }
+        );
+        console.log('📋 Fetched relevant answers from API:', {
+          totalAnswers: allAnswers.length,
+          relevantCount: relevantAnswers.length
+        });
+        // Log each answer's question ID separately for clarity
+        relevantAnswers.forEach((a, i) => {
+          const qId = typeof a.question === 'object' ? (a.question as any).id : a.question;
+          const qName = typeof a.question === 'object' ? (a.question as any).question_name : 'unknown';
+          console.log(`📌 Answer ${i + 1}: questionId=${qId}, questionName=${qName}, me_answer=${a.me_answer}`);
+        });
+        // Also log the question IDs we're trying to match against
+        console.log('📋 Questions we have:', questionsList.map(q => ({ id: q.id, name: q.question_name })));
         
         setExistingAnswers(relevantAnswers);
         
@@ -718,10 +710,9 @@ export default function QuestionEditPage() {
           lookingFor: answer.looking_for_importance || 3
         });
         
-        // Initialize meShare and meRequired for non-grouped questions > 10
+        // Initialize meShare for non-grouped questions > 10
         if (question.question_number > 10 && question.question_type !== 'grouped') {
           setMeShare(answer.me_share !== false); // Default to true if not set
-          setMeRequired(answer.me_importance === 5);
         }
       } else {
         // Default values
@@ -1636,12 +1627,20 @@ export default function QuestionEditPage() {
             {visibleQuestions.map((question) => {
               const isSelected = selectedOptions.includes(question.question_name);
 
-              // Check if this question has been answered
-              const existingAnswer = existingAnswers.find(a => {
-                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                return questionId === question.id;
+              // Check if this question has been answered by looking at existingAnswers
+              const isAnswered = existingAnswers.some(answer => {
+                const answeredQuestionId = typeof answer.question === 'object'
+                  ? answer.question.id
+                  : answer.question;
+                return answeredQuestionId === question.id;
               });
-              const isAnswered = existingAnswer && existingAnswer.me_answer > 1;
+
+              // Debug: Log the isAnswered check for each question
+              console.log(`🔍 isAnswered check for "${question.question_name}":`, {
+                questionId: question.id,
+                existingAnswersCount: existingAnswers.length,
+                isAnswered
+              });
 
               return (
                 <div
@@ -1718,12 +1717,13 @@ export default function QuestionEditPage() {
         <div className="max-w-2xl mx-auto">
           <div className="space-y-3">
             {questions.map((question) => {
-              // Check if this question has been answered
-              const existingAnswer = existingAnswers.find(a => {
-                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                return questionId === question.id;
+              // Check if this question has been answered by looking at existingAnswers
+              const isAnswered = existingAnswers.some(answer => {
+                const answeredQuestionId = typeof answer.question === 'object'
+                  ? answer.question.id
+                  : answer.question;
+                return answeredQuestionId === question.id;
               });
-              const isAnswered = existingAnswer && existingAnswer.me_answer > 1;
 
               return (
                 <button
@@ -1774,9 +1774,9 @@ export default function QuestionEditPage() {
         <div className="flex flex-col items-center w-full">
           {/* Them Section */}
           <div className="mb-6 w-full flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+            <h3 className="text-2xl font-bold text-center" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-1" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div>
               <div className="flex justify-between text-xs text-gray-500">
                 {question.answers && question.answers.length > 0 ? (
@@ -1827,14 +1827,50 @@ export default function QuestionEditPage() {
                   <div className="w-11 h-6"></div>
                 )}
               </div>
+
+            </div>
+
+            {/* Importance Section */}
+            <div className="mt-4 w-full">
+              <div className="flex justify-center">
+                <div className="relative" style={{ width: '500px' }}>
+                  <SliderComponent
+                    value={importanceValues.lookingFor}
+                    onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
+                    isOpenToAll={false}
+                    isImportance={true}
+                    labels={IMPORTANCE_LABELS}
+                  />
+                </div>
+              </div>
+              {/* Importance label below slider */}
+              <div className="flex justify-center mt-1">
+                <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                  {importanceValues.lookingFor === 1 && (
+                    <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                  )}
+                  {importanceValues.lookingFor === 2 && (
+                    <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                  )}
+                  {importanceValues.lookingFor === 3 && (
+                    <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                  )}
+                  {importanceValues.lookingFor === 4 && (
+                    <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                  )}
+                  {importanceValues.lookingFor === 5 && (
+                    <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Me Section */}
           <div className="mb-6 w-full flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+            <h3 className="text-2xl font-bold text-center">Me</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mx-auto max-w-fit mb-1" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
               <div></div>
               <div className="flex justify-between text-xs text-gray-500">
                 {question.answers && question.answers.length > 0 ? (
@@ -1887,6 +1923,7 @@ export default function QuestionEditPage() {
               </div>
             </div>
           </div>
+
         </div>
       );
     }
