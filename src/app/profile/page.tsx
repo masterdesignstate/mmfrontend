@@ -97,6 +97,9 @@ export default function ProfilePage() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>(initialState.answers);
   const [loading, setLoading] = useState(initialState.loading);
   const [error, setError] = useState<string>('');
+  const [requiredQuestionsData, setRequiredQuestionsData] = useState<{
+    count: number;
+  } | null>(null);
 
   // Fetch user profile and answers
   useEffect(() => {
@@ -188,12 +191,36 @@ export default function ProfilePage() {
 
         const answers = answersData.results || [];
 
+        // Calculate required questions data
+        let requiredQuestionsData = null;
+        try {
+          const questionsResponse = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?is_required_for_match=true&page_size=100`, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (questionsResponse.ok) {
+            const questionsData = await questionsResponse.json();
+            const requiredQuestions = questionsData.results || [];
+            const totalRequired = requiredQuestions.length;
+            
+            requiredQuestionsData = {
+              count: totalRequired
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching required questions:', error);
+          // Continue without required questions data if fetch fails
+        }
+
         // Cache the data
         sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
         sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
 
         setUser(userData);
         setUserAnswers(answers);
+        setRequiredQuestionsData(requiredQuestionsData);
 
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -781,6 +808,38 @@ export default function ProfilePage() {
                   <span className="text-base text-black font-medium">{icon.label}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Required Questions and Questions Answered Section */}
+          {requiredQuestionsData && (
+            <div className="mb-8">
+              {/* Second Row: Required Questions, Questions Answered - Smaller Cards */}
+              <div className="flex gap-3">
+                {/* Required Questions */}
+                <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                  <div className="text-sm font-normal text-black capitalize mb-2">
+                    Required Questions
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-black text-[#672DB7]">
+                      {requiredQuestionsData.count}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Questions Answered */}
+                <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                  <div className="text-sm font-normal text-black capitalize mb-2">
+                    Questions Answered
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-black text-[#672DB7]">
+                      {userAnswers.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

@@ -1757,10 +1757,10 @@ export default function UserProfilePage() {
         {/* Compatibility Section */}
         {compatibility && (
           <div className="mb-8">
-            {/* Grid of 4 Metrics */}
-            <div className="flex flex-wrap gap-3">
+            {/* First Row: Overall, Me, Them - Larger Cards */}
+            <div className="flex gap-3 mb-3">
               {/* Overall */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 w-[95px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Overall
                 </div>
@@ -1777,7 +1777,7 @@ export default function UserProfilePage() {
               </div>
 
               {/* Me */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 w-[95px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Me
                 </div>
@@ -1794,7 +1794,7 @@ export default function UserProfilePage() {
               </div>
 
               {/* Them */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 w-[95px]">
+              <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Them
                 </div>
@@ -1809,54 +1809,83 @@ export default function UserProfilePage() {
                   <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
+            </div>
 
-              {/* My Completeness */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[130px]">
+            {/* Second Row: My Required, Their Required, Mutual Questions, Questions Answered - Smaller Cards */}
+            <div className="flex gap-3">
+              {/* My Required */}
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   My Required
                 </div>
-                <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {compatibility.user1_required_completeness !== undefined
-                      ? Math.round(compatibility.user1_required_completeness * 100)
-                      : 'N/A'}
-                  </span>
-                  {compatibility.user1_required_completeness !== undefined && (
-                    <>
+                <div className="flex items-baseline justify-between">
+                  <div className="flex items-baseline">
+                    <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                      {compatibility.user1_required_completeness !== undefined
+                        ? Math.round(compatibility.user1_required_completeness * 100)
+                        : 'N/A'}
+                    </span>
+                    {compatibility.user1_required_completeness !== undefined && (
                       <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
-                      {compatibility.required_mutual_questions_count !== undefined &&
-                       compatibility.user1_required_completeness > 0 && (
-                        <span className="text-gray-600 ml-2">
-                          {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user1_required_completeness)}
-                        </span>
-                      )}
-                    </>
+                    )}
+                  </div>
+                  {compatibility.user1_required_completeness !== undefined &&
+                   compatibility.required_mutual_questions_count !== undefined &&
+                   compatibility.user1_required_completeness > 0 && (
+                    <span className="text-gray-600">
+                      {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user1_required_completeness)}
+                    </span>
                   )}
                 </div>
               </div>
 
-              {/* Their Completeness */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-2 w-[130px]">
+              {/* Their Required */}
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Their Required
                 </div>
+                <div className="flex items-baseline justify-between">
+                  <div className="flex items-baseline">
+                    <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                      {compatibility.user2_required_completeness !== undefined
+                        ? Math.round(compatibility.user2_required_completeness * 100)
+                        : 'N/A'}
+                    </span>
+                    {compatibility.user2_required_completeness !== undefined && (
+                      <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                    )}
+                  </div>
+                  {compatibility.user2_required_completeness !== undefined &&
+                   compatibility.required_mutual_questions_count !== undefined &&
+                   compatibility.user2_required_completeness > 0 && (
+                    <span className="text-gray-600">
+                      {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user2_required_completeness)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Mutual Questions */}
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Mutual Questions
+                </div>
                 <div className="flex items-baseline">
                   <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {compatibility.user2_required_completeness !== undefined
-                      ? Math.round(compatibility.user2_required_completeness * 100)
-                      : 'N/A'}
+                    {compatibility.mutual_questions_count || 0}
                   </span>
-                  {compatibility.user2_required_completeness !== undefined && (
-                    <>
-                      <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
-                      {compatibility.required_mutual_questions_count !== undefined &&
-                       compatibility.user2_required_completeness > 0 && (
-                        <span className="text-gray-600 ml-2">
-                          {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user2_required_completeness)}
-                        </span>
-                      )}
-                    </>
-                  )}
+                </div>
+              </div>
+
+              {/* Questions Answered */}
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Questions Answered
+                </div>
+                <div className="flex items-baseline">
+                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    {userAnswers.length}
+                  </span>
                 </div>
               </div>
             </div>

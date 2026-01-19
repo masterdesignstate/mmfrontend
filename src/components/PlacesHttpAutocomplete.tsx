@@ -41,7 +41,17 @@ export default function PlacesHttpAutocomplete({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Debug logging for API key
-  console.log('🔑 Places API Key:', apiKey ? `EXISTS (length: ${apiKey.length})` : 'MISSING');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('🔑 Places API Key Check:', {
+        exists: !!apiKey,
+        length: apiKey?.length || 0,
+        preview: apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'NONE',
+        envVar: process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ? 'SET' : 'NOT SET',
+        hostname: window.location.hostname
+      });
+    }
+  }, [apiKey]);
   const abortController = useRef<AbortController | null>(null);
   const sessionTokenRef = useRef<string>(createSessionToken());
 
@@ -70,6 +80,9 @@ export default function PlacesHttpAutocomplete({
       setSuggestions([]);
       setOpen(false);
       setLoading(false);
+      if (!apiKey && typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        console.error('⚠️ Google Places API Key is missing in production. Add NEXT_PUBLIC_GOOGLE_PLACES_API_KEY to your Vercel environment variables.');
+      }
       setError(null);
       return;
     }
@@ -106,10 +119,18 @@ export default function PlacesHttpAutocomplete({
         });
 
         if (!response.ok) {
-          // Don't show error if API key is invalid - just silently fail and work as regular input
+          // Log detailed error information for debugging
           const errorBody = await response.text();
-          console.warn('❌ Google Places API error:', response.status, errorBody);
-          console.warn('API Key used:', apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'NONE');
+          console.error('❌ Google Places API error:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorBody,
+            apiKeyExists: !!apiKey,
+            apiKeyPreview: apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'NONE',
+            endpoint: AUTOCOMPLETE_ENDPOINT,
+            environment: typeof window !== 'undefined' ? window.location.hostname : 'server'
+          });
+          setError(`API Error: ${response.status} - ${errorBody.substring(0, 100)}`);
           setSuggestions([]);
           setOpen(false);
           return;
@@ -198,6 +219,11 @@ export default function PlacesHttpAutocomplete({
         }}
       />
 
+      {error && (
+        <div className="absolute z-30 mt-1 w-full rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-600">
+          Autocomplete error: {error}
+        </div>
+      )}
       {open && suggestions.length > 0 && (
         <ul className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg max-h-60 overflow-auto">
           {suggestions.map((suggestion) => (
