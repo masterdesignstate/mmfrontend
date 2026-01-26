@@ -1913,24 +1913,10 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Bio, Mutual Questions, and Questions Answered - same layout as Username section */}
-        <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-16 mb-6">
-          <div>
-            <h3 className="font-semibold text-gray-900">Bio</h3>
-            <p className="text-gray-600">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
-          </div>
-          {compatibility && (
-            <>
-              <div>
-                <h3 className="font-semibold text-gray-900">Mutual Questions</h3>
-                <p className="text-gray-600">{compatibility.mutual_questions_count}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Questions Answered</h3>
-                <p className="text-gray-600">{userAnswers.length}</p>
-              </div>
-            </>
-          )}
+        {/* Bio */}
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-900 mb-2">Bio</h3>
+          <p className="text-gray-600">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
         </div>
 
         {/* My Gender Section - left aligned content block */}

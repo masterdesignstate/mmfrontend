@@ -151,12 +151,12 @@ export default function MatchesPage() {
           </div>
         ) : (
           <div className="bg-white">
-            {/* Your Turn Section */}
+            {/* Make a Move Section */}
             {yourTurn.length > 0 && (
               <div className="border-b border-gray-200">
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                   <h2 className="text-sm font-semibold text-gray-700">
-                    Your Turn ({yourTurn.length})
+                    Make a Move ({yourTurn.length})
                   </h2>
                 </div>
                 <div className="divide-y divide-gray-200">
@@ -165,12 +165,12 @@ export default function MatchesPage() {
               </div>
             )}
 
-            {/* Their Turn Section */}
+            {/* Waiting Section */}
             {theirTurn.length > 0 && (
               <div>
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                   <h2 className="text-sm font-semibold text-gray-700">
-                    Their Turn ({theirTurn.length})
+                    Waiting ({theirTurn.length})
                   </h2>
                 </div>
                 <div className="divide-y divide-gray-200">

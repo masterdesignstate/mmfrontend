@@ -46,56 +46,11 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Check cache synchronously on mount to avoid loading state if cache exists
-  const getInitialState = () => {
-    if (typeof window === 'undefined') {
-      return { user: null, answers: [], loading: true };
-    }
-    
-    // PRIORITY 1: Check URL query parameter first (most recent/accurate)
-    // PRIORITY 2: Fall back to localStorage (may be stale)
-    const urlUserId = searchParams?.get('user_id');
-    const storedUserId = localStorage.getItem('user_id');
-    const userId = urlUserId || storedUserId;
-    
-    // If URL has user_id, update localStorage to keep it in sync
-    if (urlUserId && urlUserId !== storedUserId) {
-      console.log('🔄 Updating localStorage user_id from URL:', urlUserId);
-      localStorage.setItem('user_id', urlUserId);
-      // Clear any cached data for old user to prevent showing wrong profile
-      if (storedUserId) {
-        const oldCacheKey = `profile_${storedUserId}`;
-        sessionStorage.removeItem(oldCacheKey);
-        sessionStorage.removeItem(`${oldCacheKey}_timestamp`);
-        console.log('🗑️ Cleared cached profile for old user:', storedUserId);
-      }
-    }
-    
-    if (!userId) {
-      return { user: null, answers: [], loading: true };
-    }
-    
-    const cacheKey = `profile_${userId}`;
-    const cachedData = sessionStorage.getItem(cacheKey);
-    const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-    const now = Date.now();
-    
-    if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) {
-      try {
-        const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
-        return { user: cachedUser, answers: cachedAnswers, loading: false };
-      } catch {
-        return { user: null, answers: [], loading: true };
-      }
-    }
-    
-    return { user: null, answers: [], loading: true };
-  };
-  
-  const initialState = getInitialState();
-  const [user, setUser] = useState<UserProfile | null>(initialState.user);
-  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>(initialState.answers);
-  const [loading, setLoading] = useState(initialState.loading);
+  // Always start with loading state to avoid hydration mismatch
+  // Client-side cache will be checked in useEffect
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [requiredQuestionsData, setRequiredQuestionsData] = useState<{
     count: number;
@@ -108,11 +63,11 @@ export default function ProfilePage() {
         // PRIORITY 1: Check URL query parameter first (most recent/accurate)
         // PRIORITY 2: Fall back to localStorage (may be stale)
         const urlUserId = searchParams?.get('user_id');
-        const storedUserId = localStorage.getItem('user_id');
+        const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null;
         let userId = urlUserId || storedUserId;
         
         // If URL has user_id, update localStorage to keep it in sync
-        if (urlUserId) {
+        if (urlUserId && typeof window !== 'undefined') {
           if (urlUserId !== storedUserId) {
             console.log('🔄 Updating localStorage user_id from URL:', urlUserId);
             localStorage.setItem('user_id', urlUserId);
@@ -136,19 +91,21 @@ export default function ProfilePage() {
 
         console.log('🔍 Fetching profile for user:', userId, urlUserId ? '(from URL)' : '(from localStorage)');
 
-        // Check sessionStorage cache first (2 min TTL)
-        const cacheKey = `profile_${userId}`;
-        const cachedData = sessionStorage.getItem(cacheKey);
-        const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-        const now = Date.now();
+        // Check sessionStorage cache first (2 min TTL) - only on client
+        if (typeof window !== 'undefined') {
+          const cacheKey = `profile_${userId}`;
+          const cachedData = sessionStorage.getItem(cacheKey);
+          const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
+          const now = Date.now();
 
-        if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
-          console.log('Using cached profile data');
-          const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
-          setUser(cachedUser);
-          setUserAnswers(cachedAnswers);
-          setLoading(false);
-          return;
+          if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
+            console.log('Using cached profile data');
+            const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
+            setUser(cachedUser);
+            setUserAnswers(cachedAnswers);
+            setLoading(false);
+            return;
+          }
         }
 
         // Fetch user and answers in parallel
@@ -715,14 +672,14 @@ export default function ProfilePage() {
             
             <nav className="space-y-4">
               <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
-                <div className="w-8 h-8 rounded-full overflow-hidden">
+                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                   {user.profile_photo ? (
                     <Image
                       src={user.profile_photo}
                       alt={displayName}
                       width={32}
                       height={32}
-                      className="object-cover"
+                      className="object-cover w-full h-full"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center text-white text-sm font-bold">
