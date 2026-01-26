@@ -91,12 +91,14 @@ export default function ProfilePage() {
 
         console.log('🔍 Fetching profile for user:', userId, urlUserId ? '(from URL)' : '(from localStorage)');
 
+        // Define cacheKey and now outside the conditional block so they're available for caching later
+        const cacheKey = `profile_${userId}`;
+        const now = Date.now();
+
         // Check sessionStorage cache first (2 min TTL) - only on client
         if (typeof window !== 'undefined') {
-          const cacheKey = `profile_${userId}`;
           const cachedData = sessionStorage.getItem(cacheKey);
           const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-          const now = Date.now();
 
           if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
             console.log('Using cached profile data');
@@ -171,9 +173,11 @@ export default function ProfilePage() {
           // Continue without required questions data if fetch fails
         }
 
-        // Cache the data
-        sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
-        sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+        // Cache the data - only on client
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
+          sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+        }
 
         setUser(userData);
         setUserAnswers(answers);
