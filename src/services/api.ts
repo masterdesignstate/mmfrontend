@@ -308,13 +308,17 @@ class ApiService {
     min_distance?: number;
     max_distance?: number;
     required_only?: boolean;
+    filter_required?: boolean;
+    filter_pending?: boolean;
+    filter_their_required?: boolean;
+    filter_their_pending?: boolean;
     page?: number;
     page_size?: number;
     tags?: string[];
     user_id?: string;
     search?: string;
     search_field?: 'name' | 'username' | 'live' | 'bio';
-  }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult; missing_required?: boolean; compatibility_non_required?: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
+  }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult; missing_required?: boolean; their_missing_required?: boolean; compatibility_non_required?: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
     const queryParams = new URLSearchParams();
 
     if (params.compatibility_type) queryParams.append('compatibility_type', params.compatibility_type);
@@ -325,6 +329,10 @@ class ApiService {
     if (params.min_distance !== undefined) queryParams.append('min_distance', params.min_distance.toString());
     if (params.max_distance !== undefined) queryParams.append('max_distance', params.max_distance.toString());
     if (params.required_only !== undefined) queryParams.append('required_only', params.required_only.toString());
+    if (params.filter_required !== undefined) queryParams.append('filter_required', params.filter_required.toString());
+    if (params.filter_pending !== undefined) queryParams.append('filter_pending', params.filter_pending.toString());
+    if (params.filter_their_required !== undefined) queryParams.append('filter_their_required', params.filter_their_required.toString());
+    if (params.filter_their_pending !== undefined) queryParams.append('filter_their_pending', params.filter_their_pending.toString());
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.page_size) queryParams.append('page_size', params.page_size.toString());
 

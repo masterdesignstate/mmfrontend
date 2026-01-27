@@ -18,6 +18,7 @@ interface ResultProfile {
   compatibility: CompatibilityResult;
   compatibilityNonRequired?: CompatibilityResult;
   missingRequired?: boolean;
+  theirMissingRequired?: boolean;
   status: 'approved' | 'liked' | 'matched';
   isLiked: boolean;
   isMatched: boolean;
@@ -198,6 +199,24 @@ export default function ResultsPage() {
   const [pendingLikeProfileId, setPendingLikeProfileId] = useState<string | null>(null);
   const [currentUserLive, setCurrentUserLive] = useState<string | null>(null);
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  // Track which tags are actually applied (for color logic) - initialize from session storage if filters were applied
+  const [appliedTags, setAppliedTags] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const wasApplied = sessionStorage.getItem('results_page_filters_applied') === 'true';
+      if (wasApplied) {
+        const savedFilters = sessionStorage.getItem('results_page_filters');
+        if (savedFilters) {
+          try {
+            const parsed = JSON.parse(savedFilters);
+            return parsed.tags || [];
+          } catch (e) {
+            console.error('Error parsing saved filters for appliedTags:', e);
+          }
+        }
+      }
+    }
+    return [];
+  });
   const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
@@ -313,6 +332,10 @@ export default function ResultsPage() {
         min_distance?: number;
         max_distance?: number;
         required_only?: boolean;
+        filter_required?: boolean;
+        filter_pending?: boolean;
+        filter_their_required?: boolean;
+        filter_their_pending?: boolean;
         tags?: string[];
         user_id?: string;
         sort?: string;
@@ -330,12 +353,15 @@ export default function ResultsPage() {
         params.search_field = searchField;
       }
 
-      // Separate "Required" and "Pending" tags from regular tags
-      // These will be handled client-side based on missingRequired field
-      const specialTags = ['Required', 'Pending'];
+      // Separate "Required", "Pending", "Their Required", "Their Pending" tags from regular tags
+      // These are now handled server-side for proper pagination
+      const specialTags = ['Required', 'Pending', 'Their Required', 'Their Pending'];
       const regularTags = filters.tags ? filters.tags.filter(tag => !specialTags.includes(tag)) : [];
       const hasRequiredTag = applyFilters && (filters.tags?.includes('Required') || false);
       const hasPendingTag = applyFilters && (filters.tags?.includes('Pending') || false);
+      const hasTheirRequiredTag = applyFilters && (filters.tags?.includes('Their Required') || false);
+      const hasTheirPendingTag = applyFilters && (filters.tags?.includes('Their Pending') || false);
+      const hasAnyRequiredFilter = hasRequiredTag || hasPendingTag || hasTheirRequiredTag || hasTheirPendingTag;
 
       if (applyFilters) {
         params.min_compatibility = filters.compatibility.min;
@@ -344,13 +370,19 @@ export default function ResultsPage() {
         params.max_age = filters.age.max;
         params.min_distance = filters.distance.min;
         params.max_distance = filters.distance.max;
-        // Enable required_only if Required/Pending tags are selected OR if the toggle is on
-        // This ensures missing_required is calculated so we can filter properly
-        params.required_only = filters.requiredOnly || hasRequiredTag || hasPendingTag;
+        // Enable required_only if Required/Pending/Their Required/Their Pending tags are selected OR if the toggle is on
+        // This ensures missing_required and their_missing_required are calculated so we can filter properly
+        params.required_only = filters.requiredOnly || hasAnyRequiredFilter;
         // If requiredOnly is enabled OR Required/Pending tags are selected, sort by required compatibility
         if (params.required_only) {
           params.sort = `required_${compatibilityTypeParam}`;
         }
+
+        // Send filter parameters to backend for server-side filtering (ensures proper pagination)
+        if (hasRequiredTag) params.filter_required = true;
+        if (hasPendingTag) params.filter_pending = true;
+        if (hasTheirRequiredTag) params.filter_their_required = true;
+        if (hasTheirPendingTag) params.filter_their_pending = true;
         
         // Add only regular tag filters to backend (exclude Required/Pending)
         if (regularTags.length > 0) {
@@ -384,6 +416,7 @@ export default function ResultsPage() {
         compatibility: item.compatibility,
         compatibilityNonRequired: item.compatibility_non_required,
         missingRequired: Boolean(item.missing_required),
+        theirMissingRequired: Boolean(item.their_missing_required),
         status: 'approved', // Default status - could be determined by user tags/reactions
         isLiked: false, // Could be determined by user tags
         isMatched: false, // Could be determined by user tags
@@ -411,22 +444,10 @@ export default function ResultsPage() {
         filteredProfiles = filteredProfiles.filter(p => p.tags.map(t => t.toLowerCase()).includes('hide'));
       }
 
-      // Filter by Required/Pending tags based on missingRequired field
-      // These filters work independently - if both are selected, show all (no filter)
-      if (hasRequiredTag && !hasPendingTag) {
-        // Only show profiles where missingRequired is false (purple people - answered all required)
-        filteredProfiles = filteredProfiles.filter(p => !p.missingRequired);
-        console.log('✅ Filtered to Required (purple) profiles:', filteredProfiles.length);
-      } else if (hasPendingTag && !hasRequiredTag) {
-        // Only show profiles where missingRequired is true (pending people - haven't answered all required)
-        filteredProfiles = filteredProfiles.filter(p => p.missingRequired);
-        console.log('✅ Filtered to Pending profiles:', filteredProfiles.length);
-      } else if (hasRequiredTag && hasPendingTag) {
-        // Both selected - show all profiles (no additional filtering)
-        console.log('✅ Both Required and Pending selected - showing all profiles');
-      }
+      // Note: Required/Pending/Their Required/Their Pending filtering is now done server-side
+      // This ensures proper pagination (no ghost cards)
 
-      console.log(`🔍 Profiles after filtering: ${filteredProfiles.length} (backend already excluded hidden users)`);
+      console.log(`🔍 Profiles after filtering: ${filteredProfiles.length} (backend handles Required/Pending filters)`);
 
       if (page === 1) {
         setProfiles(filteredProfiles);
@@ -1279,6 +1300,7 @@ export default function ResultsPage() {
       requiredOnly: false
     });
     setFiltersApplied(false);
+    setAppliedTags([]); // Clear applied tags for color logic
   };
 
   const applyFiltersAndClose = async () => {
@@ -1294,6 +1316,8 @@ export default function ResultsPage() {
       setIsApplyingFilters(true);
       // Mark that filters have been applied
       setFiltersApplied(true);
+      // Store which tags were applied (for color logic)
+      setAppliedTags(filters.tags || []);
       setLoading(true);
 
       // Reset to first page
@@ -1654,20 +1678,25 @@ export default function ResultsPage() {
               };
 
               // Determine if this profile should show pending color
+              // Use appliedTags (what was actually applied) not filters.tags (current UI state)
               // Show pending color if:
-              // 1. Pending tag is selected (all shown profiles are pending, so show pending color)
-              // 2. OR requiredOnly is on AND this profile is missing required AND Required tag is NOT selected
-              const hasPendingTag = filters.tags?.includes('Pending') || false;
-              const hasRequiredTag = filters.tags?.includes('Required') || false;
-              const isPending = hasPendingTag || (filters.requiredOnly && profile.missingRequired && !hasRequiredTag);
+              // 1. Pending tag is applied (they haven't answered my required)
+              // 2. Their Pending tag is applied (I haven't answered their required)
+              // 3. OR requiredOnly is on AND this profile is missing required AND Required tag is NOT applied
+              const hasPendingTagApplied = appliedTags.includes('Pending');
+              const hasRequiredTagApplied = appliedTags.includes('Required');
+              const hasTheirPendingTagApplied = appliedTags.includes('Their Pending');
+              const hasTheirRequiredTagApplied = appliedTags.includes('Their Required');
+              const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (filters.requiredOnly && profile.missingRequired && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
               
               // When requiredOnly is enabled, show required compatibility if available
+              // Use appliedTags to determine which scores to show (matches the actual data displayed)
               let compatibilitySource = profile.compatibility;
-              if (filters.requiredOnly || hasRequiredTag || hasPendingTag) {
+              if (filters.requiredOnly || hasRequiredTagApplied || hasPendingTagApplied || hasTheirRequiredTagApplied || hasTheirPendingTagApplied) {
                 // Always use required scores when filter is enabled, if they exist
-                if (profile.compatibility?.required_overall_compatibility !== undefined && 
+                if (profile.compatibility?.required_overall_compatibility !== undefined &&
                     profile.compatibility?.required_overall_compatibility !== null) {
-                  // Use required scores but keep the full compatibility object
+                  // Use required scores
                   compatibilitySource = {
                     ...profile.compatibility,
                     overall_compatibility: profile.compatibility.required_overall_compatibility || 0,
@@ -1675,13 +1704,8 @@ export default function ResultsPage() {
                     im_compatible_with: profile.compatibility.required_im_compatible_with ?? 0,
                     mutual_questions_count: profile.compatibility.required_mutual_questions_count ?? 0,
                   };
-                } else if (isPending && profile.compatibilityNonRequired) {
-                  // Fallback to non-required if missing required questions
-                  compatibilitySource = profile.compatibilityNonRequired;
                 }
-                // If no required scores computed yet, still show regular compatibility (will be 0 if not computed)
-              } else if (isPending && profile.compatibilityNonRequired) {
-                compatibilitySource = profile.compatibilityNonRequired;
+                // If no required scores computed yet, still show regular compatibility
               }
               const compatibilityScore = getCompatibilityScore(compatibilitySource);
               const firstName = profile.user.first_name || profile.user.username;
@@ -1947,7 +1971,7 @@ export default function ResultsPage() {
                 <div className="flex flex-wrap gap-3">
                   {[
                     'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
-                    'Liked Me', 'Matched', 'Required', 'Pending', 'Saved', 'Not Approved', 'Hide'
+                    'Liked Me', 'Matched', 'Required', 'Pending', 'Their Required', 'Their Pending', 'Saved', 'Not Approved', 'Hide'
                   ].map((tag) => (
                     <button
                       key={tag}
