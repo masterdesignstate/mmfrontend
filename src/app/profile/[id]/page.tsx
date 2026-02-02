@@ -162,7 +162,7 @@ export default function UserProfilePage() {
             if (reqRes.ok) {
               const reqData = await reqRes.json();
               const results = reqData.results ?? [];
-              setProfileUserRequiredQuestionIds(new Set(results.map((r: { question_id: string }) => r.question_id)));
+              setProfileUserRequiredQuestionIds(new Set(results.map((r: { question_id: string }) => String(r.question_id).toLowerCase())));
             }
           } catch (_) {
             setProfileUserRequiredQuestionIds(new Set());
@@ -247,7 +247,7 @@ export default function UserProfilePage() {
             if (reqRes.ok) {
               const reqData = await reqRes.json();
               const results = reqData.results ?? [];
-              requiredIds = new Set(results.map((r: { question_id: string }) => r.question_id));
+              requiredIds = new Set(results.map((r: { question_id: string }) => String(r.question_id).toLowerCase()));
             }
           } catch (_) {
             // Non-fatal; filter will show no "required" questions
@@ -1186,48 +1186,53 @@ export default function UserProfilePage() {
   const filteredAndSortedQuestions = useMemo(() => {
     let filtered = [...groupedQuestionsForModal];
 
-    // Apply filters
+    // Apply filters: question-type filters use AND (must match every selected filter); tags use OR (must have at least one selected tag)
     const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
     const hasTagFilters = Object.values(filters.tags).some(filter => filter);
 
     if (hasQuestionFilters || hasTagFilters) {
       filtered = filtered.filter(([key, group]) => {
-        const questionNumber = group.questionNumber;
         const firstQuestion = group.questions[0]?.question;
+        // Question from API may include is_mandatory, submitted_by, is_submitted_by_me, tags (not on base type)
+        const firstQ = firstQuestion as typeof firstQuestion & { is_mandatory?: boolean; submitted_by?: { id?: string }; is_submitted_by_me?: boolean; tags?: { name?: string }[] };
+        // Collect all question objects in this group (for grouped questions, multiple sub-questions)
+        const questionsInGroup = group.questions.map(a => a.question).filter(Boolean);
 
+        // Question-type filters: AND logic — must pass every selected filter
         let passesQuestionFilters = !hasQuestionFilters;
-        let passesTagFilters = !hasTagFilters;
-
-        // Question type filters
         if (hasQuestionFilters) {
-          if (filters.questions.mandatory && firstQuestion?.is_mandatory) {
-            passesQuestionFilters = true;
+          passesQuestionFilters = true;
+          if (filters.questions.mandatory) {
+            if (!firstQ?.is_mandatory) passesQuestionFilters = false;
           }
-          // Required filter: show questions this user marked as required for me
-          if (filters.questions.required && firstQuestion?.id && profileUserRequiredQuestionIds.has(firstQuestion.id)) {
-            passesQuestionFilters = true;
+          if (filters.questions.required) {
+            const anyRequired = questionsInGroup.some(q => q?.id && profileUserRequiredQuestionIds.has(String(q.id).toLowerCase()));
+            if (!anyRequired) passesQuestionFilters = false;
           }
-          // Note: submitted filter requires checking if submitted_by matches current user
           if (filters.questions.submitted) {
             const currentUserId = localStorage.getItem('user_id');
-            if (firstQuestion?.submitted_by?.id === currentUserId || firstQuestion?.is_submitted_by_me) {
-              passesQuestionFilters = true;
-            }
+            const submittedByMe = firstQ?.submitted_by?.id === currentUserId || firstQ?.is_submitted_by_me;
+            if (!submittedByMe) passesQuestionFilters = false;
           }
         }
 
-        // Tag filters
-        if (hasTagFilters && firstQuestion?.tags) {
-          const questionTags = firstQuestion.tags.map((t: any) =>
-            typeof t === 'string' ? t.toLowerCase() : t.name?.toLowerCase()
-          );
-
-          if (filters.tags.value && questionTags.includes('value')) passesTagFilters = true;
-          if (filters.tags.lifestyle && questionTags.includes('lifestyle')) passesTagFilters = true;
-          if (filters.tags.look && questionTags.includes('look')) passesTagFilters = true;
-          if (filters.tags.trait && questionTags.includes('trait')) passesTagFilters = true;
-          if (filters.tags.hobby && questionTags.includes('hobby')) passesTagFilters = true;
-          if (filters.tags.interest && questionTags.includes('interest')) passesTagFilters = true;
+        // Tag filters: OR logic — must have at least one of the selected tags (check all questions in group)
+        let passesTagFilters = !hasTagFilters;
+        if (hasTagFilters) {
+          const allTagsInGroup = new Set<string>();
+          questionsInGroup.forEach(q => {
+            const qExt = q as typeof q & { tags?: { name?: string }[] };
+            (qExt?.tags || []).forEach((t: { name?: string } | string) => {
+              const name = typeof t === 'string' ? t.toLowerCase() : (t as { name?: string }).name?.toLowerCase();
+              if (name) allTagsInGroup.add(name);
+            });
+          });
+          if (filters.tags.value && allTagsInGroup.has('value')) passesTagFilters = true;
+          if (filters.tags.lifestyle && allTagsInGroup.has('lifestyle')) passesTagFilters = true;
+          if (filters.tags.look && allTagsInGroup.has('look')) passesTagFilters = true;
+          if (filters.tags.trait && allTagsInGroup.has('trait')) passesTagFilters = true;
+          if (filters.tags.hobby && allTagsInGroup.has('hobby')) passesTagFilters = true;
+          if (filters.tags.interest && allTagsInGroup.has('interest')) passesTagFilters = true;
         }
 
         return passesQuestionFilters && passesTagFilters;
@@ -3060,7 +3065,7 @@ export default function UserProfilePage() {
                 })()}
                 </div>
               ) : (
-                // Questions List
+                // Questions List (when filters are active, never show unfiltered fallback — fixes wrong questions on page 2+)
                 <>
                   <div className="space-y-2">
                     {paginatedGroupedQuestions.length > 0 ? (
@@ -3103,8 +3108,13 @@ export default function UserProfilePage() {
                           </div>
                         );
                       })
+                    ) : (Object.values(filters.questions).some(Boolean) || Object.values(filters.tags).some(Boolean)) ? (
+                      // Filters are on but no results — show message instead of unfiltered fallback
+                      <div className="text-center py-12 text-gray-500">
+                        <p>No questions match your filters.</p>
+                      </div>
                     ) : (
-                      // Fallback: simple grouping by question_number when questions data not loaded
+                      // Fallback only when no filters: simple grouping when grouped data empty
                       (() => {
                         const groupedAnswers = userAnswers.reduce((acc, answer) => {
                           const qNum = answer.question.question_number;
