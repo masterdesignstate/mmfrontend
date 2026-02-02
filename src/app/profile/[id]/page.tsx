@@ -2216,27 +2216,27 @@ export default function UserProfilePage() {
                 <>
                   <h2 className="text-xl font-semibold">Questions Answered</h2>
                   <div className="flex items-center gap-3">
-                    {/* Filter Button */}
+                    {/* Filter Button — icon-only on iPad and smaller (match results page) */}
                     <button
                       onClick={() => setShowFilterModal(true)}
-                      className="px-3 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
+                      className="inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-3 sm:py-2 md:px-0 md:py-0 lg:px-3 lg:py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
                     >
-                      <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
                       </svg>
-                      Filter
+                      <span className="hidden sm:inline md:hidden lg:inline">Filter</span>
                     </button>
 
-                    {/* Sort Dropdown */}
+                    {/* Sort Dropdown — icon-only on iPad and smaller */}
                     <div className="relative sort-dropdown-container">
                       <button
                         onClick={() => setShowSortDropdown(!showSortDropdown)}
-                        className="px-3 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
+                        className="inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-3 sm:py-2 md:px-0 md:py-0 lg:px-3 lg:py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
                       >
-                        <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 inline text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                         </svg>
-                        Sort
+                        <span className="hidden sm:inline md:hidden lg:inline">Sort</span>
                       </button>
 
                       {/* Sort Dropdown Menu */}

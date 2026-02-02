@@ -1614,9 +1614,9 @@ export default function QuestionsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-center p-4 relative border-b border-gray-200">
-        <div className="absolute left-4">
+      {/* Header — padding so search bar never overlaps logo or hamburger */}
+      <div className="flex items-center border-b border-gray-200 py-2 sm:py-3 pl-[52px] pr-[52px] sm:pl-14 sm:pr-14 relative">
+        <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2">
           <Image
             src="/assets/mmlogox.png"
             alt="Logo"
@@ -1624,23 +1624,22 @@ export default function QuestionsPage() {
             height={32}
           />
         </div>
-        
-        {/* Search Bar */}
-        <div className="flex items-center max-w-2xl w-full mx-8">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Search + Filter + Sort — search bar WIDTH limited on small/medium screens */}
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full max-w-2xl mx-auto min-w-0">
+          <div className="relative w-[240px] min-[400px]:w-[300px] sm:w-[360px] md:w-[440px] lg:flex-1 lg:min-w-0 shrink-0">
+            <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
             <input
               type="text"
-              placeholder="Search questions"
+              placeholder="Search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full min-w-0 pl-7 pr-7 py-2 sm:py-2.5 text-sm border border-gray-300 rounded-full bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+            <div className="absolute inset-y-0 right-0 pr-2.5 sm:pr-3 flex items-center">
               {isSearching && (
                 <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1659,26 +1658,26 @@ export default function QuestionsPage() {
             </div>
           </div>
           
-          <button 
+          <button
             onClick={() => setShowFilterModal(true)}
-            className="ml-4 px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
+            className="flex-shrink-0 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none cursor-pointer"
           >
-            <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
             </svg>
-            Filter
+            <span className="hidden sm:inline md:hidden lg:inline">Filter</span>
           </button>
           
-          <div className="relative ml-2">
+          <div className="relative flex-shrink-0">
             <button
               ref={sortButtonRef}
               onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="px-4 py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+              className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
             >
-              <svg className="w-4 h-4 mr-1 inline text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 inline text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
               </svg>
-              Sort
+              <span className="hidden sm:inline md:hidden lg:inline">Sort</span>
             </button>
 
             {/* Sort Dropdown */}
@@ -1722,8 +1721,7 @@ export default function QuestionsPage() {
             )}
           </div>
         </div>
-        
-        <div className="absolute right-4">
+        <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2">
           <HamburgerMenu />
         </div>
       </div>

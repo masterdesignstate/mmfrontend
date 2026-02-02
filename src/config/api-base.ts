@@ -2,7 +2,7 @@
 // This file can be imported by both client-side code and Next.js config
 
 export const getApiBaseUrl = (): string => {
-  return process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';
+return process.env.NEXT_PUBLIC_API_URL || 'https://matchmatical-1ad8879ad3b9.herokuapp.com/api';  
   // return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9090/api';
 };
 

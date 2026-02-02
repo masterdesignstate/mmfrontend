@@ -24,15 +24,18 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
     }
   }, []);
 
-  // Detect if we're on mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // lg breakpoint
-    };
+  const [isNarrow, setIsNarrow] = useState(false); // very small: bells move into menu
 
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+  // Detect mobile (lg) and narrow (sm) for moving bells into menu
+  useEffect(() => {
+    const check = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 1024);
+      setIsNarrow(w < 640); // sm breakpoint: hide bells, show Chats/Notifications in menu first
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   // Check if we're on the profile page (handle both /profile and /profile/)
@@ -44,22 +47,22 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
   };
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      {/* Chat and Notification Bells */}
-      {userId && (
+    <div className={`flex items-center gap-1.5 md:gap-3 ${className}`}>
+      {/* Chat and Notification Bells — hidden on very small screens (moved into menu) */}
+      {userId && !isNarrow && (
         <>
           <ChatBell userId={userId} />
           <NotificationBell userId={userId} />
         </>
       )}
 
-      {/* Hamburger Menu Button */}
+      {/* Hamburger Menu Button — smaller on medium and below */}
       <div className="relative">
         <button
-          className="p-2 cursor-pointer"
+          className="p-1.5 md:p-2 cursor-pointer"
           onClick={() => setShowMenu(!showMenu)}
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
@@ -67,6 +70,25 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
       {/* Dropdown Menu */}
       {showMenu && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+          {/* On very small screens: Chats and Notifications first (bells are hidden) */}
+          {isNarrow && userId && (
+            <>
+              <button
+                onClick={() => handleNavigation('/chats')}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Chats
+              </button>
+              <button
+                onClick={() => handleNavigation('/notifications')}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Notifications
+              </button>
+              <div className="border-t border-gray-100 my-1" />
+            </>
+          )}
+
           {/* Desktop: Always show "My Profile" */}
           {!isMobile && (
             <button
@@ -108,7 +130,6 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
             Results
           </button>
 
-          {/* Matches - Show for all users */}
           <button
             onClick={() => handleNavigation('/matches')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -116,12 +137,23 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
             Matches
           </button>
 
-          <button
-            onClick={() => handleNavigation('/chats')}
-            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Chats
-          </button>
+          {/* Chats and Notifications — only when bells are visible (not narrow) */}
+          {!isNarrow && (
+            <>
+              <button
+                onClick={() => handleNavigation('/chats')}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Chats
+              </button>
+              <button
+                onClick={() => handleNavigation('/notifications')}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Notifications
+              </button>
+            </>
+          )}
 
           <button
             onClick={() => handleNavigation('/settings')}

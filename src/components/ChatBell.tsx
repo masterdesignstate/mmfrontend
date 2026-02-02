@@ -114,14 +114,14 @@ export default function ChatBell({ userId }: ChatBellProps) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
+        className="relative p-1.5 md:p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
         aria-label="Messages"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute top-[7px] right-[7px] inline-flex items-center justify-center min-w-[14px] h-[14px] px-0.5 text-[8px] font-bold leading-none text-white bg-red-500 rounded-full">
+          <span className="absolute top-0.5 right-0.5 md:top-[7px] md:right-[7px] inline-flex items-center justify-center min-w-[12px] h-[12px] md:min-w-[14px] md:h-[14px] px-0.5 text-[7px] md:text-[8px] font-bold leading-none text-white bg-red-500 rounded-full">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
