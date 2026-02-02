@@ -25,6 +25,10 @@ interface ResultProfile {
   tags: string[]; // Add tags to the interface
 }
 
+// Inline SVG default avatar (avoids 400 from missing /assets/default-avatar.png)
+const DEFAULT_AVATAR =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ccircle cx='100' cy='85' r='40' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='180' rx='60' ry='50' fill='%239ca3af'/%3E%3C/svg%3E";
+
 const COMPATIBILITY_TYPE_MAP: Record<string, string> = {
   overall: 'overall_compatibility',
   compatible_with_me: 'compatible_with_me',
@@ -250,7 +254,8 @@ export default function ResultsPage() {
       max: 80
     },
     tags: [] as string[],
-    requiredOnly: false
+    requiredOnly: false,
+    requiredScope: 'my' as 'my' | 'their'
     };
   });
 
@@ -332,6 +337,7 @@ export default function ResultsPage() {
         min_distance?: number;
         max_distance?: number;
         required_only?: boolean;
+        required_scope?: 'my' | 'their';
         filter_required?: boolean;
         filter_pending?: boolean;
         filter_their_required?: boolean;
@@ -374,8 +380,15 @@ export default function ResultsPage() {
         // This ensures missing_required and their_missing_required are calculated so we can filter properly
         params.required_only = filters.requiredOnly || hasAnyRequiredFilter;
         // If requiredOnly is enabled OR Required/Pending tags are selected, sort by required compatibility
+        // When "Their Required" or "Their Pending" tag is selected, always use their scope so backend returns/sorts by their-required logic
         if (params.required_only) {
-          params.sort = `required_${compatibilityTypeParam}`;
+          const useTheirScope = hasTheirRequiredTag || hasTheirPendingTag || (filters.requiredScope ?? 'my') === 'their';
+          params.required_scope = useTheirScope ? 'their' : 'my';
+          if (useTheirScope) {
+            params.sort = 'required_im_compatible_with';
+          } else {
+            params.sort = `required_${compatibilityTypeParam}`;
+          }
         }
 
         // Send filter parameters to backend for server-side filtering (ensures proper pagination)
@@ -396,6 +409,7 @@ export default function ResultsPage() {
         }
 
         console.log('📊 API params with filters:', params);
+        console.log('📊 [THEIR REQUIRED] required_scope=', params.required_scope, 'required_only=', params.required_only, 'sort=', params.sort);
       } else {
         // Add user_id for non-filtered calls too
         const currentUserId = localStorage.getItem('user_id');
@@ -408,6 +422,14 @@ export default function ResultsPage() {
       console.log('🌐 Calling apiService.getCompatibleUsers...');
       const response = await apiService.getCompatibleUsers(params);
       console.log('✅ API response received:', response);
+      const resultOrder = (response.results || []).map((r: { user: { id: string }; compatibility?: { their_required_compatibility?: number; required_im_compatible_with?: number } }) => r.user?.id);
+      const resultScores = (response.results || []).slice(0, 5).map((r: { user: { id: string }; compatibility?: { their_required_compatibility?: number; required_im_compatible_with?: number } }) => ({
+        id: r.user?.id,
+        their_required_compatibility: r.compatibility?.their_required_compatibility,
+        required_im_compatible_with: r.compatibility?.required_im_compatible_with
+      }));
+      console.log('📊 [THEIR REQUIRED] Response order (user ids):', resultOrder);
+      console.log('📊 [THEIR REQUIRED] First 5 scores:', resultScores);
 
       // Transform API response to match ResultProfile interface
       const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
@@ -677,7 +699,7 @@ export default function ResultsPage() {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, filters.compatibilityType, filters.requiredOnly, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, filters.compatibilityType, filters.requiredOnly, filters.requiredScope, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -935,13 +957,13 @@ export default function ResultsPage() {
               id: matchedUserId,
               first_name: like.result_user?.first_name || 'Someone',
               username: like.result_user?.username || 'someone',
-              profile_photo: like.result_user?.profile_photo || '/assets/default-avatar.png'
+              profile_photo: like.result_user?.profile_photo || DEFAULT_AVATAR
             };
 
             setMatchCelebrationData({
               matchedUserId: matchedUserId,
               matchedUserName: matchedUser.first_name || matchedUser.username,
-              matchedUserPhoto: matchedUser.profile_photo || '/assets/default-avatar.png',
+              matchedUserPhoto: matchedUser.profile_photo || DEFAULT_AVATAR,
             });
             setShowMatchCelebration(true);
             
@@ -1027,7 +1049,7 @@ export default function ResultsPage() {
         setMatchCelebrationData({
           matchedUserId: profileId,
           matchedUserName: profile.user.first_name || profile.user.username,
-          matchedUserPhoto: profile.user.profile_photo || '/assets/default-avatar.png',
+          matchedUserPhoto: profile.user.profile_photo || DEFAULT_AVATAR,
         });
         setShowMatchCelebration(true);
           
@@ -1290,6 +1312,10 @@ export default function ResultsPage() {
     }));
   };
 
+  const handleRequiredScopeChange = (scope: 'my' | 'their') => {
+    setFilters(prev => ({ ...prev, requiredScope: scope }));
+  };
+
   const clearAllFilters = () => {
     setFilters({
       compatibilityType: 'overall',
@@ -1297,7 +1323,8 @@ export default function ResultsPage() {
       distance: { min: 1, max: 100 },
       age: { min: 18, max: 80 },
       tags: [],
-      requiredOnly: false
+      requiredOnly: false,
+      requiredScope: 'my'
     });
     setFiltersApplied(false);
     setAppliedTags([]); // Clear applied tags for color logic
@@ -1350,9 +1377,11 @@ export default function ResultsPage() {
     const getCompatibilityValue = (profile: ResultProfile) => {
       // If requiredOnly is enabled, use required compatibility scores
       if (filters.requiredOnly && profile.compatibility) {
+        const useTheirRequired = (filters.requiredScope ?? 'my') === 'their';
+        if (useTheirRequired) {
+          return profile.compatibility.their_required_compatibility ?? profile.compatibility.required_im_compatible_with ?? 0;
+        }
         const requiredScore = profile.compatibility.required_overall_compatibility;
-        
-        // Always use required scores when filter is enabled, if they exist
         if (requiredScore !== undefined && requiredScore !== null) {
           switch (compatibilityType) {
             case 'compatible_with_me':
@@ -1640,7 +1669,11 @@ export default function ResultsPage() {
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-semibold text-gray-900 leading-tight tracking-tight">Required Compatibility</span>
-                <span className="text-xs text-gray-500 leading-tight mt-0.5">Showing compatibility based on required questions only</span>
+                <span className="text-xs text-gray-500 leading-tight mt-0.5">
+                  {(filters.requiredScope ?? 'my') === 'their'
+                    ? 'Showing compatibility based on their required questions only'
+                    : 'Showing compatibility based on required questions only'}
+                </span>
               </div>
             </div>
           )}
@@ -1664,7 +1697,7 @@ export default function ResultsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {sortedProfiles.slice(0, visibleCount).map(profile => {
+            {sortedProfiles.slice(0, visibleCount).map((profile, index) => {
               // Get the appropriate compatibility score based on selected type
               const getCompatibilityScore = (compatibility: CompatibilityResult | undefined) => {
                 switch (filters.compatibilityType) {
@@ -1693,10 +1726,19 @@ export default function ResultsPage() {
               // Use appliedTags to determine which scores to show (matches the actual data displayed)
               let compatibilitySource = profile.compatibility;
               if (filters.requiredOnly || hasRequiredTagApplied || hasPendingTagApplied || hasTheirRequiredTagApplied || hasTheirPendingTagApplied) {
-                // Always use required scores when filter is enabled, if they exist
-                if (profile.compatibility?.required_overall_compatibility !== undefined &&
+                const useTheirRequired = (filters.requiredScope ?? 'my') === 'their';
+                const theirScoreVal = profile.compatibility?.their_required_compatibility ?? profile.compatibility?.required_im_compatible_with;
+                if (useTheirRequired && theirScoreVal !== undefined && theirScoreVal !== null) {
+                  const theirScore = theirScoreVal ?? 0;
+                  compatibilitySource = {
+                    ...profile.compatibility,
+                    overall_compatibility: theirScore,
+                    compatible_with_me: theirScore,
+                    im_compatible_with: theirScore,
+                    mutual_questions_count: profile.compatibility.required_mutual_questions_count ?? 0,
+                  };
+                } else if (profile.compatibility?.required_overall_compatibility !== undefined &&
                     profile.compatibility?.required_overall_compatibility !== null) {
-                  // Use required scores
                   compatibilitySource = {
                     ...profile.compatibility,
                     overall_compatibility: profile.compatibility.required_overall_compatibility || 0,
@@ -1705,15 +1747,14 @@ export default function ResultsPage() {
                     mutual_questions_count: profile.compatibility.required_mutual_questions_count ?? 0,
                   };
                 }
-                // If no required scores computed yet, still show regular compatibility
               }
               const compatibilityScore = getCompatibilityScore(compatibilitySource);
               const firstName = profile.user.first_name || profile.user.username;
               const age = profile.user.age || 25;
-              const profilePhoto = profile.user.profile_photo || '/assets/default-avatar.png';
+              const profilePhoto = profile.user.profile_photo || DEFAULT_AVATAR;
 
               return (
-                <div key={profile.id} className="relative">
+                <div key={`${profile.user.id}-${index}`} className="relative">
                   <CardWithProgressBorder percentage={compatibilityScore} variant={isPending ? 'pending' : 'default'}>
                     <div
                       onClick={() => router.push(`/profile/${profile.user.id}`)}
@@ -1773,6 +1814,7 @@ export default function ResultsPage() {
                           src={profilePhoto}
                           alt={firstName}
                           fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           className="object-cover"
                         />
 
@@ -1848,8 +1890,9 @@ export default function ResultsPage() {
 
             {/* Content */}
             <div className="p-8 flex-1 overflow-y-auto">
+              <div className="inline-flex flex-col items-stretch">
               {/* Compatibility Type Picker */}
-              <div className="mb-8">
+              <div className="mb-2">
                 <div className="flex items-center gap-2 mb-4">
                   <h3 className="text-lg font-semibold text-black">Compatibility Type</h3>
                   <div className="relative group">
@@ -1908,7 +1951,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Required Toggle */}
-              <div className="mb-8 flex items-center justify-between">
+              <div className={`${filters.requiredOnly ? 'mb-2' : 'mb-8'} flex items-center justify-between`}>
                 <div className="flex items-center gap-2">
                   <h4 className="text-base font-semibold text-black">Required</h4>
                   <div className="relative group">
@@ -1933,6 +1976,38 @@ export default function ResultsPage() {
                     style={{ transform: filters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
                   />
                 </button>
+              </div>
+
+              {/* Required scope sub-picker: My Required / Their Required (only when Required is on) - same width as Compatibility Type picker */}
+              {filters.requiredOnly && (
+                <div className="mb-8">
+                  <div className="inline-flex items-center bg-white rounded-lg p-1.5 border border-gray-300 w-full">
+                    <button
+                      type="button"
+                      onClick={() => handleRequiredScopeChange('my')}
+                      className={`flex-1 px-6 py-3 rounded-lg text-base font-semibold transition-all cursor-pointer ${
+                        (filters.requiredScope ?? 'my') === 'my'
+                          ? 'bg-white text-black shadow-sm border border-black'
+                          : 'text-black hover:bg-gray-50 border border-transparent'
+                      }`}
+                    >
+                      My Required
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRequiredScopeChange('their')}
+                      className={`flex-1 px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                        (filters.requiredScope ?? 'my') === 'their'
+                          ? 'bg-white text-black shadow-sm border border-black'
+                          : 'text-black hover:bg-gray-50 border border-transparent'
+                      }`}
+                    >
+                      Their Required
+                    </button>
+                  </div>
+                </div>
+              )}
+
               </div>
 
               {/* Compatibility Slider */}

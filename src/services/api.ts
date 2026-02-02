@@ -91,6 +91,8 @@ export interface CompatibilityResult {
   required_overall_compatibility?: number;
   required_compatible_with_me?: number;
   required_im_compatible_with?: number;
+  /** Their Required: compatibility calculated only on the other user's required questions */
+  their_required_compatibility?: number;
   required_mutual_questions_count?: number;
   required_completeness_ratio?: number;
 }
@@ -317,12 +319,14 @@ class ApiService {
     min_distance?: number;
     max_distance?: number;
     required_only?: boolean;
+    required_scope?: 'my' | 'their';
     filter_required?: boolean;
     filter_pending?: boolean;
     filter_their_required?: boolean;
     filter_their_pending?: boolean;
     page?: number;
     page_size?: number;
+    sort?: string;
     tags?: string[];
     user_id?: string;
     search?: string;
@@ -338,6 +342,8 @@ class ApiService {
     if (params.min_distance !== undefined) queryParams.append('min_distance', params.min_distance.toString());
     if (params.max_distance !== undefined) queryParams.append('max_distance', params.max_distance.toString());
     if (params.required_only !== undefined) queryParams.append('required_only', params.required_only.toString());
+    if (params.required_scope) queryParams.append('required_scope', params.required_scope);
+    if (params.sort) queryParams.append('sort', params.sort);
     if (params.filter_required !== undefined) queryParams.append('filter_required', params.filter_required.toString());
     if (params.filter_pending !== undefined) queryParams.append('filter_pending', params.filter_pending.toString());
     if (params.filter_their_required !== undefined) queryParams.append('filter_their_required', params.filter_their_required.toString());
