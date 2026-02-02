@@ -17,6 +17,7 @@ const API_CONFIG = {
     USERS_ME: '/users/me/',
     QUESTIONS: '/questions/',
     ANSWERS: '/answers/',
+    USER_REQUIRED_QUESTIONS: '/user-required-questions/',
     USER_RESULTS: '/results',
     CONTROLS: '/controls/',
     CONTROLS_CURRENT: '/controls/current/',

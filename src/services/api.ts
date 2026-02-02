@@ -39,9 +39,18 @@ export interface UserAnswer {
   looking_for_open_to_all?: boolean;
   looking_for_importance: number;
   looking_for_share?: boolean;
-  // Legacy fields kept for backwards compatibility
+  // Legacy: is_required_for_me is no longer on UserAnswer; use UserRequiredQuestion / getRequiredQuestionIds
   me_multiplier?: number;
   looking_for_multiplier?: number;
+}
+
+/** List item from GET /user-required-questions/ */
+export interface UserRequiredQuestionItem {
+  id: number;
+  user: string;
+  question: string;
+  question_id: string;
+  created_at?: string;
 }
 
 export interface Question {
@@ -448,6 +457,16 @@ class ApiService {
   async getQuestions(includeUnapproved: boolean = false): Promise<Question[]> {
     const endpoint = includeUnapproved ? '/questions/?include_unapproved=true' : '/questions/';
     return this.fetchAllPages<Question>(endpoint);
+  }
+
+  /** Fetch question IDs the user has marked as required (UserRequiredQuestion). */
+  async getRequiredQuestionIds(userId: string): Promise<string[]> {
+    const data = await this.request(
+      `/user-required-questions/?user=${encodeURIComponent(userId)}`,
+      'GET'
+    ) as { results?: UserRequiredQuestionItem[] };
+    const results = data.results ?? [];
+    return results.map((r) => r.question_id);
   }
 
   async getQuestion(id: string, skipUserAnswers: boolean = true): Promise<Question> {

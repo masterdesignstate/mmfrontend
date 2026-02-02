@@ -57,6 +57,7 @@ export default function UserProfilePage() {
   const userId = params.id as string;
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
+  const [profileUserRequiredQuestionIds, setProfileUserRequiredQuestionIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -152,6 +153,20 @@ export default function UserProfilePage() {
           const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
           setUser(cachedUser);
           setUserAnswers(cachedAnswers);
+          // Still fetch required question IDs (not cached)
+          try {
+            const reqRes = await fetch(
+              `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+            if (reqRes.ok) {
+              const reqData = await reqRes.json();
+              const results = reqData.results ?? [];
+              setProfileUserRequiredQuestionIds(new Set(results.map((r: { question_id: string }) => r.question_id)));
+            }
+          } catch (_) {
+            setProfileUserRequiredQuestionIds(new Set());
+          }
           setLoading(false);
           useCache = true;
         }
@@ -222,12 +237,29 @@ export default function UserProfilePage() {
 
           const answers = allAnswers;
 
+          // Fetch this user's required question IDs (UserRequiredQuestion)
+          let requiredIds = new Set<string>();
+          try {
+            const reqRes = await fetch(
+              `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+            if (reqRes.ok) {
+              const reqData = await reqRes.json();
+              const results = reqData.results ?? [];
+              requiredIds = new Set(results.map((r: { question_id: string }) => r.question_id));
+            }
+          } catch (_) {
+            // Non-fatal; filter will show no "required" questions
+          }
+
           // Cache the data
           sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
           sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
 
           setUser(userData);
           setUserAnswers(answers);
+          setProfileUserRequiredQuestionIds(requiredIds);
           setAllQuestions(questions);
         }
 
@@ -1171,7 +1203,8 @@ export default function UserProfilePage() {
           if (filters.questions.mandatory && firstQuestion?.is_mandatory) {
             passesQuestionFilters = true;
           }
-          if (filters.questions.required && firstQuestion?.is_required_for_match) {
+          // Required filter: show questions this user marked as required for me
+          if (filters.questions.required && firstQuestion?.id && profileUserRequiredQuestionIds.has(firstQuestion.id)) {
             passesQuestionFilters = true;
           }
           // Note: submitted filter requires checking if submitted_by matches current user
@@ -1231,7 +1264,7 @@ export default function UserProfilePage() {
     }
 
     return sorted;
-  }, [groupedQuestionsForModal, filters, sortOption]);
+  }, [groupedQuestionsForModal, filters, sortOption, profileUserRequiredQuestionIds]);
 
   // Paginate filtered and sorted questions for modal (8 per page)
   const paginatedGroupedQuestions = useMemo(() => {

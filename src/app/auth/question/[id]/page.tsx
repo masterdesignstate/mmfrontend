@@ -456,6 +456,28 @@ export default function QuestionPage() {
     }
   }, [userId]);
 
+  // Load "required for me" from user-required-questions when userId and question are set
+  useEffect(() => {
+    if (!userId || !question?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const results = data.results ?? [];
+        const requiredIds = new Set(results.map((r: { question_id: string }) => r.question_id));
+        if (!cancelled) setMeRequired(requiredIds.has(question.id));
+      } catch (_) {
+        if (!cancelled) setMeRequired(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId, question?.id]);
+
   const fetchQuestion = async (questionId: string) => {
     console.log('🚀 Fetching question:', questionId);
     setLoadingQuestion(true);
@@ -746,18 +768,19 @@ export default function QuestionPage() {
         console.log('✅ Immediately saved question to localStorage:', question.id);
       }
 
-      // Prepare user answer
+      // Prepare user answer (is_required_for_me is per-user; me_importance is separate)
       const userAnswer = {
         user_id: userId,
         question_id: question.id,
         me_answer: openToAll.meOpen ? 6 : meAnswer,
         me_open_to_all: openToAll.meOpen,
-        me_importance: meRequired ? 5 : importance.me,
+        me_importance: importance.me,
         me_share: meShare,
         looking_for_answer: openToAll.lookingForOpen ? 6 : lookingForAnswer,
         looking_for_open_to_all: openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        is_required_for_me: meRequired
       };
 
       console.log('📊 Constructed userAnswer:', userAnswer);

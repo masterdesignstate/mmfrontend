@@ -625,11 +625,6 @@ export default function QuestionEditPage() {
         });
         setQuestions(questionsList);
 
-        // Initialize meRequired based on question's is_required_for_match field
-        if (questionsList.length > 0 && questionNumber > 10 && questionsList[0].question_type !== 'grouped') {
-          setMeRequired(questionsList[0].is_required_for_match === true);
-        }
-
         // Fetch user's existing answers from API (handle pagination)
         console.log('🚀 Fetching answers from API...');
         let allAnswers: UserAnswer[] = [];
@@ -674,8 +669,30 @@ export default function QuestionEditPage() {
         
         setExistingAnswers(relevantAnswers);
         
+        // Fetch user's required question IDs (UserRequiredQuestion)
+        let requiredQuestionIds: string[] = [];
+        try {
+          const reqRes = await fetch(
+            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId)}`,
+            { headers: { 'Content-Type': 'application/json' } }
+          );
+          if (reqRes.ok) {
+            const reqData = await reqRes.json();
+            requiredQuestionIds = (reqData.results ?? []).map((r: { question_id: string }) => r.question_id);
+          }
+        } catch (_) {
+          // Non-fatal; meRequired will default to false
+        }
+        
         // Initialize state based on existing answers
         initializeAnswerState(questionsList, relevantAnswers);
+        // Per-user required: meRequired from user-required-questions list, else question default
+        if (questionsList.length > 0 && questionNumber > 10 && questionsList[0].question_type !== 'grouped') {
+          const firstQId = questionsList[0].id;
+          setMeRequired(
+            requiredQuestionIds.includes(firstQId) || questionsList[0].is_required_for_match === true
+          );
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load question');
@@ -815,12 +832,13 @@ export default function QuestionEditPage() {
             question_id: question.id,
             me_answer: openToAllStates[`${key}_me`] ? 6 : sliderAnswers[`${key}_me`] || 3,
             me_open_to_all: openToAllStates[`${key}_me`] || false,
-            me_importance: isNonGroupedQuestionOver10 ? (meRequired ? 5 : importanceValues.me) : importanceValues.me,
+            me_importance: importanceValues.me,
             me_share: isNonGroupedQuestionOver10 ? meShare : true,
             looking_for_answer: openToAllStates[`${key}_looking`] ? 6 : sliderAnswers[`${key}_looking`] || 3,
             looking_for_open_to_all: openToAllStates[`${key}_looking`] || false,
             looking_for_importance: importanceValues.lookingFor,
-            looking_for_share: true
+            looking_for_share: true,
+            is_required_for_me: isNonGroupedQuestionOver10 ? meRequired : false
           };
 
           if (existingAnswer) {
@@ -868,12 +886,13 @@ export default function QuestionEditPage() {
             question_id: question.id,
             me_answer: answerValue,
             me_open_to_all: false,
-            me_importance: 3, // Default importance for grouped questions
+            me_importance: 3,
             me_share: true,
             looking_for_answer: answerValue,
             looking_for_open_to_all: false,
             looking_for_importance: 3,
-            looking_for_share: true
+            looking_for_share: true,
+            is_required_for_me: false
           };
 
           if (existingAnswer) {
@@ -926,7 +945,8 @@ export default function QuestionEditPage() {
             looking_for_answer: answerValue,
             looking_for_open_to_all: false,
             looking_for_importance: 3,
-            looking_for_share: true
+            looking_for_share: true,
+            is_required_for_me: false
           };
 
           if (existingAnswer) {
