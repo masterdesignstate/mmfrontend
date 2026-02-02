@@ -1150,7 +1150,7 @@ export default function QuestionPage() {
     };
 
     return (
-      <div className="w-full h-5 relative flex items-center select-none"
+      <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
         style={{ userSelect: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -1166,7 +1166,7 @@ export default function QuestionPage() {
           
           {/* Custom Slider Track */}
         <div 
-          className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+          className="slider-track w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
               backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -1249,8 +1249,8 @@ export default function QuestionPage() {
   return (
     <div className="min-h-screen bg-white">
 
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      {/* Header — compact on small devices */}
+      <div className="flex items-center justify-between p-3 sm:p-4">
         <div className="flex items-center">
           <Image
             src="/assets/mmlogox.png"
@@ -1264,11 +1264,11 @@ export default function QuestionPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
-        <div className="w-full max-w-4xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">
+      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
+        <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] min-w-0 mx-auto">
+          {/* Title — responsive typography for small devices */}
+          <div className="text-center mb-4 sm:mb-6 lg:mb-8">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2">
               {params.id === 'ethnicity' ? `${question?.question_number || 3}. Ethnicity` : 
                params.id === 'education' ? '4. Education' :
                params.id === 'diet' ? `${question?.question_number || 5}. Diet` :
@@ -1278,8 +1278,8 @@ export default function QuestionPage() {
                params.id === 'next-question' ? `${question?.question_number || 6}. ${question?.question_name || 'Next Question'}` :
                question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'}
             </h1>
-            <div className="inline-block">
-              <p className="text-3xl font-bold text-black mb-4">
+            <div className="inline-block w-full max-w-full px-0 sm:px-1">
+              <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black mb-3 sm:mb-4 break-words">
               {params.id === '8' ? 'How often do you practice religion?' :
                params.id === '9' ? 'How important is politics in your life?' :
                params.id === 'education' ? 'What is your highest level of education?' :
@@ -1333,36 +1333,24 @@ export default function QuestionPage() {
           )}
 
           {/* Looking For Section */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div> {/* Empty placeholder for label column */}
-{renderTopLabels()}
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+            {/* LESS/MORE and OTA labels — same 3-col grid on all sizes */}
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
+                {renderTopLabels()}
+              </div>
+              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
                 {question?.open_to_all_looking_for ? 'OTA' : ''}
               </div>
             </div>
             
-            {/* Grid container for perfect alignment */}
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(16px, 4vw, 28px)'
-              }}
-            >
-              
+            {/* Grid: label | slider | OTA — same 3 columns so importance row aligns and gets same slider width */}
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400 mobile-label">
+              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
                  params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
                  params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
@@ -1370,7 +1358,7 @@ export default function QuestionPage() {
                  params.id === '9' ? 'LEFT' :
                  (question?.question_name || 'ANSWER').toUpperCase()}
               </div>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={lookingForAnswer}
                   onChange={(value) => handleSliderChange('lookingForAnswer', value)}
@@ -1378,29 +1366,22 @@ export default function QuestionPage() {
                   isImportance={false}
                 />
               </div>
-              <div className="hidden sm:flex justify-center">
-                {/* Only show switch if question has open_to_all_looking_for enabled */}
+              <div className="flex justify-center shrink-0 w-11">
                 {question.open_to_all_looking_for ? (
                   <ToggleControl
                     checked={openToAll.lookingForOpen}
                     onChange={() => handleOpenToAllToggle('lookingForOpen')}
                   />
                 ) : (
-                  <div className="w-11 h-6"></div>
+                  <div className="w-11 h-6" aria-hidden></div>
                 )}
               </div>
-              {question.open_to_all_looking_for && (
-                <div className="sm:hidden col-span-2 flex justify-end">
-                  <ToggleControl
-                    checked={openToAll.lookingForOpen}
-                    onChange={() => handleOpenToAllToggle('lookingForOpen')}
-                  />
-                </div>
-              )}
 
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400 mobile-label">IMPORTANCE</div>
-              <div className="relative">
+              {/* IMPORTANCE row — same column widths so slider is full width like BLACK row */}
+              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
+                IMPORTANCE
+              </div>
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
@@ -1408,22 +1389,13 @@ export default function QuestionPage() {
                   isImportance={true}
                 />
               </div>
-              <div className="w-11 h-6"></div>
-              
+              <div className="shrink-0 w-11 h-6" aria-hidden></div>
             </div>
 
-
-            {/* Importance labels below Looking For section - centered and dynamic */}
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500 w-full">
-                {/* Only show the label for the current importance value */}
+            {/* Importance labels below Looking For section */}
+            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importance.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
                 )}
@@ -1440,41 +1412,29 @@ export default function QuestionPage() {
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
                 )}
               </div>
-              <div></div> {/* Empty placeholder for switch column */}
+              <div className="min-w-0 shrink-0 w-11" aria-hidden></div>
             </div>
           </div>
 
           {/* Me Section */}
-          <div className="mb-6 pt-8">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+          <div className="mb-4 sm:mb-6 pt-4 sm:pt-8">
+            <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div> {/* Empty placeholder for label column */}
-{renderTopLabels()}
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+            {/* LESS/MORE and OTA labels — same 3-col grid */}
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
+                {renderTopLabels()}
+              </div>
+              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
                 {question?.open_to_all_me ? 'OTA' : ''}
               </div>
             </div>
             
-            {/* Grid container for perfect alignment */}
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(16px, 4vw, 28px)'
-              }}
-            >
-              
+            {/* Grid — same 3 columns as Them section */}
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400 mobile-label">
+              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
                  params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
                  params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
@@ -1482,7 +1442,7 @@ export default function QuestionPage() {
                  params.id === '9' ? 'LEFT' :
                  (question?.question_name || 'ANSWER').toUpperCase()}
               </div>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={meAnswer}
                   onChange={(value) => handleSliderChange('meAnswer', value)}
@@ -1490,28 +1450,17 @@ export default function QuestionPage() {
                   isImportance={false}
                 />
               </div>
-              <div className="hidden sm:flex justify-center">
-                {/* Only show switch if question has open_to_all_me enabled */}
+              <div className="flex justify-center shrink-0 w-11">
                 {question.open_to_all_me ? (
                   <ToggleControl
                     checked={openToAll.meOpen}
                     onChange={() => handleOpenToAllToggle('meOpen')}
                   />
                 ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+                  <div className="w-11 h-6" aria-hidden></div>
                 )}
               </div>
-              {question.open_to_all_me && (
-                <div className="sm:hidden col-span-2 flex justify-end">
-                  <ToggleControl
-                    checked={openToAll.meOpen}
-                    onChange={() => handleOpenToAllToggle('meOpen')}
-                  />
-                </div>
-              )}
-              
             </div>
-
           </div>
         </div>
       </main>
@@ -1526,7 +1475,7 @@ export default function QuestionPage() {
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex justify-between items-center px-6 py-4">
+        <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4">
           {/* Back Button */}
           <button
             onClick={handleBack}

@@ -1064,7 +1064,7 @@ export default function QuestionEditPage() {
     };
 
     return (
-      <div className="w-full h-5 relative flex items-center select-none"
+      <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
         style={{ userSelect: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -1083,7 +1083,7 @@ export default function QuestionEditPage() {
               {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
               
               <div
-                className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+                className="w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
                 style={{
                   backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
                   borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
@@ -1185,23 +1185,25 @@ export default function QuestionEditPage() {
     // Special handling for Relationship question (question_number === 1) - ONLY Me section, no "Looking For"
     if (questionNumber === 1) {
       return (
-        <div className="mb-6">
+        <div className="mb-6 w-full overflow-x-hidden">
           <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-          {/* LESS, MORE, and OTA labels below Me header - using same grid structure */}
-          <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+          {/* Responsive slider block — narrower on medium and smaller */}
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+          {/* LESS, MORE, and OTA labels — responsive grid */}
+          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
             <div></div>
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-gray-500 min-w-0">
               <span>LESS</span>
               <span>MORE</span>
             </div>
-            <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+            <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
               {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
             </div>
           </div>
 
-          {/* Grid container for perfect alignment */}
-          <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+          {/* Grid container for perfect alignment — responsive */}
+          <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
 
             {/* Question Rows for Relationship Questions */}
             {questions.map((question) => {
@@ -1210,8 +1212,8 @@ export default function QuestionEditPage() {
 
               return (
                 <React.Fragment key={question.id}>
-                  <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                  <div className="relative">
+                  <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name.toUpperCase()}</div>
+                  <div className="relative min-w-0">
                     <SliderComponent
                       value={sliderAnswers[meKey] || 3}
                       onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
@@ -1246,7 +1248,7 @@ export default function QuestionEditPage() {
 
             {/* IMPORTANCE Slider Row */}
             <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-            <div className="relative">
+            <div className="relative min-w-0">
               <SliderComponent
                 value={importanceValues.me}
                 onChange={(value) => setImportanceValues(prev => ({ ...prev, me: value }))}
@@ -1258,10 +1260,10 @@ export default function QuestionEditPage() {
             <div className="w-11 h-6"></div>
           </div>
 
-          {/* Importance labels below Me section - centered and dynamic */}
-          <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+          {/* Importance labels below Me section — responsive */}
+          <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
             <div></div>
-            <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+            <div className="relative text-xs text-gray-500 w-full min-w-0">
               {importanceValues.me === 1 && (
                 <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
               )}
@@ -1280,6 +1282,7 @@ export default function QuestionEditPage() {
             </div>
             <div></div>
           </div>
+          </div>
         </div>
       );
     }
@@ -1295,31 +1298,33 @@ export default function QuestionEditPage() {
     // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
     if (questionNumber === 2) {
       return (
-        <div>
+        <div className="w-full overflow-x-hidden">
+          {/* Responsive slider block — same as question 1 */}
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
           {/* Them Section */}
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
                 {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
               </div>
             </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
 
                 return (
                   <React.Fragment key={`looking-${question.id}`}>
-                    <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                    <div className="relative">
+                    <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name.toUpperCase()}</div>
+                    <div className="relative min-w-0">
                       <SliderComponent
                         value={sliderAnswers[lookingKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
@@ -1354,7 +1359,7 @@ export default function QuestionEditPage() {
 
               {/* IMPORTANCE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={importanceValues.lookingFor}
                   onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
@@ -1366,10 +1371,10 @@ export default function QuestionEditPage() {
               <div className="w-11 h-6"></div>
             </div>
 
-            {/* Importance labels below Them section */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            {/* Importance labels below Them section — responsive */}
+            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+              <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
                 )}
@@ -1394,26 +1399,26 @@ export default function QuestionEditPage() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
                 {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
               </div>
             </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
 
                 return (
                   <React.Fragment key={question.id}>
-                    <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                    <div className="relative">
+                    <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name.toUpperCase()}</div>
+                    <div className="relative min-w-0">
                       <SliderComponent
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
@@ -1446,6 +1451,7 @@ export default function QuestionEditPage() {
                 );
               })}
             </div>
+          </div>
           </div>
         </div>
       );
@@ -1455,25 +1461,26 @@ export default function QuestionEditPage() {
     if ([6, 7, 8, 9, 10].includes(questionNumber)) {
       const isKidsQuestion = questionNumber === 10;
 
-      // Show "Them" first, then "Me" (like onboarding)
+      // Show "Them" first, then "Me" (like onboarding) — responsive container and grids for small/medium devices
       return (
-        <div>
+        <div className="w-full overflow-x-hidden">
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
           {/* Them Section */}
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
                 {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
               </div>
             </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
@@ -1488,8 +1495,8 @@ export default function QuestionEditPage() {
 
                 return (
                   <React.Fragment key={`looking-${question.id}`}>
-                    <div className="text-xs font-semibold text-gray-400">{label}</div>
-                    <div className="relative">
+                    <div className="text-xs font-semibold text-gray-400 min-w-0">{label}</div>
+                    <div className="relative min-w-0">
                       <SliderComponent
                         value={sliderAnswers[lookingKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
@@ -1523,8 +1530,8 @@ export default function QuestionEditPage() {
               })}
 
               {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
+              <div className="text-xs font-semibold text-gray-400 min-w-0">IMPORTANCE</div>
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={importanceValues.lookingFor}
                   onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
@@ -1536,10 +1543,10 @@ export default function QuestionEditPage() {
               <div className="w-11 h-6"></div>
             </div>
 
-            {/* Importance labels below Them section */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            {/* Importance labels below Them section — responsive */}
+            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+              <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
                 )}
@@ -1564,18 +1571,18 @@ export default function QuestionEditPage() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
                 {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
               </div>
             </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
@@ -1590,8 +1597,8 @@ export default function QuestionEditPage() {
 
                 return (
                   <React.Fragment key={question.id}>
-                    <div className="text-xs font-semibold text-gray-400">{label}</div>
-                    <div className="relative">
+                    <div className="text-xs font-semibold text-gray-400 min-w-0">{label}</div>
+                    <div className="relative min-w-0">
                       <SliderComponent
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
@@ -1624,6 +1631,7 @@ export default function QuestionEditPage() {
                 );
               })}
             </div>
+          </div>
           </div>
         </div>
       );
@@ -1790,35 +1798,30 @@ export default function QuestionEditPage() {
       const meKey = `${key}_me`;
       const lookingKey = `${key}_looking`;
 
-      return (
-        <div className="flex flex-col items-center w-full">
-          {/* Them Section */}
-          <div className="mb-6 w-full flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-center" style={{ color: '#672DB7' }}>Them</h3>
+      const lessLabel = question.answers?.find((a: { value: string | number }) => String(a.value) === '1')?.answer_text?.toUpperCase() || 'LESS';
+      const moreLabel = question.answers?.find((a: { value: string | number }) => String(a.value) === '5')?.answer_text?.toUpperCase() || 'MORE';
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-1" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
-                {question.answers && question.answers.length > 0 ? (
-                  <>
-                    <span>{question.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
-                    <span>{question.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>LESS</span>
-                    <span>MORE</span>
-                  </>
-                )}
+      return (
+        <div className="w-full overflow-x-hidden">
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+          {/* Them Section — same 3-col responsive grid as grouped/auth */}
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="flex justify-between text-xs text-gray-500 min-w-0">
+                <span>{lessLabel}</span>
+                <span>{moreLabel}</span>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
                 {question.open_to_all_looking_for ? 'OTA' : ''}
               </div>
             </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="relative">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={sliderAnswers[lookingKey] || 3}
                   onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
@@ -1826,7 +1829,7 @@ export default function QuestionEditPage() {
                   labels={question.answers}
                 />
               </div>
-              <div>
+              <div className="flex justify-center shrink-0 w-11">
                 {question.open_to_all_looking_for ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
@@ -1844,75 +1847,68 @@ export default function QuestionEditPage() {
                     </div>
                   </label>
                 ) : (
-                  <div className="w-11 h-6"></div>
+                  <div className="w-11 h-6" aria-hidden></div>
                 )}
               </div>
 
+              {/* Importance row — same column widths so slider is full width */}
+              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
+                IMPORTANCE
+              </div>
+              <div className="relative min-w-0">
+                <SliderComponent
+                  value={importanceValues.lookingFor}
+                  onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
+                  isOpenToAll={false}
+                  isImportance={true}
+                  labels={IMPORTANCE_LABELS}
+                />
+              </div>
+              <div className="shrink-0 w-11 h-6" aria-hidden></div>
             </div>
 
-            {/* Importance Section */}
-            <div className="mt-4 w-full">
-              <div className="flex justify-center">
-                <div className="relative" style={{ width: '500px' }}>
-                  <SliderComponent
-                    value={importanceValues.lookingFor}
-                    onChange={(value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))}
-                    isOpenToAll={false}
-                    isImportance={true}
-                    labels={IMPORTANCE_LABELS}
-                  />
-                </div>
+            {/* Importance labels below Them section */}
+            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="relative text-xs text-gray-500 w-full min-w-0">
+                {importanceValues.lookingFor === 1 && (
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
+                )}
+                {importanceValues.lookingFor === 2 && (
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
+                )}
+                {importanceValues.lookingFor === 3 && (
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
+                )}
+                {importanceValues.lookingFor === 4 && (
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
+                )}
+                {importanceValues.lookingFor === 5 && (
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
+                )}
               </div>
-              {/* Importance label below slider */}
-              <div className="flex justify-center mt-1">
-                <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                  {importanceValues.lookingFor === 1 && (
-                    <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                  )}
-                  {importanceValues.lookingFor === 2 && (
-                    <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                  )}
-                  {importanceValues.lookingFor === 3 && (
-                    <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                  )}
-                  {importanceValues.lookingFor === 4 && (
-                    <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                  )}
-                  {importanceValues.lookingFor === 5 && (
-                    <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                  )}
-                </div>
-              </div>
+              <div className="min-w-0 shrink-0 w-11" aria-hidden></div>
             </div>
           </div>
 
           {/* Me Section */}
-          <div className="mb-6 w-full flex flex-col items-center">
-            <h3 className="text-2xl font-bold text-center">Me</h3>
+          <div className="mb-4 sm:mb-6 pt-4 sm:pt-8">
+            <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-1" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
-                {question.answers && question.answers.length > 0 ? (
-                  <>
-                    <span>{question.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
-                    <span>{question.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>LESS</span>
-                    <span>MORE</span>
-                  </>
-                )}
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="flex justify-between text-xs text-gray-500 min-w-0">
+                <span>{lessLabel}</span>
+                <span>{moreLabel}</span>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
                 {question.open_to_all_me ? 'OTA' : ''}
               </div>
             </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '60px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="relative">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+              <div className="min-w-0" aria-hidden></div>
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={sliderAnswers[meKey] || 3}
                   onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
@@ -1920,7 +1916,7 @@ export default function QuestionEditPage() {
                   labels={question.answers}
                 />
               </div>
-              <div>
+              <div className="flex justify-center shrink-0 w-11">
                 {question.open_to_all_me ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
@@ -1938,12 +1934,12 @@ export default function QuestionEditPage() {
                     </div>
                   </label>
                 ) : (
-                  <div className="w-11 h-6"></div>
+                  <div className="w-11 h-6" aria-hidden></div>
                 )}
               </div>
             </div>
           </div>
-
+          </div>
         </div>
       );
     }
@@ -1981,12 +1977,12 @@ export default function QuestionEditPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] px-6 py-6">
-        <div className="w-full max-w-4xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <div className="inline-block">
-            <h1 className="text-3xl font-bold text-black mb-2">
+      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] px-4 sm:px-6 py-6 overflow-x-hidden">
+        <div className={`w-full min-w-0 mx-auto ${[1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || questionNumber > 10 ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]' : 'max-w-4xl'}`}>
+          {/* Title — responsive typography for small/medium/large */}
+          <div className="text-center mb-4 sm:mb-6 lg:mb-8">
+            <div className="inline-block w-full max-w-full px-0 sm:px-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2">
                 {questionNumber}. {questions && questions.length > 0 ? (
                   questions[0].group_name ? questions[0].group_name : 
                   (questions[0].question_name || questionTitles[questionNumber])
@@ -1995,7 +1991,7 @@ export default function QuestionEditPage() {
               
               {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
               {questionNumber > 10 && questions && questions.length > 0 && questions[0].question_type !== 'grouped' && (
-                <div className="flex items-center justify-between w-full mt-4">
+                <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mt-3 sm:mt-4">
                   {/* Required For Match - Left */}
                   <div className="flex items-center gap-3">
                     <button
@@ -2030,7 +2026,7 @@ export default function QuestionEditPage() {
                 </div>
               )}
             </div>
-            <p className="text-3xl font-bold text-black mb-12">
+            <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black mb-6 sm:mb-8 lg:mb-12 break-words">
               {questions && questions.length > 0 && questions[0].group_name_text ? questions[0].group_name_text : questionTexts[questionNumber]}
             </p>
           </div>

@@ -2226,9 +2226,9 @@ export default function QuestionsPage() {
                 </div>
               </div>
 
-              {/* Tags Section */}
+              {/* Tags Section — max 1 tag */}
               <div className="mb-6">
-                <h3 className="text-base font-semibold mb-3">Add Tag</h3>
+                <h3 className="text-base font-semibold mb-3">Select Tag</h3>
                 <div className="flex flex-wrap gap-2">
                   {['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'].map((tag) => {
                     const isSelected = selectedTags.includes(tag);
@@ -2237,9 +2237,9 @@ export default function QuestionsPage() {
                         key={tag}
                         onClick={() => {
                           if (isSelected) {
-                            setSelectedTags(selectedTags.filter(t => t !== tag));
-                          } else if (selectedTags.length < 3) {
-                            setSelectedTags([...selectedTags, tag]);
+                            setSelectedTags([]);
+                          } else {
+                            setSelectedTags([tag]);
                           }
                         }}
                         className={`relative px-4 py-2 border text-sm font-medium transition-colors cursor-pointer ${
