@@ -475,11 +475,14 @@ class ApiService {
     return results.map((r) => r.question_id);
   }
 
-  async getQuestion(id: string, skipUserAnswers: boolean = true): Promise<Question> {
+  async getQuestion(id: string, skipUserAnswers: boolean = true, includeUnapproved: boolean = false): Promise<Question> {
     // For edit operations, skip user_answers to improve performance
-    const endpoint = skipUserAnswers 
-      ? `/questions/${id}/?skip_user_answers=true`
-      : `/questions/${id}/`;
+    // includeUnapproved=true allows dashboard to load draft/unapproved questions for editing
+    const params = new URLSearchParams();
+    if (skipUserAnswers) params.set('skip_user_answers', 'true');
+    if (includeUnapproved) params.set('include_unapproved', 'true');
+    const query = params.toString();
+    const endpoint = query ? `/questions/${id}/?${query}` : `/questions/${id}/`;
     return this.request(endpoint, 'GET') as Promise<Question>;
   }
 

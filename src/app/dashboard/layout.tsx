@@ -3,9 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import NotificationBell from '@/components/NotificationBell';
-import ChatBell from '@/components/ChatBell';
+import { useState } from 'react';
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: 'fas fa-chart-bar' },
@@ -28,17 +26,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userId, setUserId] = useState<string>('');
   const pathname = usePathname();
   const router = useRouter();
-
-  // Get user ID from localStorage
-  useEffect(() => {
-    const storedUserId = localStorage.getItem('user_id');
-    if (storedUserId) {
-      setUserId(storedUserId);
-    }
-  }, []);
 
   const handleLogout = () => {
     // Get user_id before clearing it, so we can clear user-specific data
@@ -87,16 +76,8 @@ export default function DashboardLayout({
             <span className="ml-3 text-lg font-semibold text-gray-900">Dashboard</span>
           </div>
           
-          {/* Right side - Notification bell, Log out button, and hamburger menu */}
+          {/* Right side - Log out button and hamburger menu (no bells in dashboard) */}
           <div className="flex items-center gap-3">
-            {/* Chat & Notification Bells */}
-            {userId && (
-              <>
-                <ChatBell userId={userId} />
-                <NotificationBell userId={userId} />
-              </>
-            )}
-
             {/* Log Out Button */}
             <button
               onClick={handleLogout}

@@ -33,8 +33,7 @@ export default function CreateQuestionPage() {
   const [skipMe, setSkipMe] = useState(false);
   const [skipLookingFor, setSkipLookingFor] = useState(false);
   const [openToAllMe, setOpenToAllMe] = useState(false);
-  const [openToAllLooking, setOpenToAllLooking] = useState(false);
-  const [isGroup, setIsGroup] = useState(false);
+  const [openToAllLooking, setOpenToAllLooking] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
@@ -154,7 +153,7 @@ export default function CreateQuestionPage() {
         skip_looking_for: skipLookingFor,
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
-        is_group: isGroup,
+        is_group: questionType !== 'basic',
         value_label_1: value_label_1,
         value_label_5: value_label_5,
         answers: getValidAnswers().map(answer => ({
@@ -220,7 +219,7 @@ export default function CreateQuestionPage() {
         skip_looking_for: skipLookingFor,
         open_to_all_me: openToAllMe,
         open_to_all_looking_for: openToAllLooking,
-        is_group: isGroup,
+        is_group: questionType !== 'basic',
         value_label_1: value_label_1,
         value_label_5: value_label_5,
         answers: getValidAnswers().map(answer => ({
@@ -264,8 +263,7 @@ export default function CreateQuestionPage() {
         setSkipMe(false);
         setSkipLookingFor(false);
         setOpenToAllMe(false);
-        setOpenToAllLooking(false);
-        setIsGroup(false);
+        setOpenToAllLooking(true);
         setIsApproved(false);
         setErrors({});
       } else {
@@ -310,7 +308,7 @@ export default function CreateQuestionPage() {
           {/* Question Number Section - Read Only */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Published Number
+              Question Number
             </label>
             <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
               {isApproved ? 'Will be assigned on approval' : 'Assigned automatically when approved'}
@@ -323,28 +321,28 @@ export default function CreateQuestionPage() {
           {/* Group Number Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Group Number
+              Question sub number within group
             </label>
             <input
               type="text"
               value={groupNumber || ''}
               onChange={(e) => setGroupNumber(e.target.value ? Number(e.target.value) : null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-              placeholder="Enter group number"
+              placeholder="Enter question sub number within group"
             />
           </div>
 
           {/* Question Name Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question Name
+              Question name within group
             </label>
             <input
               type="text"
               value={questionName}
               onChange={(e) => setQuestionName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
-              placeholder="Enter question name"
+              placeholder="Enter question name within group"
             />
             {errors.questionName && (
               <p className="text-red-500 text-sm mt-1">{errors.questionName}</p>
@@ -368,7 +366,7 @@ export default function CreateQuestionPage() {
           {/* Group Name Text Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Group Name Text
+              Group Question
             </label>
             <input
               type="text"
@@ -523,24 +521,6 @@ export default function CreateQuestionPage() {
               </button>
               <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setOpenToAllLooking(!openToAllLooking)}>
                 OTA Looking
-              </label>
-            </div>
-            <div className="flex items-center">
-              <button
-                type="button"
-                onClick={() => setIsGroup(!isGroup)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
-                  isGroup ? 'bg-[#672DB7]' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                    isGroup ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <label className="ml-3 text-sm text-gray-700 cursor-pointer" onClick={() => setIsGroup(!isGroup)}>
-                isGroup
               </label>
             </div>
           </div>

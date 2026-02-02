@@ -66,7 +66,7 @@ export default function EditQuestionPage() {
     const fetchQuestion = async () => {
       try {
         setLoading(true);
-        const questionData = await apiService.getQuestion(questionId);
+        const questionData = await apiService.getQuestion(questionId, true, true);
         
         // Update state with fetched data
         console.log('📋 Fetched question data:', questionData);

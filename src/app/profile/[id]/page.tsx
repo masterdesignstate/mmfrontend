@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
@@ -54,7 +54,11 @@ interface ProfileIcon {
 export default function UserProfilePage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const userId = params.id as string;
+  // Border color from results page: ?border=pending (orange) or ?border=default (purple)
+  const borderParam = searchParams?.get('border');
+  const useOrangeStyle = borderParam === 'pending' ? true : (borderParam === 'default' ? false : undefined);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [profileUserRequiredQuestionIds, setProfileUserRequiredQuestionIds] = useState<Set<string>>(new Set());
@@ -86,6 +90,7 @@ export default function UserProfilePage() {
     required_completeness_ratio?: number; // Deprecated
   } | null>(null);
   const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(false);
+  const effectiveShowOrange = useOrangeStyle ?? showRequiredCompatibility;
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -1728,8 +1733,8 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Purple/Orange Sleeve - pulled up behind the photo */}
-          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: showRequiredCompatibility ? 'linear-gradient(135deg, #FB923C 0%, #F97316 50%, #EA580C 100%)' : 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
+          {/* Purple/Orange Sleeve - pulled up behind the photo (color from results card when ?border= is set) */}
+          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: effectiveShowOrange ? 'linear-gradient(135deg, #FB923C 0%, #F97316 50%, #EA580C 100%)' : 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
             <div className="flex justify-between gap-3">
               <button
                 onClick={handleChatClick}
@@ -1803,14 +1808,14 @@ export default function UserProfilePage() {
                   Overall
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {Math.round(showRequiredCompatibility &&
+                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    {Math.round(effectiveShowOrange &&
                                 compatibility.required_overall_compatibility !== undefined &&
                                 compatibility.required_overall_compatibility !== null
                       ? compatibility.required_overall_compatibility
                       : compatibility.overall_compatibility)}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                  <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
 
@@ -1820,14 +1825,14 @@ export default function UserProfilePage() {
                   Me
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {Math.round(showRequiredCompatibility &&
+                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    {Math.round(effectiveShowOrange &&
                                 compatibility.required_im_compatible_with !== undefined &&
                                 compatibility.required_im_compatible_with !== null
                       ? compatibility.required_im_compatible_with
                       : compatibility.im_compatible_with)}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                  <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
 
@@ -1837,14 +1842,14 @@ export default function UserProfilePage() {
                   Them
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {Math.round(showRequiredCompatibility &&
+                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    {Math.round(effectiveShowOrange &&
                                 compatibility.required_compatible_with_me !== undefined &&
                                 compatibility.required_compatible_with_me !== null
                       ? compatibility.required_compatible_with_me
                       : compatibility.compatible_with_me)}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                  <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                 </div>
               </div>
             </div>
@@ -1858,13 +1863,13 @@ export default function UserProfilePage() {
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline">
-                    <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                       {compatibility.user1_required_completeness !== undefined
                         ? Math.round(compatibility.user1_required_completeness * 100)
                         : 'N/A'}
                     </span>
                     {compatibility.user1_required_completeness !== undefined && (
-                      <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                      <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                     )}
                   </div>
                   {compatibility.user1_required_completeness !== undefined &&
@@ -1884,13 +1889,13 @@ export default function UserProfilePage() {
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline">
-                    <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                       {compatibility.user2_required_completeness !== undefined
                         ? Math.round(compatibility.user2_required_completeness * 100)
                         : 'N/A'}
                     </span>
                     {compatibility.user2_required_completeness !== undefined && (
-                      <span className={`text-lg font-bold ml-1 ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                      <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                     )}
                   </div>
                   {compatibility.user2_required_completeness !== undefined &&
@@ -1909,7 +1914,7 @@ export default function UserProfilePage() {
                   Mutual Questions
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {compatibility.mutual_questions_count || 0}
                   </span>
                 </div>
@@ -1921,7 +1926,7 @@ export default function UserProfilePage() {
                   Questions Answered
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${showRequiredCompatibility ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
                     {userAnswers.length}
                   </span>
                 </div>

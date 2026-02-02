@@ -1757,7 +1757,7 @@ export default function ResultsPage() {
                 <div key={`${profile.user.id}-${index}`} className="relative">
                   <CardWithProgressBorder percentage={compatibilityScore} variant={isPending ? 'pending' : 'default'}>
                     <div
-                      onClick={() => router.push(`/profile/${profile.user.id}`)}
+                      onClick={() => router.push(`/profile/${profile.user.id}?border=${isPending ? 'pending' : 'default'}`)}
                       className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     >
                       {/* Status Indicator */}
