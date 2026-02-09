@@ -228,18 +228,7 @@ export default function ResultsPage() {
   const showFiltersApplied = hasHydrated && filtersApplied;
 
   // Filter state - load from sessionStorage on mount
-  const [filters, setFilters] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const savedFilters = sessionStorage.getItem('results_page_filters');
-      if (savedFilters) {
-        try {
-          return JSON.parse(savedFilters);
-        } catch (e) {
-          console.error('Error parsing saved filters:', e);
-        }
-      }
-    }
-    return {
+  const defaultFilters = {
     compatibilityType: 'overall', // overall, me_to_them, them_to_me
     compatibility: {
       min: 0,
@@ -256,8 +245,23 @@ export default function ResultsPage() {
     tags: [] as string[],
     requiredOnly: false,
     requiredScope: 'my' as 'my' | 'their'
-    };
+  };
+  const [filters, setFilters] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = sessionStorage.getItem('results_page_filters');
+      if (savedFilters) {
+        try {
+          return JSON.parse(savedFilters);
+        } catch (e) {
+          console.error('Error parsing saved filters:', e);
+        }
+      }
+    }
+    return defaultFilters;
   });
+  // Pending filters: edited in the modal, only committed to `filters` on Apply
+  const [pendingFilters, setPendingFilters] = useState(defaultFilters);
+  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
 
   // Fetch tags for a specific user
   const fetchUserTags = async (userId: string): Promise<string[]> => {
@@ -316,15 +320,18 @@ export default function ResultsPage() {
   };
 
   // Fetch compatible users from API
-  const fetchCompatibleUsers = async (page = 1, applyFilters = false) => {
+  // filtersOverride lets the caller pass freshly-committed filters so we don't
+  // depend on stale closure values after a setState in the same tick.
+  const fetchCompatibleUsers = async (page = 1, applyFilters = false, filtersOverride?: typeof filters) => {
     console.log(`🚀 fetchCompatibleUsers called: page=${page}, applyFilters=${applyFilters}`);
+    const activeFilters = filtersOverride ?? filters;
 
     try {
       setLoading(true);
       setError(null);
 
       const compatibilityTypeParam =
-        COMPATIBILITY_TYPE_MAP[filters.compatibilityType] || 'overall_compatibility';
+        COMPATIBILITY_TYPE_MAP[activeFilters.compatibilityType] || 'overall_compatibility';
 
       const params: {
         page: number;
@@ -362,27 +369,27 @@ export default function ResultsPage() {
       // Separate "Required", "Pending", "Their Required", "Their Pending" tags from regular tags
       // These are now handled server-side for proper pagination
       const specialTags = ['Required', 'Pending', 'Their Required', 'Their Pending'];
-      const regularTags = filters.tags ? filters.tags.filter(tag => !specialTags.includes(tag)) : [];
-      const hasRequiredTag = applyFilters && (filters.tags?.includes('Required') || false);
-      const hasPendingTag = applyFilters && (filters.tags?.includes('Pending') || false);
-      const hasTheirRequiredTag = applyFilters && (filters.tags?.includes('Their Required') || false);
-      const hasTheirPendingTag = applyFilters && (filters.tags?.includes('Their Pending') || false);
+      const regularTags = activeFilters.tags ? activeFilters.tags.filter((tag: string) => !specialTags.includes(tag)) : [];
+      const hasRequiredTag = applyFilters && (activeFilters.tags?.includes('Required') || false);
+      const hasPendingTag = applyFilters && (activeFilters.tags?.includes('Pending') || false);
+      const hasTheirRequiredTag = applyFilters && (activeFilters.tags?.includes('Their Required') || false);
+      const hasTheirPendingTag = applyFilters && (activeFilters.tags?.includes('Their Pending') || false);
       const hasAnyRequiredFilter = hasRequiredTag || hasPendingTag || hasTheirRequiredTag || hasTheirPendingTag;
 
       if (applyFilters) {
-        params.min_compatibility = filters.compatibility.min;
-        params.max_compatibility = filters.compatibility.max;
-        params.min_age = filters.age.min;
-        params.max_age = filters.age.max;
-        params.min_distance = filters.distance.min;
-        params.max_distance = filters.distance.max;
+        params.min_compatibility = activeFilters.compatibility.min;
+        params.max_compatibility = activeFilters.compatibility.max;
+        params.min_age = activeFilters.age.min;
+        params.max_age = activeFilters.age.max;
+        params.min_distance = activeFilters.distance.min;
+        params.max_distance = activeFilters.distance.max;
         // Enable required_only if Required/Pending/Their Required/Their Pending tags are selected OR if the toggle is on
         // This ensures missing_required and their_missing_required are calculated so we can filter properly
-        params.required_only = filters.requiredOnly || hasAnyRequiredFilter;
+        params.required_only = activeFilters.requiredOnly || hasAnyRequiredFilter;
         // If requiredOnly is enabled OR Required/Pending tags are selected, sort by required compatibility
         // When "Their Required" or "Their Pending" tag is selected, always use their scope so backend returns/sorts by their-required logic
         if (params.required_only) {
-          const useTheirScope = hasTheirRequiredTag || hasTheirPendingTag || (filters.requiredScope ?? 'my') === 'their';
+          const useTheirScope = hasTheirRequiredTag || hasTheirPendingTag || (activeFilters.requiredScope ?? 'my') === 'their';
           params.required_scope = useTheirScope ? 'their' : 'my';
           if (useTheirScope) {
             params.sort = 'required_im_compatible_with';
@@ -396,12 +403,12 @@ export default function ResultsPage() {
         if (hasPendingTag) params.filter_pending = true;
         if (hasTheirRequiredTag) params.filter_their_required = true;
         if (hasTheirPendingTag) params.filter_their_pending = true;
-        
+
         // Add only regular tag filters to backend (exclude Required/Pending)
         if (regularTags.length > 0) {
           params.tags = regularTags;
         }
-        
+
         // Add user_id for proper filtering
         const currentUserId = localStorage.getItem('user_id');
         if (currentUserId) {
@@ -453,9 +460,9 @@ export default function ResultsPage() {
       // Note: Hidden users are now filtered on the backend, so we don't need to filter them here
       // The backend ensures we always get the requested number of non-hidden users per page
       // Only filter if explicitly filtering for Hide tag
-      const isFilteringForHide = applyFilters && (filters.tags.includes('Hide') || filters.tags.includes('Hidden'));
+      const isFilteringForHide = applyFilters && (activeFilters.tags.includes('Hide') || activeFilters.tags.includes('Hidden'));
 
-      console.log('🏷️ Filter tags:', filters.tags);
+      console.log('🏷️ Filter tags:', activeFilters.tags);
       console.log('📋 Profiles with tags:', profilesWithTags.map(p => ({ id: p.user.id, name: p.user.first_name, tags: p.tags })));
 
       // Apply client-side filtering
@@ -499,6 +506,26 @@ export default function ResultsPage() {
   useEffect(() => {
     setHasHydrated(true);
   }, []);
+
+  // Snapshot current filters into pendingFilters when modal opens
+  useEffect(() => {
+    if (showFilterModal) {
+      setPendingFilters({ ...filters });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFilterModal]);
+
+  // Cycle loading text while applying filters or during initial load
+  useEffect(() => {
+    if (!isApplyingFilters && !loading) {
+      setLoadingTextIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingTextIndex(prev => (prev + 1) % 4);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isApplyingFilters, loading]);
 
   // Fetch current user's live field on mount
   useEffect(() => {
@@ -738,7 +765,7 @@ export default function ResultsPage() {
   // Reset sliders to extremes when filter modal opens (if filters not already applied)
   useEffect(() => {
     if (showFilterModal && !filtersApplied) {
-      setFilters(prev => ({
+      setPendingFilters(prev => ({
         ...prev,
         compatibility: { min: 0, max: 100 },
         distance: { min: 1, max: 100 },
@@ -1287,83 +1314,88 @@ export default function ResultsPage() {
   };
 
 
-  // Filter handling functions
+  // Filter handling functions – operate on pendingFilters (committed on Apply)
   const handleCompatibilityTypeChange = (type: string) => {
-    setFilters(prev => ({ ...prev, compatibilityType: type }));
+    setPendingFilters(prev => ({ ...prev, compatibilityType: type }));
   };
 
   const handleSliderChange = (category: 'compatibility' | 'distance' | 'age', value: { min: number; max: number }) => {
-    setFilters(prev => ({ ...prev, [category]: value }));
+    setPendingFilters(prev => ({ ...prev, [category]: value }));
   };
 
   const handleFilterTagToggle = (tag: string) => {
-    setFilters(prev => ({
+    setPendingFilters(prev => ({
       ...prev,
       tags: prev.tags.includes(tag)
-        ? prev.tags.filter(t => t !== tag)
+        ? prev.tags.filter((t: string) => t !== tag)
         : [...prev.tags, tag]
     }));
   };
 
   const toggleRequiredOnly = () => {
-    setFilters(prev => ({
+    setPendingFilters(prev => ({
       ...prev,
       requiredOnly: !prev.requiredOnly
     }));
   };
 
   const handleRequiredScopeChange = (scope: 'my' | 'their') => {
-    setFilters(prev => ({ ...prev, requiredScope: scope }));
+    setPendingFilters(prev => ({ ...prev, requiredScope: scope }));
   };
 
   const clearAllFilters = () => {
-    setFilters({
-      compatibilityType: 'overall',
-      compatibility: { min: 0, max: 100 },
-      distance: { min: 1, max: 100 },
-      age: { min: 18, max: 80 },
-      tags: [],
-      requiredOnly: false,
-      requiredScope: 'my'
-    });
-    setFiltersApplied(false);
-    setAppliedTags([]); // Clear applied tags for color logic
+    // Only reset the pending (in-modal) state – actual filters stay until Apply
+    setPendingFilters({ ...defaultFilters });
   };
 
   const applyFiltersAndClose = async () => {
-    console.log('🔍 Applying filters:', filters);
-
     // Prevent multiple simultaneous calls
     if (isApplyingFilters) {
       console.log('⚠️ Already applying filters, skipping...');
       return;
     }
 
-    try {
-      setIsApplyingFilters(true);
-      // Mark that filters have been applied
-      setFiltersApplied(true);
-      // Store which tags were applied (for color logic)
-      setAppliedTags(filters.tags || []);
-      setLoading(true);
+    // Commit pending filters → actual filters
+    const filtersToApply = { ...pendingFilters };
+    setFilters(filtersToApply);
 
-      // Reset to first page
+    // Check if clearing (all defaults)
+    const isClearing =
+      filtersToApply.compatibilityType === 'overall' &&
+      filtersToApply.compatibility.min === 0 && filtersToApply.compatibility.max === 100 &&
+      filtersToApply.distance.min === 1 && filtersToApply.distance.max === 100 &&
+      filtersToApply.age.min === 18 && filtersToApply.age.max === 80 &&
+      (!filtersToApply.tags || filtersToApply.tags.length === 0) &&
+      !filtersToApply.requiredOnly;
+
+    console.log('🔍 Applying filters:', filtersToApply);
+
+    try {
+      setIsApplyingFilters(true); // Shows loading animation inside modal
+
+      if (isClearing) {
+        setFiltersApplied(false);
+        setAppliedTags([]);
+      } else {
+        setFiltersApplied(true);
+        setAppliedTags(filtersToApply.tags || []);
+      }
+
+      // Reset pagination but keep current profiles visible until new data arrives
       setCurrentPage(1);
       setVisibleCount(PAGE_SIZE);
-      setProfiles([]);
-      setSortedProfiles([]);
       setHasNextPage(true);
 
-      // Just load the first page - don't automatically load all pages
-      await fetchCompatibleUsers(1, true);
+      // Fetch with the committed filters (pass override since setState is async)
+      // Old profiles stay visible behind the loading overlay
+      await fetchCompatibleUsers(1, !isClearing, filtersToApply);
 
-      // Close the modal
+      // Close the modal only after data has loaded
       setShowFilterModal(false);
 
     } catch (error) {
       console.error('❌ Error applying filters:', error);
       setError('Failed to apply filters. Please try again.');
-      // Still close the modal even on error to avoid stuck state
       setShowFilterModal(false);
     } finally {
       setLoading(false);
@@ -1680,8 +1712,50 @@ export default function ResultsPage() {
         </div>
 
         {loading && profiles.length === 0 ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="text-gray-500">Loading compatible users...</div>
+          <div className="flex justify-center items-center py-20">
+            <div className="flex flex-col items-center">
+              {/* Heart with math operators */}
+              <div className="relative w-40 h-40 flex items-center justify-center">
+                {['×', '÷', '+', '−', '=', '%', '√'].map((op, i) => (
+                  <span
+                    key={op}
+                    className="results-math-operator absolute text-xl font-bold"
+                    style={{
+                      color: '#672DB7',
+                      opacity: 0.6,
+                      animationDelay: `${i * 0.3}s`,
+                      top: '50%',
+                      left: '50%',
+                    }}
+                  >
+                    {op}
+                  </span>
+                ))}
+                <svg
+                  className="results-heart-pulse relative z-10"
+                  width="72"
+                  height="72"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <defs>
+                    <linearGradient id="resultsHeartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#A855F7" />
+                      <stop offset="50%" stopColor="#7C3AED" />
+                      <stop offset="100%" stopColor="#672DB7" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                    fill="url(#resultsHeartGradient)"
+                  />
+                </svg>
+              </div>
+              <p className="mt-6 text-lg font-semibold text-gray-700 results-loading-text">
+                {['Finding your matches...', 'Crunching the numbers...', 'Calculating compatibility...', 'Almost there...'][loadingTextIndex]}
+              </p>
+            </div>
           </div>
         ) : error && profiles.length === 0 ? (
           <div className="flex justify-center items-center py-12">
@@ -1843,8 +1917,8 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Show More Button - hide when searching */}
-        {!searchTerm.trim() && (visibleCount < profiles.length || hasNextPage) && (
+        {/* Show More Button - hide when searching or during initial load */}
+        {!searchTerm.trim() && profiles.length > 0 && (visibleCount < profiles.length || hasNextPage) && (
           <div className="flex justify-center mt-8">
             <button
               onClick={handleShowMore}
@@ -1869,17 +1943,68 @@ export default function ResultsPage() {
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-          onClick={() => setShowFilterModal(false)}
+          onClick={() => { if (!isApplyingFilters) setShowFilterModal(false); }}
         >
           <div
-            className="bg-white rounded-3xl shadow-lg w-full max-w-xl mx-4 h-[80vh] flex flex-col"
+            className="bg-white rounded-3xl shadow-lg w-full max-w-xl mx-4 h-[80vh] flex flex-col relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Loading Animation Overlay */}
+            {isApplyingFilters && (
+              <div className="absolute inset-0 bg-white z-50 flex flex-col items-center justify-center rounded-3xl filter-loading-overlay">
+                {/* Heart with math operators */}
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  {/* Floating math operators */}
+                  {['×', '÷', '+', '−', '=', '%', '√'].map((op, i) => (
+                    <span
+                      key={op}
+                      className="filter-math-operator absolute text-xl font-bold"
+                      style={{
+                        color: '#672DB7',
+                        opacity: 0.6,
+                        animationDelay: `${i * 0.3}s`,
+                        top: '50%',
+                        left: '50%',
+                      }}
+                    >
+                      {op}
+                    </span>
+                  ))}
+                  {/* Pulsing gradient heart */}
+                  <svg
+                    className="filter-heart-pulse relative z-10"
+                    width="72"
+                    height="72"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <defs>
+                      <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#A855F7" />
+                        <stop offset="50%" stopColor="#7C3AED" />
+                        <stop offset="100%" stopColor="#672DB7" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                      fill="url(#heartGradient)"
+                    />
+                  </svg>
+                </div>
+
+                {/* Cycling loading text */}
+                <p className="mt-6 text-lg font-semibold text-gray-700 filter-loading-text">
+                  {['Crunching the numbers...', 'Running the math...', 'Calculating compatibility...', 'Finding your matches...'][loadingTextIndex]}
+                </p>
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Filters</h2>
               <button
-                onClick={() => setShowFilterModal(false)}
+                onClick={() => { if (!isApplyingFilters) setShowFilterModal(false); }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1920,7 +2045,7 @@ export default function ResultsPage() {
                   <button
                     onClick={() => handleCompatibilityTypeChange('overall')}
                     className={`px-6 py-3 rounded-lg text-base font-semibold transition-all cursor-pointer ${
-                      filters.compatibilityType === 'overall'
+                      pendingFilters.compatibilityType === 'overall'
                         ? 'bg-white text-black shadow-sm border border-black'
                         : 'text-black hover:bg-gray-50 border border-transparent'
                     }`}
@@ -1930,7 +2055,7 @@ export default function ResultsPage() {
                   <button
                     onClick={() => handleCompatibilityTypeChange('compatible_with_me')}
                     className={`px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                      filters.compatibilityType === 'compatible_with_me'
+                      pendingFilters.compatibilityType === 'compatible_with_me'
                         ? 'bg-white text-black shadow-sm border border-black'
                         : 'text-black hover:bg-gray-50 border border-transparent'
                     }`}
@@ -1940,7 +2065,7 @@ export default function ResultsPage() {
                   <button
                     onClick={() => handleCompatibilityTypeChange('im_compatible_with')}
                     className={`px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                      filters.compatibilityType === 'im_compatible_with'
+                      pendingFilters.compatibilityType === 'im_compatible_with'
                         ? 'bg-white text-black shadow-sm border border-black'
                         : 'text-black hover:bg-gray-50 border border-transparent'
                     }`}
@@ -1951,7 +2076,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Required Toggle */}
-              <div className={`${filters.requiredOnly ? 'mb-2' : 'mb-8'} flex items-center justify-between`}>
+              <div className={`${pendingFilters.requiredOnly ? 'mb-2' : 'mb-8'} flex items-center justify-between`}>
                 <div className="flex items-center gap-2">
                   <h4 className="text-base font-semibold text-black">Required</h4>
                   <div className="relative group">
@@ -1968,25 +2093,25 @@ export default function ResultsPage() {
                   type="button"
                   onClick={toggleRequiredOnly}
                   className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                  style={{ backgroundColor: filters.requiredOnly ? '#672DB7' : '#ADADAD' }}
-                  aria-pressed={filters.requiredOnly}
+                  style={{ backgroundColor: pendingFilters.requiredOnly ? '#672DB7' : '#ADADAD' }}
+                  aria-pressed={pendingFilters.requiredOnly}
                 >
                   <span
                     className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                    style={{ transform: filters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
+                    style={{ transform: pendingFilters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
                   />
                 </button>
               </div>
 
               {/* Required scope sub-picker: My Required / Their Required (only when Required is on) - same width as Compatibility Type picker */}
-              {filters.requiredOnly && (
+              {pendingFilters.requiredOnly && (
                 <div className="mb-8">
                   <div className="inline-flex items-center bg-white rounded-lg p-1.5 border border-gray-300 w-full">
                     <button
                       type="button"
                       onClick={() => handleRequiredScopeChange('my')}
                       className={`flex-1 px-6 py-3 rounded-lg text-base font-semibold transition-all cursor-pointer ${
-                        (filters.requiredScope ?? 'my') === 'my'
+                        (pendingFilters.requiredScope ?? 'my') === 'my'
                           ? 'bg-white text-black shadow-sm border border-black'
                           : 'text-black hover:bg-gray-50 border border-transparent'
                       }`}
@@ -1997,7 +2122,7 @@ export default function ResultsPage() {
                       type="button"
                       onClick={() => handleRequiredScopeChange('their')}
                       className={`flex-1 px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                        (filters.requiredScope ?? 'my') === 'their'
+                        (pendingFilters.requiredScope ?? 'my') === 'their'
                           ? 'bg-white text-black shadow-sm border border-black'
                           : 'text-black hover:bg-gray-50 border border-transparent'
                       }`}
@@ -2014,18 +2139,18 @@ export default function ResultsPage() {
               <DualRangeSlider
                 min={0}
                 max={100}
-                value={filters.compatibility}
+                value={pendingFilters.compatibility}
                 onChange={(value) => handleSliderChange('compatibility', value)}
                 label="Compatibility"
                 unit="%"
               />
-    
+
 
               {/* Distance Slider */}
               <DualRangeSlider
                 min={1}
                 max={100}
-                value={filters.distance}
+                value={pendingFilters.distance}
                 onChange={(value) => handleSliderChange('distance', value)}
                 label="Distance"
                 unit="mi"
@@ -2035,7 +2160,7 @@ export default function ResultsPage() {
               <DualRangeSlider
                 min={18}
                 max={80}
-                value={filters.age}
+                value={pendingFilters.age}
                 onChange={(value) => handleSliderChange('age', value)}
                 label="Age"
               />
@@ -2052,12 +2177,12 @@ export default function ResultsPage() {
                       key={tag}
                       onClick={() => handleFilterTagToggle(tag)}
                       className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
-                        filters.tags.includes(tag)
+                        pendingFilters.tags.includes(tag)
                           ? 'bg-white text-gray-900 border-black'
                           : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
                       }`}
                     >
-                      {filters.tags.includes(tag) && (
+                      {pendingFilters.tags.includes(tag) && (
                         <div className="absolute inset-0 bg-black rounded-full" style={{ opacity: 0.05 }}></div>
                       )}
                       <span className="relative z-10">{tag}</span>
@@ -2205,6 +2330,71 @@ export default function ResultsPage() {
         matchedUserName={matchCelebrationData?.matchedUserName}
         showModal={true}
       />
+
+      {/* Filter loading animation styles */}
+      <style jsx>{`
+        @keyframes filterHeartPulse {
+          0%, 100% { transform: scale(1); }
+          15% { transform: scale(1.18); }
+          30% { transform: scale(1); }
+          45% { transform: scale(1.12); }
+          60% { transform: scale(1); }
+        }
+
+        @keyframes filterOrbit0 { 0% { transform: translate(-50%, -50%) rotate(0deg) translateX(60px) rotate(0deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(360deg) translateX(60px) rotate(-360deg); opacity: 0.5; } }
+        @keyframes filterOrbit1 { 0% { transform: translate(-50%, -50%) rotate(51deg) translateX(64px) rotate(-51deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(411deg) translateX(64px) rotate(-411deg); opacity: 0.5; } }
+        @keyframes filterOrbit2 { 0% { transform: translate(-50%, -50%) rotate(103deg) translateX(58px) rotate(-103deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(463deg) translateX(58px) rotate(-463deg); opacity: 0.5; } }
+        @keyframes filterOrbit3 { 0% { transform: translate(-50%, -50%) rotate(154deg) translateX(66px) rotate(-154deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(514deg) translateX(66px) rotate(-514deg); opacity: 0.5; } }
+        @keyframes filterOrbit4 { 0% { transform: translate(-50%, -50%) rotate(206deg) translateX(60px) rotate(-206deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(566deg) translateX(60px) rotate(-566deg); opacity: 0.5; } }
+        @keyframes filterOrbit5 { 0% { transform: translate(-50%, -50%) rotate(257deg) translateX(62px) rotate(-257deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(617deg) translateX(62px) rotate(-617deg); opacity: 0.5; } }
+        @keyframes filterOrbit6 { 0% { transform: translate(-50%, -50%) rotate(309deg) translateX(58px) rotate(-309deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(669deg) translateX(58px) rotate(-669deg); opacity: 0.5; } }
+
+        @keyframes filterFadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes filterTextFade {
+          0%, 100% { opacity: 0; transform: translateY(4px); }
+          15%, 85% { opacity: 1; transform: translateY(0); }
+        }
+
+        .filter-loading-overlay {
+          animation: filterFadeIn 0.3s ease-out;
+        }
+
+        .filter-heart-pulse {
+          animation: filterHeartPulse 1.6s ease-in-out infinite;
+        }
+
+        .filter-math-operator:nth-child(1) { animation: filterOrbit0 3.5s linear infinite; }
+        .filter-math-operator:nth-child(2) { animation: filterOrbit1 4.0s linear infinite; }
+        .filter-math-operator:nth-child(3) { animation: filterOrbit2 3.2s linear infinite; }
+        .filter-math-operator:nth-child(4) { animation: filterOrbit3 3.8s linear infinite; }
+        .filter-math-operator:nth-child(5) { animation: filterOrbit4 4.2s linear infinite; }
+        .filter-math-operator:nth-child(6) { animation: filterOrbit5 3.6s linear infinite; }
+        .filter-math-operator:nth-child(7) { animation: filterOrbit6 3.4s linear infinite; }
+
+        .filter-loading-text {
+          animation: filterTextFade 1.5s ease-in-out infinite;
+        }
+
+        .results-heart-pulse {
+          animation: filterHeartPulse 1.6s ease-in-out infinite;
+        }
+
+        .results-math-operator:nth-child(1) { animation: filterOrbit0 3.5s linear infinite; }
+        .results-math-operator:nth-child(2) { animation: filterOrbit1 4.0s linear infinite; }
+        .results-math-operator:nth-child(3) { animation: filterOrbit2 3.2s linear infinite; }
+        .results-math-operator:nth-child(4) { animation: filterOrbit3 3.8s linear infinite; }
+        .results-math-operator:nth-child(5) { animation: filterOrbit4 4.2s linear infinite; }
+        .results-math-operator:nth-child(6) { animation: filterOrbit5 3.6s linear infinite; }
+        .results-math-operator:nth-child(7) { animation: filterOrbit6 3.4s linear infinite; }
+
+        .results-loading-text {
+          animation: filterTextFade 1.5s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

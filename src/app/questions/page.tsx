@@ -48,6 +48,7 @@ export default function QuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -144,6 +145,15 @@ export default function QuestionsPage() {
     };
   });
   const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
+
+  // Cycle loading text while questions are loading
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      setLoadingTextIndex(prev => (prev + 1) % 3);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // Save filters to sessionStorage whenever they change
   useEffect(() => {
@@ -1586,12 +1596,91 @@ export default function QuestionsPage() {
 
 
   if (loading) {
+    const loadingTexts = ['Loading questions...', 'Gathering your answers...', 'Almost ready...'];
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading questions...</p>
+        <div className="flex flex-col items-center">
+          {/* Heart with math operators */}
+          <div className="relative w-40 h-40 flex items-center justify-center">
+            {['×', '÷', '+', '−', '=', '%', '√'].map((op, i) => (
+              <span
+                key={op}
+                className="questions-math-operator absolute text-xl font-bold"
+                style={{
+                  color: '#672DB7',
+                  opacity: 0.6,
+                  animationDelay: `${i * 0.3}s`,
+                  top: '50%',
+                  left: '50%',
+                }}
+              >
+                {op}
+              </span>
+            ))}
+            <svg
+              className="questions-heart-pulse relative z-10"
+              width="72"
+              height="72"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="questionsHeartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#A855F7" />
+                  <stop offset="50%" stopColor="#7C3AED" />
+                  <stop offset="100%" stopColor="#672DB7" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                fill="url(#questionsHeartGradient)"
+              />
+            </svg>
+          </div>
+          <p className="mt-6 text-lg font-semibold text-gray-700 questions-loading-text">
+            {loadingTexts[loadingTextIndex]}
+          </p>
         </div>
+
+        <style jsx>{`
+          @keyframes questionsHeartPulse {
+            0%, 100% { transform: scale(1); }
+            15% { transform: scale(1.18); }
+            30% { transform: scale(1); }
+            45% { transform: scale(1.12); }
+            60% { transform: scale(1); }
+          }
+
+          @keyframes questionsOrbit0 { 0% { transform: translate(-50%, -50%) rotate(0deg) translateX(60px) rotate(0deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(360deg) translateX(60px) rotate(-360deg); opacity: 0.5; } }
+          @keyframes questionsOrbit1 { 0% { transform: translate(-50%, -50%) rotate(51deg) translateX(64px) rotate(-51deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(411deg) translateX(64px) rotate(-411deg); opacity: 0.5; } }
+          @keyframes questionsOrbit2 { 0% { transform: translate(-50%, -50%) rotate(103deg) translateX(58px) rotate(-103deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(463deg) translateX(58px) rotate(-463deg); opacity: 0.5; } }
+          @keyframes questionsOrbit3 { 0% { transform: translate(-50%, -50%) rotate(154deg) translateX(66px) rotate(-154deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(514deg) translateX(66px) rotate(-514deg); opacity: 0.5; } }
+          @keyframes questionsOrbit4 { 0% { transform: translate(-50%, -50%) rotate(206deg) translateX(60px) rotate(-206deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(566deg) translateX(60px) rotate(-566deg); opacity: 0.5; } }
+          @keyframes questionsOrbit5 { 0% { transform: translate(-50%, -50%) rotate(257deg) translateX(62px) rotate(-257deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(617deg) translateX(62px) rotate(-617deg); opacity: 0.5; } }
+          @keyframes questionsOrbit6 { 0% { transform: translate(-50%, -50%) rotate(309deg) translateX(58px) rotate(-309deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(669deg) translateX(58px) rotate(-669deg); opacity: 0.5; } }
+
+          @keyframes questionsTextFade {
+            0%, 100% { opacity: 0; transform: translateY(4px); }
+            15%, 85% { opacity: 1; transform: translateY(0); }
+          }
+
+          .questions-heart-pulse {
+            animation: questionsHeartPulse 1.6s ease-in-out infinite;
+          }
+
+          .questions-math-operator:nth-child(1) { animation: questionsOrbit0 3.5s linear infinite; }
+          .questions-math-operator:nth-child(2) { animation: questionsOrbit1 4.0s linear infinite; }
+          .questions-math-operator:nth-child(3) { animation: questionsOrbit2 3.2s linear infinite; }
+          .questions-math-operator:nth-child(4) { animation: questionsOrbit3 3.8s linear infinite; }
+          .questions-math-operator:nth-child(5) { animation: questionsOrbit4 4.2s linear infinite; }
+          .questions-math-operator:nth-child(6) { animation: questionsOrbit5 3.6s linear infinite; }
+          .questions-math-operator:nth-child(7) { animation: questionsOrbit6 3.4s linear infinite; }
+
+          .questions-loading-text {
+            animation: questionsTextFade 1.5s ease-in-out infinite;
+          }
+        `}</style>
       </div>
     );
   }

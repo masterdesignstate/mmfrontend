@@ -62,7 +62,10 @@ export default function UserProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [profileUserRequiredQuestionIds, setProfileUserRequiredQuestionIds] = useState<Set<string>>(new Set());
+  const [currentUserRequiredQuestionIds, setCurrentUserRequiredQuestionIds] = useState<Set<string>>(new Set());
+  const [currentUserAnsweredQuestionIds, setCurrentUserAnsweredQuestionIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
@@ -105,7 +108,9 @@ export default function UserProfilePage() {
       mandatory: false,
       unanswered: false,
       required: false,
-      submitted: false
+      submitted: false,
+      myPending: false,
+      theirPending: false
     },
     tags: {
       value: false,
@@ -137,6 +142,15 @@ export default function UserProfilePage() {
     }
   }, []);
 
+  // Cycle loading text while profile is loading
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      setLoadingTextIndex(prev => (prev + 1) % 3);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   // Fetch user profile and answers
   useEffect(() => {
     const fetchProfile = async () => {
@@ -158,16 +172,84 @@ export default function UserProfilePage() {
           const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
           setUser(cachedUser);
           setUserAnswers(cachedAnswers);
-          // Still fetch required question IDs (not cached)
+          // Still fetch required question IDs (not cached) + questions + current user's data for pending filters
+          const currentUserId = localStorage.getItem('user_id');
+          const isOtherProfile = currentUserId && currentUserId !== userId;
           try {
-            const reqRes = await fetch(
-              `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
-              { headers: { 'Content-Type': 'application/json' } }
-            );
-            if (reqRes.ok) {
-              const reqData = await reqRes.json();
+            const parallelFetches: Promise<Response>[] = [
+              fetch(
+                `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+                { headers: { 'Content-Type': 'application/json' } }
+              ),
+              // Also fetch allQuestions (needed for pending question groups display)
+              fetch(
+                `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`,
+                { headers: { 'Content-Type': 'application/json' } }
+              ),
+            ];
+            if (isOtherProfile) {
+              // Current user's required questions
+              parallelFetches.push(
+                fetch(
+                  `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}`,
+                  { headers: { 'Content-Type': 'application/json' } }
+                )
+              );
+              // Current user's answers (to determine which questions they've answered)
+              parallelFetches.push(
+                fetch(
+                  `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=1&page_size=100`,
+                  { headers: { 'Content-Type': 'application/json' } }
+                )
+              );
+            }
+            const responses = await Promise.all(parallelFetches);
+
+            // Profile user's required questions
+            if (responses[0].ok) {
+              const reqData = await responses[0].json();
               const results = reqData.results ?? [];
               setProfileUserRequiredQuestionIds(new Set(results.map((r: { question_id: string }) => String(r.question_id).toLowerCase())));
+            }
+
+            // All questions (for pending question display names)
+            if (responses[1]?.ok) {
+              const questionsData = await responses[1].json();
+              setAllQuestions(questionsData.results || []);
+            }
+
+            if (isOtherProfile) {
+              // Current user's required questions
+              if (responses[2]?.ok) {
+                const curReqData = await responses[2].json();
+                const curResults = curReqData.results ?? [];
+                setCurrentUserRequiredQuestionIds(new Set(curResults.map((r: { question_id: string }) => String(r.question_id).toLowerCase())));
+              }
+              // Current user's answered question IDs
+              if (responses[3]?.ok) {
+                const curAnswersData = await responses[3].json();
+                let allCurAnswers: any[] = curAnswersData.results || [];
+                // Paginate if needed
+                if (curAnswersData.next && allCurAnswers.length > 0) {
+                  const totalCount = curAnswersData.count || 0;
+                  const totalPages = Math.min(Math.ceil(totalCount / 100), 20);
+                  if (totalPages > 1) {
+                    const remainingPromises = [];
+                    for (let p = 2; p <= totalPages; p++) {
+                      remainingPromises.push(
+                        fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=${p}&page_size=100`, { headers: { 'Content-Type': 'application/json' } })
+                          .then(r => r.ok ? r.json() : null)
+                          .then(data => data?.results || [])
+                      );
+                    }
+                    const remaining = await Promise.all(remainingPromises);
+                    for (const pageAnswers of remaining) {
+                      allCurAnswers = allCurAnswers.concat(pageAnswers);
+                    }
+                  }
+                }
+                setCurrentUserAnsweredQuestionIds(new Set(allCurAnswers.map((a: any) => String(a.question?.id || a.question_id || '').toLowerCase()).filter(Boolean)));
+              }
             }
           } catch (_) {
             setProfileUserRequiredQuestionIds(new Set());
@@ -177,85 +259,137 @@ export default function UserProfilePage() {
         }
 
         if (!useCache) {
-          // Fetch user and questions
-          const [userResponse, questionsResponse] = await Promise.all([
-            fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
+          const currentUserId = localStorage.getItem('user_id');
+          const headers = { 'Content-Type': 'application/json' };
+          const pageSize = 100;
 
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }),
-            fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, {
-
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-          ]);
-
-          if (!userResponse.ok) {
-            throw new Error('User not found');
+          // ── Wave 1: Fire ALL independent requests in parallel ──
+          // User profile, questions, first answers page, required questions, compatibility, current user data
+          const wave1Promises: Promise<Response>[] = [
+            fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, { headers }),                               // [0] user
+            fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, { headers }),                       // [1] questions
+            fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=1&page_size=${pageSize}`, { headers }), // [2] answers p1
+            fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`, { headers }), // [3] profile user's required
+          ];
+          // Add compatibility request if applicable
+          const fetchCompat = currentUserId && currentUserId !== userId;
+          if (fetchCompat) {
+            wave1Promises.push(
+              fetch(`${getApiUrl(API_ENDPOINTS.USERS)}compatibility_with/?user_id=${currentUserId}&other_user_id=${userId}`, { headers }) // [4] compat
+            );
+            // Current user's required questions and answers (for pending filters)
+            wave1Promises.push(
+              fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}`, { headers }) // [5] current user's required
+            );
+            wave1Promises.push(
+              fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=1&page_size=${pageSize}`, { headers }) // [6] current user's answers p1
+            );
           }
 
-          if (!questionsResponse.ok) {
-            throw new Error('Failed to fetch questions');
-          }
+          const wave1 = await Promise.all(wave1Promises);
+          const [userResponse, questionsResponse, answersP1Response] = wave1;
 
-          const [userData, questionsData] = await Promise.all([
-            userResponse.json(),
-            questionsResponse.json()
-          ]);
+          if (!userResponse.ok) throw new Error('User not found');
+          if (!questionsResponse.ok) throw new Error('Failed to fetch questions');
+          if (!answersP1Response.ok) throw new Error('Failed to fetch user answers');
+
+          // Parse wave 1 responses in parallel
+          const parsePromises: Promise<any>[] = [
+            userResponse.json(),                                                    // [0]
+            questionsResponse.json(),                                               // [1]
+            answersP1Response.json(),                                               // [2]
+            wave1[3].ok ? wave1[3].json() : Promise.resolve({ results: [] }),       // [3] profile required
+          ];
+          if (fetchCompat && wave1[4]) {
+            parsePromises.push(wave1[4].ok ? wave1[4].json() : Promise.resolve(null));  // [4] compat
+            parsePromises.push(wave1[5]?.ok ? wave1[5].json() : Promise.resolve({ results: [] })); // [5] current user's required
+            parsePromises.push(wave1[6]?.ok ? wave1[6].json() : Promise.resolve({ results: [] })); // [6] current user's answers p1
+          }
+          const parsedResults = await Promise.all(parsePromises);
+
+          const userData = parsedResults[0];
+          const questionsData = parsedResults[1];
+          const answersP1Data = parsedResults[2];
+          const reqData = parsedResults[3];
+          const compatData = fetchCompat ? parsedResults[4] : null;
+          const curUserReqData = fetchCompat ? parsedResults[5] : null;
+          const curUserAnswersP1Data = fetchCompat ? parsedResults[6] : null;
 
           const questions = questionsData.results || [];
+          let allAnswers: any[] = answersP1Data.results || [];
 
-          // Fetch all user answers with pagination
-          let allAnswers: any[] = [];
-          let page = 1;
-          const pageSize = 100;
-          const maxPages = 20; // Safety limit
+          // ── Wave 2: Fetch remaining answer pages in parallel ──
+          if (answersP1Data.next && allAnswers.length > 0) {
+            const totalCount = answersP1Data.count || 0;
+            const totalPages = Math.min(Math.ceil(totalCount / pageSize), 20);
 
-          while (page <= maxPages) {
-            const answersResponse = await fetch(
-              `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=${page}&page_size=${pageSize}`,
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+            if (totalPages > 1) {
+              const remainingPagePromises = [];
+              for (let p = 2; p <= totalPages; p++) {
+                remainingPagePromises.push(
+                  fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=${p}&page_size=${pageSize}`, { headers })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => data?.results || [])
+                );
               }
-            );
-
-            if (!answersResponse.ok) {
-              throw new Error('Failed to fetch user answers');
+              const remainingPages = await Promise.all(remainingPagePromises);
+              for (const pageAnswers of remainingPages) {
+                allAnswers = allAnswers.concat(pageAnswers);
+              }
             }
-
-            const answersData = await answersResponse.json();
-            const pageAnswers = answersData.results || [];
-            allAnswers = allAnswers.concat(pageAnswers);
-
-            // Stop if there's no next page or no more results
-            if (!answersData.next || pageAnswers.length === 0) {
-              break;
-            }
-
-            page++;
           }
 
           const answers = allAnswers;
 
-          // Fetch this user's required question IDs (UserRequiredQuestion)
+          // Process required question IDs
           let requiredIds = new Set<string>();
-          try {
-            const reqRes = await fetch(
-              `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
-              { headers: { 'Content-Type': 'application/json' } }
-            );
-            if (reqRes.ok) {
-              const reqData = await reqRes.json();
-              const results = reqData.results ?? [];
-              requiredIds = new Set(results.map((r: { question_id: string }) => String(r.question_id).toLowerCase()));
+          const reqResults = reqData?.results ?? [];
+          requiredIds = new Set(reqResults.map((r: { question_id: string }) => String(r.question_id).toLowerCase()));
+
+          // Process current user's required questions and answered question IDs (for pending filters)
+          if (fetchCompat && curUserReqData) {
+            const curReqResults = curUserReqData.results ?? [];
+            setCurrentUserRequiredQuestionIds(new Set(curReqResults.map((r: { question_id: string }) => String(r.question_id).toLowerCase())));
+          }
+          if (fetchCompat && curUserAnswersP1Data) {
+            let allCurAnswers: any[] = curUserAnswersP1Data.results || [];
+            // Paginate current user's answers if needed
+            if (curUserAnswersP1Data.next && allCurAnswers.length > 0) {
+              const totalCount = curUserAnswersP1Data.count || 0;
+              const totalPages = Math.min(Math.ceil(totalCount / pageSize), 20);
+              if (totalPages > 1) {
+                const curAnswerPromises = [];
+                for (let p = 2; p <= totalPages; p++) {
+                  curAnswerPromises.push(
+                    fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=${p}&page_size=${pageSize}`, { headers })
+                      .then(r => r.ok ? r.json() : null)
+                      .then(data => data?.results || [])
+                  );
+                }
+                const curRemainingPages = await Promise.all(curAnswerPromises);
+                for (const pageAnswers of curRemainingPages) {
+                  allCurAnswers = allCurAnswers.concat(pageAnswers);
+                }
+              }
             }
-          } catch (_) {
-            // Non-fatal; filter will show no "required" questions
+            setCurrentUserAnsweredQuestionIds(new Set(allCurAnswers.map((a: any) => String(a.question?.id || a.question_id || '').toLowerCase()).filter(Boolean)));
+          }
+
+          // Process compatibility data
+          if (compatData) {
+            console.log('✅ Compatibility data received:', compatData);
+            setCompatibility({
+              overall_compatibility: compatData.overall_compatibility,
+              im_compatible_with: compatData.im_compatible_with,
+              compatible_with_me: compatData.compatible_with_me,
+              mutual_questions_count: compatData.mutual_questions_count || 0,
+              required_overall_compatibility: compatData.required_overall_compatibility,
+              required_compatible_with_me: compatData.required_compatible_with_me,
+              required_im_compatible_with: compatData.required_im_compatible_with,
+              required_mutual_questions_count: compatData.required_mutual_questions_count,
+              user1_required_completeness: compatData.user1_required_completeness,
+              user2_required_completeness: compatData.user2_required_completeness,
+            });
           }
 
           // Cache the data
@@ -266,48 +400,34 @@ export default function UserProfilePage() {
           setUserAnswers(answers);
           setProfileUserRequiredQuestionIds(requiredIds);
           setAllQuestions(questions);
-        }
-
-        // Fetch compatibility data directly between the two users
-        const currentUserId = localStorage.getItem('user_id');
-        console.log('🔍 Fetching compatibility:', { currentUserId, userId });
-        if (currentUserId && currentUserId !== userId) {
-          try {
-            // Use the new compatibility_with endpoint for direct lookup
-            const compatibilityResponse = await fetch(
-              `${getApiUrl(API_ENDPOINTS.USERS)}compatibility_with/?user_id=${currentUserId}&other_user_id=${userId}`,
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              }
-            );
-
-            if (compatibilityResponse.ok) {
-              const compatData = await compatibilityResponse.json();
-              console.log('✅ Compatibility data received:', compatData);
-              setCompatibility({
-                overall_compatibility: compatData.overall_compatibility,
-                im_compatible_with: compatData.im_compatible_with,
-                compatible_with_me: compatData.compatible_with_me,
-                mutual_questions_count: compatData.mutual_questions_count || 0,
-                required_overall_compatibility: compatData.required_overall_compatibility,
-                required_compatible_with_me: compatData.required_compatible_with_me,
-                required_im_compatible_with: compatData.required_im_compatible_with,
-                required_mutual_questions_count: compatData.required_mutual_questions_count,
-                user1_required_completeness: compatData.user1_required_completeness,
-                user2_required_completeness: compatData.user2_required_completeness,
-              });
-            } else if (compatibilityResponse.status === 404) {
-              console.log('❌ No compatibility record found between these users');
-            } else {
-              console.error('Error fetching compatibility:', compatibilityResponse.statusText);
-            }
-          } catch (error) {
-            console.error('Error fetching compatibility:', error);
-          }
         } else {
-          console.log('⏭️ Skipping compatibility fetch (same user or no currentUserId)');
+          // Cache was used for user+answers, still fetch compatibility in parallel
+          const currentUserId = localStorage.getItem('user_id');
+          if (currentUserId && currentUserId !== userId) {
+            try {
+              const compatibilityResponse = await fetch(
+                `${getApiUrl(API_ENDPOINTS.USERS)}compatibility_with/?user_id=${currentUserId}&other_user_id=${userId}`,
+                { headers: { 'Content-Type': 'application/json' } }
+              );
+              if (compatibilityResponse.ok) {
+                const compatData = await compatibilityResponse.json();
+                setCompatibility({
+                  overall_compatibility: compatData.overall_compatibility,
+                  im_compatible_with: compatData.im_compatible_with,
+                  compatible_with_me: compatData.compatible_with_me,
+                  mutual_questions_count: compatData.mutual_questions_count || 0,
+                  required_overall_compatibility: compatData.required_overall_compatibility,
+                  required_compatible_with_me: compatData.required_compatible_with_me,
+                  required_im_compatible_with: compatData.required_im_compatible_with,
+                  required_mutual_questions_count: compatData.required_mutual_questions_count,
+                  user1_required_completeness: compatData.user1_required_completeness,
+                  user2_required_completeness: compatData.user2_required_completeness,
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching compatibility:', error);
+            }
+          }
         }
 
       } catch (error) {
@@ -1187,9 +1307,93 @@ export default function UserProfilePage() {
     );
   }, [userAnswers, allQuestions, questionDisplayNames]);
 
+  // Questions the profile user hasn't answered from my required set ("Their Pending")
+  const theirPendingQuestions = useMemo(() => {
+    if (currentUserRequiredQuestionIds.size === 0) return [];
+    const profileAnsweredIds = new Set(userAnswers.map(a => String(a.question.id).toLowerCase()));
+    return [...currentUserRequiredQuestionIds].filter(qId => !profileAnsweredIds.has(qId));
+  }, [currentUserRequiredQuestionIds, userAnswers]);
+
+  // Questions I haven't answered from the profile user's required set ("My Pending")
+  const myPendingQuestions = useMemo(() => {
+    if (profileUserRequiredQuestionIds.size === 0) return [];
+    return [...profileUserRequiredQuestionIds].filter(qId => !currentUserAnsweredQuestionIds.has(qId));
+  }, [profileUserRequiredQuestionIds, currentUserAnsweredQuestionIds]);
+
+  // Build pending question groups from allQuestions for display in the modal
+  const pendingQuestionGroups = useMemo(() => {
+    const groups: [string, {
+      questions: UserAnswer[],
+      displayName: string,
+      questionNumber: number,
+      answerCount: number,
+      mostRecentAnswerTime?: string | null,
+      isPending: true,
+      pendingType: 'my' | 'their'
+    }][] = [];
+
+    // Build a map of question IDs that are already shown in answered groups
+    const answeredGroupQuestionIds = new Set<string>();
+    groupedQuestionsForModal.forEach(([, group]) => {
+      group.questions.forEach((a: UserAnswer) => {
+        if (a.question?.id) answeredGroupQuestionIds.add(String(a.question.id).toLowerCase());
+      });
+    });
+
+    // Helper to create pending groups from a list of question IDs
+    const createPendingGroups = (pendingQIds: string[], pendingType: 'my' | 'their') => {
+      // Find question data from allQuestions
+      const questionMap = new Map(allQuestions.map((q: any) => [String(q.id).toLowerCase(), q]));
+      // Track which question numbers we've already added for this pending type
+      const addedQuestionNumbers = new Set<number>();
+
+      pendingQIds.forEach(qId => {
+        const question = questionMap.get(qId);
+        if (!question) return;
+
+        const questionNumber = question.question_number;
+
+        // For grouped question types, only add one entry per question_number
+        const questionType = question.question_type || 'basic';
+        if (['four', 'grouped', 'double', 'triple'].includes(questionType)) {
+          if (addedQuestionNumbers.has(questionNumber)) return;
+          addedQuestionNumbers.add(questionNumber);
+        }
+
+        const key = `pending_${pendingType}_${questionNumber}_${qId}`;
+        const displayName = ['four', 'grouped', 'double', 'triple'].includes(questionType)
+          ? (question.group_name_text || questionDisplayNames[questionNumber] || question.text)
+          : question.text;
+
+        groups.push([key, {
+          questions: [],
+          displayName,
+          questionNumber,
+          answerCount: 0,
+          mostRecentAnswerTime: null,
+          isPending: true,
+          pendingType,
+        }]);
+      });
+    };
+
+    createPendingGroups(theirPendingQuestions, 'their');
+    createPendingGroups(myPendingQuestions, 'my');
+
+    return groups;
+  }, [theirPendingQuestions, myPendingQuestions, allQuestions, groupedQuestionsForModal, questionDisplayNames]);
+
   // Filter and sort grouped questions for modal
   const filteredAndSortedQuestions = useMemo(() => {
-    let filtered = [...groupedQuestionsForModal];
+    // Start with answered questions, and include pending groups when pending filters are active
+    const hasPendingFilter = filters.questions.myPending || filters.questions.theirPending;
+    let allGroups = [...groupedQuestionsForModal];
+    if (hasPendingFilter) {
+      // Add pending question groups (unanswered questions from required sets)
+      allGroups = [...allGroups, ...pendingQuestionGroups];
+    }
+
+    let filtered = allGroups;
 
     // Apply filters: question-type filters use AND (must match every selected filter); tags use OR (must have at least one selected tag)
     const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
@@ -1197,6 +1401,18 @@ export default function UserProfilePage() {
 
     if (hasQuestionFilters || hasTagFilters) {
       filtered = filtered.filter(([key, group]) => {
+        const groupAny = group as typeof group & { isPending?: boolean; pendingType?: 'my' | 'their' };
+
+        // For pending groups, only show if the matching pending filter is active
+        if (groupAny.isPending) {
+          if (groupAny.pendingType === 'their' && !filters.questions.theirPending) return false;
+          if (groupAny.pendingType === 'my' && !filters.questions.myPending) return false;
+          // Pending groups pass other question filters automatically (they are inherently "pending")
+          // But they should still be filtered by tags if tag filters are active
+          // Since pending groups have no answers/questions data to check tags on, skip tag filters for them
+          return true;
+        }
+
         const firstQuestion = group.questions[0]?.question;
         // Question from API may include is_mandatory, submitted_by, is_submitted_by_me, tags (not on base type)
         const firstQ = firstQuestion as typeof firstQuestion & { is_mandatory?: boolean; submitted_by?: { id?: string }; is_submitted_by_me?: boolean; tags?: { name?: string }[] };
@@ -1218,6 +1434,15 @@ export default function UserProfilePage() {
             const currentUserId = localStorage.getItem('user_id');
             const submittedByMe = firstQ?.submitted_by?.id === currentUserId || firstQ?.is_submitted_by_me;
             if (!submittedByMe) passesQuestionFilters = false;
+          }
+          // For myPending/theirPending: answered groups don't match pending filters
+          // so we exclude them (they are not "pending" by definition)
+          if (filters.questions.myPending) {
+            // This answered group doesn't match "my pending" — exclude unless it also passes other active filters
+            passesQuestionFilters = false;
+          }
+          if (filters.questions.theirPending) {
+            passesQuestionFilters = false;
           }
         }
 
@@ -1255,7 +1480,7 @@ export default function UserProfilePage() {
         sorted.sort((a, b) => {
           const timeA = a[1].mostRecentAnswerTime;
           const timeB = b[1].mostRecentAnswerTime;
-          
+
           // If both have timestamps, compare them
           if (timeA && timeB) {
             return new Date(timeB).getTime() - new Date(timeA).getTime();
@@ -1274,7 +1499,7 @@ export default function UserProfilePage() {
     }
 
     return sorted;
-  }, [groupedQuestionsForModal, filters, sortOption, profileUserRequiredQuestionIds]);
+  }, [groupedQuestionsForModal, pendingQuestionGroups, filters, sortOption, profileUserRequiredQuestionIds]);
 
   // Paginate filtered and sorted questions for modal (8 per page)
   const paginatedGroupedQuestions = useMemo(() => {
@@ -1376,12 +1601,95 @@ export default function UserProfilePage() {
   };
 
   if (loading) {
+    const loadingTexts = ['Loading profile...', 'Fetching details...', 'Almost there...'];
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
+        <div className="flex flex-col items-center">
+          {/* Heart with math operators */}
+          <div className="relative w-40 h-40 flex items-center justify-center">
+            {/* Floating math operators */}
+            {['×', '÷', '+', '−', '=', '%', '√'].map((op, i) => (
+              <span
+                key={op}
+                className="profile-math-operator absolute text-xl font-bold"
+                style={{
+                  color: '#672DB7',
+                  opacity: 0.6,
+                  animationDelay: `${i * 0.3}s`,
+                  top: '50%',
+                  left: '50%',
+                }}
+              >
+                {op}
+              </span>
+            ))}
+            {/* Pulsing gradient heart */}
+            <svg
+              className="profile-heart-pulse relative z-10"
+              width="72"
+              height="72"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="profileHeartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#A855F7" />
+                  <stop offset="50%" stopColor="#7C3AED" />
+                  <stop offset="100%" stopColor="#672DB7" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                fill="url(#profileHeartGradient)"
+              />
+            </svg>
+          </div>
+
+          {/* Cycling loading text */}
+          <p className="mt-6 text-lg font-semibold text-gray-700 profile-loading-text">
+            {loadingTexts[loadingTextIndex]}
+          </p>
         </div>
+
+        <style jsx>{`
+          @keyframes profileHeartPulse {
+            0%, 100% { transform: scale(1); }
+            15% { transform: scale(1.18); }
+            30% { transform: scale(1); }
+            45% { transform: scale(1.12); }
+            60% { transform: scale(1); }
+          }
+
+          @keyframes profileOrbit0 { 0% { transform: translate(-50%, -50%) rotate(0deg) translateX(60px) rotate(0deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(360deg) translateX(60px) rotate(-360deg); opacity: 0.5; } }
+          @keyframes profileOrbit1 { 0% { transform: translate(-50%, -50%) rotate(51deg) translateX(64px) rotate(-51deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(411deg) translateX(64px) rotate(-411deg); opacity: 0.5; } }
+          @keyframes profileOrbit2 { 0% { transform: translate(-50%, -50%) rotate(103deg) translateX(58px) rotate(-103deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(463deg) translateX(58px) rotate(-463deg); opacity: 0.5; } }
+          @keyframes profileOrbit3 { 0% { transform: translate(-50%, -50%) rotate(154deg) translateX(66px) rotate(-154deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(514deg) translateX(66px) rotate(-514deg); opacity: 0.5; } }
+          @keyframes profileOrbit4 { 0% { transform: translate(-50%, -50%) rotate(206deg) translateX(60px) rotate(-206deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(566deg) translateX(60px) rotate(-566deg); opacity: 0.5; } }
+          @keyframes profileOrbit5 { 0% { transform: translate(-50%, -50%) rotate(257deg) translateX(62px) rotate(-257deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(617deg) translateX(62px) rotate(-617deg); opacity: 0.5; } }
+          @keyframes profileOrbit6 { 0% { transform: translate(-50%, -50%) rotate(309deg) translateX(58px) rotate(-309deg); opacity: 0.5; } 50% { opacity: 0.9; } 100% { transform: translate(-50%, -50%) rotate(669deg) translateX(58px) rotate(-669deg); opacity: 0.5; } }
+
+          @keyframes profileTextFade {
+            0%, 100% { opacity: 0; transform: translateY(4px); }
+            15%, 85% { opacity: 1; transform: translateY(0); }
+          }
+
+          .profile-heart-pulse {
+            animation: profileHeartPulse 1.6s ease-in-out infinite;
+          }
+
+          .profile-math-operator:nth-child(1) { animation: profileOrbit0 3.5s linear infinite; }
+          .profile-math-operator:nth-child(2) { animation: profileOrbit1 4.0s linear infinite; }
+          .profile-math-operator:nth-child(3) { animation: profileOrbit2 3.2s linear infinite; }
+          .profile-math-operator:nth-child(4) { animation: profileOrbit3 3.8s linear infinite; }
+          .profile-math-operator:nth-child(5) { animation: profileOrbit4 4.2s linear infinite; }
+          .profile-math-operator:nth-child(6) { animation: profileOrbit5 3.6s linear infinite; }
+          .profile-math-operator:nth-child(7) { animation: profileOrbit6 3.4s linear infinite; }
+
+          .profile-loading-text {
+            animation: profileTextFade 1.5s ease-in-out infinite;
+          }
+        `}</style>
       </div>
     );
   }
@@ -2329,7 +2637,7 @@ export default function UserProfilePage() {
                     
                     return (
                       <div className="w-full h-5 relative flex items-center select-none">
-                        {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
+                        <span className={`absolute left-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{minValue}</span>
                         <div
                           className="w-full h-5 rounded-[20px] relative border"
                           style={{
@@ -2357,7 +2665,7 @@ export default function UserProfilePage() {
                             <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
                           </div>
                         )}
-                        {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">{maxValue}</span>}
+                        <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
                       </div>
                     );
                   };
@@ -3075,17 +3383,58 @@ export default function UserProfilePage() {
                   <div className="space-y-2">
                     {paginatedGroupedQuestions.length > 0 ? (
                       paginatedGroupedQuestions.map(([key, group]) => {
+                        const groupAny = group as typeof group & { isPending?: boolean; pendingType?: 'my' | 'their' };
+
+                        // Render pending question cards with distinct styling
+                        if (groupAny.isPending) {
+                          return (
+                            <div
+                              key={key}
+                              onClick={() => {
+                                if (groupAny.pendingType === 'my') {
+                                  // Navigate to answer this question
+                                  router.push(`/questions/${group.questionNumber}`);
+                                }
+                              }}
+                              className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                                groupAny.pendingType === 'my'
+                                  ? 'border-dashed border-purple-300 bg-purple-50/50 cursor-pointer hover:bg-purple-50'
+                                  : 'border-dashed border-gray-300 bg-gray-50 cursor-default'
+                              }`}
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-start">
+                                  <span className="text-sm text-gray-400 mr-3">{group.questionNumber}.</span>
+                                  <div className="flex-1">
+                                    <span className="text-gray-500">{group.displayName}</span>
+                                    <p className={`text-xs mt-1 ${
+                                      groupAny.pendingType === 'my' ? 'text-purple-500' : 'text-gray-400'
+                                    }`}>
+                                      {groupAny.pendingType === 'my' ? 'Answer this question' : 'Not yet answered'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              {groupAny.pendingType === 'my' && (
+                                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              )}
+                            </div>
+                          );
+                        }
+
                         // Determine question type from the first question in the group
                         const firstQuestion = group.questions[0]?.question;
                         const questionType = firstQuestion?.question_type || 'basic';
-                        
+
                         // For basic questions, check if answer is shared
                         // For grouped questions, always allow navigation (user can still see cards)
                         const firstAnswer = group.questions[0];
                         const isBasicQuestion = questionType === 'basic';
                         const isNotShared = firstAnswer?.me_share === false;
                         const isDisabled = isBasicQuestion && isNotShared;
-                        
+
                         return (
                           <div
                             key={key}
@@ -3512,7 +3861,7 @@ export default function UserProfilePage() {
               {/* Questions Section */}
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">Questions</h3>
-                <div className="grid grid-cols-4 gap-3 max-w-xl">
+                <div className={`grid gap-3 max-w-xl ${localStorage.getItem('user_id') !== userId ? 'grid-cols-5' : 'grid-cols-4'}`}>
                   {/* Mandatory */}
                   <button
                     onClick={() => setPendingFilters(prev => ({
@@ -3566,6 +3915,46 @@ export default function UserProfilePage() {
                     </div>
                     <span className="text-xs font-medium text-gray-900 text-center leading-none">Submitted</span>
                   </button>
+
+                  {/* My Pending - only when viewing someone else's profile */}
+                  {localStorage.getItem('user_id') !== userId && (
+                    <button
+                      onClick={() => setPendingFilters(prev => ({
+                        ...prev,
+                        questions: { ...prev.questions, myPending: !prev.questions.myPending }
+                      }))}
+                      className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                        pendingFilters.questions.myPending
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <Image src="/assets/prp.png" alt="My Pending" width={48} height={48} />
+                      </div>
+                      <span className="text-xs font-medium text-gray-900 text-center leading-none whitespace-nowrap">My Pending</span>
+                    </button>
+                  )}
+
+                  {/* Their Pending - only when viewing someone else's profile */}
+                  {localStorage.getItem('user_id') !== userId && (
+                    <button
+                      onClick={() => setPendingFilters(prev => ({
+                        ...prev,
+                        questions: { ...prev.questions, theirPending: !prev.questions.theirPending }
+                      }))}
+                      className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                        pendingFilters.questions.theirPending
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <Image src="/assets/ogn.png" alt="Their Pending" width={48} height={48} />
+                      </div>
+                      <span className="text-xs font-medium text-gray-900 text-center leading-none whitespace-nowrap">Their Pending</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3609,7 +3998,9 @@ export default function UserProfilePage() {
                     mandatory: false,
                     unanswered: false,
                     required: false,
-                    submitted: false
+                    submitted: false,
+                    myPending: false,
+                    theirPending: false
                   },
                   tags: {
                     value: false,

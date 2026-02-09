@@ -113,7 +113,7 @@ export default function ReadOnlyQuestionViewPage() {
 
     return (
       <div className="w-full h-5 relative flex items-center select-none">
-        {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
+        <span className={`absolute left-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{minValue}</span>
 
         <div
           className="w-full h-5 rounded-[20px] relative border"
@@ -136,7 +136,7 @@ export default function ReadOnlyQuestionViewPage() {
           </div>
         )}
 
-        {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">{maxValue}</span>}
+        <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
       </div>
     );
   };

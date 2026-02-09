@@ -1080,7 +1080,7 @@ export default function QuestionEditPage() {
           
           return (
             <>
-              {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
+              <span className={`absolute left-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{minValue}</span>
               
               <div
                 className="w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
@@ -1117,7 +1117,7 @@ export default function QuestionEditPage() {
                 </div>
               )}
               
-              {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">{maxValue}</span>}
+              <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
             </>
           );
         })()}
