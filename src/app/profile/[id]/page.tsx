@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -50,6 +50,103 @@ interface ProfileIcon {
   label: string;
   show: boolean;
 }
+
+// Interactive editable slider component (for answering pending questions inline)
+const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = false, labels = [] }: {
+  value: number;
+  onChange: (value: number) => void;
+  isOpenToAll?: boolean;
+  isImportance?: boolean;
+  labels?: Array<{ value: string; answer_text: string }>;
+}) => {
+  const [fillWidth, setFillWidth] = React.useState('0%');
+  const hasAnimatedRef = React.useRef(false);
+  const raf1Ref = React.useRef<number | null>(null);
+  const raf2Ref = React.useRef<number | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (isOpenToAll && !hasAnimatedRef.current) {
+      setFillWidth('0%');
+      raf1Ref.current = requestAnimationFrame(() => {
+        raf2Ref.current = requestAnimationFrame(() => {
+          setFillWidth('100%');
+          hasAnimatedRef.current = true;
+        });
+      });
+      return () => {
+        if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
+        if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+      };
+    }
+    if (!isOpenToAll) {
+      hasAnimatedRef.current = false;
+      setFillWidth('0%');
+    }
+  }, [isOpenToAll]);
+
+  const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isOpenToAll) return;
+    const sortedLabels = [...labels].sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const minVal = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
+    const maxVal = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const newValue = Math.round(percentage * (maxVal - minVal)) + minVal;
+    onChange(Math.max(minVal, Math.min(maxVal, newValue)));
+  };
+
+  const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.buttons === 1 && !isOpenToAll) handleSliderClick(e);
+  };
+
+  const sortedLabels = [...labels].sort((a, b) => parseInt(a.value) - parseInt(b.value));
+  const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
+  const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+
+  return (
+    <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
+      style={{ userSelect: 'none' }}
+      onMouseDown={() => { document.body.style.userSelect = 'none'; window.getSelection()?.removeAllRanges(); }}
+      onMouseUp={() => { document.body.style.userSelect = ''; }}
+      onMouseLeave={() => { document.body.style.userSelect = ''; }}
+      onDragStart={(e) => e.preventDefault()}
+    >
+      <span className={`absolute left-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{minValue}</span>
+      <div
+        className="w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
+        style={{
+          backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
+          borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
+        }}
+        onClick={handleSliderClick}
+        onMouseMove={handleSliderDrag}
+        onMouseDown={handleSliderDrag}
+        onDragStart={(e) => e.preventDefault()}
+      >
+        {isOpenToAll && (
+          <div
+            className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
+            style={{ width: fillWidth, transition: 'width 1.2s ease-in-out' }}
+          />
+        )}
+      </div>
+      {!isOpenToAll && (
+        <div
+          className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
+          style={{
+            backgroundColor: isImportance ? 'white' : '#672DB7',
+            boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
+            left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`
+          }}
+        >
+          <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+        </div>
+      )}
+      <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
+    </div>
+  );
+};
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -122,6 +219,16 @@ export default function UserProfilePage() {
     }
   });
   const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
+
+  // Inline answer editing state (for "My Pending" questions)
+  const [editSliderAnswers, setEditSliderAnswers] = useState<Record<string, number>>({});
+  const [editOpenToAllStates, setEditOpenToAllStates] = useState<Record<string, boolean>>({});
+  const [editImportanceValues, setEditImportanceValues] = useState({ me: 3, lookingFor: 3 });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMeShare, setEditMeShare] = useState(true);
+  const [editMeRequired, setEditMeRequired] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [isAnsweringPending, setIsAnsweringPending] = useState(false);
 
   // Check if required filter was enabled from results page
   useEffect(() => {
@@ -232,7 +339,8 @@ export default function UserProfilePage() {
                 // Paginate if needed
                 if (curAnswersData.next && allCurAnswers.length > 0) {
                   const totalCount = curAnswersData.count || 0;
-                  const totalPages = Math.min(Math.ceil(totalCount / 100), 20);
+                  const actualPageSize = allCurAnswers.length; // Use actual returned count, not requested
+                  const totalPages = Math.min(Math.ceil(totalCount / actualPageSize), 20);
                   if (totalPages > 1) {
                     const remainingPromises = [];
                     for (let p = 2; p <= totalPages; p++) {
@@ -321,7 +429,8 @@ export default function UserProfilePage() {
           // ── Wave 2: Fetch remaining answer pages in parallel ──
           if (answersP1Data.next && allAnswers.length > 0) {
             const totalCount = answersP1Data.count || 0;
-            const totalPages = Math.min(Math.ceil(totalCount / pageSize), 20);
+            const actualPageSize = allAnswers.length; // Use actual returned count, not requested
+            const totalPages = Math.min(Math.ceil(totalCount / actualPageSize), 20);
 
             if (totalPages > 1) {
               const remainingPagePromises = [];
@@ -356,7 +465,8 @@ export default function UserProfilePage() {
             // Paginate current user's answers if needed
             if (curUserAnswersP1Data.next && allCurAnswers.length > 0) {
               const totalCount = curUserAnswersP1Data.count || 0;
-              const totalPages = Math.min(Math.ceil(totalCount / pageSize), 20);
+              const actualPageSize = allCurAnswers.length; // Use actual returned count, not requested
+              const totalPages = Math.min(Math.ceil(totalCount / actualPageSize), 20);
               if (totalPages > 1) {
                 const curAnswerPromises = [];
                 for (let p = 2; p <= totalPages; p++) {
@@ -1552,6 +1662,10 @@ export default function UserProfilePage() {
 
   // Handle question click - show question details in modal
   const handleQuestionClick = async (questionNumber: number, questionType?: string) => {
+    // Reset edit mode when navigating to a different question
+    setIsAnsweringPending(false);
+    setSelectedGroupedQuestionId(null);
+
     // Always fetch questions for this specific question number to ensure we have all of them
     try {
       const response = await fetch(
@@ -1598,6 +1712,208 @@ export default function UserProfilePage() {
     setSelectedQuestionNumber(null);
     setSelectedQuestionData([]);
     setSelectedGroupedQuestionId(null);
+    setIsAnsweringPending(false);
+  };
+
+  // Handle "Answer Question" button — switch to inline edit for the current question
+  const handleAnswerQuestion = () => {
+    if (!selectedQuestionNumber || !selectedQuestionData.length) return;
+    const currentUserId = localStorage.getItem('user_id');
+    const questionsForNumber = selectedQuestionData;
+
+    // Helper to pre-populate sliders from existing answers
+    const initSliders = (existingAnswers: any[]) => {
+      const sliders: Record<string, number> = {};
+      const openToAll: Record<string, boolean> = {};
+      questionsForNumber.forEach((q: any) => {
+        const key = `q${q.group_number || q.id}`;
+        const existing = existingAnswers.find((a: any) => {
+          const aQid = typeof a.question === 'object' ? a.question.id : a.question;
+          return aQid === q.id;
+        });
+        sliders[`${key}_me`] = existing ? (existing.me_open_to_all ? 3 : existing.me_answer || 3) : 3;
+        sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
+        openToAll[`${key}_me`] = existing?.me_open_to_all || false;
+        openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
+      });
+      setEditSliderAnswers(sliders);
+      setEditOpenToAllStates(openToAll);
+      const firstExisting = existingAnswers[0];
+      setEditImportanceValues({
+        me: firstExisting?.me_importance || 3,
+        lookingFor: firstExisting?.looking_for_importance || 3,
+      });
+      setEditMeShare(firstExisting?.me_share !== false);
+      setEditMeRequired(false);
+    };
+
+    // Switch to edit mode immediately with defaults
+    setIsAnsweringPending(true);
+    setEditError('');
+    if (questionsForNumber[0]?.question_type === 'grouped') {
+      setSelectedGroupedQuestionId(null);
+    }
+    initSliders([]); // Defaults first
+
+    // Then fetch existing answers in the background to update sliders
+    if (currentUserId) {
+      fetch(
+        `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page_size=100`,
+        { headers: { 'Content-Type': 'application/json' } }
+      )
+        .then(resp => resp.ok ? resp.json() : null)
+        .then(data => {
+          if (!data) return;
+          const allAnswers = data.results || [];
+          const existingAnswers = allAnswers.filter((a: any) => {
+            const qId = typeof a.question === 'object' ? a.question.id : a.question;
+            return questionsForNumber.some((q: any) => q.id === qId);
+          });
+          if (existingAnswers.length > 0) {
+            initSliders(existingAnswers);
+          }
+        })
+        .catch(() => { /* keep defaults */ });
+    }
+  };
+
+  // Handle clicking a "My Pending" question card - opens inline edit form
+  const handlePendingQuestionClick = async (questionNumber: number) => {
+    try {
+      const response = await fetch(
+        `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}&page_size=100`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        let questionsForNumber = data.results || [];
+        questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
+
+        setSelectedQuestionNumber(questionNumber);
+        setSelectedQuestionData(questionsForNumber);
+        setIsAnsweringPending(true);
+        setEditError('');
+
+        // For grouped questions (e.g. ethnicity), show card list first — don't init sliders yet
+        if (questionsForNumber.length > 0 && questionsForNumber[0].question_type === 'grouped') {
+          // Slider state will be initialized when user picks a sub-question
+          setEditSliderAnswers({});
+          setEditOpenToAllStates({});
+          setEditImportanceValues({ me: 3, lookingFor: 3 });
+          setEditMeShare(true);
+          setEditMeRequired(false);
+          return;
+        }
+
+        // Initialize default slider values using same key pattern as questions page
+        const sliders: Record<string, number> = {};
+        const openToAll: Record<string, boolean> = {};
+        questionsForNumber.forEach((q: any) => {
+          const key = `q${q.group_number || q.id}`;
+          sliders[`${key}_me`] = 3;
+          sliders[`${key}_looking`] = 3;
+          openToAll[`${key}_me`] = false;
+          openToAll[`${key}_looking`] = false;
+        });
+        setEditSliderAnswers(sliders);
+        setEditOpenToAllStates(openToAll);
+        setEditImportanceValues({ me: 3, lookingFor: 3 });
+        setEditMeShare(true);
+        setEditMeRequired(false);
+      }
+    } catch (error) {
+      console.error('Error fetching questions for pending question:', questionNumber, error);
+    }
+  };
+
+  // Handle saving answers for a "My Pending" question
+  const handleSavePendingAnswer = async () => {
+    setEditSaving(true);
+    setEditError('');
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !selectedQuestionData.length) {
+      setEditSaving(false);
+      return;
+    }
+
+    try {
+      const updates = [];
+      const questionNumber = selectedQuestionNumber!;
+      const isGrouped = selectedQuestionData[0]?.question_type === 'grouped';
+
+      // For grouped questions with a selected sub-question, only save that one
+      const questionsToSave = (isGrouped && selectedGroupedQuestionId)
+        ? selectedQuestionData.filter((q: any) => q.id === selectedGroupedQuestionId)
+        : selectedQuestionData;
+
+      // Build answer data for each question to save
+      for (const question of questionsToSave) {
+        const key = `q${question.group_number || question.id}`;
+        const isNonGrouped = questionNumber > 10 && question.question_type !== 'grouped';
+
+        const answerData: any = {
+          user_id: currentUserId,
+          question_id: question.id,
+          me_answer: editOpenToAllStates[`${key}_me`] ? 6 : editSliderAnswers[`${key}_me`] || 3,
+          me_open_to_all: editOpenToAllStates[`${key}_me`] || false,
+          me_importance: editImportanceValues.me,
+          me_share: isNonGrouped ? editMeShare : true,
+          looking_for_answer: editOpenToAllStates[`${key}_looking`] ? 6 : editSliderAnswers[`${key}_looking`] || 3,
+          looking_for_open_to_all: editOpenToAllStates[`${key}_looking`] || false,
+          looking_for_importance: editImportanceValues.lookingFor,
+          looking_for_share: true,
+          is_required_for_me: isNonGrouped ? editMeRequired : false
+        };
+
+        updates.push(
+          fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(answerData)
+          })
+        );
+      }
+
+      const results = await Promise.all(updates);
+      const failed = results.find(r => !r.ok);
+      if (failed) throw new Error('Failed to save');
+
+      // Update localStorage for instant UI feedback
+      const answeredQuestionsKey = `answered_questions_${currentUserId}`;
+      const existingAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+      questionsToSave.forEach((q: any) => {
+        if (!existingAnswered.includes(q.id)) existingAnswered.push(q.id);
+      });
+      localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
+
+      // Update currentUserAnsweredQuestionIds so pending list refreshes
+      setCurrentUserAnsweredQuestionIds(prev => {
+        const next = new Set(prev);
+        questionsToSave.forEach((q: any) => next.add(String(q.id).toLowerCase()));
+        return next;
+      });
+
+      // Clear profile cache so it refreshes on next visit
+      sessionStorage.removeItem(`profile_${userId}`);
+      sessionStorage.removeItem(`profile_${userId}_timestamp`);
+
+      // For grouped questions, go back to card list; for others, go back to question list
+      if (isGrouped && selectedGroupedQuestionId) {
+        setSelectedGroupedQuestionId(null);
+      } else {
+        setIsAnsweringPending(false);
+        handleBackToQuestionsList();
+      }
+    } catch (error) {
+      setEditError('Failed to save answers');
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   if (loading) {
@@ -2509,8 +2825,15 @@ export default function UserProfilePage() {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               {selectedQuestionNumber ? (
                 <>
-                  <button 
-                    onClick={handleBackToQuestionsList}
+                  <button
+                    onClick={() => {
+                      // If viewing a grouped sub-question in edit mode, go back to card list
+                      if (isAnsweringPending && selectedGroupedQuestionId) {
+                        setSelectedGroupedQuestionId(null);
+                      } else {
+                        handleBackToQuestionsList();
+                      }
+                    }}
                     className="flex items-center text-gray-600 hover:text-gray-900"
                   >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2519,9 +2842,11 @@ export default function UserProfilePage() {
                     <span>Back</span>
                   </button>
                   <h2 className="text-xl font-semibold flex-1 text-center">
-                    {selectedQuestionData[0]?.group_name_text || 
-                     selectedQuestionData[0]?.text || 
-                     `Question ${selectedQuestionNumber}`}
+                    {isAnsweringPending && selectedGroupedQuestionId
+                      ? selectedQuestionData.find((q: any) => q.id === selectedGroupedQuestionId)?.question_name || `Question ${selectedQuestionNumber}`
+                      : (selectedQuestionData[0]?.group_name_text ||
+                         selectedQuestionData[0]?.text ||
+                         `Question ${selectedQuestionNumber}`)}
                   </h2>
                   <div className="w-20"></div> {/* Spacer for centering */}
                 </>
@@ -2611,12 +2936,333 @@ export default function UserProfilePage() {
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-24 py-6">
               {selectedQuestionNumber ? (
-                // Show question details inline
+                isAnsweringPending ? (
+                  // Render editable answer form for "My Pending" questions
+                  <div className="flex flex-col items-center justify-center min-h-full">
+                  {(() => {
+                    const questionNumber = selectedQuestionNumber;
+                    const isGrouped = selectedQuestionData.length > 0 && selectedQuestionData[0].question_type === 'grouped';
+                    const isRelationship = questionNumber === 1;
+                    const IMPORTANCE_LABELS_EDIT = [
+                      { value: "1", answer_text: "TRIVIAL" },
+                      { value: "2", answer_text: "MINOR" },
+                      { value: "3", answer_text: "AVERAGE" },
+                      { value: "4", answer_text: "SIGNIFICANT" },
+                      { value: "5", answer_text: "ESSENTIAL" }
+                    ];
+
+                    // Icon mapping for grouped question cards
+                    const editOptionIcons: Record<number, string> = {
+                      3: '/assets/ethn.png', 4: '/assets/cpx.png', 5: '/assets/lf2.png',
+                      7: '/assets/hands.png', 8: '/assets/prayin.png', 9: '/assets/politics.png',
+                      10: '/assets/pacifier.png', 11: '/assets/prayin.png', 12: '/assets/ethn.png'
+                    };
+
+                    // Grouped questions: show card list or sub-question slider
+                    if (isGrouped) {
+                      // If a sub-question is selected, show its editable slider
+                      if (selectedGroupedQuestionId) {
+                        const selectedSubQ = selectedQuestionData.find((q: any) => q.id === selectedGroupedQuestionId);
+                        if (selectedSubQ) {
+                          const subKey = `q${selectedSubQ.group_number || selectedSubQ.id}`;
+
+                          // Render using the same responsive grid as the questions page
+                          return (
+                            <div className="w-full overflow-x-hidden">
+                              <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+
+                              {/* Share/Required toggles for non-mandatory grouped questions > 10 */}
+                              {questionNumber > 10 && (
+                                <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
+                                  <div className="flex items-center gap-3">
+                                    <button type="button" onClick={() => setEditMeRequired(!editMeRequired)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeRequired ? '#000000' : '#ADADAD' }}>
+                                      <span className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform" style={{ transform: editMeRequired ? 'translateX(20px)' : 'translateX(2px)' }} />
+                                    </button>
+                                    <span className="text-sm text-black">Required For Match</span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <button type="button" onClick={() => setEditMeShare(!editMeShare)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeShare ? '#000000' : '#ADADAD' }}>
+                                      <span className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform" style={{ transform: editMeShare ? 'translateX(20px)' : 'translateX(2px)' }} />
+                                    </button>
+                                    <span className="text-sm text-black">Share Answer</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* THEM section (first) */}
+                              <div className="mb-6">
+                                <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+
+                                {/* LESS/MORE + OTA header row */}
+                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                  <div></div>
+                                  <div className="flex justify-between text-xs text-gray-500 min-w-0">
+                                    <span>LESS</span>
+                                    <span>MORE</span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">OTA</div>
+                                </div>
+
+                                {/* Slider grid */}
+                                <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                  <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
+                                  <div className="relative min-w-0">
+                                    <EditableSlider
+                                      value={editSliderAnswers[`${subKey}_looking`] || 3}
+                                      onChange={(val: number) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_looking`]: val }))}
+                                      isOpenToAll={editOpenToAllStates[`${subKey}_looking`] || false}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="flex items-center cursor-pointer">
+                                      <div className="relative">
+                                        <input type="checkbox" className="sr-only" checked={editOpenToAllStates[`${subKey}_looking`] || false}
+                                          onChange={() => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_looking`]: !prev[`${subKey}_looking`] }))} />
+                                        <div className={`block w-11 h-6 rounded-full ${editOpenToAllStates[`${subKey}_looking`] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                                        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${editOpenToAllStates[`${subKey}_looking`] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                                      </div>
+                                    </label>
+                                  </div>
+
+                                  {/* IMPORTANCE row */}
+                                  <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+                                  <div className="relative min-w-0">
+                                    <EditableSlider
+                                      value={editImportanceValues.lookingFor}
+                                      onChange={(val: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: val }))}
+                                      isImportance={true}
+                                      labels={IMPORTANCE_LABELS_EDIT}
+                                    />
+                                  </div>
+                                  <div className="w-11 h-6"></div>
+                                </div>
+
+                                {/* Importance label below */}
+                                <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                  <div></div>
+                                  <div className="relative text-xs text-gray-500 w-full min-w-0">
+                                    {editImportanceValues.lookingFor === 1 && <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>}
+                                    {editImportanceValues.lookingFor === 2 && <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>}
+                                    {editImportanceValues.lookingFor === 3 && <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>}
+                                    {editImportanceValues.lookingFor === 4 && <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>}
+                                    {editImportanceValues.lookingFor === 5 && <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>}
+                                  </div>
+                                  <div></div>
+                                </div>
+                              </div>
+
+                              {/* ME section */}
+                              <div className="mb-6 pt-8">
+                                <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+
+                                {/* LESS/MORE header row */}
+                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                  <div></div>
+                                  <div className="flex justify-between text-xs text-gray-500 min-w-0">
+                                    <span>LESS</span>
+                                    <span>MORE</span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 text-center lg:ml-[-15px]"></div>
+                                </div>
+
+                                {/* Slider grid */}
+                                <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                  <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
+                                  <div className="relative min-w-0">
+                                    <EditableSlider
+                                      value={editSliderAnswers[`${subKey}_me`] || 3}
+                                      onChange={(val: number) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_me`]: val }))}
+                                      isOpenToAll={editOpenToAllStates[`${subKey}_me`] || false}
+                                    />
+                                  </div>
+                                  <div className="w-11 h-6"></div>
+                                </div>
+                              </div>
+
+                              </div>
+                            </div>
+                          );
+                        }
+                      }
+
+                      // Show card list for sub-question selection (with icons, matching read-only view)
+                      return (
+                        <div className="w-full max-w-lg mx-auto">
+                          <div className="space-y-3">
+                            {selectedQuestionData.map((question: any) => (
+                              <div
+                                key={question.id}
+                                onClick={() => {
+                                  // Stay in overlay — select this sub-question and init its slider values
+                                  const subKey = `q${question.group_number || question.id}`;
+                                  setEditSliderAnswers(prev => ({
+                                    ...prev,
+                                    [`${subKey}_me`]: prev[`${subKey}_me`] || 3,
+                                    [`${subKey}_looking`]: prev[`${subKey}_looking`] || 3,
+                                  }));
+                                  setEditOpenToAllStates(prev => ({
+                                    ...prev,
+                                    [`${subKey}_me`]: prev[`${subKey}_me`] || false,
+                                    [`${subKey}_looking`]: prev[`${subKey}_looking`] || false,
+                                  }));
+                                  setSelectedGroupedQuestionId(question.id);
+                                }}
+                                className="flex items-center justify-between p-4 border border-black rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <Image
+                                    src={editOptionIcons[questionNumber] || '/assets/ethn.png'}
+                                    alt="Question icon"
+                                    width={24}
+                                    height={24}
+                                    className="w-6 h-6"
+                                  />
+                                  <span className="text-black font-medium">{question.question_name}</span>
+                                </div>
+                                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Slider-based questions
+                    const lessLabel = selectedQuestionData[0]?.answers?.find((a: any) => String(a.value) === '1')?.answer_text?.toUpperCase() || 'LESS';
+                    const moreLabel = selectedQuestionData[0]?.answers?.find((a: any) => String(a.value) === '5')?.answer_text?.toUpperCase() || 'MORE';
+
+                    return (
+                      <div className="w-full overflow-x-hidden">
+                        <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+                        {/* Share/Required toggles for non-mandatory questions > 10 */}
+                        {questionNumber > 10 && selectedQuestionData[0]?.question_type !== 'grouped' && (
+                          <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
+                            <div className="flex items-center gap-3">
+                              <button type="button" onClick={() => setEditMeRequired(!editMeRequired)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeRequired ? '#000000' : '#ADADAD' }}>
+                                <span className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform" style={{ transform: editMeRequired ? 'translateX(20px)' : 'translateX(2px)' }} />
+                              </button>
+                              <span className="text-sm text-black">Required For Match</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button type="button" onClick={() => setEditMeShare(!editMeShare)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeShare ? '#000000' : '#ADADAD' }}>
+                                <span className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform" style={{ transform: editMeShare ? 'translateX(20px)' : 'translateX(2px)' }} />
+                              </button>
+                              <span className="text-sm text-black">Share Answer</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Them Section (shown for all except Q1 Relationship) */}
+                        {!isRelationship && (
+                          <div className="mb-6">
+                            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+
+                            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                              <div></div>
+                              <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
+                              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">{selectedQuestionData.some((q: any) => q.open_to_all_looking_for) ? 'OTA' : ''}</div>
+                            </div>
+
+                            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                              {selectedQuestionData.map((question: any) => {
+                                const key = `q${question.group_number || question.id}`;
+                                const lookingKey = `${key}_looking`;
+                                return (
+                                  <React.Fragment key={`looking-${question.id}`}>
+                                    <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>
+                                    <div className="relative min-w-0">
+                                      <EditableSlider value={editSliderAnswers[lookingKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))} isOpenToAll={editOpenToAllStates[lookingKey] || false} labels={question.answers || []} />
+                                    </div>
+                                    <div>
+                                      {question.open_to_all_looking_for ? (
+                                        <label className="flex items-center cursor-pointer"><div className="relative"><input type="checkbox" checked={editOpenToAllStates[lookingKey] || false} onChange={() => setEditOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] }))} className="sr-only" /><div className={`block w-11 h-6 rounded-full ${editOpenToAllStates[lookingKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div><div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition bg-white ${editOpenToAllStates[lookingKey] ? 'transform translate-x-5' : ''}`}></div></div></label>
+                                      ) : (<div className="w-11 h-6"></div>)}
+                                    </div>
+                                  </React.Fragment>
+                                );
+                              })}
+                              {/* Importance slider row */}
+                              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+                              <div className="relative min-w-0">
+                                <EditableSlider value={editImportanceValues.lookingFor} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} />
+                              </div>
+                              <div className="w-11 h-6"></div>
+                            </div>
+
+                            {/* Importance label */}
+                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                              <div></div>
+                              <div className="relative text-xs text-gray-500 w-full min-w-0">
+                                {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.lookingFor !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
+                              </div>
+                              <div></div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Me Section (no importance slider, except Q1) */}
+                        <div className={`mb-6 ${!isRelationship ? 'pt-8' : ''}`}>
+                          <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+
+                          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                            <div></div>
+                            <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
+                            <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">{selectedQuestionData.some((q: any) => q.open_to_all_me) ? 'OTA' : ''}</div>
+                          </div>
+
+                          <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                            {selectedQuestionData.map((question: any) => {
+                              const key = `q${question.group_number || question.id}`;
+                              const meKey = `${key}_me`;
+                              return (
+                                <React.Fragment key={question.id}>
+                                  <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>
+                                  <div className="relative min-w-0">
+                                    <EditableSlider value={editSliderAnswers[meKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [meKey]: value }))} isOpenToAll={editOpenToAllStates[meKey] || false} labels={question.answers || []} />
+                                  </div>
+                                  <div>
+                                    {question.open_to_all_me ? (
+                                      <label className="flex items-center cursor-pointer"><div className="relative"><input type="checkbox" checked={editOpenToAllStates[meKey] || false} onChange={() => setEditOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] }))} className="sr-only" /><div className={`block w-11 h-6 rounded-full ${editOpenToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div><div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition bg-white ${editOpenToAllStates[meKey] ? 'transform translate-x-5' : ''}`}></div></div></label>
+                                    ) : (<div className="w-11 h-6"></div>)}
+                                  </div>
+                                </React.Fragment>
+                              );
+                            })}
+                            {/* For Q1: importance slider in Me section */}
+                            {isRelationship && (
+                              <>
+                                <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+                                <div className="relative min-w-0"><EditableSlider value={editImportanceValues.me} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, me: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} /></div>
+                                <div className="w-11 h-6"></div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Importance label for Q1 */}
+                          {isRelationship && (
+                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                              <div></div>
+                              <div className="relative text-xs text-gray-500 w-full min-w-0">
+                                {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.me !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
+                              </div>
+                              <div></div>
+                            </div>
+                          )}
+                        </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  </div>
+                ) : (
+                // Show question details inline (read-only)
                 <div className="flex flex-col items-center justify-center min-h-full">
                 {(() => {
                   const questionType = selectedQuestionData[0]?.question_type || 'basic';
                   const questionNumber = selectedQuestionNumber;
-                  
+
                   // Find user answers for this question
                   const answersForQuestion = userAnswers.filter(answer => {
                     const questionId = typeof answer.question === 'object' ? answer.question.id : answer.question;
@@ -3059,15 +3705,6 @@ export default function UserProfilePage() {
                               </div>
                             </div>
 
-                            {/* Back button */}
-                            <div className="mx-auto mt-4" style={{ width: '500px' }}>
-                              <button
-                                onClick={() => setSelectedGroupedQuestionId(null)}
-                                className="text-black hover:text-gray-500"
-                              >
-                                Back to group
-                              </button>
-                            </div>
                           </div>
                         );
                       }
@@ -3144,239 +3781,163 @@ export default function UserProfilePage() {
                                      answersForQuestion.every(answer => answer?.me_share !== false);
                     const isDisabled = !isShared;
 
+                    // Helper to render labels row for a section
+                    const renderSectionLabels = (sectionType: 'me' | 'them', hasAnyOTA: boolean) => (
+                      <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          {isRelationshipQuestion && (
+                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                              <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
+                              <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
+                              <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
+                              <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
+                            </div>
+                          )}
+                          {isEducationQuestion && (
+                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                              <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                              <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                              <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                            </div>
+                          )}
+                          {isDietQuestion && (
+                            <div className="flex justify-between text-xs text-gray-500 w-full">
+                              <span>NO</span>
+                              <span>YES</span>
+                            </div>
+                          )}
+                          {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
+                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                              <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                              <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                              <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                              <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                              <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                            </div>
+                          )}
+                          {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
+                            <>
+                              <span>LESS</span>
+                              <span>MORE</span>
+                            </>
+                          )}
+                        </div>
+                        {hasAnyOTA && !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && (
+                          <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                            OTA
+                          </div>
+                        )}
+                      </div>
+                    );
+
+                    // Helper: compute hasAnyOTA for Me
+                    const meHasAnyOTA = selectedQuestionData.some((question: any) => {
+                      const answer = answersForQuestion.find((a: any) => {
+                        const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                        return questionId === question.id;
+                      });
+                      return answer && (answer.me_answer === 6 || answer.me_answer === '6' || Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
+                    });
+
+                    // Helper: compute hasAnyOTA for Them
+                    const themHasAnyOTA = selectedQuestionData.some((question: any) => {
+                      const answer = answersForQuestion.find((a: any) => {
+                        const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                        return questionId === question.id;
+                      });
+                      return answer && (answer.looking_for_answer === 6 || answer.looking_for_answer === '6' || Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
+                    });
+
+                    // Me sliders section
+                    const renderMeSliders = () => (
+                      <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
+                        <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+                        {renderSectionLabels('me', meHasAnyOTA)}
+                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: meHasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                          {selectedQuestionData.map((question: any) => {
+                            const answer = answersForQuestion.find((a: any) => {
+                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                              return questionId === question.id;
+                            });
+                            const isOpenToAllMe = answer?.me_answer === 6 || answer?.me_open_to_all || false;
+                            const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
+                            const meOpenToAll = isOpenToAllMe;
+
+                            return (
+                              <React.Fragment key={`me-${question.id}`}>
+                                <div className="relative">
+                                  {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
+                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
+                                </div>
+                                {meHasAnyOTA && (
+                                  <div>
+                                    {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && question.open_to_all_me && meOpenToAll ? (
+                                      <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
+                                        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                                      </div>
+                                    ) : (
+                                      <div className="w-11 h-6"></div>
+                                    )}
+                                  </div>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+
+                    // Them sliders section
+                    const renderThemSliders = () => (
+                      <div className="mb-6">
+                        <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+                        {renderSectionLabels('them', themHasAnyOTA)}
+                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: themHasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                          {selectedQuestionData.map((question: any) => {
+                            const answer = answersForQuestion.find((a: any) => {
+                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                              return questionId === question.id;
+                            });
+                            const isOpenToAllLooking = answer?.looking_for_answer === 6 || answer?.looking_for_open_to_all || false;
+                            const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
+                            const lookingOpenToAll = isOpenToAllLooking;
+
+                            return (
+                              <React.Fragment key={`looking-${question.id}`}>
+                                <div className="relative">
+                                  {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
+                                  <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
+                                </div>
+                                {themHasAnyOTA && (
+                                  <div className="w-11 h-6"></div>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+
                     return (
                       <div className={isDisabled ? 'opacity-50' : ''}>
-                        {/* Me Section */}
-                        <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
-                          <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-                          {(() => {
-                            // Check if any answer has OTA enabled
-                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
-                              const answer = answersForQuestion.find(a => {
-                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                                return questionId === question.id;
-                              });
-                              return answer && (answer.me_answer === 6 || answer.me_answer === '6' || Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
-                            });
-                            
-                            return (
-                              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
-                                <div className="flex justify-between text-xs text-gray-500">
-                                  {isRelationshipQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
-                                      <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
-                                      <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
-                                      <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
-                                    </div>
-                                  )}
-                                  {isEducationQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                    </div>
-                                  )}
-                                  {isDietQuestion && (
-                                    <div className="flex justify-between text-xs text-gray-500 w-full">
-                                      <span>NO</span>
-                                      <span>YES</span>
-                                    </div>
-                                  )}
-                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                    </div>
-                                  )}
-                                  {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
-                                    <>
-                                      <span>LESS</span>
-                                      <span>MORE</span>
-                                    </>
-                                  )}
-                                </div>
-                                {hasAnyOTA && !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && (
-                                  <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                                    OTA
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                          {(() => {
-                            // Check if any answer has OTA enabled
-                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
-                              const answer = answersForQuestion.find(a => {
-                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                                return questionId === question.id;
-                              });
-                              return answer && (answer.me_answer === 6 || answer.me_answer === '6' || Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
-                            });
-                            
-                            return (
-                              <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
-                                {selectedQuestionData.map((question: any) => {
-                                  const answer = answersForQuestion.find(a => {
-                                    const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                                    return questionId === question.id;
-                                  });
-                                  // If me_answer is 6, it means "Open to All" is enabled
-                                  const isOpenToAllMe = answer?.me_answer === 6 || answer?.me_open_to_all || false;
-                                  const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
-                                  const meOpenToAll = isOpenToAllMe;
-
-                                  // For Kids question, use WANT KIDS / HAVE KIDS labels
-                                  let rowLabel = question.question_name.toUpperCase();
-                                  if (isKidsQuestion) {
-                                    if (question.group_number === 1) {
-                                      rowLabel = 'HAVE KIDS';
-                                    } else if (question.group_number === 2) {
-                                      rowLabel = 'WANT KIDS';
-                                    }
-                                  }
-
-                                  return (
-                                    <React.Fragment key={`me-${question.id}`}>
-                                      <div className="relative">
-                                        {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                        <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
-                                      </div>
-                                      {hasAnyOTA && (
-                                        <div>
-                                          {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && question.open_to_all_me && meOpenToAll ? (
-                                            <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                                              <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                                            </div>
-                                          ) : (
-                                            <div className="w-11 h-6"></div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        {/* Them Section */}
-                        <div className="mb-6">
-                          <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-                          {(() => {
-                            // Check if any answer has OTA enabled for "looking for"
-                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
-                              const answer = answersForQuestion.find(a => {
-                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                                return questionId === question.id;
-                              });
-                              return answer && (answer.looking_for_answer === 6 || answer.looking_for_answer === '6' || Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
-                            });
-                            
-                            return (
-                              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
-                                <div className="flex justify-between text-xs text-gray-500">
-                                  {isRelationshipQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
-                                      <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
-                                      <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
-                                      <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
-                                    </div>
-                                  )}
-                                  {isEducationQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                    </div>
-                                  )}
-                                  {isDietQuestion && (
-                                    <div className="flex justify-between text-xs text-gray-500 w-full">
-                                      <span>NO</span>
-                                      <span>YES</span>
-                                    </div>
-                                  )}
-                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                    </div>
-                                  )}
-                                  {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
-                                    <>
-                                      <span>LESS</span>
-                                      <span>MORE</span>
-                                    </>
-                                  )}
-                                </div>
-                                {hasAnyOTA && !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && (
-                                  <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                                    OTA
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                          {(() => {
-                            // Check if any answer has OTA enabled for "looking for"
-                            const hasAnyOTA = selectedQuestionData.some((question: any) => {
-                              const answer = answersForQuestion.find(a => {
-                                const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                                return questionId === question.id;
-                              });
-                              return answer && (answer.looking_for_answer === 6 || answer.looking_for_answer === '6' || Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
-                            });
-                            
-                            return (
-                              <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
-                                {selectedQuestionData.map((question: any) => {
-                                  const answer = answersForQuestion.find(a => {
-                                    const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                                    return questionId === question.id;
-                                  });
-                                  // If looking_for_answer is 6, it means "Open to All" is enabled
-                                  const isOpenToAllLooking = answer?.looking_for_answer === 6 || answer?.looking_for_open_to_all || false;
-                                  const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
-                                  const lookingOpenToAll = isOpenToAllLooking;
-
-                                  // For Kids question, use WANT KIDS / HAVE KIDS labels
-                                  let rowLabel = question.question_name.toUpperCase();
-                                  if (isKidsQuestion) {
-                                    if (question.group_number === 1) {
-                                      rowLabel = 'HAVE KIDS';
-                                    } else if (question.group_number === 2) {
-                                      rowLabel = 'WANT KIDS';
-                                    }
-                                  }
-
-                                  return (
-                                    <React.Fragment key={`looking-${question.id}`}>
-                                      <div className="relative">
-                                        {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                        <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
-                                      </div>
-                                      {hasAnyOTA && (
-                                        <div className="w-11 h-6"></div>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
-                        </div>
+                        {isRelationshipQuestion ? (
+                          <>
+                            {/* Q1 Relationship: Me only */}
+                            {renderMeSliders()}
+                          </>
+                        ) : (
+                          <>
+                            {/* Q2+ (Gender, etc.): Them first, then Me */}
+                            {renderThemSliders()}
+                            {renderMeSliders()}
+                          </>
+                        )}
                       </div>
                     );
                   }
                 })()}
                 </div>
+                )
               ) : (
                 // Questions List (when filters are active, never show unfiltered fallback — fixes wrong questions on page 2+)
                 <>
@@ -3392,8 +3953,8 @@ export default function UserProfilePage() {
                               key={key}
                               onClick={() => {
                                 if (groupAny.pendingType === 'my') {
-                                  // Navigate to answer this question
-                                  router.push(`/questions/${group.questionNumber}`);
+                                  // Open inline answer form in the overlay
+                                  handlePendingQuestionClick(group.questionNumber);
                                 }
                               }}
                               className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
@@ -3539,6 +4100,61 @@ export default function UserProfilePage() {
                 </>
               )}
             </div>
+
+            {/* Footer for read-only non-grouped question detail: Answer Question button */}
+            {!isAnsweringPending && selectedQuestionNumber && !selectedGroupedQuestionId && selectedQuestionData[0]?.question_type !== 'grouped' && (
+              <div className="flex justify-end items-center px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={handleAnswerQuestion}
+                  className="px-8 py-3 rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800"
+                >
+                  Answer Question
+                </button>
+              </div>
+            )}
+
+            {/* Footer for read-only grouped sub-question: Back to Group (leading) + Answer Question (trailing) */}
+            {!isAnsweringPending && selectedQuestionNumber && selectedGroupedQuestionId && (
+              <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={() => setSelectedGroupedQuestionId(null)}
+                  className="flex items-center text-gray-600 hover:text-gray-900 cursor-pointer"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Back to Group</span>
+                </button>
+                <button
+                  onClick={handleAnswerQuestion}
+                  className="px-8 py-3 rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800"
+                >
+                  Answer Question
+                </button>
+              </div>
+            )}
+
+            {/* Save button when answering pending question (matches questions page footer) */}
+            {/* For grouped questions, only show Save when a sub-question is selected */}
+            {isAnsweringPending && selectedQuestionNumber && (
+              !(selectedQuestionData[0]?.question_type === 'grouped' && !selectedGroupedQuestionId)
+            ) && (
+              <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200">
+                {editError && <p className="text-red-500 text-sm">{editError}</p>}
+                {!editError && <div />}
+                <button
+                  onClick={handleSavePendingAnswer}
+                  disabled={editSaving}
+                  className={`px-8 py-3 rounded-md font-medium transition-colors cursor-pointer ${
+                    !editSaving
+                      ? 'bg-black text-white hover:bg-gray-800'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {editSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            )}
 
             {/* Pagination Controls - only show when viewing questions list */}
             {!selectedQuestionNumber && totalModalPages > 1 && (
