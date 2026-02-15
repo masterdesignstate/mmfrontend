@@ -2367,13 +2367,13 @@ export default function ResultsPage() {
           animation: filterHeartPulse 1.6s ease-in-out infinite;
         }
 
-        .filter-math-operator:nth-child(1) { animation: filterOrbit0 3.5s linear infinite; }
-        .filter-math-operator:nth-child(2) { animation: filterOrbit1 4.0s linear infinite; }
-        .filter-math-operator:nth-child(3) { animation: filterOrbit2 3.2s linear infinite; }
-        .filter-math-operator:nth-child(4) { animation: filterOrbit3 3.8s linear infinite; }
-        .filter-math-operator:nth-child(5) { animation: filterOrbit4 4.2s linear infinite; }
-        .filter-math-operator:nth-child(6) { animation: filterOrbit5 3.6s linear infinite; }
-        .filter-math-operator:nth-child(7) { animation: filterOrbit6 3.4s linear infinite; }
+        .filter-math-operator:nth-child(1) { animation: filterOrbit0 3.5s linear infinite both; }
+        .filter-math-operator:nth-child(2) { animation: filterOrbit1 4.0s linear infinite both; }
+        .filter-math-operator:nth-child(3) { animation: filterOrbit2 3.2s linear infinite both; }
+        .filter-math-operator:nth-child(4) { animation: filterOrbit3 3.8s linear infinite both; }
+        .filter-math-operator:nth-child(5) { animation: filterOrbit4 4.2s linear infinite both; }
+        .filter-math-operator:nth-child(6) { animation: filterOrbit5 3.6s linear infinite both; }
+        .filter-math-operator:nth-child(7) { animation: filterOrbit6 3.4s linear infinite both; }
 
         .filter-loading-text {
           animation: filterTextFade 1.5s ease-in-out infinite;
@@ -2383,13 +2383,13 @@ export default function ResultsPage() {
           animation: filterHeartPulse 1.6s ease-in-out infinite;
         }
 
-        .results-math-operator:nth-child(1) { animation: filterOrbit0 3.5s linear infinite; }
-        .results-math-operator:nth-child(2) { animation: filterOrbit1 4.0s linear infinite; }
-        .results-math-operator:nth-child(3) { animation: filterOrbit2 3.2s linear infinite; }
-        .results-math-operator:nth-child(4) { animation: filterOrbit3 3.8s linear infinite; }
-        .results-math-operator:nth-child(5) { animation: filterOrbit4 4.2s linear infinite; }
-        .results-math-operator:nth-child(6) { animation: filterOrbit5 3.6s linear infinite; }
-        .results-math-operator:nth-child(7) { animation: filterOrbit6 3.4s linear infinite; }
+        .results-math-operator:nth-child(1) { animation: filterOrbit0 3.5s linear infinite both; }
+        .results-math-operator:nth-child(2) { animation: filterOrbit1 4.0s linear infinite both; }
+        .results-math-operator:nth-child(3) { animation: filterOrbit2 3.2s linear infinite both; }
+        .results-math-operator:nth-child(4) { animation: filterOrbit3 3.8s linear infinite both; }
+        .results-math-operator:nth-child(5) { animation: filterOrbit4 4.2s linear infinite both; }
+        .results-math-operator:nth-child(6) { animation: filterOrbit5 3.6s linear infinite both; }
+        .results-math-operator:nth-child(7) { animation: filterOrbit6 3.4s linear infinite both; }
 
         .results-loading-text {
           animation: filterTextFade 1.5s ease-in-out infinite;

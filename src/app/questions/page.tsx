@@ -1669,13 +1669,13 @@ export default function QuestionsPage() {
             animation: questionsHeartPulse 1.6s ease-in-out infinite;
           }
 
-          .questions-math-operator:nth-child(1) { animation: questionsOrbit0 3.5s linear infinite; }
-          .questions-math-operator:nth-child(2) { animation: questionsOrbit1 4.0s linear infinite; }
-          .questions-math-operator:nth-child(3) { animation: questionsOrbit2 3.2s linear infinite; }
-          .questions-math-operator:nth-child(4) { animation: questionsOrbit3 3.8s linear infinite; }
-          .questions-math-operator:nth-child(5) { animation: questionsOrbit4 4.2s linear infinite; }
-          .questions-math-operator:nth-child(6) { animation: questionsOrbit5 3.6s linear infinite; }
-          .questions-math-operator:nth-child(7) { animation: questionsOrbit6 3.4s linear infinite; }
+          .questions-math-operator:nth-child(1) { animation: questionsOrbit0 3.5s linear infinite both; }
+          .questions-math-operator:nth-child(2) { animation: questionsOrbit1 4.0s linear infinite both; }
+          .questions-math-operator:nth-child(3) { animation: questionsOrbit2 3.2s linear infinite both; }
+          .questions-math-operator:nth-child(4) { animation: questionsOrbit3 3.8s linear infinite both; }
+          .questions-math-operator:nth-child(5) { animation: questionsOrbit4 4.2s linear infinite both; }
+          .questions-math-operator:nth-child(6) { animation: questionsOrbit5 3.6s linear infinite both; }
+          .questions-math-operator:nth-child(7) { animation: questionsOrbit6 3.4s linear infinite both; }
 
           .questions-loading-text {
             animation: questionsTextFade 1.5s ease-in-out infinite;

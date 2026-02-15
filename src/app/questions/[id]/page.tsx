@@ -2036,13 +2036,13 @@ export default function QuestionEditPage() {
             animation: qdetailHeartPulse 1.6s ease-in-out infinite;
           }
 
-          .qdetail-math-operator:nth-child(1) { animation: qdetailOrbit0 3.5s linear infinite; }
-          .qdetail-math-operator:nth-child(2) { animation: qdetailOrbit1 4.0s linear infinite; }
-          .qdetail-math-operator:nth-child(3) { animation: qdetailOrbit2 3.2s linear infinite; }
-          .qdetail-math-operator:nth-child(4) { animation: qdetailOrbit3 3.8s linear infinite; }
-          .qdetail-math-operator:nth-child(5) { animation: qdetailOrbit4 4.2s linear infinite; }
-          .qdetail-math-operator:nth-child(6) { animation: qdetailOrbit5 3.6s linear infinite; }
-          .qdetail-math-operator:nth-child(7) { animation: qdetailOrbit6 3.4s linear infinite; }
+          .qdetail-math-operator:nth-child(1) { animation: qdetailOrbit0 3.5s linear infinite both; }
+          .qdetail-math-operator:nth-child(2) { animation: qdetailOrbit1 4.0s linear infinite both; }
+          .qdetail-math-operator:nth-child(3) { animation: qdetailOrbit2 3.2s linear infinite both; }
+          .qdetail-math-operator:nth-child(4) { animation: qdetailOrbit3 3.8s linear infinite both; }
+          .qdetail-math-operator:nth-child(5) { animation: qdetailOrbit4 4.2s linear infinite both; }
+          .qdetail-math-operator:nth-child(6) { animation: qdetailOrbit5 3.6s linear infinite both; }
+          .qdetail-math-operator:nth-child(7) { animation: qdetailOrbit6 3.4s linear infinite both; }
 
           .qdetail-loading-text {
             animation: qdetailTextFade 1.5s ease-in-out infinite;

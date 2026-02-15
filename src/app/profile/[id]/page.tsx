@@ -185,6 +185,10 @@ export default function UserProfilePage() {
     required_compatible_with_me?: number;
     required_im_compatible_with?: number;
     required_mutual_questions_count?: number;
+    my_required_mutual_count?: number;
+    my_required_total_count?: number;
+    their_required_mutual_count?: number;
+    their_required_total_count?: number;
     user1_required_completeness?: number;
     user2_required_completeness?: number;
     required_completeness_ratio?: number; // Deprecated
@@ -497,6 +501,10 @@ export default function UserProfilePage() {
               required_compatible_with_me: compatData.required_compatible_with_me,
               required_im_compatible_with: compatData.required_im_compatible_with,
               required_mutual_questions_count: compatData.required_mutual_questions_count,
+              my_required_mutual_count: compatData.my_required_mutual_count,
+              my_required_total_count: compatData.my_required_total_count,
+              their_required_mutual_count: compatData.their_required_mutual_count,
+              their_required_total_count: compatData.their_required_total_count,
               user1_required_completeness: compatData.user1_required_completeness,
               user2_required_completeness: compatData.user2_required_completeness,
             });
@@ -530,6 +538,10 @@ export default function UserProfilePage() {
                   required_compatible_with_me: compatData.required_compatible_with_me,
                   required_im_compatible_with: compatData.required_im_compatible_with,
                   required_mutual_questions_count: compatData.required_mutual_questions_count,
+                  my_required_mutual_count: compatData.my_required_mutual_count,
+                  my_required_total_count: compatData.my_required_total_count,
+                  their_required_mutual_count: compatData.their_required_mutual_count,
+                  their_required_total_count: compatData.their_required_total_count,
                   user1_required_completeness: compatData.user1_required_completeness,
                   user2_required_completeness: compatData.user2_required_completeness,
                 });
@@ -1994,13 +2006,13 @@ export default function UserProfilePage() {
             animation: profileHeartPulse 1.6s ease-in-out infinite;
           }
 
-          .profile-math-operator:nth-child(1) { animation: profileOrbit0 3.5s linear infinite; }
-          .profile-math-operator:nth-child(2) { animation: profileOrbit1 4.0s linear infinite; }
-          .profile-math-operator:nth-child(3) { animation: profileOrbit2 3.2s linear infinite; }
-          .profile-math-operator:nth-child(4) { animation: profileOrbit3 3.8s linear infinite; }
-          .profile-math-operator:nth-child(5) { animation: profileOrbit4 4.2s linear infinite; }
-          .profile-math-operator:nth-child(6) { animation: profileOrbit5 3.6s linear infinite; }
-          .profile-math-operator:nth-child(7) { animation: profileOrbit6 3.4s linear infinite; }
+          .profile-math-operator:nth-child(1) { animation: profileOrbit0 3.5s linear infinite both; }
+          .profile-math-operator:nth-child(2) { animation: profileOrbit1 4.0s linear infinite both; }
+          .profile-math-operator:nth-child(3) { animation: profileOrbit2 3.2s linear infinite both; }
+          .profile-math-operator:nth-child(4) { animation: profileOrbit3 3.8s linear infinite both; }
+          .profile-math-operator:nth-child(5) { animation: profileOrbit4 4.2s linear infinite both; }
+          .profile-math-operator:nth-child(6) { animation: profileOrbit5 3.6s linear infinite both; }
+          .profile-math-operator:nth-child(7) { animation: profileOrbit6 3.4s linear infinite both; }
 
           .profile-loading-text {
             animation: profileTextFade 1.5s ease-in-out infinite;
@@ -2029,9 +2041,8 @@ export default function UserProfilePage() {
   if (!user) return null;
 
   const profileIcons = getProfileIcons();
-  // Get the first name only (text before first space)
-  const fullName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.username;
-  const displayName = fullName.split(' ')[0]; // Take only the first part before space
+  // Get the first name only
+  const displayName = user.first_name || user.username;
 
   // Helper function to get the hide button icon based on tag state
   const getHideButtonIcon = () => {
@@ -2290,19 +2301,23 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <button onClick={() => router.back()} className="flex items-center">
-          <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+      <div className="flex items-center p-4 border-b border-gray-200">
+        <div className="flex-1">
+          <button onClick={() => router.back()} className="flex items-center">
+            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
         <Image
           src="/assets/mmlogox.png"
           alt="Logo"
           width={32}
           height={32}
         />
-        <HamburgerMenu />
+        <div className="flex-1 flex justify-end">
+          <HamburgerMenu />
+        </div>
       </div>
 
       {/* Main Content */}
@@ -2496,11 +2511,11 @@ export default function UserProfilePage() {
                       <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                     )}
                   </div>
-                  {compatibility.user1_required_completeness !== undefined &&
-                   compatibility.required_mutual_questions_count !== undefined &&
-                   compatibility.user1_required_completeness > 0 && (
+                  {compatibility.my_required_mutual_count !== undefined &&
+                   compatibility.my_required_total_count !== undefined &&
+                   compatibility.my_required_total_count > 0 && (
                     <span className="text-gray-600">
-                      {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user1_required_completeness)}
+                      {compatibility.my_required_mutual_count}/{compatibility.my_required_total_count}
                     </span>
                   )}
                 </div>
@@ -2522,11 +2537,11 @@ export default function UserProfilePage() {
                       <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
                     )}
                   </div>
-                  {compatibility.user2_required_completeness !== undefined &&
-                   compatibility.required_mutual_questions_count !== undefined &&
-                   compatibility.user2_required_completeness > 0 && (
+                  {compatibility.their_required_mutual_count !== undefined &&
+                   compatibility.their_required_total_count !== undefined &&
+                   compatibility.their_required_total_count > 0 && (
                     <span className="text-gray-600">
-                      {compatibility.required_mutual_questions_count}/{Math.round(compatibility.required_mutual_questions_count / compatibility.user2_required_completeness)}
+                      {compatibility.their_required_mutual_count}/{compatibility.their_required_total_count}
                     </span>
                   )}
                 </div>
@@ -4477,7 +4492,7 @@ export default function UserProfilePage() {
               {/* Questions Section */}
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">Questions</h3>
-                <div className={`grid gap-3 max-w-xl ${localStorage.getItem('user_id') !== userId ? 'grid-cols-5' : 'grid-cols-4'}`}>
+                <div className={`grid gap-3 max-w-xl ${localStorage.getItem('user_id') !== userId ? 'grid-cols-4' : 'grid-cols-3'}`}>
                   {/* Mandatory */}
                   <button
                     onClick={() => setPendingFilters(prev => ({
@@ -4514,6 +4529,26 @@ export default function UserProfilePage() {
                     <span className="text-xs font-medium text-gray-900 text-center leading-none">Required</span>
                   </button>
 
+                  {/* Pending - only when viewing someone else's profile */}
+                  {localStorage.getItem('user_id') !== userId && (
+                    <button
+                      onClick={() => setPendingFilters(prev => ({
+                        ...prev,
+                        questions: { ...prev.questions, myPending: !prev.questions.myPending }
+                      }))}
+                      className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
+                        pendingFilters.questions.myPending
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <Image src="/assets/prp.png" alt="Pending" width={48} height={48} />
+                      </div>
+                      <span className="text-xs font-medium text-gray-900 text-center leading-none whitespace-nowrap">Pending</span>
+                    </button>
+                  )}
+
                   {/* Submitted */}
                   <button
                     onClick={() => setPendingFilters(prev => ({
@@ -4531,46 +4566,6 @@ export default function UserProfilePage() {
                     </div>
                     <span className="text-xs font-medium text-gray-900 text-center leading-none">Submitted</span>
                   </button>
-
-                  {/* My Pending - only when viewing someone else's profile */}
-                  {localStorage.getItem('user_id') !== userId && (
-                    <button
-                      onClick={() => setPendingFilters(prev => ({
-                        ...prev,
-                        questions: { ...prev.questions, myPending: !prev.questions.myPending }
-                      }))}
-                      className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                        pendingFilters.questions.myPending
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div>
-                        <Image src="/assets/prp.png" alt="My Pending" width={48} height={48} />
-                      </div>
-                      <span className="text-xs font-medium text-gray-900 text-center leading-none whitespace-nowrap">My Pending</span>
-                    </button>
-                  )}
-
-                  {/* Their Pending - only when viewing someone else's profile */}
-                  {localStorage.getItem('user_id') !== userId && (
-                    <button
-                      onClick={() => setPendingFilters(prev => ({
-                        ...prev,
-                        questions: { ...prev.questions, theirPending: !prev.questions.theirPending }
-                      }))}
-                      className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                        pendingFilters.questions.theirPending
-                          ? 'border-orange-500 bg-orange-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div>
-                        <Image src="/assets/ogn.png" alt="Their Pending" width={48} height={48} />
-                      </div>
-                      <span className="text-xs font-medium text-gray-900 text-center leading-none whitespace-nowrap">Their Pending</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
