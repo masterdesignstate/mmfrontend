@@ -1449,7 +1449,8 @@ export default function UserProfilePage() {
   // Questions I haven't answered from the profile user's required set ("My Pending")
   const myPendingQuestions = useMemo(() => {
     if (profileUserRequiredQuestionIds.size === 0) return [];
-    return [...profileUserRequiredQuestionIds].filter(qId => !currentUserAnsweredQuestionIds.has(qId));
+    const pending = [...profileUserRequiredQuestionIds].filter(qId => !currentUserAnsweredQuestionIds.has(qId));
+    return pending;
   }, [profileUserRequiredQuestionIds, currentUserAnsweredQuestionIds]);
 
   // Build pending question groups from allQuestions for display in the modal
@@ -3114,41 +3115,54 @@ export default function UserProfilePage() {
                       return (
                         <div className="w-full max-w-lg mx-auto">
                           <div className="space-y-3">
-                            {selectedQuestionData.map((question: any) => (
-                              <div
-                                key={question.id}
-                                onClick={() => {
-                                  // Stay in overlay — select this sub-question and init its slider values
-                                  const subKey = `q${question.group_number || question.id}`;
-                                  setEditSliderAnswers(prev => ({
-                                    ...prev,
-                                    [`${subKey}_me`]: prev[`${subKey}_me`] || 3,
-                                    [`${subKey}_looking`]: prev[`${subKey}_looking`] || 3,
-                                  }));
-                                  setEditOpenToAllStates(prev => ({
-                                    ...prev,
-                                    [`${subKey}_me`]: prev[`${subKey}_me`] || false,
-                                    [`${subKey}_looking`]: prev[`${subKey}_looking`] || false,
-                                  }));
-                                  setSelectedGroupedQuestionId(question.id);
-                                }}
-                                className="flex items-center justify-between p-4 border border-black rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition-colors"
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <Image
-                                    src={editOptionIcons[questionNumber] || '/assets/ethn.png'}
-                                    alt="Question icon"
-                                    width={24}
-                                    height={24}
-                                    className="w-6 h-6"
-                                  />
-                                  <span className="text-black font-medium">{question.question_name}</span>
+                            {selectedQuestionData.map((question: any) => {
+                              const alreadyAnswered = currentUserAnsweredQuestionIds.has(String(question.id).toLowerCase());
+                              return (
+                                <div
+                                  key={question.id}
+                                  onClick={() => {
+                                    if (alreadyAnswered) return;
+                                    // Stay in overlay — select this sub-question and init its slider values
+                                    const subKey = `q${question.group_number || question.id}`;
+                                    setEditSliderAnswers(prev => ({
+                                      ...prev,
+                                      [`${subKey}_me`]: prev[`${subKey}_me`] || 3,
+                                      [`${subKey}_looking`]: prev[`${subKey}_looking`] || 3,
+                                    }));
+                                    setEditOpenToAllStates(prev => ({
+                                      ...prev,
+                                      [`${subKey}_me`]: prev[`${subKey}_me`] || false,
+                                      [`${subKey}_looking`]: prev[`${subKey}_looking`] || false,
+                                    }));
+                                    setSelectedGroupedQuestionId(question.id);
+                                  }}
+                                  className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
+                                    !alreadyAnswered
+                                      ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
+                                      : 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <Image
+                                      src={editOptionIcons[questionNumber] || '/assets/ethn.png'}
+                                      alt="Question icon"
+                                      width={24}
+                                      height={24}
+                                      className={`w-6 h-6 ${alreadyAnswered ? 'opacity-50' : ''}`}
+                                    />
+                                    <span className={`font-medium ${!alreadyAnswered ? 'text-black' : 'text-gray-400'}`}>{question.question_name}</span>
+                                    {!alreadyAnswered && (
+                                      <span className="text-sm text-[#672DB7]">Not Answered</span>
+                                    )}
+                                  </div>
+                                  {!alreadyAnswered && (
+                                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  )}
                                 </div>
-                                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -3187,16 +3201,17 @@ export default function UserProfilePage() {
                             <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">{selectedQuestionData.some((q: any) => q.open_to_all_looking_for) ? 'OTA' : ''}</div>
+                              <div className="flex justify-center text-xs text-gray-500">{selectedQuestionData.some((q: any) => q.open_to_all_looking_for) ? 'OTA' : ''}</div>
                             </div>
 
                             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
                               {selectedQuestionData.map((question: any) => {
                                 const key = `q${question.group_number || question.id}`;
                                 const lookingKey = `${key}_looking`;
+                                const isSingleBasic = selectedQuestionData.length === 1;
                                 return (
                                   <React.Fragment key={`looking-${question.id}`}>
-                                    <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>
+                                    {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
                                     <div className="relative min-w-0">
                                       <EditableSlider value={editSliderAnswers[lookingKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))} isOpenToAll={editOpenToAllStates[lookingKey] || false} labels={question.answers || []} />
                                     </div>
@@ -3209,7 +3224,7 @@ export default function UserProfilePage() {
                                 );
                               })}
                               {/* Importance slider row */}
-                              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+                              {selectedQuestionData.length === 1 ? <div></div> : <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>}
                               <div className="relative min-w-0">
                                 <EditableSlider value={editImportanceValues.lookingFor} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} />
                               </div>
@@ -3234,16 +3249,17 @@ export default function UserProfilePage() {
                           <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                            <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">{selectedQuestionData.some((q: any) => q.open_to_all_me) ? 'OTA' : ''}</div>
+                            <div className="flex justify-center text-xs text-gray-500">{selectedQuestionData.some((q: any) => q.open_to_all_me) ? 'OTA' : ''}</div>
                           </div>
 
                           <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
                             {selectedQuestionData.map((question: any) => {
                               const key = `q${question.group_number || question.id}`;
                               const meKey = `${key}_me`;
+                              const isSingleBasic = selectedQuestionData.length === 1;
                               return (
                                 <React.Fragment key={question.id}>
-                                  <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>
+                                  {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
                                   <div className="relative min-w-0">
                                     <EditableSlider value={editSliderAnswers[meKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [meKey]: value }))} isOpenToAll={editOpenToAllStates[meKey] || false} labels={question.answers || []} />
                                   </div>
@@ -4126,19 +4142,19 @@ export default function UserProfilePage() {
               )}
             </div>
 
-            {/* Footer for read-only non-grouped question detail: Answer Question button */}
+            {/* Footer for read-only non-grouped question detail: Answer/View button */}
             {!isAnsweringPending && selectedQuestionNumber && !selectedGroupedQuestionId && selectedQuestionData[0]?.question_type !== 'grouped' && (
               <div className="flex justify-end items-center px-6 py-4 border-t border-gray-200">
                 <button
                   onClick={handleAnswerQuestion}
                   className="px-8 py-3 rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800"
                 >
-                  Answer Question
+                  {selectedQuestionData[0] && currentUserAnsweredQuestionIds.has(String(selectedQuestionData[0].id).toLowerCase()) ? 'View/Change Answer' : 'Answer Question'}
                 </button>
               </div>
             )}
 
-            {/* Footer for read-only grouped sub-question: Back to Group (leading) + Answer Question (trailing) */}
+            {/* Footer for read-only grouped sub-question: Back to Group (leading) + Answer/View button (trailing) */}
             {!isAnsweringPending && selectedQuestionNumber && selectedGroupedQuestionId && (
               <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200">
                 <button
@@ -4154,7 +4170,7 @@ export default function UserProfilePage() {
                   onClick={handleAnswerQuestion}
                   className="px-8 py-3 rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800"
                 >
-                  Answer Question
+                  {currentUserAnsweredQuestionIds.has(String(selectedGroupedQuestionId).toLowerCase()) ? 'View/Change Answer' : 'Answer Question'}
                 </button>
               </div>
             )}

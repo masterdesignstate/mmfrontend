@@ -1824,7 +1824,7 @@ export default function QuestionEditPage() {
                 <span>{lessLabel}</span>
                 <span>{moreLabel}</span>
               </div>
-              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
+              <div className="flex justify-center text-xs text-gray-500 min-w-0 shrink-0 w-11">
                 {question.open_to_all_looking_for ? 'OTA' : ''}
               </div>
             </div>
@@ -1911,7 +1911,7 @@ export default function QuestionEditPage() {
                 <span>{lessLabel}</span>
                 <span>{moreLabel}</span>
               </div>
-              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
+              <div className="flex justify-center text-xs text-gray-500 min-w-0 shrink-0 w-11">
                 {question.open_to_all_me ? 'OTA' : ''}
               </div>
             </div>
