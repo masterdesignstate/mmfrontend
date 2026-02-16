@@ -22,8 +22,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     try {
       const response = await apiService.getUnreadNotificationCount(userId);
       setUnreadCount(response.count);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
+    } catch {
+      // Silently ignore — endpoint may not be available
     }
   };
 

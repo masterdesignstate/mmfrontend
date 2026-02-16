@@ -20,8 +20,8 @@ export default function ChatBell({ userId }: ChatBellProps) {
     try {
       const response = await apiService.getUnreadMessageCount(userId);
       setUnreadCount(response.count);
-    } catch (error) {
-      console.error('Error fetching unread message count:', error);
+    } catch {
+      // Silently ignore — endpoint may not be available
     }
   };
 
