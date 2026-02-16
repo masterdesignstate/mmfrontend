@@ -215,15 +215,19 @@ const MultiSliderTemplate = ({
                         labels={question.answers}
                       />
                     </div>
-                    <button
-                      onClick={() => setOpenToAllStates({
-                        ...openToAllStates,
-                        [`me_${question.id}_open`]: !openToAllStates[`me_${question.id}_open`]
-                      })}
-                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
-                    >
-                      ALL
-                    </button>
+                    {question.open_to_all_me ? (
+                      <button
+                        onClick={() => setOpenToAllStates({
+                          ...openToAllStates,
+                          [`me_${question.id}_open`]: !openToAllStates[`me_${question.id}_open`]
+                        })}
+                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
+                      >
+                        ALL
+                      </button>
+                    ) : (
+                      <div className="w-8 h-8"></div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -252,15 +256,19 @@ const MultiSliderTemplate = ({
                         labels={question.answers}
                       />
                     </div>
-                    <button
-                      onClick={() => setOpenToAllStates({
-                        ...openToAllStates,
-                        [`them_${question.id}_open`]: !openToAllStates[`them_${question.id}_open`]
-                      })}
-                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
-                    >
-                      ALL
-                    </button>
+                    {question.open_to_all_looking_for ? (
+                      <button
+                        onClick={() => setOpenToAllStates({
+                          ...openToAllStates,
+                          [`them_${question.id}_open`]: !openToAllStates[`them_${question.id}_open`]
+                        })}
+                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
+                      >
+                        ALL
+                      </button>
+                    ) : (
+                      <div className="w-8 h-8"></div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -429,15 +437,19 @@ const BasicSliderTemplate = ({
                     labels={question.answers}
                   />
                 </div>
-                <button
-                  onClick={() => setOpenToAllStates({
-                    ...openToAllStates,
-                    [`me_${question.id}_open`]: !openToAllStates[`me_${question.id}_open`]
-                  })}
-                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
-                >
-                  ALL
-                </button>
+                {question.open_to_all_me ? (
+                  <button
+                    onClick={() => setOpenToAllStates({
+                      ...openToAllStates,
+                      [`me_${question.id}_open`]: !openToAllStates[`me_${question.id}_open`]
+                    })}
+                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
+                  >
+                    ALL
+                  </button>
+                ) : (
+                  <div className="w-8 h-8"></div>
+                )}
               </div>
             </div>
 
@@ -459,15 +471,19 @@ const BasicSliderTemplate = ({
                     labels={question.answers}
                   />
                 </div>
-                <button
-                  onClick={() => setOpenToAllStates({
-                    ...openToAllStates,
-                    [`them_${question.id}_open`]: !openToAllStates[`them_${question.id}_open`]
-                  })}
-                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
-                >
-                  ALL
-                </button>
+                {question.open_to_all_looking_for ? (
+                  <button
+                    onClick={() => setOpenToAllStates({
+                      ...openToAllStates,
+                      [`them_${question.id}_open`]: !openToAllStates[`them_${question.id}_open`]
+                    })}
+                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50"
+                  >
+                    ALL
+                  </button>
+                ) : (
+                  <div className="w-8 h-8"></div>
+                )}
               </div>
             </div>
 
@@ -776,6 +792,22 @@ export default function QuestionEditPage() {
     params.set('question_number', questionNumber.toString());
     params.set('question_data', JSON.stringify(question));
     params.set('from_questions_page', 'true'); // Add flag to return to questions page after answering
+
+    // Pass existing answer data so the destination page can show values instantly
+    const existingAnswer = existingAnswers.find(a => {
+      const qId = typeof a.question === 'object' ? a.question.id : a.question;
+      return qId === question.id;
+    });
+    if (existingAnswer) {
+      params.set('ea', JSON.stringify({
+        me: existingAnswer.me_answer,
+        lf: existingAnswer.looking_for_answer,
+        mi: existingAnswer.me_importance,
+        li: existingAnswer.looking_for_importance,
+        mo: existingAnswer.me_open_to_all,
+        lo: existingAnswer.looking_for_open_to_all,
+      }));
+    }
 
     // Map question numbers to their page routes (for special named routes like ethnicity, education, diet)
     const namedRoutes: Record<number, string> = {

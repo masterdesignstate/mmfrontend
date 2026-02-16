@@ -161,6 +161,7 @@ export default function UserProfilePage() {
   const [profileUserRequiredQuestionIds, setProfileUserRequiredQuestionIds] = useState<Set<string>>(new Set());
   const [currentUserRequiredQuestionIds, setCurrentUserRequiredQuestionIds] = useState<Set<string>>(new Set());
   const [currentUserAnsweredQuestionIds, setCurrentUserAnsweredQuestionIds] = useState<Set<string>>(new Set());
+  const [currentUserAnswers, setCurrentUserAnswers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
@@ -240,6 +241,7 @@ export default function UserProfilePage() {
   const [editMeRequired, setEditMeRequired] = useState(false);
   const [editError, setEditError] = useState('');
   const [isAnsweringPending, setIsAnsweringPending] = useState(false);
+  const [showSaveToast, setShowSaveToast] = useState(false);
 
   // Check if required filter was enabled from results page
   useEffect(() => {
@@ -371,6 +373,7 @@ export default function UserProfilePage() {
                   }
                 }
                 setCurrentUserAnsweredQuestionIds(new Set(allCurAnswers.map((a: any) => String(a.question?.id || a.question_id || '').toLowerCase()).filter(Boolean)));
+                setCurrentUserAnswers(allCurAnswers);
               }
             }
           } catch (_) {
@@ -497,6 +500,7 @@ export default function UserProfilePage() {
               }
             }
             setCurrentUserAnsweredQuestionIds(new Set(allCurAnswers.map((a: any) => String(a.question?.id || a.question_id || '').toLowerCase()).filter(Boolean)));
+            setCurrentUserAnswers(allCurAnswers);
           }
 
           // Process compatibility data
@@ -1741,63 +1745,39 @@ export default function UserProfilePage() {
   // Handle "Answer Question" button — switch to inline edit for the current question
   const handleAnswerQuestion = () => {
     if (!selectedQuestionNumber || !selectedQuestionData.length) return;
-    const currentUserId = localStorage.getItem('user_id');
     const questionsForNumber = selectedQuestionData;
 
-    // Helper to pre-populate sliders from existing answers
-    const initSliders = (existingAnswers: any[]) => {
-      const sliders: Record<string, number> = {};
-      const openToAll: Record<string, boolean> = {};
-      questionsForNumber.forEach((q: any) => {
-        const key = `q${q.group_number || q.id}`;
-        const existing = existingAnswers.find((a: any) => {
-          const aQid = typeof a.question === 'object' ? a.question.id : a.question;
-          return aQid === q.id;
-        });
-        sliders[`${key}_me`] = existing ? (existing.me_open_to_all ? 3 : existing.me_answer || 3) : 3;
-        sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
-        openToAll[`${key}_me`] = existing?.me_open_to_all || false;
-        openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
-      });
-      setEditSliderAnswers(sliders);
-      setEditOpenToAllStates(openToAll);
-      const firstExisting = existingAnswers[0];
-      setEditImportanceValues({
-        me: firstExisting?.me_importance || 3,
-        lookingFor: firstExisting?.looking_for_importance || 3,
-      });
-      setEditMeShare(firstExisting?.me_share !== false);
-      setEditMeRequired(false);
-    };
+    // Pre-populate sliders from cached currentUserAnswers (instant, no API call)
+    const existingAnswers = currentUserAnswers.filter((a: any) => {
+      const qId = typeof a.question === 'object' ? a.question.id : a.question;
+      return questionsForNumber.some((q: any) => q.id === qId);
+    });
 
-    // Switch to edit mode immediately with defaults
+    const sliders: Record<string, number> = {};
+    const openToAll: Record<string, boolean> = {};
+    questionsForNumber.forEach((q: any) => {
+      const key = `q${q.group_number || q.id}`;
+      const existing = existingAnswers.find((a: any) => {
+        const aQid = typeof a.question === 'object' ? a.question.id : a.question;
+        return aQid === q.id;
+      });
+      sliders[`${key}_me`] = existing ? (existing.me_open_to_all ? 3 : existing.me_answer || 3) : 3;
+      sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
+      openToAll[`${key}_me`] = existing?.me_open_to_all || false;
+      openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
+    });
+
+    setEditSliderAnswers(sliders);
+    setEditOpenToAllStates(openToAll);
+    const firstExisting = existingAnswers[0];
+    setEditImportanceValues({
+      me: firstExisting?.me_importance || 3,
+      lookingFor: firstExisting?.looking_for_importance || 3,
+    });
+    setEditMeShare(firstExisting?.me_share !== false);
+    setEditMeRequired(false);
     setIsAnsweringPending(true);
     setEditError('');
-    if (questionsForNumber[0]?.question_type === 'grouped') {
-      setSelectedGroupedQuestionId(null);
-    }
-    initSliders([]); // Defaults first
-
-    // Then fetch existing answers in the background to update sliders
-    if (currentUserId) {
-      fetch(
-        `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page_size=100`,
-        { headers: { 'Content-Type': 'application/json' } }
-      )
-        .then(resp => resp.ok ? resp.json() : null)
-        .then(data => {
-          if (!data) return;
-          const allAnswers = data.results || [];
-          const existingAnswers = allAnswers.filter((a: any) => {
-            const qId = typeof a.question === 'object' ? a.question.id : a.question;
-            return questionsForNumber.some((q: any) => q.id === qId);
-          });
-          if (existingAnswers.length > 0) {
-            initSliders(existingAnswers);
-          }
-        })
-        .catch(() => { /* keep defaults */ });
-    }
   };
 
   // Handle clicking a "My Pending" question card - opens inline edit form
@@ -1864,79 +1844,98 @@ export default function UserProfilePage() {
       return;
     }
 
-    try {
-      const updates = [];
-      const questionNumber = selectedQuestionNumber!;
-      const isGrouped = selectedQuestionData[0]?.question_type === 'grouped';
+    const questionNumber = selectedQuestionNumber!;
+    const isGrouped = selectedQuestionData[0]?.question_type === 'grouped';
 
-      // For grouped questions with a selected sub-question, only save that one
-      const questionsToSave = (isGrouped && selectedGroupedQuestionId)
-        ? selectedQuestionData.filter((q: any) => q.id === selectedGroupedQuestionId)
-        : selectedQuestionData;
+    // For grouped questions with a selected sub-question, only save that one
+    const questionsToSave = (isGrouped && selectedGroupedQuestionId)
+      ? selectedQuestionData.filter((q: any) => q.id === selectedGroupedQuestionId)
+      : selectedQuestionData;
 
-      // Build answer data for each question to save
-      for (const question of questionsToSave) {
-        const key = `q${question.group_number || question.id}`;
-        const isNonGrouped = questionNumber > 10 && question.question_type !== 'grouped';
+    // Build answer data for each question
+    const answerPayloads: any[] = [];
+    for (const question of questionsToSave) {
+      const key = `q${question.group_number || question.id}`;
+      const isNonGrouped = questionNumber > 10 && question.question_type !== 'grouped';
 
-        const answerData: any = {
-          user_id: currentUserId,
-          question_id: question.id,
-          me_answer: editOpenToAllStates[`${key}_me`] ? 6 : editSliderAnswers[`${key}_me`] || 3,
-          me_open_to_all: editOpenToAllStates[`${key}_me`] || false,
-          me_importance: editImportanceValues.me,
-          me_share: isNonGrouped ? editMeShare : true,
-          looking_for_answer: editOpenToAllStates[`${key}_looking`] ? 6 : editSliderAnswers[`${key}_looking`] || 3,
-          looking_for_open_to_all: editOpenToAllStates[`${key}_looking`] || false,
-          looking_for_importance: editImportanceValues.lookingFor,
-          looking_for_share: true,
-          is_required_for_me: isNonGrouped ? editMeRequired : false
-        };
-
-        updates.push(
-          fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(answerData)
-          })
-        );
-      }
-
-      const results = await Promise.all(updates);
-      const failed = results.find(r => !r.ok);
-      if (failed) throw new Error('Failed to save');
-
-      // Update localStorage for instant UI feedback
-      const answeredQuestionsKey = `answered_questions_${currentUserId}`;
-      const existingAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
-      questionsToSave.forEach((q: any) => {
-        if (!existingAnswered.includes(q.id)) existingAnswered.push(q.id);
+      answerPayloads.push({
+        user_id: currentUserId,
+        question_id: question.id,
+        me_answer: editOpenToAllStates[`${key}_me`] ? 6 : editSliderAnswers[`${key}_me`] || 3,
+        me_open_to_all: editOpenToAllStates[`${key}_me`] || false,
+        me_importance: editImportanceValues.me,
+        me_share: isNonGrouped ? editMeShare : true,
+        looking_for_answer: editOpenToAllStates[`${key}_looking`] ? 6 : editSliderAnswers[`${key}_looking`] || 3,
+        looking_for_open_to_all: editOpenToAllStates[`${key}_looking`] || false,
+        looking_for_importance: editImportanceValues.lookingFor,
+        looking_for_share: true,
+        is_required_for_me: isNonGrouped ? editMeRequired : false
       });
-      localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
-
-      // Update currentUserAnsweredQuestionIds so pending list refreshes
-      setCurrentUserAnsweredQuestionIds(prev => {
-        const next = new Set(prev);
-        questionsToSave.forEach((q: any) => next.add(String(q.id).toLowerCase()));
-        return next;
-      });
-
-      // Clear profile cache so it refreshes on next visit
-      sessionStorage.removeItem(`profile_${userId}`);
-      sessionStorage.removeItem(`profile_${userId}_timestamp`);
-
-      // For grouped questions, go back to card list; for others, go back to question list
-      if (isGrouped && selectedGroupedQuestionId) {
-        setSelectedGroupedQuestionId(null);
-      } else {
-        setIsAnsweringPending(false);
-        handleBackToQuestionsList();
-      }
-    } catch (error) {
-      setEditError('Failed to save answers');
-    } finally {
-      setEditSaving(false);
     }
+
+    // Optimistic UI update — navigate away immediately, save in background
+    // Update cached answers
+    setCurrentUserAnswers(prev => {
+      const updated = [...prev];
+      for (const payload of answerPayloads) {
+        const idx = updated.findIndex((a: any) => {
+          const qId = typeof a.question === 'object' ? a.question.id : a.question;
+          return qId === payload.question_id;
+        });
+        const newAnswer = { ...payload, question: payload.question_id };
+        if (idx >= 0) {
+          updated[idx] = { ...updated[idx], ...newAnswer };
+        } else {
+          updated.push(newAnswer);
+        }
+      }
+      return updated;
+    });
+
+    // Update answered IDs
+    setCurrentUserAnsweredQuestionIds(prev => {
+      const next = new Set(prev);
+      questionsToSave.forEach((q: any) => next.add(String(q.id).toLowerCase()));
+      return next;
+    });
+
+    // Update localStorage
+    const answeredQuestionsKey = `answered_questions_${currentUserId}`;
+    const existingAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+    questionsToSave.forEach((q: any) => {
+      if (!existingAnswered.includes(q.id)) existingAnswered.push(q.id);
+    });
+    localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
+
+    // Clear profile cache
+    sessionStorage.removeItem(`profile_${userId}`);
+    sessionStorage.removeItem(`profile_${userId}_timestamp`);
+
+    // Navigate away immediately (optimistic)
+    if (isGrouped && selectedGroupedQuestionId) {
+      setSelectedGroupedQuestionId(null);
+    } else {
+      setIsAnsweringPending(false);
+      handleBackToQuestionsList();
+    }
+    setEditSaving(false);
+
+    // Show toast
+    setShowSaveToast(true);
+    setTimeout(() => setShowSaveToast(false), 2500);
+
+    // Fire-and-forget save to backend
+    Promise.all(
+      answerPayloads.map(payload =>
+        fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      )
+    ).catch(() => {
+      setEditError('Failed to save answers');
+    });
   };
 
   if (loading) {
@@ -4693,8 +4692,25 @@ export default function UserProfilePage() {
         matchedUserName={user?.first_name || user?.username}
         showModal={true}
       />
+
+      {/* Save toast notification */}
+      {showSaveToast && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[200] animate-fade-in-up">
+          <div className="bg-black text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium">
+            Answer saved
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translate(-50%, 10px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
-
-

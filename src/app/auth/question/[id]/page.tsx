@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -22,16 +22,24 @@ export default function QuestionPage() {
     open_to_all_looking_for: boolean;
   } | null>(null);
 
-  // Question answer states
-  const [meAnswer, setMeAnswer] = useState(3);
-  const [lookingForAnswer, setLookingForAnswer] = useState(3);
+  // Parse existing answer from URL (passed by questions page for instant loading)
+  const initialEa = (() => {
+    try {
+      const raw = searchParams.get('ea');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  })();
+
+  // Question answer states — initialized from URL params when available (zero delay)
+  const [meAnswer, setMeAnswer] = useState(initialEa ? (initialEa.mo ? 3 : initialEa.me) : 3);
+  const [lookingForAnswer, setLookingForAnswer] = useState(initialEa ? (initialEa.lo ? 3 : initialEa.lf) : 3);
   const [importance, setImportance] = useState({
-    me: 1,
-    lookingFor: 3
+    me: initialEa?.mi || 1,
+    lookingFor: initialEa?.li || 3
   });
   const [openToAll, setOpenToAll] = useState({
-    meOpen: false,
-    lookingForOpen: false
+    meOpen: initialEa?.mo || false,
+    lookingForOpen: initialEa?.lo || false
   });
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
@@ -39,6 +47,7 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [error, setError] = useState<string>('');
+  const answerFetchIdRef = useRef(0);
 
   const getUserStorageKey = useCallback(
     (base: string) => (userId ? `${base}_${userId}` : null),
@@ -226,33 +235,17 @@ export default function QuestionPage() {
     const questionDataParam = searchParams.get('question_data');
     const contextParam = searchParams.get('context');
     const questionId = params.id as string;
-    
-    console.log('🔍 Question Page Load - URL Params:', {
-      userIdParam,
-      ethnicityParam,
-      educationParam,
-      dietParam,
-      nextQuestionParam,
-      questionNumberParam,
-      questionDataParam: questionDataParam ? 'present' : 'missing',
-      questionId
-    });
-    
+
     // Get userId from URL params first, then try localStorage as fallback
     if (userIdParam) {
       setUserId(userIdParam);
-      console.log('📋 Set userId from URL param:', userIdParam);
     } else {
-      // Try to get user_id from localStorage (set during login)
       const storedUserId = localStorage.getItem('user_id');
       if (storedUserId) {
         setUserId(storedUserId);
-        console.log('📋 Set userId from localStorage:', storedUserId);
-      } else {
-        console.log('❌ No userId found in URL params or localStorage');
       }
     }
-    
+
     // Handle special case for ethnicity questions - HARDCODED DATA
     if (questionId === 'ethnicity' && ethnicityParam && questionNumberParam) {
       // Hardcoded question IDs from Django database (question_number=3)
@@ -290,12 +283,8 @@ export default function QuestionPage() {
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
-
-      console.log('📋 Using hardcoded ethnicity question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
     } else if (questionId === 'education' && educationParam && questionNumberParam) {
-      console.log('🎓 Handling education question:', educationParam);
-      
       // Create hardcoded question object for education
       const hardcodedQuestion = {
         id: educationQuestionIds[educationParam as keyof typeof educationQuestionIds],
@@ -313,12 +302,8 @@ export default function QuestionPage() {
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
-      
-      console.log('📋 Using hardcoded education question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
     } else if (questionId === 'diet' && dietParam && questionNumberParam) {
-      console.log('🥗 Handling diet question:', dietParam);
-      
       // Create hardcoded question object for diet
       const hardcodedQuestion = {
         id: dietQuestionIds[dietParam as keyof typeof dietQuestionIds],
@@ -336,16 +321,14 @@ export default function QuestionPage() {
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
-      
-      console.log('📋 Using hardcoded diet question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
-      
-      // Set initial slider values to 5 (YES) for diet questions
-      setMeAnswer(5);
-      setLookingForAnswer(5);
+
+      // Set initial slider values to 5 (YES) for diet questions (only if no existing answer was passed)
+      if (!initialEa) {
+        setMeAnswer(5);
+        setLookingForAnswer(5);
+      }
     } else if (questionId === '6') {
-      console.log('🏃 Handling exercise question');
-      
       // Create hardcoded question object for exercise
       const hardcodedQuestion = {
         id: exerciseQuestionId,
@@ -363,14 +346,8 @@ export default function QuestionPage() {
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
-      
-      console.log('📋 Using hardcoded exercise question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
     } else if (questionId === '8') {
-      console.log('🙏 Handling religion question - HARDCODED LOGIC TRIGGERED');
-      console.log('🙏 questionId:', questionId);
-      console.log('🙏 This should show immediately without any delay');
-      
       // Create hardcoded question object for religion
       const hardcodedQuestion = {
         id: '66545c20-b2df-4e26-80fc-756a54cd51f3',
@@ -388,14 +365,8 @@ export default function QuestionPage() {
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
-      
-      console.log('📋 Using hardcoded religion question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
     } else if (questionId === '9') {
-      console.log('🗳️ Handling politics question - HARDCODED LOGIC TRIGGERED');
-      console.log('🗳️ questionId:', questionId);
-      console.log('🗳️ This should show immediately without any delay');
-      
       // Create hardcoded question object for politics
       const hardcodedQuestion = {
         id: 'dde017cd-7065-4ac0-9413-cac7e155e93e',
@@ -413,20 +384,14 @@ export default function QuestionPage() {
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
-      
-      console.log('📋 Using hardcoded politics question data:', hardcodedQuestion);
       setQuestion(hardcodedQuestion);
     } else if (questionId === 'next-question' && nextQuestionParam && questionNumberParam) {
-      console.log('🔍 Handling next-question with params:', { nextQuestionParam, questionNumberParam });
-      console.log('⚠️ THIS IS THE PROBLEM - next-question logic is being triggered instead of hardcoded religion logic');
       // Use passed question data if available, otherwise fetch
       if (questionDataParam) {
         try {
           const parsedQuestionData = JSON.parse(questionDataParam);
-          console.log('📋 Using passed next question data:', parsedQuestionData);
           setQuestion(parsedQuestionData);
         } catch (error) {
-          console.error('❌ Error parsing passed next question data:', error);
           fetchNextQuestion(nextQuestionParam, parseInt(questionNumberParam));
         }
       } else {
@@ -437,10 +402,8 @@ export default function QuestionPage() {
       if (questionDataParam) {
         try {
           const parsedQuestionData = JSON.parse(questionDataParam);
-          console.log('📋 Using passed question data for ID:', questionId, parsedQuestionData);
           setQuestion(parsedQuestionData);
         } catch (error) {
-          console.error('❌ Error parsing passed question data:', error);
           fetchQuestion(questionId);
         }
       } else {
@@ -456,48 +419,77 @@ export default function QuestionPage() {
     }
   }, [userId]);
 
-  // Load "required for me" from user-required-questions when userId and question are set
+  // Load existing answer and "required for me" when userId and question are set.
+  // Uses a ref-based counter instead of cleanup-based cancelled flag to survive
+  // React strict mode's unmount/remount cycle.
   useEffect(() => {
     if (!userId || !question?.id) return;
-    let cancelled = false;
+    const currentFetchId = ++answerFetchIdRef.current;
+    const qId = question.id;
+
     (async () => {
       try {
-        const res = await fetch(
-          `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        const results = data.results ?? [];
-        const requiredIds = new Set(results.map((r: { question_id: string }) => r.question_id));
-        if (!cancelled) setMeRequired(requiredIds.has(question.id));
+        const [answerRes, reqRes] = await Promise.all([
+          fetch(
+            `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${encodeURIComponent(userId)}&page_size=100`,
+            { headers: { 'Content-Type': 'application/json' } }
+          ),
+          fetch(
+            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+            { headers: { 'Content-Type': 'application/json' } }
+          )
+        ]);
+
+        // If a newer fetch was started, discard this result
+        if (currentFetchId !== answerFetchIdRef.current) return;
+
+        if (answerRes.ok) {
+          const answerData = await answerRes.json();
+          const allAnswers = answerData.results || [];
+          const existing = allAnswers.find((a: any) => {
+            const aQId = typeof a.question === 'object' ? a.question.id : a.question;
+            return aQId === qId;
+          });
+          if (existing && currentFetchId === answerFetchIdRef.current) {
+            setMeAnswer(existing.me_open_to_all ? 3 : existing.me_answer || 3);
+            setLookingForAnswer(existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3);
+            setImportance({
+              me: existing.me_importance || 1,
+              lookingFor: existing.looking_for_importance || 3,
+            });
+            setOpenToAll({
+              meOpen: existing.me_open_to_all || false,
+              lookingForOpen: existing.looking_for_open_to_all || false,
+            });
+            setMeShare(existing.me_share !== false);
+          }
+        }
+
+        if (reqRes.ok && currentFetchId === answerFetchIdRef.current) {
+          const data = await reqRes.json();
+          const results = data.results ?? [];
+          const requiredIds = new Set(results.map((r: { question_id: string }) => r.question_id));
+          setMeRequired(requiredIds.has(qId));
+        }
       } catch (_) {
-        if (!cancelled) setMeRequired(false);
+        if (currentFetchId === answerFetchIdRef.current) setMeRequired(false);
       }
     })();
-    return () => { cancelled = true; };
+    // No cleanup — staleness is detected via the ref counter
   }, [userId, question?.id]);
 
   const fetchQuestion = async (questionId: string) => {
-    console.log('🚀 Fetching question:', questionId);
     setLoadingQuestion(true);
     try {
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}${questionId}/`;
-      console.log('🌐 Fetching from URL:', apiUrl);
-      
       const response = await fetch(apiUrl);
-      console.log('📡 Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Question data:', data);
         setQuestion(data);
       } else {
-        console.error('❌ Failed to fetch question. Status:', response.status);
         setError('Failed to load question');
       }
     } catch (error: unknown) {
-      console.error('❌ Error fetching question:', error);
       setError('Failed to load question');
     } finally {
       setLoadingQuestion(false);
@@ -505,19 +497,13 @@ export default function QuestionPage() {
   };
 
   const fetchEthnicityQuestion = async (ethnicity: string, questionNumber: number) => {
-    console.log('🚀 Fetching ethnicity question for:', ethnicity, 'question number:', questionNumber);
     setLoadingQuestion(true);
     try {
       // Fetch all ethnicity questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
-      console.log('🌐 Fetching from URL:', apiUrl);
-      
       const response = await fetch(apiUrl);
-      console.log('📡 Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Ethnicity question data:', data);
         if (data.results && data.results.length > 0) {
           // Find the specific ethnicity question by matching the ethnicity name exactly
           const specificQuestion = data.results.find((q: { question_name: string }) => 
@@ -526,20 +512,16 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
-            console.log('✅ Found specific ethnicity question:', specificQuestion.question_name);
           } else {
-            console.error('❌ No matching ethnicity question found for:', ethnicity);
             setError(`No ethnicity question found for ${ethnicity}`);
           }
         } else {
           setError(`No ethnicity question ${questionNumber} found`);
         }
       } else {
-        console.error('❌ Failed to fetch ethnicity question. Status:', response.status);
         setError('Failed to load ethnicity question');
       }
     } catch (error: unknown) {
-      console.error('❌ Error fetching ethnicity question:', error);
       setError('Failed to load ethnicity question');
     } finally {
       setLoadingQuestion(false);
@@ -547,19 +529,13 @@ export default function QuestionPage() {
   };
 
   const fetchEducationQuestion = async (education: string, questionNumber: number) => {
-    console.log('🚀 Fetching education question for:', education, 'question number:', questionNumber);
     setLoadingQuestion(true);
     try {
       // Fetch all education questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
-      console.log('🌐 Fetching from URL:', apiUrl);
-      
       const response = await fetch(apiUrl);
-      console.log('📡 Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Education question data:', data);
         if (data.results && data.results.length > 0) {
           // Find the specific education question by matching the education name exactly
           const specificQuestion = data.results.find((q: { question_name: string }) => 
@@ -568,20 +544,16 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
-            console.log('✅ Found specific education question:', specificQuestion.question_name);
           } else {
-            console.error('❌ No matching education question found for:', education);
             setError(`No education question found for ${education}`);
           }
         } else {
           setError(`No education question ${questionNumber} found`);
         }
       } else {
-        console.error('❌ Failed to fetch education question. Status:', response.status);
         setError('Failed to load education question');
       }
     } catch (error: unknown) {
-      console.error('❌ Error fetching education question:', error);
       setError('Failed to load education question');
     } finally {
       setLoadingQuestion(false);
@@ -589,19 +561,13 @@ export default function QuestionPage() {
   };
 
   const fetchDietQuestion = async (diet: string, questionNumber: number) => {
-    console.log('🚀 Fetching diet question for:', diet, 'question number:', questionNumber);
     setLoadingQuestion(true);
     try {
       // Fetch all diet questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
-      console.log('🌐 Fetching from URL:', apiUrl);
-      
       const response = await fetch(apiUrl);
-      console.log('📡 Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Diet question data:', data);
         if (data.results && data.results.length > 0) {
           // Find the specific diet question by matching the diet name exactly
           const specificQuestion = data.results.find((q: { question_name: string }) => 
@@ -610,20 +576,16 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
-            console.log('✅ Found specific diet question:', specificQuestion.question_name);
           } else {
-            console.error('❌ No matching diet question found for:', diet);
             setError(`No diet question found for ${diet}`);
           }
         } else {
           setError(`No diet question ${questionNumber} found`);
         }
       } else {
-        console.error('❌ Failed to fetch diet question. Status:', response.status);
         setError('Failed to load diet question');
       }
     } catch (error: unknown) {
-      console.error('❌ Error fetching diet question:', error);
       setError('Failed to load diet question');
     } finally {
       setLoadingQuestion(false);
@@ -631,19 +593,13 @@ export default function QuestionPage() {
   };
 
   const fetchNextQuestion = async (nextQuestion: string, questionNumber: number) => {
-    console.log('🚀 Fetching next question for:', nextQuestion, 'question number:', questionNumber);
     setLoadingQuestion(true);
     try {
       // Fetch all next questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
-      console.log('🌐 Fetching from URL:', apiUrl);
-      
       const response = await fetch(apiUrl);
-      console.log('📡 Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Next question data:', data);
         if (data.results && data.results.length > 0) {
           // Find the specific next question by matching the question name exactly
           const specificQuestion = data.results.find((q: { question_name: string }) => 
@@ -652,20 +608,16 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
-            console.log('✅ Found specific next question:', specificQuestion.question_name);
           } else {
-            console.error('❌ No matching next question found for:', nextQuestion);
             setError(`No next question found for ${nextQuestion}`);
           }
         } else {
           setError(`No next question ${questionNumber} found`);
         }
       } else {
-        console.error('❌ Failed to fetch next question. Status:', response.status);
         setError('Failed to load next question');
       }
     } catch (error: unknown) {
-      console.error('❌ Error fetching next question:', error);
       setError('Failed to load next question');
     } finally {
       setLoadingQuestion(false);
@@ -744,13 +696,8 @@ export default function QuestionPage() {
   };
 
   const handleNext = async () => {
-    console.log('🚀 handleNext called');
-    console.log('🚀 params.id:', params.id);
-    console.log('🚀 userId:', userId);
-    console.log('🚀 question:', question);
     
     if (!userId || !question) {
-      console.log('❌ Missing userId or question:', { userId, question });
       setError('User ID and question are required');
       return;
     }
@@ -765,7 +712,6 @@ export default function QuestionPage() {
       if (!existingAnswered.includes(question.id)) {
         existingAnswered.push(question.id);
         localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
-        console.log('✅ Immediately saved question to localStorage:', question.id);
       }
 
       // Prepare user answer (is_required_for_me is per-user; me_importance is separate)
@@ -782,14 +728,9 @@ export default function QuestionPage() {
         looking_for_share: true,
         is_required_for_me: meRequired
       };
-
-      console.log('📊 Constructed userAnswer:', userAnswer);
-
       // For ethnicity questions, save in background without blocking UI
       const saveAnswerInBackground = async () => {
         try {
-          console.log('🚀 Starting to save answer to backend...');
-          console.log('📊 User answer:', userAnswer);
 
           const response = await fetch(getApiUrl(API_ENDPOINTS.ANSWERS), {
             method: 'POST',
@@ -798,40 +739,26 @@ export default function QuestionPage() {
             },
             body: JSON.stringify(userAnswer)
           });
-
-          console.log('📡 Response status:', response.status);
-
           if (!response.ok) {
             const errorText = await response.text();
-            console.error('❌ API request failed:', response.status, errorText);
           } else {
             const responseData = await response.json();
-            console.log('✅ API request successful:', responseData);
           }
-
-          console.log('✅ Answer processed');
         } catch (error) {
-          console.error('❌ Error saving answer to backend:', error);
         }
       };
 
       if (params.id === 'ethnicity') {
-        console.log('🌎 Ethnicity question detected - starting background save...');
         saveAnswerInBackground();
       } else if (params.id === 'education') {
-        console.log('🎓 Education question detected - starting background save...');
         saveAnswerInBackground();
       } else if (params.id === 'diet') {
-        console.log('🥗 Diet question detected - starting background save...');
         saveAnswerInBackground();
       } else if (params.id === '6') {
-        console.log('🏃 Exercise question detected - starting background save...');
         saveAnswerInBackground();
       } else if (params.id === '8') {
-        console.log('🙏 Religion question detected - starting background save...');
         saveAnswerInBackground();
       } else if (params.id === '9') {
-        console.log('🗳️ Politics question detected - starting background save...');
         saveAnswerInBackground();
       } else {
         // For other questions, save synchronously as before
@@ -852,25 +779,16 @@ export default function QuestionPage() {
       // Check if we're in profile context or coming from questions page
       const contextParam = searchParams.get('context');
       const fromQuestionsPage = searchParams.get('from_questions_page');
-
-      console.log('🔍 Navigation context check:', { contextParam, fromQuestionsPage });
-
       if (contextParam === 'profile') {
         // Navigate back to profile questions page when in profile context
-        console.log('📋 Navigating to profile questions page');
         router.push('/profile/questions');
       } else if (fromQuestionsPage === 'true') {
         // Return to questions page with refresh flag
-        console.log('📋 Navigating to questions page with refresh');
         router.push('/questions?refresh=true');
       } else {
         // Normal onboarding flow
-        console.log('🎯 Normal onboarding flow - checking question type...');
-        
         // For ethnicity questions, go back to ethnicity page; for education questions, go back to education page; for diet questions, go back to diet page; for next questions, go back to next question page; otherwise go to dashboard
         if (params.id === 'ethnicity') {
-          console.log('🎯 Ethnicity question - navigating back to ethnicity page');
-          
           // Save answered ethnicity to localStorage for immediate UI feedback
           const answeredEthnicitiesKey = getUserStorageKey('answeredEthnicities');
           const answeredEthnicitiesData = answeredEthnicitiesKey
@@ -881,7 +799,6 @@ export default function QuestionPage() {
             try {
               answeredEthnicities = JSON.parse(answeredEthnicitiesData);
             } catch (error) {
-              console.error('❌ Error parsing answered ethnicities:', error);
               answeredEthnicities = [];
             }
           }
@@ -892,18 +809,13 @@ export default function QuestionPage() {
             if (answeredEthnicitiesKey) {
               localStorage.setItem(answeredEthnicitiesKey, JSON.stringify(answeredEthnicities));
             }
-            console.log('✅ Saved answered ethnicity to localStorage:', ethnicityParam);
           }
 
           const params = new URLSearchParams({
             user_id: userId
           });
-          console.log('🎯 Navigating to ethnicity page with params:', params.toString());
           router.push(`/auth/ethnicity?${params.toString()}`);
         } else if (params.id === 'education') {
-          console.log('🎓 Education navigation triggered');
-          console.log('🎓 userId:', userId);
-          console.log('🎓 educationParam:', searchParams.get('education'));
           
           // Save answered education to localStorage for immediate UI feedback
           const answeredEducationsKey = getUserStorageKey('answeredEducations');
@@ -915,7 +827,6 @@ export default function QuestionPage() {
             try {
               answeredEducations = JSON.parse(answeredEducationsData);
             } catch (error) {
-              console.error('❌ Error parsing answered educations:', error);
               answeredEducations = [];
             }
           }
@@ -926,19 +837,13 @@ export default function QuestionPage() {
             if (answeredEducationsKey) {
               localStorage.setItem(answeredEducationsKey, JSON.stringify(answeredEducations));
             }
-            console.log('✅ Saved answered education to localStorage:', educationParam);
           }
 
           const params = new URLSearchParams({
             user_id: userId
           });
-          console.log('🎓 Navigating to education page with params:', params.toString());
           router.push(`/auth/education?${params.toString()}`);
-          console.log('🎓 Navigation command executed');
         } else if (params.id === 'diet') {
-          console.log('🥗 Diet navigation triggered');
-          console.log('🥗 userId:', userId);
-          console.log('🥗 dietParam:', searchParams.get('diet'));
           
           // Save answered diet to localStorage for immediate UI feedback
           const answeredDietsKey = getUserStorageKey('answeredDiets');
@@ -950,7 +855,6 @@ export default function QuestionPage() {
             try {
               answeredDiets = JSON.parse(answeredDietsData);
             } catch (error) {
-              console.error('❌ Error parsing answered diets:', error);
               answeredDiets = [];
             }
           }
@@ -961,50 +865,34 @@ export default function QuestionPage() {
             if (answeredDietsKey) {
               localStorage.setItem(answeredDietsKey, JSON.stringify(answeredDiets));
             }
-            console.log('✅ Saved answered diet to localStorage:', dietParam);
           }
 
           const params = new URLSearchParams({
             user_id: userId
           });
-          console.log('🥗 Navigating to diet page with params:', params.toString());
           router.push(`/auth/diet?${params.toString()}`);
-          console.log('🥗 Navigation command executed');
         } else if (params.id === '6') {
-          console.log('🏃 Exercise navigation triggered');
-          console.log('🏃 userId:', userId);
           
           // Navigate to habits page (next in onboarding flow)
           const params = new URLSearchParams({
             user_id: userId
           });
-          console.log('🏃 Navigating to habits page with params:', params.toString());
           router.push(`/auth/habits?${params.toString()}`);
-          console.log('🏃 Navigation command executed');
         } else if (params.id === '8') {
-          console.log('🙏 Religion navigation triggered');
-          console.log('🙏 userId:', userId);
           
           // Navigate to politics page (next in onboarding flow)
           const params = new URLSearchParams({
             user_id: userId
           });
-          console.log('🙏 Navigating to politics page with params:', params.toString());
           router.push(`/auth/question/9?${params.toString()}`);
-          console.log('🙏 Navigation command executed');
         } else if (params.id === '9') {
-          console.log('🗳️ Politics navigation triggered');
-          console.log('🗳️ userId:', userId);
           
           // Navigate to kids page (next in onboarding flow)
           const params = new URLSearchParams({
             user_id: userId
           });
-          console.log('🗳️ Navigating to kids page with params:', params.toString());
           router.push(`/auth/kids?${params.toString()}`);
-          console.log('🗳️ Navigation command executed');
         } else if (params.id === 'next-question') {
-          console.log('➡️ Next question - navigating to habits page');
           const params = new URLSearchParams({
             user_id: userId
           });
@@ -1012,17 +900,14 @@ export default function QuestionPage() {
           // If we have habits questions loaded, pass them to avoid re-fetching
           if (habitsQuestions.length > 0) {
             params.set('questions', JSON.stringify(habitsQuestions));
-            console.log('📋 Passing pre-loaded habits questions to habits page');
           }
 
           router.push(`/auth/habits?${params.toString()}`);
         } else {
-          console.log('🏠 Default navigation - going to dashboard');
           router.push('/dashboard');
         }
       }
     } catch (error) {
-      console.error('Error saving question answer:', error);
       setError(error instanceof Error ? error.message : 'Failed to save answer');
     } finally {
       setLoading(false);
