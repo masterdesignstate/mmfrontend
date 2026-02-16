@@ -194,7 +194,14 @@ export default function UserProfilePage() {
     required_completeness_ratio?: number; // Deprecated
   } | null>(null);
   const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(false);
-  const effectiveShowOrange = useOrangeStyle ?? showRequiredCompatibility;
+  const [requiredScope, setRequiredScope] = useState<'my' | 'their'>('my');
+  // Show orange based on the active required scope's completeness
+  const isRequiredIncomplete = compatibility != null && (
+    requiredScope === 'their'
+      ? (compatibility.user2_required_completeness !== undefined && compatibility.user2_required_completeness < 1)
+      : (compatibility.user1_required_completeness !== undefined && compatibility.user1_required_completeness < 1)
+  );
+  const effectiveShowOrange = useOrangeStyle ?? isRequiredIncomplete;
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -245,6 +252,9 @@ export default function UserProfilePage() {
           if (filters.requiredOnly) {
             console.log('✅ Setting showRequiredCompatibility to true');
             setShowRequiredCompatibility(true);
+          }
+          if (filters.requiredScope === 'their') {
+            setRequiredScope('their');
           }
         } catch (e) {
           console.error('Error parsing saved filters:', e);

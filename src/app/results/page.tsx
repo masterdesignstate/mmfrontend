@@ -1794,7 +1794,8 @@ export default function ResultsPage() {
               const hasRequiredTagApplied = appliedTags.includes('Required');
               const hasTheirPendingTagApplied = appliedTags.includes('Their Pending');
               const hasTheirRequiredTagApplied = appliedTags.includes('Their Required');
-              const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (filters.requiredOnly && profile.missingRequired && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
+              const scopeMissing = (filters.requiredScope ?? 'my') === 'their' ? profile.theirMissingRequired : profile.missingRequired;
+              const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (filters.requiredOnly && scopeMissing && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
               
               // When requiredOnly is enabled, show required compatibility if available
               // Use appliedTags to determine which scores to show (matches the actual data displayed)
