@@ -2842,8 +2842,8 @@ export default function UserProfilePage() {
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
           onClick={() => setShowQuestionsModal(false)}
         >
-          <div 
-            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-4 h-[80vh] flex flex-col"
+          <div
+            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-4 h-[80vh] flex flex-col relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -4008,11 +4008,6 @@ export default function UserProfilePage() {
                                   <span className="text-sm text-gray-400 mr-3">{group.questionNumber}.</span>
                                   <div className="flex-1">
                                     <span className="text-gray-500">{group.displayName}</span>
-                                    <p className={`text-xs mt-1 ${
-                                      groupAny.pendingType === 'my' ? 'text-purple-500' : 'text-gray-400'
-                                    }`}>
-                                      {groupAny.pendingType === 'my' ? 'Answer this question' : 'Not yet answered'}
-                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -4267,6 +4262,15 @@ export default function UserProfilePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
+              </div>
+            )}
+
+            {/* Save toast — inside modal so it's visible in the overlay */}
+            {showSaveToast && (
+              <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 z-10 animate-fade-in-up pointer-events-none">
+                <div className="bg-black text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium">
+                  Answer saved
+                </div>
               </div>
             )}
           </div>
@@ -4693,14 +4697,6 @@ export default function UserProfilePage() {
         showModal={true}
       />
 
-      {/* Save toast notification */}
-      {showSaveToast && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[200] animate-fade-in-up">
-          <div className="bg-black text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium">
-            Answer saved
-          </div>
-        </div>
-      )}
 
       <style jsx>{`
         @keyframes fadeInUp {
