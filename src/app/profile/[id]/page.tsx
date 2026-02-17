@@ -185,6 +185,7 @@ export default function UserProfilePage() {
     required_overall_compatibility?: number;
     required_compatible_with_me?: number;
     required_im_compatible_with?: number;
+    their_required_compatibility?: number;
     required_mutual_questions_count?: number;
     my_required_mutual_count?: number;
     my_required_total_count?: number;
@@ -194,15 +195,19 @@ export default function UserProfilePage() {
     user2_required_completeness?: number;
     required_completeness_ratio?: number; // Deprecated
   } | null>(null);
-  const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(false);
+  const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(useOrangeStyle === true);
   const [requiredScope, setRequiredScope] = useState<'my' | 'their'>('my');
-  // Show orange based on the active required scope's completeness
+  // Show required values when toggle is ON
+  const showRequired = showRequiredCompatibility;
+  // Check if active scope's completeness is < 100%
   const isRequiredIncomplete = compatibility != null && (
     requiredScope === 'their'
       ? (compatibility.user2_required_completeness !== undefined && compatibility.user2_required_completeness < 1)
       : (compatibility.user1_required_completeness !== undefined && compatibility.user1_required_completeness < 1)
   );
-  const effectiveShowOrange = useOrangeStyle ?? isRequiredIncomplete;
+  // Toggle ON + completeness < 100% → orange; otherwise → purple
+  const effectiveShowOrange = showRequired && isRequiredIncomplete;
+  const accentColor = effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]';
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -514,6 +519,7 @@ export default function UserProfilePage() {
               required_overall_compatibility: compatData.required_overall_compatibility,
               required_compatible_with_me: compatData.required_compatible_with_me,
               required_im_compatible_with: compatData.required_im_compatible_with,
+              their_required_compatibility: compatData.their_required_compatibility,
               required_mutual_questions_count: compatData.required_mutual_questions_count,
               my_required_mutual_count: compatData.my_required_mutual_count,
               my_required_total_count: compatData.my_required_total_count,
@@ -551,6 +557,7 @@ export default function UserProfilePage() {
                   required_overall_compatibility: compatData.required_overall_compatibility,
                   required_compatible_with_me: compatData.required_compatible_with_me,
                   required_im_compatible_with: compatData.required_im_compatible_with,
+                  their_required_compatibility: compatData.their_required_compatibility,
                   required_mutual_questions_count: compatData.required_mutual_questions_count,
                   my_required_mutual_count: compatData.my_required_mutual_count,
                   my_required_total_count: compatData.my_required_total_count,
@@ -2449,6 +2456,62 @@ export default function UserProfilePage() {
         {/* Compatibility Section */}
         {compatibility && (
           <div className="mb-8">
+            {/* Required Compatibility Toggle */}
+            <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 mb-3">
+              {/* Toggle Row */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-black">Required</span>
+                <button
+                  type="button"
+                  onClick={() => setShowRequiredCompatibility(!showRequiredCompatibility)}
+                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer"
+                  style={{ backgroundColor: showRequiredCompatibility ? '#672DB7' : '#ADADAD' }}
+                  aria-pressed={showRequiredCompatibility}
+                  aria-label="Toggle required compatibility view"
+                >
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                    style={{ transform: showRequiredCompatibility ? 'translateX(20px)' : 'translateX(2px)' }}
+                  />
+                </button>
+              </div>
+
+              {/* Scope Picker - slides in when toggle is ON */}
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: showRequiredCompatibility ? '56px' : '0px',
+                  opacity: showRequiredCompatibility ? 1 : 0,
+                  marginTop: showRequiredCompatibility ? '12px' : '0px',
+                }}
+              >
+                <div className="inline-flex items-center bg-white rounded-lg p-1 border border-gray-200 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setRequiredScope('my')}
+                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-center ${
+                      requiredScope === 'my'
+                        ? 'bg-white text-black shadow-sm border border-black'
+                        : 'text-gray-500 hover:bg-gray-50 border border-transparent'
+                    }`}
+                  >
+                    My Required
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequiredScope('their')}
+                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-center ${
+                      requiredScope === 'their'
+                        ? 'bg-white text-black shadow-sm border border-black'
+                        : 'text-gray-500 hover:bg-gray-50 border border-transparent'
+                    }`}
+                  >
+                    Their Required
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* First Row: Overall, Me, Them - Larger Cards */}
             <div className="flex gap-3 mb-3">
               {/* Overall */}
@@ -2457,14 +2520,16 @@ export default function UserProfilePage() {
                   Overall
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {Math.round(effectiveShowOrange &&
-                                compatibility.required_overall_compatibility !== undefined &&
-                                compatibility.required_overall_compatibility !== null
-                      ? compatibility.required_overall_compatibility
-                      : compatibility.overall_compatibility)}
+                  <span className={`text-3xl font-black ${accentColor}`}>
+                    {Math.round(
+                      showRequired
+                        ? (requiredScope === 'their'
+                            ? (compatibility.their_required_compatibility ?? compatibility.overall_compatibility)
+                            : (compatibility.required_overall_compatibility ?? compatibility.overall_compatibility))
+                        : compatibility.overall_compatibility
+                    )}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                  <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
 
@@ -2474,14 +2539,14 @@ export default function UserProfilePage() {
                   Me
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {Math.round(effectiveShowOrange &&
-                                compatibility.required_im_compatible_with !== undefined &&
-                                compatibility.required_im_compatible_with !== null
-                      ? compatibility.required_im_compatible_with
-                      : compatibility.im_compatible_with)}
+                  <span className={`text-3xl font-black ${accentColor}`}>
+                    {Math.round(
+                      showRequired
+                        ? (compatibility.required_im_compatible_with ?? compatibility.im_compatible_with)
+                        : compatibility.im_compatible_with
+                    )}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                  <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
 
@@ -2491,14 +2556,14 @@ export default function UserProfilePage() {
                   Them
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
-                    {Math.round(effectiveShowOrange &&
-                                compatibility.required_compatible_with_me !== undefined &&
-                                compatibility.required_compatible_with_me !== null
-                      ? compatibility.required_compatible_with_me
-                      : compatibility.compatible_with_me)}
+                  <span className={`text-3xl font-black ${accentColor}`}>
+                    {Math.round(
+                      showRequired
+                        ? (compatibility.required_compatible_with_me ?? compatibility.compatible_with_me)
+                        : compatibility.compatible_with_me
+                    )}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                  <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
             </div>
@@ -2506,19 +2571,19 @@ export default function UserProfilePage() {
             {/* Second Row: My Required, Their Required, Mutual Questions, Questions Answered - Smaller Cards */}
             <div className="flex gap-3">
               {/* My Required */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+              <div className={`bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1 transition-all duration-200 ${showRequired && requiredScope === 'my' ? 'ring-2 ring-[#672DB7]/30' : ''}`}>
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   My Required
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline">
-                    <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    <span className={`text-3xl font-black ${accentColor}`}>
                       {compatibility.user1_required_completeness !== undefined
                         ? Math.round(compatibility.user1_required_completeness * 100)
                         : 'N/A'}
                     </span>
                     {compatibility.user1_required_completeness !== undefined && (
-                      <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                      <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
                     )}
                   </div>
                   {compatibility.my_required_mutual_count !== undefined &&
@@ -2532,19 +2597,19 @@ export default function UserProfilePage() {
               </div>
 
               {/* Their Required */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+              <div className={`bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1 transition-all duration-200 ${showRequired && requiredScope === 'their' ? 'ring-2 ring-[#672DB7]/30' : ''}`}>
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Their Required
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline">
-                    <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                    <span className={`text-3xl font-black ${accentColor}`}>
                       {compatibility.user2_required_completeness !== undefined
                         ? Math.round(compatibility.user2_required_completeness * 100)
                         : 'N/A'}
                     </span>
                     {compatibility.user2_required_completeness !== undefined && (
-                      <span className={`text-lg font-bold ml-1 ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>%</span>
+                      <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
                     )}
                   </div>
                   {compatibility.their_required_mutual_count !== undefined &&
@@ -2563,7 +2628,7 @@ export default function UserProfilePage() {
                   Mutual Questions
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                  <span className={`text-3xl font-black ${accentColor}`}>
                     {compatibility.mutual_questions_count || 0}
                   </span>
                 </div>
@@ -2575,7 +2640,7 @@ export default function UserProfilePage() {
                   Questions Answered
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]'}`}>
+                  <span className={`text-3xl font-black ${accentColor}`}>
                     {userAnswers.length}
                   </span>
                 </div>

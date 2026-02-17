@@ -48,6 +48,13 @@ export default function QuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
+  // Ref tracks whether the filter-specific fetch has completed at least once.
+  // Starts false so we show the loader until filter data is ready.
+  // Using a ref (not state) avoids SSR hydration mismatches.
+  const filterFetchDone = useRef(false);
+  // Tracks whether the main fetch has finished loading userAnswers.
+  // Prevents the filter effect from concluding "0 answers" before data loads.
+  const answersLoaded = useRef(false);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
@@ -146,14 +153,19 @@ export default function QuestionsPage() {
   });
   const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
 
+  // Compute whether filter is active and data isn't ready (checked during render)
+  const filterActive = filters.questions.answered || filters.questions.unanswered;
+  const filterPending = filterActive && !filterFetchDone.current;
+
   // Cycle loading text while questions are loading
+  const isShowingLoader = loading || filterPending;
   useEffect(() => {
-    if (!loading) return;
+    if (!isShowingLoader) return;
     const interval = setInterval(() => {
       setLoadingTextIndex(prev => (prev + 1) % 3);
     }, 1500);
     return () => clearInterval(interval);
-  }, [loading]);
+  }, [isShowingLoader]);
 
   // Save filters to sessionStorage whenever they change
   useEffect(() => {
@@ -403,60 +415,96 @@ export default function QuestionsPage() {
           console.log('🔄 Refresh parameter found on mount, will force refresh');
         }
 
-        // Fetch question metadata (question numbers + answer counts) in single optimized request
-        // Force refresh if invalidation flag exists
-        metadataRefreshInProgress.current = true;
-        const questionNumbers = await fetchQuestionMetadata(shouldForceRefresh);
-        
-        // Debug: Check if 18 is in the results
-        if (questionNumbers && questionNumbers.length > 0) {
-          console.log('✅ Metadata fetched, has question 18?', questionNumbers.includes(18));
-          console.log('✅ All question numbers:', questionNumbers.sort((a, b) => a - b));
-        }
-
-        // Questions will be fetched by the useEffect for pagination
-
-        // Fetch ALL user answers (handle pagination to ensure we get everything)
-        let allAnswers: UserAnswer[] = [];
-        let answersUrl = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&page_size=100`;
-        let hasMoreAnswers = true;
-
-        while (hasMoreAnswers) {
-          const answersResponse = await fetch(answersUrl, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (answersResponse.ok) {
-            const answersData = await answersResponse.json();
-            const pageAnswers = answersData.results || [];
-            allAnswers = [...allAnswers, ...pageAnswers];
-
-            // Check if there's more data
-            if (answersData.next) {
-              answersUrl = answersData.next;
-            } else {
-              hasMoreAnswers = false;
+        // Detect if answered/unanswered filter will be active (from URL or saved session)
+        let willFilterAnswered = false;
+        let willFilterUnanswered = false;
+        if (typeof window !== 'undefined') {
+          const urlFilter = new URLSearchParams(window.location.search).get('filter');
+          if (urlFilter === 'answered') willFilterAnswered = true;
+          try {
+            const saved = sessionStorage.getItem('questions_page_filters');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed.questions?.answered) willFilterAnswered = true;
+              if (parsed.questions?.unanswered) willFilterUnanswered = true;
             }
-          } else {
-            hasMoreAnswers = false;
-            console.error('Failed to fetch user answers');
-          }
+          } catch {}
         }
+
+        // Helper to fetch all user answers (paginated)
+        const fetchAllAnswers = async (): Promise<UserAnswer[]> => {
+          let allAnswers: UserAnswer[] = [];
+          let answersUrl = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&page_size=100`;
+          let hasMore = true;
+          while (hasMore) {
+            const resp = await fetch(answersUrl, {
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              allAnswers = [...allAnswers, ...(data.results || [])];
+              hasMore = !!data.next;
+              if (data.next) answersUrl = data.next;
+            } else {
+              hasMore = false;
+              console.error('Failed to fetch user answers');
+            }
+          }
+          return allAnswers;
+        };
+
+        // Fetch metadata AND answers in parallel (saves ~2-3s)
+        metadataRefreshInProgress.current = true;
+        const [questionNumbers, allAnswers] = await Promise.all([
+          fetchQuestionMetadata(shouldForceRefresh),
+          fetchAllAnswers()
+        ]);
 
         setUserAnswers(allAnswers);
+        answersLoaded.current = true;
 
-        // Debug logging
-        console.log('📋 User Answers Loaded (All Pages):', {
-          total_answers: allAnswers.length,
-          unique_question_count: new Set(allAnswers.map((a: UserAnswer) => a.question.question_number)).size,
-          answered_question_numbers: [...new Set(allAnswers.map((a: UserAnswer) => a.question.question_number))].sort((a, b) => a - b),
-          sample_answers: allAnswers.slice(0, 5).map((a: UserAnswer) => ({
-            question_number: a.question.question_number,
-            question_text: a.question.text?.substring(0, 50)
-          }))
-        });
+        // If answered/unanswered filter is active, fetch filtered questions inline
+        // instead of waiting for the separate filter effect (saves another round-trip)
+        if ((willFilterAnswered || willFilterUnanswered) && questionNumbers.length > 0) {
+          const answeredNumbers = new Set(
+            allAnswers.map((a: UserAnswer) => a.question.question_number)
+          );
+          let matchingNumbers: number[];
+          if (willFilterAnswered) {
+            matchingNumbers = questionNumbers.filter((n: number) => answeredNumbers.has(n));
+          } else {
+            matchingNumbers = questionNumbers.filter((n: number) => !answeredNumbers.has(n));
+          }
+
+          if (matchingNumbers.length > 0) {
+            const params = matchingNumbers.map((n: number) => `question_number=${n}`).join('&');
+            let fetchUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${params}&page_size=100`;
+            let allQuestions: Question[] = [];
+            let hasMore = true;
+            let pageNum = 1;
+            while (hasMore && pageNum <= 5) {
+              const resp = await fetch(fetchUrl, {
+                headers: { 'Content-Type': 'application/json' },
+              });
+              const data = await resp.json();
+              allQuestions = [...allQuestions, ...(data.results || [])];
+              if (data.next) { fetchUrl = data.next; pageNum++; }
+              else { hasMore = false; }
+            }
+            allQuestions.sort((a, b) => {
+              if (a.question_number !== b.question_number) return a.question_number - b.question_number;
+              return (a.group_number || 0) - (b.group_number || 0);
+            });
+            setFilteredQuestions(allQuestions);
+            filterFetchDone.current = true;
+            // Set lastFilterState so the filter effect doesn't re-fetch
+            lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${questionNumbers.length}-${allAnswers.length}`;
+          } else {
+            setFilteredQuestions([]);
+            filterFetchDone.current = true;
+            lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${questionNumbers.length}-${allAnswers.length}`;
+          }
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load questions');
@@ -555,10 +603,11 @@ export default function QuestionsPage() {
   }, [showSortDropdown]);
 
   // Check for filter parameter and apply answered filter (for "My Questions")
-  // Only apply once when URL has the parameter, don't override manual changes
-  useEffect(() => {
+  // useLayoutEffect blocks paint — user never sees the stale empty content
+  useLayoutEffect(() => {
     const filter = searchParams.get('filter');
     if (filter === 'answered' && !filterAppliedFromUrl.current) {
+      filterFetchDone.current = false; // Reset so loader shows until filter data is ready
       setFilters(prev => ({
         ...prev,
         questions: {
@@ -568,7 +617,6 @@ export default function QuestionsPage() {
       }));
       filterAppliedFromUrl.current = true;
     } else if (filter !== 'answered') {
-      // Reset the flag when filter parameter is removed or changed
       filterAppliedFromUrl.current = false;
     }
   }, [searchParams]);
@@ -654,7 +702,10 @@ export default function QuestionsPage() {
         return;
       }
 
-      setLoading(true);
+      // Don't touch `loading` here — it's controlled exclusively by the main
+      // fetchQuestionsAndAnswers effect.  Setting it to true/false here caused a
+      // race: this function's `setLoading(false)` fired before the main fetch
+      // finished loading answers, exposing an empty "0 of 0 questions" page.
 
       // Build single batch API call with multiple question_number params
       const questionNumberParams = pageQuestionNumbers.map(num => `question_number=${num}`).join('&');
@@ -728,8 +779,6 @@ export default function QuestionsPage() {
     } catch (error) {
       console.error('Error fetching questions for page:', error);
       setError('Failed to load questions');
-    } finally {
-      setLoading(false);
     }
   }, [allQuestionNumbers, currentPage, sortOption, answerCounts]);
 
@@ -741,10 +790,10 @@ export default function QuestionsPage() {
       return;
     }
     
-    // Don't fetch if using answered/unanswered filters AND we already have questions
-    // But for other filters (mandatory, required, submitted, tags), we need to fetch questions first
+    // Don't fetch page questions if using answered/unanswered filters —
+    // the filter logic fetches ALL matching questions and paginates client-side
     const hasAnsweredUnansweredFilter = filters.questions.answered || filters.questions.unanswered;
-    if (hasAnsweredUnansweredFilter && questions.length > 0) {
+    if (hasAnsweredUnansweredFilter) {
       return;
     }
     // Only fetch if we have question numbers
@@ -1099,13 +1148,21 @@ export default function QuestionsPage() {
         if (filteredQuestions.length > 0) {
           setFilteredQuestions([]);
         }
+        filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
+        return;
+      }
+
+      // Wait for the main fetch to finish (loading=false means metadata + answers are loaded).
+      // Without this guard, the filter fires after metadata loads but before answers load,
+      // causing a flash of "0 answered questions".
+      if (loading) {
         return;
       }
 
       // Wait for metadata to load (need allQuestionNumbers to filter)
       if (allQuestionNumbers.length === 0) {
-        console.log('⏳ Waiting for question numbers to load...');
+        filterFetchDone.current = true;
         return;
       }
 
@@ -1124,10 +1181,11 @@ export default function QuestionsPage() {
 
       console.log('✅ Ready to apply filter. UserAnswers count:', userAnswers.length);
 
-      // If filtering by answered and userAnswers is empty, no questions match
+      // If filtering by answered and user genuinely has 0 answers (answersLoaded is guaranteed true here)
       if (filters.questions.answered && userAnswers.length === 0) {
         console.log('ℹ️ No answers found, showing empty results for ANSWERED filter');
         setFilteredQuestions([]);
+        filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
         return;
       }
@@ -1169,12 +1227,13 @@ export default function QuestionsPage() {
 
       if (matchingQuestionNumbers.length === 0) {
         setFilteredQuestions([]);
+        filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
         return;
       }
 
       try {
-        setLoading(true);
+        // filterFetchDone ref is false — filterPending keeps the loader showing
 
         // Fetch ALL matching questions (not paginated)
         const questionNumberParams = matchingQuestionNumbers.map(num => `question_number=${num}`).join('&');
@@ -1223,13 +1282,13 @@ export default function QuestionsPage() {
         console.error('Error fetching filtered questions:', error);
         setError('Failed to load filtered questions');
       } finally {
-        setLoading(false);
+        filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
       }
     };
 
     fetchFilteredQuestions();
-  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, userAnswers.length, searchTerm]);
+  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, userAnswers.length, searchTerm, loading]);
 
   // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
   useEffect(() => {
@@ -1579,23 +1638,15 @@ export default function QuestionsPage() {
       return;
     }
     
-    // If fetching is needed, show loader and fetch
-    try {
-      setLoading(true);
-      setShowFilterModal(false);
-      
-      // The fetchFilteredQuestions useEffect will handle the actual fetching
-      // since it watches filters.questions.answered/unanswered
-      // Just wait a tick to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 0));
-    } catch (error) {
-      console.error('Error applying filters:', error);
-      setLoading(false);
-    }
+    // Reset ref so loader shows until filter fetch completes
+    filterFetchDone.current = false;
+    setShowFilterModal(false);
+    // The fetchFilteredQuestions useEffect will handle the actual fetching
+    // and will set filterFetchDone.current = true when done
   };
 
 
-  if (loading) {
+  if (loading || filterPending) {
     const loadingTexts = ['Loading questions...', 'Gathering your answers...', 'Almost ready...'];
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
