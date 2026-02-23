@@ -435,7 +435,7 @@ export default function QuestionPage() {
             { headers: { 'Content-Type': 'application/json' } }
           ),
           fetch(
-            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}&page_size=200`,
             { headers: { 'Content-Type': 'application/json' } }
           )
         ]);

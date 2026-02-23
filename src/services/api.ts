@@ -467,12 +467,28 @@ class ApiService {
 
   /** Fetch question IDs the user has marked as required (UserRequiredQuestion). */
   async getRequiredQuestionIds(userId: string): Promise<string[]> {
-    const data = await this.request(
-      `/user-required-questions/?user=${encodeURIComponent(userId)}`,
-      'GET'
-    ) as { results?: UserRequiredQuestionItem[] };
-    const results = data.results ?? [];
-    return results.map((r) => r.question_id);
+    const allResults: UserRequiredQuestionItem[] = [];
+    let url: string | null = `/user-required-questions/?user=${encodeURIComponent(userId)}&page_size=200`;
+    while (url) {
+      const data = await this.request(url, 'GET') as {
+        results?: UserRequiredQuestionItem[];
+        next?: string | null;
+      };
+      const results = data.results ?? [];
+      allResults.push(...results);
+      // next is a full URL — extract the path portion for the request helper
+      if (data.next) {
+        try {
+          const parsed = new URL(data.next);
+          url = parsed.pathname.replace(/^\/api/, '') + parsed.search;
+        } catch {
+          url = null;
+        }
+      } else {
+        url = null;
+      }
+    }
+    return allResults.map((r) => r.question_id);
   }
 
   async getQuestion(id: string, skipUserAnswers: boolean = true, includeUnapproved: boolean = false): Promise<Question> {

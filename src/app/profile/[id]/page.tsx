@@ -306,7 +306,7 @@ export default function UserProfilePage() {
           try {
             const parallelFetches: Promise<Response>[] = [
               fetch(
-                `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`,
+                `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}&page_size=200`,
                 { headers: { 'Content-Type': 'application/json' } }
               ),
               // Also fetch allQuestions (needed for pending question groups display)
@@ -319,7 +319,7 @@ export default function UserProfilePage() {
               // Current user's required questions
               parallelFetches.push(
                 fetch(
-                  `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}`,
+                  `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}&page_size=200`,
                   { headers: { 'Content-Type': 'application/json' } }
                 )
               );
@@ -399,7 +399,7 @@ export default function UserProfilePage() {
             fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, { headers }),                               // [0] user
             fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, { headers }),                       // [1] questions
             fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=1&page_size=${pageSize}`, { headers }), // [2] answers p1
-            fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}`, { headers }), // [3] profile user's required
+            fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}&page_size=200`, { headers }), // [3] profile user's required
           ];
           // Add compatibility request if applicable
           const fetchCompat = currentUserId && currentUserId !== userId;
@@ -409,7 +409,7 @@ export default function UserProfilePage() {
             );
             // Current user's required questions and answers (for pending filters)
             wave1Promises.push(
-              fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}`, { headers }) // [5] current user's required
+              fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}&page_size=200`, { headers }) // [5] current user's required
             );
             wave1Promises.push(
               fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=1&page_size=${pageSize}`, { headers }) // [6] current user's answers p1

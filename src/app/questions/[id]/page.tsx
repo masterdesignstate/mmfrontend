@@ -699,7 +699,7 @@ export default function QuestionEditPage() {
         let requiredQuestionIds: string[] = [];
         try {
           const reqRes = await fetch(
-            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId)}`,
+            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId)}&page_size=200`,
             { headers: { 'Content-Type': 'application/json' } }
           );
           if (reqRes.ok) {

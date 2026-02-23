@@ -1541,6 +1541,42 @@ export default function QuestionsPage() {
     router.push(`/questions/${questionNumber}`);
   };
 
+  const handleUndoAnswer = async (questionNumber: number) => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) return;
+
+    if (!confirm('Are you sure you want to undo your answer to this question?')) return;
+
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}undo_question/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, question_number: questionNumber }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Failed to undo answer');
+        return;
+      }
+
+      // Update local state: remove answers for this question_number
+      setUserAnswers(prev => prev.filter(a => a.question.question_number !== questionNumber));
+
+      // Update localStorage answered questions
+      const answeredKey = `answered_questions_${userId}`;
+      const existing = JSON.parse(localStorage.getItem(answeredKey) || '[]') as number[];
+      localStorage.setItem(answeredKey, JSON.stringify(existing.filter(n => n !== questionNumber)));
+
+      // Clear metadata cache so answer counts refresh
+      sessionStorage.removeItem('questionsMetadataCache');
+      sessionStorage.removeItem('questionsDataTimestamp');
+    } catch (err) {
+      console.error('Failed to undo answer:', err);
+      alert('Failed to undo answer. Please try again.');
+    }
+  };
+
   const handleFilterToggle = (category: 'questions' | 'tags', filter: string) => {
     if (category === 'questions') {
       updatePendingQuestionFilter(filter as keyof typeof pendingFilters.questions, !pendingFilters.questions[filter as keyof typeof pendingFilters.questions]);
@@ -1935,6 +1971,9 @@ export default function QuestionsPage() {
           {paginatedGroupedQuestions
             .map(([key, group]) => {
               const answerCount = getAnswerCount(group.questionNumber);
+              const isMandatory = group.questions[0]?.is_mandatory || false;
+              const isAnswered = userAnswers.some(a => a.question.question_number === group.questionNumber);
+              const showUndo = !isMandatory && isAnswered;
               return (
                 <div
                   key={String(key)}
@@ -1948,6 +1987,20 @@ export default function QuestionsPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {showUndo && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUndoAnswer(group.questionNumber);
+                        }}
+                        className="px-2 py-1 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Undo answer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 0 1 0 10H9M3 10l4-4M3 10l4 4" />
+                        </svg>
+                      </button>
+                    )}
                     <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
                       <span className="text-sm text-gray-700 font-medium">{answerCount}</span>
                     </div>
