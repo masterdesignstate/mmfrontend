@@ -10,6 +10,7 @@ import { apiService, type ApiUser, type CompatibilityResult } from '@/services/a
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 import { getDistance } from '@/utils/distance';
 
 interface ResultProfile {
@@ -162,7 +163,7 @@ const CardWithProgressBorder = ({
   );
 };
 
-export default function ResultsPage() {
+function ResultsPageContent() {
   const router = useRouter();
   const PAGE_SIZE = 15;
   const [profiles, setProfiles] = useState<ResultProfile[]>([]);
@@ -2397,5 +2398,13 @@ export default function ResultsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <ResultsPageContent />
+    </MandatoryQuestionsGate>
   );
 }

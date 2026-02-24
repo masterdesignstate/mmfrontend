@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 
-export default function MatchesPage() {
+function MatchesPageContent() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,5 +183,13 @@ export default function MatchesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MatchesPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <MatchesPageContent />
+    </MandatoryQuestionsGate>
   );
 }

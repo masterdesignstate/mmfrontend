@@ -218,11 +218,14 @@ export default function KidsPage() {
       // Continue with navigation immediately to profile page
       console.log('👶 Continuing with navigation...');
       
+      // Mark mandatory questions as complete so gated pages unlock instantly
+      localStorage.setItem('mandatory_questions_complete', 'true');
+
       // Navigate directly to profile page (it will show loading UI if needed)
-      const params = new URLSearchParams({ 
+      const params = new URLSearchParams({
         user_id: userId
       });
-      
+
       router.push(`/profile?${params.toString()}`);
     } catch (error) {
       console.error('Error saving kids answers:', error);

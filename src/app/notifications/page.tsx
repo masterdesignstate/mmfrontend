@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Notification } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 
-export default function NotificationsPage() {
+function NotificationsPageContent() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -273,5 +274,13 @@ export default function NotificationsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function NotificationsPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <NotificationsPageContent />
+    </MandatoryQuestionsGate>
   );
 }

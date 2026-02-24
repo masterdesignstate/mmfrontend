@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 
 interface Question {
   id: string;
@@ -541,7 +542,7 @@ const BasicSliderTemplate = ({
   );
 };
 
-export default function QuestionEditPage() {
+function QuestionEditPageContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -2256,5 +2257,13 @@ export default function QuestionEditPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function QuestionEditPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <QuestionEditPageContent />
+    </MandatoryQuestionsGate>
   );
 }

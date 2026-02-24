@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 
 interface Question {
   id: string;
@@ -34,7 +35,7 @@ interface UserAnswer {
   looking_for_answer: number;
 }
 
-export default function QuestionsPage() {
+function QuestionsPageContent() {
   // Debug: log render with sessionStorage state
   if (typeof window !== 'undefined') {
     console.log('🚀 QuestionsPage RENDER - sessionStorage:', {
@@ -2497,5 +2498,13 @@ export default function QuestionsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function QuestionsPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <QuestionsPageContent />
+    </MandatoryQuestionsGate>
   );
 }

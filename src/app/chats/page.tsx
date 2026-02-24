@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 
-export default function ChatsPage() {
+function ChatsPageContent() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,5 +159,13 @@ export default function ChatsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ChatsPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <ChatsPageContent />
+    </MandatoryQuestionsGate>
   );
 }

@@ -17,6 +17,7 @@ export interface ApiUser {
   questions_answered_count?: number;
   is_online?: boolean;
   last_active?: string | null;
+  mandatory_questions_complete?: boolean;
   question_answers?: {
     male?: number;
     female?: number;

@@ -5,8 +5,9 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const router = useRouter();
   const [currentEmail, setCurrentEmail] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -310,5 +311,13 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <MandatoryQuestionsGate>
+      <SettingsPageContent />
+    </MandatoryQuestionsGate>
   );
 }
