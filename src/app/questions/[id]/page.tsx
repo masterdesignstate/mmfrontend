@@ -672,12 +672,12 @@ export default function QuestionEditPage() {
 
         const relevantAnswers = allAnswers.filter(
           (answer: UserAnswer) => {
-            const questionId = typeof answer.question === 'object' ? answer.question : answer.question;
-            // Find the question number from our questionsList
-            const matchingQuestion = questionsList.find(q => q.id === questionId ||
-              (typeof answer.question === 'object' && (answer.question as { question_number?: number }).question_number === questionNumber));
-            return matchingQuestion !== undefined ||
-              (typeof answer.question === 'object' && (answer.question as { question_number?: number }).question_number === questionNumber);
+            const questionId = typeof answer.question === 'object' ? (answer.question as { id: string }).id : answer.question;
+            // Match by question ID or by question_number
+            const matchById = questionsList.some(q => q.id === questionId);
+            const matchByNumber = typeof answer.question === 'object' &&
+              (answer.question as { question_number?: number }).question_number === questionNumber;
+            return matchById || matchByNumber;
           }
         );
         console.log('📋 Fetched relevant answers from API:', {
@@ -833,6 +833,48 @@ export default function QuestionEditPage() {
 
     // Navigate to auth-style individual question page for this option
     router.push(fullUrl);
+  };
+
+  const handleUndoAnswer = async () => {
+    if (!confirm('Are you sure you want to clear your answer to this question? This will remove all your responses.')) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}undo_question/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, question_number: questionNumber }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to undo answer');
+        setSaving(false);
+        return;
+      }
+
+      // Clear localStorage for this question
+      const answeredKey = `answered_questions_${userId}`;
+      const existing = JSON.parse(localStorage.getItem(answeredKey) || '[]');
+      const questionIds = questions.map(q => q.id);
+      localStorage.setItem(answeredKey, JSON.stringify(existing.filter((id: string) => !questionIds.includes(id))));
+
+      // Clear cached data so the questions list refreshes
+      sessionStorage.removeItem('questionsMetadataCache');
+      sessionStorage.removeItem('questionsDataTimestamp');
+      sessionStorage.removeItem('userAnswersData');
+
+      // Navigate back to questions list
+      const savedPage = typeof window !== 'undefined'
+        ? sessionStorage.getItem('questions_current_page')
+        : null;
+      const pageParam = savedPage ? `?page=${savedPage}` : '';
+      router.push(`/questions${pageParam}`);
+    } catch (err) {
+      console.error('Failed to undo answer:', err);
+      setError('Failed to undo answer. Please try again.');
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -2173,8 +2215,8 @@ export default function QuestionEditPage() {
           <button
             onClick={() => {
               // Restore the page from sessionStorage if available
-              const savedPage = typeof window !== 'undefined' 
-                ? sessionStorage.getItem('questions_current_page') 
+              const savedPage = typeof window !== 'undefined'
+                ? sessionStorage.getItem('questions_current_page')
                 : null;
               const pageParam = savedPage ? `?page=${savedPage}` : '';
               router.push(`/questions${pageParam}`);
@@ -2183,18 +2225,34 @@ export default function QuestionEditPage() {
           >
             Back
           </button>
-          
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !saving
-                ? 'bg-black text-white hover:bg-gray-800'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+
+          <div className="flex items-center gap-3">
+            {/* Undo button - only for non-mandatory questions that have been answered */}
+            {questionNumber > 10 && existingAnswers.length > 0 && (
+              <button
+                onClick={handleUndoAnswer}
+                disabled={saving}
+                className={`px-4 py-3 rounded-md font-medium transition-colors cursor-pointer ${
+                  !saving
+                    ? 'border border-red-300 text-red-500 hover:bg-red-50'
+                    : 'border border-gray-200 text-gray-400 !cursor-not-allowed'
+                }`}
+              >
+                Clear Answer
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className={`px-8 py-3 rounded-md font-medium transition-colors cursor-pointer ${
+                !saving
+                  ? 'bg-black text-white hover:bg-gray-800'
+                  : 'bg-gray-300 text-gray-500 !cursor-not-allowed'
+              }`}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </div>
       </footer>
     </div>

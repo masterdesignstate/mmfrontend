@@ -1529,13 +1529,9 @@ export default function UserProfilePage() {
 
   // Filter and sort grouped questions for modal
   const filteredAndSortedQuestions = useMemo(() => {
-    // Start with answered questions, and include pending groups when pending filters are active
-    const hasPendingFilter = filters.questions.myPending || filters.questions.theirPending;
-    let allGroups = [...groupedQuestionsForModal];
-    if (hasPendingFilter) {
-      // Add pending question groups (unanswered questions from required sets)
-      allGroups = [...allGroups, ...pendingQuestionGroups];
-    }
+    // Start with answered questions, always include "my pending" groups (required by profile user but unanswered by current user)
+    // Always include pending question groups so required-but-unanswered questions are visible
+    let allGroups = [...groupedQuestionsForModal, ...pendingQuestionGroups];
 
     let filtered = allGroups;
 
@@ -1547,13 +1543,12 @@ export default function UserProfilePage() {
       filtered = filtered.filter(([key, group]) => {
         const groupAny = group as typeof group & { isPending?: boolean; pendingType?: 'my' | 'their' };
 
-        // For pending groups, only show if the matching pending filter is active
+        // For pending groups, filter by type when specific pending filters are active
         if (groupAny.isPending) {
-          if (groupAny.pendingType === 'their' && !filters.questions.theirPending) return false;
-          if (groupAny.pendingType === 'my' && !filters.questions.myPending) return false;
-          // Pending groups pass other question filters automatically (they are inherently "pending")
-          // But they should still be filtered by tags if tag filters are active
-          // Since pending groups have no answers/questions data to check tags on, skip tag filters for them
+          if (hasQuestionFilters) {
+            if (groupAny.pendingType === 'their' && !filters.questions.theirPending) return false;
+            if (groupAny.pendingType === 'my' && !filters.questions.myPending) return false;
+          }
           return true;
         }
 

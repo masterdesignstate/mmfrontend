@@ -916,10 +916,15 @@ export default function CalculationPage() {
         <div className="mt-6 flex justify-center">
           <button
             onClick={calculateCompatibility}
-            disabled={!person1 || !person2 || calculating || !controlsLoaded || loadingAnswers}
+            disabled={!person1 || !person2 || calculating || !controlsLoaded || loadingAnswers || loading || questions.length === 0}
             className="bg-[#672DB7] text-white px-8 py-3 rounded-lg hover:bg-[#5a259f] transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {loadingAnswers ? (
+            {loading || questions.length === 0 ? (
+              <>
+                <i className="fas fa-spinner fa-spin mr-2"></i>
+                Loading Questions...
+              </>
+            ) : loadingAnswers ? (
               <>
                 <i className="fas fa-spinner fa-spin mr-2"></i>
                 Loading User Data...
