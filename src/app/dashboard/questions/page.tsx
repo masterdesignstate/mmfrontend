@@ -448,7 +448,13 @@ export default function QuestionsPage() {
                     <span className="mt-1"><SortIcon field="text" /></span>
                   </div>
                 </th>
-                <th 
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Label 1
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Label 5
+                </th>
+                <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSort('tag')}
                 >
@@ -499,6 +505,12 @@ export default function QuestionsPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                     <div className="truncate">{question.text}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 max-w-[120px]">
+                    <div className="truncate">{question.answers?.find(a => String(a.value) === '1')?.answer_text || '—'}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 max-w-[120px]">
+                    <div className="truncate">{question.answers?.find(a => String(a.value) === '5')?.answer_text || '—'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
