@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Notification } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
-import RestrictedUserGate from '@/components/RestrictedUserGate';
+import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 function NotificationsPageContent() {
   const router = useRouter();
@@ -280,10 +279,8 @@ function NotificationsPageContent() {
 
 export default function NotificationsPage() {
   return (
-    <RestrictedUserGate>
-      <MandatoryQuestionsGate>
-        <NotificationsPageContent />
-      </MandatoryQuestionsGate>
-    </RestrictedUserGate>
+    <ProtectedPageGate>
+      <NotificationsPageContent />
+    </ProtectedPageGate>
   );
 }

@@ -5,8 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
-import RestrictedUserGate from '@/components/RestrictedUserGate';
+import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 interface Question {
   id: string;
@@ -2263,10 +2262,8 @@ function QuestionEditPageContent() {
 
 export default function QuestionEditPage() {
   return (
-    <RestrictedUserGate>
-      <MandatoryQuestionsGate>
-        <QuestionEditPageContent />
-      </MandatoryQuestionsGate>
-    </RestrictedUserGate>
+    <ProtectedPageGate>
+      <QuestionEditPageContent />
+    </ProtectedPageGate>
   );
 }

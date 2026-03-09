@@ -7,8 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
-import RestrictedUserGate from '@/components/RestrictedUserGate';
+import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 interface Question {
   id: string;
@@ -2504,10 +2503,8 @@ function QuestionsPageContent() {
 
 export default function QuestionsPage() {
   return (
-    <RestrictedUserGate>
-      <MandatoryQuestionsGate>
-        <QuestionsPageContent />
-      </MandatoryQuestionsGate>
-    </RestrictedUserGate>
+    <ProtectedPageGate>
+      <QuestionsPageContent />
+    </ProtectedPageGate>
   );
 }

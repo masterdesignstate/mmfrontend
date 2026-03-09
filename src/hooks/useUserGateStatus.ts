@@ -3,20 +3,22 @@
 import { useState, useEffect } from 'react';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-interface OnboardingStatus {
-  isComplete: boolean;
+interface UserGateStatus {
+  isBanned: boolean;
+  isOnboardingComplete: boolean;
   isLoading: boolean;
   userId: string | null;
 }
 
 const CACHE_KEY = 'mandatory_questions_complete';
 
-export function useOnboardingStatus(): OnboardingStatus {
-  const [isComplete, setIsComplete] = useState<boolean>(() => {
+export function useUserGateStatus(): UserGateStatus {
+  const [isBanned, setIsBanned] = useState(false);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(CACHE_KEY) === 'true';
   });
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,14 +31,13 @@ export function useOnboardingStatus(): OnboardingStatus {
 
     setUserId(storedUserId);
 
-    // Use cached value for immediate render
+    // Use cached onboarding value for immediate non-blocking render
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached === 'true') {
-      setIsComplete(true);
-      setIsLoading(false);
+      setIsOnboardingComplete(true);
     }
 
-    // Background refresh from backend
+    // Single fetch for both checks
     fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${storedUserId}/`, {
       headers: { 'Content-Type': 'application/json' },
     })
@@ -45,17 +46,18 @@ export function useOnboardingStatus(): OnboardingStatus {
         return res.json();
       })
       .then((user) => {
+        setIsBanned(user.is_banned ?? false);
         const complete = user.mandatory_questions_complete ?? false;
-        setIsComplete(complete);
+        setIsOnboardingComplete(complete);
         localStorage.setItem(CACHE_KEY, String(complete));
       })
       .catch((err) => {
-        console.error('Failed to check onboarding status:', err);
+        console.error('Failed to check user gate status:', err);
       })
       .finally(() => {
         setIsLoading(false);
       });
   }, []);
 
-  return { isComplete, isLoading, userId };
+  return { isBanned, isOnboardingComplete, isLoading, userId };
 }

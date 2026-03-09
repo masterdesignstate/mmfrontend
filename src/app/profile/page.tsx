@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import RestrictedUserGate from '@/components/RestrictedUserGate';
+import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -806,7 +806,7 @@ export default function ProfilePage() {
   const displayName = fullName.split(' ')[0]; // Take only the first part before space
 
   return (
-    <RestrictedUserGate>
+    <ProtectedPageGate checkOnboarding={false}>
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -1219,6 +1219,6 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
-    </RestrictedUserGate>
+    </ProtectedPageGate>
   );
 }

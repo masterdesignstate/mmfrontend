@@ -5,8 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
-import RestrictedUserGate from '@/components/RestrictedUserGate';
+import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 function SettingsPageContent() {
   const router = useRouter();
@@ -317,10 +316,8 @@ function SettingsPageContent() {
 
 export default function SettingsPage() {
   return (
-    <RestrictedUserGate>
-      <MandatoryQuestionsGate>
-        <SettingsPageContent />
-      </MandatoryQuestionsGate>
-    </RestrictedUserGate>
+    <ProtectedPageGate>
+      <SettingsPageContent />
+    </ProtectedPageGate>
   );
 }

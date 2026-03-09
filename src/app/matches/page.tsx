@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
-import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
-import RestrictedUserGate from '@/components/RestrictedUserGate';
+import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 function MatchesPageContent() {
   const router = useRouter();
@@ -189,10 +188,8 @@ function MatchesPageContent() {
 
 export default function MatchesPage() {
   return (
-    <RestrictedUserGate>
-      <MandatoryQuestionsGate>
-        <MatchesPageContent />
-      </MandatoryQuestionsGate>
-    </RestrictedUserGate>
+    <ProtectedPageGate>
+      <MatchesPageContent />
+    </ProtectedPageGate>
   );
 }
