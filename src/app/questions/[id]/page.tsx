@@ -614,103 +614,41 @@ function QuestionEditPageContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get user ID
         const storedUserId = localStorage.getItem('user_id');
-        console.log('👤 Current user_id from localStorage:', storedUserId);
         if (!storedUserId) {
           router.push('/auth/login');
           return;
         }
         setUserId(storedUserId);
 
-        // Always fetch fresh questions from API to get accurate is_answered values
-        // (sessionStorage data may be stale or from a different user session)
-        let questionsList: Question[] = [];
+        const headers = { 'Content-Type': 'application/json' };
 
-        console.log('🚀 Fetching questions from API...');
-        const questionsResponse = await fetch(
-          `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`,
-          {
-            headers: { 'Content-Type': 'application/json' }
-          }
+        // Fire all 3 requests in parallel instead of sequentially
+        const [questionsRes, answersRes, requiredRes] = await Promise.all([
+          fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`, { headers }),
+          fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&question_number=${questionNumber}&page_size=100`, { headers }),
+          fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId)}&page_size=200`, { headers }),
+        ]);
+
+        // Process questions
+        const questionsData = await questionsRes.json();
+        const questionsList: Question[] = (questionsData.results || []).sort(
+          (a: Question, b: Question) => (a.group_number || 0) - (b.group_number || 0)
         );
-        const questionsData = await questionsResponse.json();
-        questionsList = questionsData.results || [];
-
-        // Sort by group_number
-        questionsList.sort((a: Question, b: Question) =>
-          (a.group_number || 0) - (b.group_number || 0)
-        );
-        console.log('📋 Fetched questions from API:', questionsList);
-
-        console.log('✅ Setting questions state:', {
-          questionNumber,
-          questionsList,
-          count: questionsList.length,
-          firstQuestionType: questionsList[0]?.question_type,
-          allTypes: questionsList.map((q: Question) => q.question_type)
-        });
         setQuestions(questionsList);
 
-        // Fetch user's existing answers from API (handle pagination)
-        console.log('🚀 Fetching answers from API...');
-        let allAnswers: UserAnswer[] = [];
-        let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&page_size=100`;
-
-        while (nextUrl) {
-          const answersResponse = await fetch(nextUrl, {
-            headers: { 'Content-Type': 'application/json' }
-          });
-
-          if (answersResponse.ok) {
-            const answersData = await answersResponse.json();
-            allAnswers = [...allAnswers, ...(answersData.results || [])];
-            nextUrl = answersData.next || null;
-          } else {
-            break;
-          }
-        }
-
-        const relevantAnswers = allAnswers.filter(
-          (answer: UserAnswer) => {
-            const questionId = typeof answer.question === 'object' ? (answer.question as { id: string }).id : answer.question;
-            // Match by question ID or by question_number
-            const matchById = questionsList.some(q => q.id === questionId);
-            const matchByNumber = typeof answer.question === 'object' &&
-              (answer.question as { question_number?: number }).question_number === questionNumber;
-            return matchById || matchByNumber;
-          }
-        );
-        console.log('📋 Fetched relevant answers from API:', {
-          totalAnswers: allAnswers.length,
-          relevantCount: relevantAnswers.length
-        });
-        // Log each answer's question ID separately for clarity
-        relevantAnswers.forEach((a, i) => {
-          const qId = typeof a.question === 'object' ? (a.question as any).id : a.question;
-          const qName = typeof a.question === 'object' ? (a.question as any).question_name : 'unknown';
-          console.log(`📌 Answer ${i + 1}: questionId=${qId}, questionName=${qName}, me_answer=${a.me_answer}`);
-        });
-        // Also log the question IDs we're trying to match against
-        console.log('📋 Questions we have:', questionsList.map(q => ({ id: q.id, name: q.question_name })));
-        
+        // Process answers — already filtered by question_number on the server
+        const answersData = answersRes.ok ? await answersRes.json() : { results: [] };
+        const relevantAnswers: UserAnswer[] = answersData.results || [];
         setExistingAnswers(relevantAnswers);
-        
-        // Fetch user's required question IDs (UserRequiredQuestion)
+
+        // Process required questions
         let requiredQuestionIds: string[] = [];
-        try {
-          const reqRes = await fetch(
-            `${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId)}&page_size=200`,
-            { headers: { 'Content-Type': 'application/json' } }
-          );
-          if (reqRes.ok) {
-            const reqData = await reqRes.json();
-            requiredQuestionIds = (reqData.results ?? []).map((r: { question_id: string }) => r.question_id);
-          }
-        } catch (_) {
-          // Non-fatal; meRequired will default to false
+        if (requiredRes.ok) {
+          const reqData = await requiredRes.json();
+          requiredQuestionIds = (reqData.results ?? []).map((r: { question_id: string }) => r.question_id);
         }
-        
+
         // Initialize state based on existing answers
         initializeAnswerState(questionsList, relevantAnswers);
         // Per-user required: meRequired from user-required-questions list, else question default
@@ -784,7 +722,6 @@ function QuestionEditPageContent() {
   };
 
   const handleSingleOptionClick = (question: Question) => {
-    console.log('🔵 handleSingleOptionClick called', { questionNumber, questionName: question.question_name });
     setSelectedOption(question.question_name);
 
     // Navigate to individual question slider page for this specific sub-question
@@ -829,8 +766,6 @@ function QuestionEditPageContent() {
     // Use named route if available, otherwise use question number
     const route = namedRoutes[questionNumber] || questionNumber.toString();
     const fullUrl = `/auth/question/${route}?${params.toString()}`;
-
-    console.log('🔵 Navigating to:', fullUrl);
 
     // Navigate to auth-style individual question page for this option
     router.push(fullUrl);
@@ -895,8 +830,6 @@ function QuestionEditPageContent() {
       });
       
       localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
-      console.log('✅ Immediately saved questions to localStorage:', questions.map(q => q.id));
-
       const updates = [];
 
       if ([1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || (questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped')) {
@@ -1377,7 +1310,6 @@ function QuestionEditPageContent() {
   };
 
   const renderQuestionContent = () => {
-    console.log('🔴 renderQuestionContent called', { questionNumber, questionsCount: questions?.length, firstQuestionType: questions?.[0]?.question_type });
     if (!questions || questions.length === 0) return null;
 
     // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
@@ -1723,13 +1655,6 @@ function QuestionEditPageContent() {
     }
 
     // Grouped questions (question_type === 'grouped') - Card selection UI like ethnicity
-    console.log('🟡 About to check grouped at line 1601:', {
-      questionNumber,
-      questionsLength: questions.length,
-      firstQuestion: questions[0],
-      questionType: questions[0]?.question_type,
-      isGrouped: questions.length > 0 && questions[0].question_type === 'grouped'
-    });
     if (questions.length > 0 && questions[0].question_type === 'grouped') {
       const visibleQuestions = showAllGroupedOptions ? questions : questions.slice(0, 6);
       const hasMoreQuestions = questions.length > 6;
@@ -1746,13 +1671,6 @@ function QuestionEditPageContent() {
                   ? answer.question.id
                   : answer.question;
                 return answeredQuestionId === question.id;
-              });
-
-              // Debug: Log the isAnswered check for each question
-              console.log(`🔍 isAnswered check for "${question.question_name}":`, {
-                questionId: question.id,
-                existingAnswersCount: existingAnswers.length,
-                isAnswered
               });
 
               return (
@@ -1814,10 +1732,7 @@ function QuestionEditPageContent() {
     // Grouped questions - show as card selection (Ethnicity, Education, Diet, Faith, Ideology)
     // Check if this is a grouped question type
     const isGroupedQuestion = questions.length > 0 && questions[0].question_type === 'grouped';
-    console.log('🟢 Checking if grouped:', { questionNumber, isGroupedQuestion, questionType: questions[0]?.question_type, questionsCount: questions.length });
-
     if (isGroupedQuestion) {
-      console.log('🟢 Rendering grouped question cards for question', questionNumber);
       const optionIcons: Record<number, string> = {
         3: '/assets/ethn.png',
         4: '/assets/cpx.png',

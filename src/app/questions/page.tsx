@@ -1104,8 +1104,6 @@ function QuestionsPageContent() {
   };
 
   const handleQuestionClick = (questionNumber: number) => {
-    sessionStorage.setItem('questionsData', JSON.stringify(questions));
-    sessionStorage.setItem('questionsDataTimestamp', Date.now().toString());
     sessionStorage.setItem('questions_current_page', currentPage.toString());
     router.push(`/questions/${questionNumber}`);
   };
