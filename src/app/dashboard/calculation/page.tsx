@@ -647,7 +647,6 @@ export default function CalculationPage() {
     totalScore: number,
     totalMax: number,
     requiredIds: Set<string>,
-    otherRequiredIds: Set<string>,
   ) => (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-6 border-b border-gray-200">
@@ -705,8 +704,7 @@ export default function CalculationPage() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {results.map((result, index) => {
-              const isP1Req = requiredIds.has(result.questionId.toLowerCase());
-              const isP2Req = otherRequiredIds.has(result.questionId.toLowerCase());
+              const isReq = requiredIds.has(result.questionId.toLowerCase());
               const isNotAnswered = result.status === 'not_answered';
               return (
                 <tr key={index} className={isNotAnswered ? 'bg-red-50' : 'hover:bg-gray-50'}>
@@ -718,18 +716,11 @@ export default function CalculationPage() {
                   </td>
                   {!showRequired && (
                     <td className="px-4 py-4 whitespace-nowrap text-xs">
-                      <div className="flex gap-1">
-                        {isP1Req && (
-                          <span className="inline-block px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
-                            R
-                          </span>
-                        )}
-                        {isP2Req && (
-                          <span className="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-                            R
-                          </span>
-                        )}
-                      </div>
+                      {isReq && (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-medium">
+                          R
+                        </span>
+                      )}
                     </td>
                   )}
                   <td className="px-4 py-4 text-sm text-gray-900 whitespace-normal break-words max-w-xs">
@@ -818,6 +809,7 @@ export default function CalculationPage() {
               type="text"
               value={person1Search}
               onChange={(e) => handlePerson1Search(e.target.value)}
+              onBlur={() => setTimeout(() => setPerson1Results([]), 200)}
               placeholder="Search by name or username..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white text-gray-900"
             />
@@ -846,6 +838,7 @@ export default function CalculationPage() {
               type="text"
               value={person2Search}
               onChange={(e) => handlePerson2Search(e.target.value)}
+              onBlur={() => setTimeout(() => setPerson2Results([]), 200)}
               placeholder="Search by name or username..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white text-gray-900"
             />
@@ -1240,11 +1233,11 @@ export default function CalculationPage() {
           <>
             {renderResultTable(
               displayResults1, p1Name, dScore1, dMax1,
-              p1RequiredIds, p2RequiredIds
+              p1RequiredIds
             )}
             {renderResultTable(
               displayResults2, p2Name, dScore2, dMax2,
-              p2RequiredIds, p1RequiredIds
+              p2RequiredIds
             )}
           </>
         );

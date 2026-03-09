@@ -12,6 +12,8 @@ interface ProfileData {
   age: number;
   live: string;
   answers: number;
+  male: number;
+  female: number;
   restrictionType: string;
 }
 
@@ -59,6 +61,8 @@ export default function ProfilesPage() {
           age: user.age || 0,
           live: user.live || '',
           answers: user.questions_answered_count || 0,
+          male: questionAnswers['male'] ?? 0,
+          female: questionAnswers['female'] ?? 0,
           restrictionType: user.is_banned ? 'Restricted' : 'None'
         };
       });
@@ -296,6 +300,24 @@ export default function ProfilesPage() {
                     <span className="mt-1"><SortIcon field="answers" /></span>
                   </div>
                 </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('male')}
+                >
+                  <div className="flex flex-col">
+                    <span>Male</span>
+                    <span className="mt-1"><SortIcon field="male" /></span>
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('female')}
+                >
+                  <div className="flex flex-col">
+                    <span>Female</span>
+                    <span className="mt-1"><SortIcon field="female" /></span>
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Restriction Type
                 </th>
@@ -338,6 +360,12 @@ export default function ProfilesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {profile.answers}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {profile.male}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {profile.female}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
