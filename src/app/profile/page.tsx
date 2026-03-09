@@ -48,6 +48,13 @@ interface ProfileIcon {
   options: Array<{ value: string; label: string }>;
 }
 
+const LOADING_MESSAGES = [
+  'Analyzing your preferences',
+  'Finding compatible matches',
+  'Personalizing your experience',
+  'Almost ready',
+];
+
 export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,8 +116,12 @@ export default function ProfilePage() {
   const loading = userLoading || answersLoading;
   const error = userError ? (userError.status === 401 || userError.status === 403 ? '' : 'Failed to load profile') : '';
 
+  const hasStartedLoading = useRef(false);
   useEffect(() => {
-    if (!loading) timingLog('all loading complete — rendering content');
+    if (loading) hasStartedLoading.current = true;
+  }, [loading]);
+  useEffect(() => {
+    if (!loading && hasStartedLoading.current) timingLog('all loading complete — rendering content');
   }, [loading, timingLog]);
 
   // Handle auth errors
@@ -473,12 +484,6 @@ export default function ProfilePage() {
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState(0);
   
-  const messages = [
-    'Analyzing your preferences',
-    'Finding compatible matches',
-    'Personalizing your experience',
-    'Almost ready'
-  ];
 
   // Clear the flag once profile is loaded (from onboarding flow)
   useEffect(() => {
@@ -503,14 +508,14 @@ export default function ProfilePage() {
 
     // Change message every 2000ms (2 seconds)
     const messageInterval = setInterval(() => {
-      setMessage(prev => (prev + 1) % messages.length);
+      setMessage(prev => (prev + 1) % LOADING_MESSAGES.length);
     }, 2000);
 
     return () => {
       clearInterval(progressInterval);
       clearInterval(messageInterval);
     };
-  }, [loading, showLoadingPage, messages.length]);
+  }, [loading, showLoadingPage, LOADING_MESSAGES.length]);
 
   // If coming from onboarding (showLoadingPage is true), show loading page UI instead of spinner
   if (loading && showLoadingPage) {
@@ -531,7 +536,7 @@ export default function ProfilePage() {
           {/* Message with fade transition */}
           <div className="text-center mb-12 min-h-[40px]">
             <p className="text-xl text-gray-700 font-medium" key={message}>
-              {messages[message]}
+              {LOADING_MESSAGES[message]}
             </p>
           </div>
 

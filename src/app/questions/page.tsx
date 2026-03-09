@@ -2,14 +2,14 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { useQuestionMetadata } from '@/hooks/useQuestionMetadata';
-import { useUserAnswers } from '@/hooks/useUserAnswers';
+import { useAnsweredQuestions } from '@/hooks/useAnsweredQuestions';
 
 interface Question {
   id: string;
@@ -30,13 +30,6 @@ interface Question {
   is_submitted_by_me?: boolean;  // Computed by backend
 }
 
-interface UserAnswer {
-  id: string;
-  question: Question;
-  me_answer: number;
-  looking_for_answer: number;
-}
-
 function QuestionsPageContent() {
   // --- Timing diagnostics ---
   const mountTime = useRef(performance.now());
@@ -48,15 +41,11 @@ function QuestionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
   // Ref tracks whether the filter-specific fetch has completed at least once.
   // Starts false so we show the loader until filter data is ready.
   // Using a ref (not state) avoids SSR hydration mismatches.
   const filterFetchDone = useRef(false);
-  // Tracks whether the main fetch has finished loading userAnswers.
-  // Prevents the filter effect from concluding "0 answers" before data loads.
-  const answersLoaded = useRef(false);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
@@ -137,15 +126,20 @@ function QuestionsPageContent() {
   });
   const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
 
+  // SWR hook — lightweight answered-question-numbers fetch (must be before filterPending)
+  const { answeredQuestionNumbers, answeredLoading } = useAnsweredQuestions(userId || null);
+
   // Compute whether filter is active and data isn't ready (checked during render)
   const filterActive = filters.questions.answered || filters.questions.unanswered;
-  const filterPending = filterActive && !filterFetchDone.current;
+  const filterPending = filterActive && (answeredLoading || !filterFetchDone.current);
 
   // Show loader when per-page questions haven't been fetched yet even though
   // SWR metadata has loaded.  This closes the gap where `loading` becomes false
   // (SWR cache hit) but `fetchQuestionsForCurrentPage` hasn't completed yet.
-  const awaitingPageFetch = !loading && allQuestionNumbers.length > 0 &&
-    questions.length === 0 && !searchTerm.trim() && !filterActive;
+  // Also catches the gap where questions are fetched but filteredQuestions hasn't
+  // been populated yet (the display chain uses filteredQuestions, not questions).
+  const awaitingPageFetch = !loading && !searchTerm.trim() && !filterActive &&
+    (filteredQuestions.length === 0 && totalQuestionGroups > 0);
 
   // Cycle loading text while questions are loading
   const isShowingLoader = loading || filterPending || awaitingPageFetch;
@@ -249,13 +243,10 @@ function QuestionsPageContent() {
     metadataLoading: swrMetadataLoading,
     mutateMetadata,
   } = useQuestionMetadata();
-  const { answers: swrAnswers, answersLoading: swrAnswersLoading } = useUserAnswers<UserAnswer>(userId || null);
 
   // Stable serialized key to prevent infinite re-render loops.
-  // SWR may return new object references for the same data; JSON.stringify
-  // gives us a value-based comparison so the effect only fires on real changes.
   const metadataKey = JSON.stringify(swrQuestionNumbers);
-  const answersKey = swrAnswers.length; // cheap proxy — length change means new data
+  const answeredKey = JSON.stringify(answeredQuestionNumbers);
 
   // Sync SWR metadata into existing state variables (bridges SWR → existing logic)
   useEffect(() => {
@@ -269,32 +260,27 @@ function QuestionsPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadataKey]);
 
-  // Sync SWR answers into existing state
+  // Log when answered question numbers arrive
   const filterAnsweredRef = useRef(false);
   useEffect(() => {
-    if (!swrAnswersLoading && swrAnswers !== userAnswers) {
-      timingLog('answers synced', { count: swrAnswers.length });
-      setUserAnswers(swrAnswers);
-      answersLoaded.current = true;
+    if (!answeredLoading && answeredQuestionNumbers.length > 0) {
+      timingLog('answered questions loaded', { count: answeredQuestionNumbers.length });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answersKey, swrAnswersLoading]);
+  }, [answeredLoading, answeredQuestionNumbers.length, timingLog]);
 
-  // Handle answered/unanswered filter when both metadata and answers are ready
+  // Handle answered/unanswered filter when both metadata and answered data are ready
   useEffect(() => {
-    if (swrAnswersLoading || swrQuestionNumbers.length === 0) return;
+    if (answeredLoading || swrQuestionNumbers.length === 0) return;
     const willFilterAnswered = filters.questions.answered;
     const willFilterUnanswered = filters.questions.unanswered;
     if (!(willFilterAnswered || willFilterUnanswered) || filterFetchDone.current) return;
-    if (filterAnsweredRef.current) return; // prevent duplicate fetches
+    if (filterAnsweredRef.current) return;
     filterAnsweredRef.current = true;
 
-    const answeredNumbers = new Set(
-      swrAnswers.map((a: UserAnswer) => a.question.question_number)
-    );
+    const answeredSet = new Set(answeredQuestionNumbers);
     const matchingNumbers = willFilterAnswered
-      ? swrQuestionNumbers.filter((n: number) => answeredNumbers.has(n))
-      : swrQuestionNumbers.filter((n: number) => !answeredNumbers.has(n));
+      ? swrQuestionNumbers.filter((n: number) => answeredSet.has(n))
+      : swrQuestionNumbers.filter((n: number) => !answeredSet.has(n));
 
     if (matchingNumbers.length > 0) {
       const params = matchingNumbers.map((n: number) => `question_number=${n}`).join('&');
@@ -309,23 +295,24 @@ function QuestionsPageContent() {
           });
           setFilteredQuestions(allQuestions);
           filterFetchDone.current = true;
-          lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${swrAnswers.length}`;
+          lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
         });
     } else {
       setFilteredQuestions([]);
       filterFetchDone.current = true;
-      lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${swrAnswers.length}`;
+      lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metadataKey, answersKey, swrAnswersLoading, filters.questions.answered, filters.questions.unanswered]);
+  }, [metadataKey, answeredKey, answeredLoading, filters.questions.answered, filters.questions.unanswered]);
 
-  // Derive loading from SWR states
+  // Derive loading from metadata only — questions display as soon as metadata arrives.
+  // Answered data loads in parallel and fills in when ready.
   useEffect(() => {
-    if (!swrMetadataLoading && !swrAnswersLoading) {
-      timingLog('SWR loading complete (metadata + answers ready)');
+    if (!swrMetadataLoading) {
+      timingLog('SWR loading complete (metadata ready)');
       setLoading(false);
     }
-  }, [swrMetadataLoading, swrAnswersLoading, timingLog]);
+  }, [swrMetadataLoading, timingLog]);
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -678,11 +665,7 @@ function QuestionsPageContent() {
     };
 
     const isQuestionAnswered = (questionNumber: number): boolean => {
-      // Always use userAnswers check since backend is_answered requires authentication
-      // and may not be reliable for unauthenticated requests
-      // Check if ANY answer exists for this question number
-      // This works for ANY question number, not just loaded ones
-      return userAnswers.some(answer => answer.question.question_number === questionNumber);
+      return answeredQuestionNumbers.includes(questionNumber);
     };
 
     const isQuestionUnanswered = (questionNumber: number): boolean => {
@@ -801,7 +784,7 @@ function QuestionsPageContent() {
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
-    }, [filters, questions, userAnswers, allQuestionNumbers]);
+    }, [filters, questions, answeredQuestionNumbers, allQuestionNumbers]);
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
@@ -835,8 +818,8 @@ function QuestionsPageContent() {
       }
 
       // Create a stable key for the current filter state to prevent duplicate fetches
-      const filterKey = `${filters.questions.answered}-${filters.questions.unanswered}-${allQuestionNumbers.length}-${userAnswers.length}`;
-      
+      const filterKey = `${filters.questions.answered}-${filters.questions.unanswered}-${allQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
+
       if (isFetchingFilteredQuestions.current || lastFilterState.current === filterKey) {
         return;
       }
@@ -844,7 +827,7 @@ function QuestionsPageContent() {
       isFetchingFilteredQuestions.current = true;
       lastFilterState.current = filterKey;
 
-      if (filters.questions.answered && userAnswers.length === 0) {
+      if (filters.questions.answered && answeredQuestionNumbers.length === 0) {
         setFilteredQuestions([]);
         filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
@@ -852,18 +835,16 @@ function QuestionsPageContent() {
       }
 
       // Determine which question numbers match the filter
-      const answeredQuestionNumbers = new Set(
-        userAnswers.map(answer => answer.question.question_number)
-      );
+      const answeredSet = new Set(answeredQuestionNumbers);
 
       let matchingQuestionNumbers: number[];
       if (filters.questions.answered) {
         matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
-          answeredQuestionNumbers.has(qNum)
+          answeredSet.has(qNum)
         );
       } else if (filters.questions.unanswered) {
         matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
-          !answeredQuestionNumbers.has(qNum)
+          !answeredSet.has(qNum)
         );
       } else {
         return;
@@ -931,7 +912,7 @@ function QuestionsPageContent() {
     };
 
     fetchFilteredQuestions();
-  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, userAnswers.length, searchTerm, loading]);
+  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, answeredQuestionNumbers.length, searchTerm, loading]);
 
   // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
   useEffect(() => {
@@ -1124,7 +1105,6 @@ function QuestionsPageContent() {
 
   const handleQuestionClick = (questionNumber: number) => {
     sessionStorage.setItem('questionsData', JSON.stringify(questions));
-    sessionStorage.setItem('userAnswersData', JSON.stringify(userAnswers));
     sessionStorage.setItem('questionsDataTimestamp', Date.now().toString());
     sessionStorage.setItem('questions_current_page', currentPage.toString());
     router.push(`/questions/${questionNumber}`);
@@ -1235,7 +1215,11 @@ function QuestionsPageContent() {
   };
 
 
-  if (loading || filterPending) {
+  // Final loader gate: if we have 0 questions to display but know questions exist,
+  // show the loader. This catches every gap regardless of which state variable lags.
+  const contentNotReady = paginatedGroupedQuestions.length === 0 && totalQuestionGroups > 0
+    && !searchTerm.trim() && !error;
+  if (isShowingLoader || contentNotReady) {
     const loadingTexts = ['Loading questions...', 'Gathering your answers...', 'Almost ready...'];
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
