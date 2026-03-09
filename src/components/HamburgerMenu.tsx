@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { preload } from 'swr';
+import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import NotificationBell from './NotificationBell';
 import ChatBell from './ChatBell';
+
+const defaultFetcher = (url: string) => fetch(url, { headers: { 'Content-Type': 'application/json' } }).then(r => r.json());
+const answersFetcher = (url: string) => fetch(url, { headers: { 'Content-Type': 'application/json' } }).then(r => r.json()).then(d => d.results || []);
 
 interface HamburgerMenuProps {
   className?: string;
@@ -45,6 +50,21 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
     router.push(path);
     setShowMenu(false);
   };
+
+  // Prefetch data on hover so pages load instantly
+  const prefetchProfile = useCallback(() => {
+    if (userId) {
+      preload(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, defaultFetcher);
+      preload(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=1000`, answersFetcher);
+    }
+  }, [userId]);
+
+  const prefetchQuestions = useCallback(() => {
+    preload(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`, defaultFetcher);
+    if (userId) {
+      preload(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=1000`, answersFetcher);
+    }
+  }, [userId]);
 
   return (
     <div className={`flex items-center gap-1.5 md:gap-3 ${className}`}>
@@ -92,6 +112,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           {/* Desktop: Always show "My Profile" */}
           {!isMobile && (
             <button
+              onMouseEnter={prefetchProfile}
               onClick={() => handleNavigation('/profile')}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             >
@@ -102,6 +123,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           {/* Mobile: Toggle between "My Profile" and "Edit Profile" based on current page */}
           {isMobile && (
             <button
+              onMouseEnter={!isProfilePage ? prefetchProfile : undefined}
               onClick={() => handleNavigation(isProfilePage ? '/profile/edit' : '/profile')}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             >
@@ -110,6 +132,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           )}
 
           <button
+            onMouseEnter={prefetchQuestions}
             onClick={() => handleNavigation('/questions')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
@@ -117,6 +140,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           </button>
 
           <button
+            onMouseEnter={prefetchQuestions}
             onClick={() => handleNavigation('/questions?filter=answered')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
@@ -226,6 +226,16 @@ function ResultsPageContent() {
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
   const lastCompatibilityTypeRef = useRef<string>('');
+  const isCheckingMatchesRef = useRef(false);
+  const hasMountedRef = useRef(false);
+
+  // --- Timing diagnostics ---
+  const mountTime = useRef(performance.now());
+  const timingLog = useCallback((label: string, extra?: Record<string, unknown>) => {
+    const elapsed = (performance.now() - mountTime.current).toFixed(0);
+    console.log(`⏱️ [Results ${elapsed}ms] ${label}`, extra ?? '');
+  }, []);
+
   const showFiltersApplied = hasHydrated && filtersApplied;
 
   // Filter state - load from sessionStorage on mount
@@ -276,10 +286,9 @@ function ResultsPageContent() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`🏷️ Tags for user ${userId}:`, data.tags);
         return data.tags || [];
       } else {
-        console.error(`❌ Failed to fetch tags for user ${userId}, status:`, response.status);
+        console.error(`Failed to fetch tags for user ${userId}, status:`, response.status);
       }
     } catch (error) {
       console.error('Error fetching tags for user:', userId, error);
@@ -288,21 +297,32 @@ function ResultsPageContent() {
   };
 
   // Fetch tags for multiple users in parallel
-  const fetchTagsForProfiles = async (profiles: ResultProfile[]): Promise<ResultProfile[]> => {
+  const fetchTagsForProfiles = async (profilesToTag: ResultProfile[]): Promise<ResultProfile[]> => {
     const currentUserId = localStorage.getItem('user_id');
-    if (!currentUserId) return profiles;
+    if (!currentUserId) return profilesToTag;
 
     try {
-      // Fetch tags for all users in parallel
-      const tagPromises = profiles.map(async (profile) => {
+      const tagPromises = profilesToTag.map(async (profile) => {
         const tags = await fetchUserTags(profile.user.id);
         const normalizedTags = tags.map(t => t.toLowerCase());
         const hasLike = normalizedTags.includes('like');
 
-        // Check for match if user has liked this profile
         let isMatched = false;
         if (hasLike) {
-          isMatched = await checkForMatch(profile.user.id, normalizedTags);
+          // Inline reverse-direction check (avoids second API call through checkForMatch)
+          try {
+            const theirResp = await fetch(
+              `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${profile.user.id}&result_user_id=${currentUserId}`,
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+            if (theirResp.ok) {
+              const theirData = await theirResp.json();
+              const theirTags = (theirData.tags || []).map((t: string) => t.toLowerCase());
+              isMatched = theirTags.includes('like');
+            }
+          } catch {
+            // Silently fail match check
+          }
         }
 
         return {
@@ -316,7 +336,7 @@ function ResultsPageContent() {
       return await Promise.all(tagPromises);
     } catch (error) {
       console.error('Error fetching tags for profiles:', error);
-      return profiles;
+      return profilesToTag;
     }
   };
 
@@ -324,7 +344,6 @@ function ResultsPageContent() {
   // filtersOverride lets the caller pass freshly-committed filters so we don't
   // depend on stale closure values after a setState in the same tick.
   const fetchCompatibleUsers = async (page = 1, applyFilters = false, filtersOverride?: typeof filters) => {
-    console.log(`🚀 fetchCompatibleUsers called: page=${page}, applyFilters=${applyFilters}`);
     const activeFilters = filtersOverride ?? filters;
 
     try {
@@ -416,28 +435,14 @@ function ResultsPageContent() {
           params.user_id = currentUserId;
         }
 
-        console.log('📊 API params with filters:', params);
-        console.log('📊 [THEIR REQUIRED] required_scope=', params.required_scope, 'required_only=', params.required_only, 'sort=', params.sort);
       } else {
-        // Add user_id for non-filtered calls too
         const currentUserId = localStorage.getItem('user_id');
         if (currentUserId) {
           params.user_id = currentUserId;
         }
-        console.log('📊 API params (no filters):', params);
       }
 
-      console.log('🌐 Calling apiService.getCompatibleUsers...');
       const response = await apiService.getCompatibleUsers(params);
-      console.log('✅ API response received:', response);
-      const resultOrder = (response.results || []).map((r: { user: { id: string }; compatibility?: { their_required_compatibility?: number; required_im_compatible_with?: number } }) => r.user?.id);
-      const resultScores = (response.results || []).slice(0, 5).map((r: { user: { id: string }; compatibility?: { their_required_compatibility?: number; required_im_compatible_with?: number } }) => ({
-        id: r.user?.id,
-        their_required_compatibility: r.compatibility?.their_required_compatibility,
-        required_im_compatible_with: r.compatibility?.required_im_compatible_with
-      }));
-      console.log('📊 [THEIR REQUIRED] Response order (user ids):', resultOrder);
-      console.log('📊 [THEIR REQUIRED] First 5 scores:', resultScores);
 
       // Transform API response to match ResultProfile interface
       const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
@@ -453,18 +458,9 @@ function ResultsPageContent() {
         tags: [] // Initialize empty tags array
       }));
 
-      // Fetch tags for all profiles
-      console.log('🏷️ Fetching tags for profiles...');
       const profilesWithTags = await fetchTagsForProfiles(transformedProfiles);
-      console.log('✅ Tags fetched for profiles:', profilesWithTags.map(p => ({ id: p.user.id, tags: p.tags })));
 
-      // Note: Hidden users are now filtered on the backend, so we don't need to filter them here
-      // The backend ensures we always get the requested number of non-hidden users per page
-      // Only filter if explicitly filtering for Hide tag
       const isFilteringForHide = applyFilters && (activeFilters.tags.includes('Hide') || activeFilters.tags.includes('Hidden'));
-
-      console.log('🏷️ Filter tags:', activeFilters.tags);
-      console.log('📋 Profiles with tags:', profilesWithTags.map(p => ({ id: p.user.id, name: p.user.first_name, tags: p.tags })));
 
       // Apply client-side filtering
       let filteredProfiles = profilesWithTags;
@@ -477,8 +473,6 @@ function ResultsPageContent() {
       // Note: Required/Pending/Their Required/Their Pending filtering is now done server-side
       // This ensures proper pagination (no ghost cards)
 
-      console.log(`🔍 Profiles after filtering: ${filteredProfiles.length} (backend handles Required/Pending filters)`);
-
       if (page === 1) {
         setProfiles(filteredProfiles);
       } else {
@@ -490,6 +484,7 @@ function ResultsPageContent() {
       setFilteredTotalCount(applyFilters ? totalFromResponse : null);
       setHasNextPage(response.has_next || false);
       setCurrentPage(page);
+      timingLog('fetchCompatibleUsers', { page, count: filteredProfiles.length, total: totalFromResponse });
 
     } catch (error) {
       console.error('Error fetching compatible users:', error);
@@ -556,7 +551,6 @@ function ResultsPageContent() {
           const matchesArray = JSON.parse(celebratedMatchesStr) as string[];
           const matches = new Set<string>(matchesArray);
           setCelebratedMatches(matches);
-          console.log('📦 Loaded celebrated matches from localStorage on mount:', Array.from(matches));
         } catch (error) {
           console.error('Error parsing celebrated matches from localStorage:', error);
         }
@@ -565,19 +559,20 @@ function ResultsPageContent() {
   }, []);
 
   useEffect(() => {
-    // Check if filters are active (not just default values)
-    const hasActiveFilters = filtersApplied || 
-      filters.compatibility.min !== 0 || 
+    if (hasMountedRef.current) return;
+    hasMountedRef.current = true;
+    timingLog('mount effect');
+
+    const hasActiveFilters = filtersApplied ||
+      filters.compatibility.min !== 0 ||
       filters.compatibility.max !== 100 ||
-      filters.distance.min !== 1 || 
+      filters.distance.min !== 1 ||
       filters.distance.max !== 100 ||
-      filters.age.min !== 18 || 
+      filters.age.min !== 18 ||
       filters.age.max !== 80 ||
       (filters.tags && filters.tags.length > 0) ||
       filters.requiredOnly;
 
-    // If filters are active, fetch with filters applied
-    // Otherwise, fetch without filters
     if (!isApplyingFilters) {
       if (hasActiveFilters) {
         fetchCompatibleUsers(1, true);
@@ -585,8 +580,7 @@ function ResultsPageContent() {
         fetchCompatibleUsers(1, false);
       }
     }
-    // Always check for matches on page load, regardless of filters
-    checkForMatchesOnLoad();
+    // Match checking is handled by the profiles.length effect after data loads
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check for matches when page becomes visible (user navigates back to results page)
@@ -643,7 +637,6 @@ function ResultsPageContent() {
       let filteredProfiles = profiles;
       if (searchTerm.trim()) {
         const searchLower = searchTerm.toLowerCase().trim();
-        console.log('🔍 Searching for:', searchLower, 'in', profiles.length, 'profiles by field:', searchField);
         filteredProfiles = profiles.filter(profile => {
           let matches = false;
           
@@ -666,32 +659,19 @@ function ResultsPageContent() {
               break;
           }
           
-          if (matches) {
-            console.log('✅ Match found:', profile.user.first_name, searchField, profile.user[searchField === 'name' ? 'first_name' : searchField === 'username' ? 'username' : searchField === 'live' ? 'live' : 'bio']);
-          }
-          
           return matches;
         });
-        console.log('📊 Filtered results:', filteredProfiles.length, 'matches');
-        if (filteredProfiles.length === 0 && profiles.length > 0 && !loading) {
-          console.log('⚠️ No matches found for search term:', searchTerm, 'in field:', searchField);
-        }
       }
 
       // Apply distance filtering if filters are applied and current user's live field is available
       if (filtersApplied && currentUserLive && filters.distance) {
-        const beforeFilterCount = filteredProfiles.length;
-        let excludedByDistance = 0;
-        let includedUnknownCities = 0;
         
         // Maximum distance in the CSV is 64 miles (Hutto to San Marcos)
         // If max distance filter is >= 65, include all profiles since they're all within range
         const maxDistanceInCSV = 64;
         const shouldIncludeAll = filters.distance.max >= maxDistanceInCSV;
         
-        if (shouldIncludeAll) {
-          console.log(`📍 Distance filter max (${filters.distance.max}mi) exceeds CSV max (${maxDistanceInCSV}mi), including all profiles`);
-        } else {
+        if (!shouldIncludeAll) {
           filteredProfiles = filteredProfiles.filter(profile => {
             const profileLive = profile.user.live;
             const distance = getDistance(currentUserLive, profileLive);
@@ -699,26 +679,15 @@ function ResultsPageContent() {
             // If distance is null (city not found), include the profile
             // This handles cases where cities aren't in the CSV or user hasn't set their live field
             if (distance === null) {
-              includedUnknownCities++;
               return true;
             }
 
             // Check if distance is within the filter range
             const isWithinRange = distance >= filters.distance.min && distance <= filters.distance.max;
-            if (!isWithinRange) {
-              excludedByDistance++;
-            }
             return isWithinRange;
           });
           
-          console.log(`📍 Distance filtered: ${filteredProfiles.length} profiles within ${filters.distance.min}-${filters.distance.max} miles`);
-          console.log(`   - Started with: ${beforeFilterCount} profiles`);
-          console.log(`   - Excluded by distance: ${excludedByDistance} profiles`);
-          console.log(`   - Included unknown cities: ${includedUnknownCities} profiles`);
-          console.log(`   - Current user live: ${currentUserLive}`);
         }
-      } else if (filtersApplied && filters.distance && !currentUserLive) {
-        console.warn('⚠️ Distance filter applied but current user live field is not available');
       }
       
       // Then sort the filtered profiles
@@ -895,13 +864,16 @@ function ResultsPageContent() {
 
   // Check for matches on page load and show celebrations for uncelebrated matches
   const checkForMatchesOnLoad = async () => {
-    console.log('🔍 checkForMatchesOnLoad called');
+    if (isCheckingMatchesRef.current) return;
+    isCheckingMatchesRef.current = true;
+
     const currentUserId = localStorage.getItem('user_id');
-    console.log('🔍 currentUserId:', currentUserId);
     if (!currentUserId) {
-      console.log('❌ No currentUserId, returning early');
+      isCheckingMatchesRef.current = false;
       return;
     }
+
+    timingLog('checkForMatchesOnLoad start');
 
     try {
       // Get all users I've liked
@@ -924,16 +896,12 @@ function ResultsPageContent() {
           const parsed = JSON.parse(celebratedMatchesStr) as string[];
           celebratedMatches = new Set(parsed);
         } catch (error) {
-          console.error('❌ Error parsing celebrated matches from localStorage:', error);
+          console.error('Error parsing celebrated matches from localStorage:', error);
           // If parsing fails, clear the corrupted data
           localStorage.removeItem(celebratedMatchesKey);
         }
       }
       
-      console.log('🎯 Checking for matches. Current userId:', currentUserId);
-      console.log('🎯 Celebrated matches key:', celebratedMatchesKey);
-      console.log('🎯 Celebrated matches in localStorage:', Array.from(celebratedMatches));
-
       // Check each user I've liked to see if they've liked me back
       for (const like of myLikes) {
         const matchedUserId = like.result_user?.id || like.result_user_id;
@@ -941,11 +909,8 @@ function ResultsPageContent() {
 
         // Create match key for this pair
         const matchKey = getMatchKey(currentUserId, matchedUserId);
-        console.log(`🔍 Checking match with user ${matchedUserId}, matchKey: ${matchKey}, already celebrated: ${celebratedMatches.has(matchKey)}`);
-
         // Skip if already celebrated
         if (celebratedMatches.has(matchKey)) {
-          console.log(`✅ Match ${matchKey} already celebrated, verifying it still exists...`);
           // Verify the match still exists - if not, remove from celebrated list
           const theirTagsResponse = await fetch(
             `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${matchedUserId}&result_user_id=${currentUserId}`,
@@ -956,13 +921,9 @@ function ResultsPageContent() {
             const theirData = await theirTagsResponse.json();
             const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
             
-            // If match no longer exists, remove from celebrated list
             if (!theirNormalizedTags.includes('like')) {
-              console.log(`❌ Match ${matchKey} no longer exists, removing from celebrated list`);
               celebratedMatches.delete(matchKey);
               localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
-            } else {
-              console.log(`✅ Match ${matchKey} still exists, skipping celebration`);
             }
           }
           continue;
@@ -979,8 +940,7 @@ function ResultsPageContent() {
           const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
           
           if (theirNormalizedTags.includes('like')) {
-            // It's a match! Show celebration
-            console.log(`🎉 NEW MATCH FOUND! User ${matchedUserId}, matchKey: ${matchKey}`);
+            timingLog('new match found', { matchedUserId, matchKey });
             const matchedUser = like.result_user || { 
               id: matchedUserId,
               first_name: like.result_user?.first_name || 'Someone',
@@ -998,7 +958,6 @@ function ResultsPageContent() {
             // Mark as celebrated using match key
             celebratedMatches.add(matchKey);
             localStorage.setItem(celebratedMatchesKey, JSON.stringify(Array.from(celebratedMatches)));
-            console.log(`💾 Saved match ${matchKey} to localStorage. Updated celebrated matches:`, Array.from(celebratedMatches));
             
             // Only show one celebration at a time
             break;
@@ -1007,6 +966,8 @@ function ResultsPageContent() {
       }
     } catch (error) {
       console.error('Error checking for matches on load:', error);
+    } finally {
+      isCheckingMatchesRef.current = false;
     }
   };
 
@@ -1351,10 +1312,7 @@ function ResultsPageContent() {
 
   const applyFiltersAndClose = async () => {
     // Prevent multiple simultaneous calls
-    if (isApplyingFilters) {
-      console.log('⚠️ Already applying filters, skipping...');
-      return;
-    }
+    if (isApplyingFilters) return;
 
     // Commit pending filters → actual filters
     const filtersToApply = { ...pendingFilters };
@@ -1368,8 +1326,6 @@ function ResultsPageContent() {
       filtersToApply.age.min === 18 && filtersToApply.age.max === 80 &&
       (!filtersToApply.tags || filtersToApply.tags.length === 0) &&
       !filtersToApply.requiredOnly;
-
-    console.log('🔍 Applying filters:', filtersToApply);
 
     try {
       setIsApplyingFilters(true); // Shows loading animation inside modal
@@ -1395,7 +1351,7 @@ function ResultsPageContent() {
       setShowFilterModal(false);
 
     } catch (error) {
-      console.error('❌ Error applying filters:', error);
+      console.error('Error applying filters:', error);
       setError('Failed to apply filters. Please try again.');
       setShowFilterModal(false);
     } finally {

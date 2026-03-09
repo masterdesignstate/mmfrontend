@@ -2,12 +2,14 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import { useQuestionMetadata } from '@/hooks/useQuestionMetadata';
+import { useUserAnswers } from '@/hooks/useUserAnswers';
 
 interface Question {
   id: string;
@@ -36,13 +38,12 @@ interface UserAnswer {
 }
 
 function QuestionsPageContent() {
-  // Debug: log render with sessionStorage state
-  if (typeof window !== 'undefined') {
-    console.log('🚀 QuestionsPage RENDER - sessionStorage:', {
-      questions_current_page: sessionStorage.getItem('questions_current_page'),
-      url: window.location.href
-    });
-  }
+  // --- Timing diagnostics ---
+  const mountTime = useRef(performance.now());
+  const timingLog = useCallback((label: string, extra?: Record<string, unknown>) => {
+    const elapsed = (performance.now() - mountTime.current).toFixed(0);
+    console.log(`⏱️ [${elapsed}ms] ${label}`, extra ?? '');
+  }, []);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,26 +86,8 @@ function QuestionsPageContent() {
   const pageRestoredRef = useRef(false);
   const restoredPageNumberRef = useRef<number | null>(null); // Track what page we restored to
 
-  // Debug: wrapper to log all setCurrentPage calls with stack trace
   const setCurrentPage = React.useCallback((newPage: number | ((prev: number) => number)) => {
-    if (typeof newPage === 'function') {
-      setCurrentPageInternal((prev) => {
-        const result = newPage(prev);
-        console.log(`📍 setCurrentPage(fn): ${prev} -> ${result}`, {
-          pageRestoredRef: pageRestoredRef.current,
-          restoredPageNumberRef: restoredPageNumberRef.current,
-          stack: new Error().stack?.split('\n').slice(2, 5).join('\n')
-        });
-        return result;
-      });
-    } else {
-      console.log(`📍 setCurrentPage: -> ${newPage}`, {
-        pageRestoredRef: pageRestoredRef.current,
-        restoredPageNumberRef: restoredPageNumberRef.current,
-        stack: new Error().stack?.split('\n').slice(2, 5).join('\n')
-      });
-      setCurrentPageInternal(newPage);
-    }
+    setCurrentPageInternal(newPage);
   }, []);
   const [totalPages, setTotalPages] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(0);
@@ -119,7 +102,7 @@ function QuestionsPageContent() {
   const filterAppliedFromUrl = useRef<boolean>(false);
   const isFetchingFilteredQuestions = useRef<boolean>(false);
   const lastFilterState = useRef<string>('');
-  const metadataRefreshInProgress = useRef<boolean>(false);
+  // metadataRefreshInProgress no longer needed — SWR handles dedup and revalidation
   const lastFetchedQuestionNumbersRef = useRef<string>('');
   const ROWS_PER_PAGE = 10;
   // Filter state - load from sessionStorage on mount
@@ -158,8 +141,14 @@ function QuestionsPageContent() {
   const filterActive = filters.questions.answered || filters.questions.unanswered;
   const filterPending = filterActive && !filterFetchDone.current;
 
+  // Show loader when per-page questions haven't been fetched yet even though
+  // SWR metadata has loaded.  This closes the gap where `loading` becomes false
+  // (SWR cache hit) but `fetchQuestionsForCurrentPage` hasn't completed yet.
+  const awaitingPageFetch = !loading && allQuestionNumbers.length > 0 &&
+    questions.length === 0 && !searchTerm.trim() && !filterActive;
+
   // Cycle loading text while questions are loading
-  const isShowingLoader = loading || filterPending;
+  const isShowingLoader = loading || filterPending || awaitingPageFetch;
   useEffect(() => {
     if (!isShowingLoader) return;
     const interval = setInterval(() => {
@@ -177,72 +166,44 @@ function QuestionsPageContent() {
 
   // Restore page from URL or sessionStorage on mount (only once) - runs synchronously before paint
   useLayoutEffect(() => {
-    if (pageRestoredRef.current) {
-      console.log('⏭️ Page already restored, skipping');
-      return; // Only restore once
-    }
+    if (pageRestoredRef.current) return;
     if (typeof window === 'undefined') return;
 
-    console.log('🔍 Starting page restoration...');
-
-    // Check URL query parameter first (synchronously from window.location to avoid timing issues)
     const urlParams = new URLSearchParams(window.location.search);
     const urlPage = urlParams.get('page') || searchParams?.get('page');
-    console.log('🔍 URL page param:', urlPage);
 
     if (urlPage) {
       const pageNum = parseInt(urlPage, 10);
       if (!isNaN(pageNum) && pageNum > 0) {
-        console.log('✅ Restoring page from URL:', pageNum);
         pageRestoredRef.current = true;
         restoredPageNumberRef.current = pageNum;
         sessionStorage.setItem('questions_current_page', pageNum.toString());
-        setCurrentPage(pageNum); // This will trigger the fetch effect
+        setCurrentPage(pageNum);
         return;
       }
     }
 
-    // Fall back to sessionStorage
     const savedPage = sessionStorage.getItem('questions_current_page');
-    console.log('🔍 Saved page from sessionStorage:', savedPage);
-
     if (savedPage) {
       const pageNum = parseInt(savedPage, 10);
       if (!isNaN(pageNum) && pageNum > 0) {
-        console.log('✅ Restoring page from sessionStorage:', pageNum);
         pageRestoredRef.current = true;
         restoredPageNumberRef.current = pageNum;
-        setCurrentPage(pageNum); // This will trigger the fetch effect
+        setCurrentPage(pageNum);
         return;
       }
     }
 
-    console.log('ℹ️ No page to restore, using default page 1');
     pageRestoredRef.current = true;
     restoredPageNumberRef.current = 1;
-    // Don't need to setCurrentPage(1) since it's already 1 by default
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run once on mount
+  }, []);
 
   // Save current page to sessionStorage whenever it changes (but not on initial restore)
-  // Also update restoredPageNumberRef so guards protect the new page number
   useEffect(() => {
-    console.log('💾 Save effect running:', {
-      currentPage,
-      pageRestoredRef: pageRestoredRef.current,
-      restoredPageNumberRef: restoredPageNumberRef.current,
-      willSave: pageRestoredRef.current
-    });
-    if (!pageRestoredRef.current) {
-      console.log('💾 Save effect: skipping (page not restored yet)');
-      return; // Don't save during initial restore
-    }
+    if (!pageRestoredRef.current) return;
     if (typeof window !== 'undefined') {
-      console.log(`💾 Saving page ${currentPage} to sessionStorage, updating ref from ${restoredPageNumberRef.current} to ${currentPage}`);
       sessionStorage.setItem('questions_current_page', currentPage.toString());
-      // Update the ref so filter effects don't reset to page 1
-      // This is crucial - without this, navigating to page 2 then triggering a filter
-      // would reset to page 1 because restoredPageNumberRef would still be 1
       restoredPageNumberRef.current = currentPage;
     }
   }, [currentPage]);
@@ -254,334 +215,117 @@ function QuestionsPageContent() {
     }
   }, [showFilterModal, filters]);
 
-  // Fetch question metadata (question numbers and answer counts) from backend in single optimized request
-  const fetchQuestionMetadata = async (forceRefresh: boolean = false) => {
-    try {
-      const cacheKey = 'questions_metadata';
-      const cachedData = sessionStorage.getItem(cacheKey);
-      const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-      const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
-      const shouldClearInvalidationFlag = !!invalidationFlag;
-      const now = Date.now();
-
-      // Check if cache was invalidated (question was approved/rejected)
-      if (invalidationFlag) {
-        console.log('🔄 Cache invalidation flag detected, forcing refresh');
-        forceRefresh = true;
-      }
-      if (forceRefresh) {
-        lastFetchedQuestionNumbersRef.current = '';
-      }
-
-      // Use cached metadata immediately for fast render, but still fetch fresh below
-      const cacheIsFresh = cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 60000; // 1 min cache
-      if (!forceRefresh && cacheIsFresh) {
-        console.log('Using cached question metadata');
-        const metadata = JSON.parse(cachedData as string);
-        console.log('📊 Cached Metadata:', {
-          distinct_question_numbers: metadata.distinct_question_numbers,
-          total_question_groups: metadata.total_question_groups,
-          question_count: metadata.distinct_question_numbers?.length
-        });
-        // Filter out any null values from distinct_question_numbers
-        const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
-        setAllQuestionNumbers(validQuestionNumbers);
-        setTotalQuestionGroups(metadata.total_question_groups);
-        setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
-        setAnswerCounts(metadata.answer_counts);
-        // Don't return early; continue to fetch fresh data to pick up approvals immediately
-      }
-      
-      // Build metadata URL; bypass backend cache on every network fetch (frontend caches in sessionStorage)
-      const metadataUrl = new URL(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`);
-      metadataUrl.searchParams.set('bypass_cache', 'true');
-      if (forceRefresh) {
-        console.log('🔄 Force refresh: bypassing backend cache');
-      } else {
-        console.log('🔄 Defaulting to backend cache bypass (frontend handles caching)');
-      }
-
-      console.log('🔍 Fetching metadata from:', metadataUrl.toString());
-      
-      const response = await fetch(metadataUrl.toString(), {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const metadata = await response.json();
-
-        console.log('📊 Fresh Metadata from API:', {
-          distinct_question_numbers: metadata.distinct_question_numbers,
-          total_question_groups: metadata.total_question_groups,
-          question_count: metadata.distinct_question_numbers?.length,
-          answer_counts: metadata.answer_counts
-        });
-        console.log('📊 All question numbers in metadata:', metadata.distinct_question_numbers);
-        const sortedNumbers = metadata.distinct_question_numbers.sort((a: number, b: number) => a - b);
-        console.log('📊 Missing numbers check:', {
-          all_numbers: sortedNumbers,
-          missing_13: !metadata.distinct_question_numbers.includes(13),
-          missing_18: !metadata.distinct_question_numbers.includes(18),
-          has_18: metadata.distinct_question_numbers.includes(18),
-          note: 'If missing, these questions either don\'t exist or are not approved (is_approved=False)',
-          was_force_refresh: forceRefresh,
-          cache_bypassed: forceRefresh
-        });
-        
-        // If we were force refreshing and 18 is still missing, log a warning
-        if (forceRefresh && !metadata.distinct_question_numbers.includes(18)) {
-          console.warn('⚠️ Force refresh completed but question 18 is still missing from metadata!');
-          console.warn('⚠️ This means question 18 either: 1) Doesn\'t exist, 2) Is not approved, or 3) Backend cache wasn\'t cleared');
-        }
-
-        // Cache the metadata
-        sessionStorage.setItem(cacheKey, JSON.stringify(metadata));
-        sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
-        if (shouldClearInvalidationFlag) {
-          sessionStorage.removeItem('questions_metadata_invalidated');
-        }
-
-        // Filter out any null values from distinct_question_numbers
-        const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
-        setAllQuestionNumbers(validQuestionNumbers);
-        setTotalQuestionGroups(metadata.total_question_groups);
-        setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
-        setAnswerCounts(metadata.answer_counts);
-
-        console.log(`Fetched metadata: ${metadata.total_question_groups} question groups`);
-        return validQuestionNumbers;
-      } else {
-        console.error('Failed to fetch question metadata');
-        return [];
-      }
-    } catch (error) {
-      console.error('Error fetching question metadata:', error);
-      
-      // If fetch failed but we have cached data, try to use it even if expired
-      const cacheKey = 'questions_metadata';
-      const cachedData = sessionStorage.getItem(cacheKey);
-      if (cachedData) {
-        console.log('⚠️ Using stale cache due to network error');
-        try {
-          const metadata = JSON.parse(cachedData);
-          const validQuestionNumbers = metadata.distinct_question_numbers.filter((num: number | null) => num !== null && num !== undefined);
-          setAllQuestionNumbers(validQuestionNumbers);
-          setTotalQuestionGroups(metadata.total_question_groups);
-          setTotalPages(Math.ceil(metadata.total_question_groups / ROWS_PER_PAGE));
-          setAnswerCounts(metadata.answer_counts);
-          return validQuestionNumbers;
-        } catch (parseError) {
-          console.error('Error parsing cached data:', parseError);
-        }
-      }
-      return [];
-    }
-  };
-
-
+  // --- SWR-powered data fetching (replaces manual fetch + sessionStorage cache) ---
+  // Resolve user ID from localStorage
   useEffect(() => {
-    const fetchQuestionsAndAnswers = async () => {
-      try {
-        // Get user ID from localStorage
-        const storedUserId = localStorage.getItem('user_id');
-        if (!storedUserId) {
-          setError('User ID not found');
-          router.push('/auth/login');
-          return;
-        }
-        setUserId(storedUserId);
+    const storedUserId = localStorage.getItem('user_id');
+    if (!storedUserId) {
+      setError('User ID not found');
+      router.push('/auth/login');
+      return;
+    }
+    setUserId(storedUserId);
 
-        // Check for refresh parameter and cache invalidation flag first (set when question is approved in dashboard)
-        let hasRefreshParam = false;
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          hasRefreshParam = url.searchParams.get('refresh') === 'true';
-          if (hasRefreshParam) {
-            url.searchParams.delete('refresh');
-            window.history.replaceState({}, '', url.toString());
-            sessionStorage.removeItem('questions_metadata');
-            sessionStorage.removeItem('questions_metadata_timestamp');
-          }
-        }
-
-        const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
-        const shouldForceRefresh = !!invalidationFlag || hasRefreshParam;
-        
-        if (invalidationFlag) {
-          console.log('🔄 Cache invalidation flag found on mount, will force refresh');
-        }
-        if (hasRefreshParam) {
-          console.log('🔄 Refresh parameter found on mount, will force refresh');
-        }
-
-        // Detect if answered/unanswered filter will be active (from URL or saved session)
-        let willFilterAnswered = false;
-        let willFilterUnanswered = false;
-        if (typeof window !== 'undefined') {
-          const urlFilter = new URLSearchParams(window.location.search).get('filter');
-          if (urlFilter === 'answered') willFilterAnswered = true;
-          try {
-            const saved = sessionStorage.getItem('questions_page_filters');
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              if (parsed.questions?.answered) willFilterAnswered = true;
-              if (parsed.questions?.unanswered) willFilterUnanswered = true;
-            }
-          } catch {}
-        }
-
-        // Helper to fetch all user answers (paginated)
-        const fetchAllAnswers = async (): Promise<UserAnswer[]> => {
-          let allAnswers: UserAnswer[] = [];
-          let answersUrl = `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&page_size=100`;
-          let hasMore = true;
-          while (hasMore) {
-            const resp = await fetch(answersUrl, {
-              headers: { 'Content-Type': 'application/json' },
-            });
-            if (resp.ok) {
-              const data = await resp.json();
-              allAnswers = [...allAnswers, ...(data.results || [])];
-              hasMore = !!data.next;
-              if (data.next) answersUrl = data.next;
-            } else {
-              hasMore = false;
-              console.error('Failed to fetch user answers');
-            }
-          }
-          return allAnswers;
-        };
-
-        // Fetch metadata AND answers in parallel (saves ~2-3s)
-        metadataRefreshInProgress.current = true;
-        const [questionNumbers, allAnswers] = await Promise.all([
-          fetchQuestionMetadata(shouldForceRefresh),
-          fetchAllAnswers()
-        ]);
-
-        setUserAnswers(allAnswers);
-        answersLoaded.current = true;
-
-        // If answered/unanswered filter is active, fetch filtered questions inline
-        // instead of waiting for the separate filter effect (saves another round-trip)
-        if ((willFilterAnswered || willFilterUnanswered) && questionNumbers.length > 0) {
-          const answeredNumbers = new Set(
-            allAnswers.map((a: UserAnswer) => a.question.question_number)
-          );
-          let matchingNumbers: number[];
-          if (willFilterAnswered) {
-            matchingNumbers = questionNumbers.filter((n: number) => answeredNumbers.has(n));
-          } else {
-            matchingNumbers = questionNumbers.filter((n: number) => !answeredNumbers.has(n));
-          }
-
-          if (matchingNumbers.length > 0) {
-            const params = matchingNumbers.map((n: number) => `question_number=${n}`).join('&');
-            let fetchUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${params}&page_size=100`;
-            let allQuestions: Question[] = [];
-            let hasMore = true;
-            let pageNum = 1;
-            while (hasMore && pageNum <= 5) {
-              const resp = await fetch(fetchUrl, {
-                headers: { 'Content-Type': 'application/json' },
-              });
-              const data = await resp.json();
-              allQuestions = [...allQuestions, ...(data.results || [])];
-              if (data.next) { fetchUrl = data.next; pageNum++; }
-              else { hasMore = false; }
-            }
-            allQuestions.sort((a, b) => {
-              if (a.question_number !== b.question_number) return a.question_number - b.question_number;
-              return (a.group_number || 0) - (b.group_number || 0);
-            });
-            setFilteredQuestions(allQuestions);
-            filterFetchDone.current = true;
-            // Set lastFilterState so the filter effect doesn't re-fetch
-            lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${questionNumbers.length}-${allAnswers.length}`;
-          } else {
-            setFilteredQuestions([]);
-            filterFetchDone.current = true;
-            lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${questionNumbers.length}-${allAnswers.length}`;
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load questions');
-      } finally {
-        metadataRefreshInProgress.current = false;
-        setLoading(false);
+    // Handle refresh parameter (set when question is approved in dashboard)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('refresh') === 'true') {
+        url.searchParams.delete('refresh');
+        window.history.replaceState({}, '', url.toString());
       }
-    };
-
-    fetchQuestionsAndAnswers();
+      // Clear legacy sessionStorage cache keys
+      const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
+      if (invalidationFlag) {
+        sessionStorage.removeItem('questions_metadata_invalidated');
+      }
+    }
   }, [router]);
 
-  // Refetch metadata when page becomes visible or focused (user navigates back from dashboard)
+  // SWR hooks — fire in parallel, cached across page navigations
+  const {
+    questionNumbers: swrQuestionNumbers,
+    totalQuestionGroups: swrTotalGroups,
+    answerCounts: swrAnswerCounts,
+    metadataLoading: swrMetadataLoading,
+    mutateMetadata,
+  } = useQuestionMetadata();
+  const { answers: swrAnswers, answersLoading: swrAnswersLoading } = useUserAnswers<UserAnswer>(userId || null);
+
+  // Stable serialized key to prevent infinite re-render loops.
+  // SWR may return new object references for the same data; JSON.stringify
+  // gives us a value-based comparison so the effect only fires on real changes.
+  const metadataKey = JSON.stringify(swrQuestionNumbers);
+  const answersKey = swrAnswers.length; // cheap proxy — length change means new data
+
+  // Sync SWR metadata into existing state variables (bridges SWR → existing logic)
   useEffect(() => {
-    const checkAndRefetch = async () => {
-      if (metadataRefreshInProgress.current) return;
-
-      // Check if cache invalidation flag exists (set when question is approved/rejected)
-      const invalidationFlag = sessionStorage.getItem('questions_metadata_invalidated');
-      if (invalidationFlag) {
-        console.log('🔄 Cache invalidation detected, refetching metadata');
-        metadataRefreshInProgress.current = true;
-        try {
-          const questionNumbers = await fetchQuestionMetadata(true);
-          if (questionNumbers && questionNumbers.length > 0) {
-            console.log('✅ Metadata refetched, new question numbers:', questionNumbers);
-            console.log('✅ Has question 18?', questionNumbers.includes(18));
-          }
-        } catch (error) {
-          console.error('Error refetching metadata:', error);
-        } finally {
-          metadataRefreshInProgress.current = false;
-        }
-        return;
-      }
-      
-      // Also check if cache is missing or expired
-      const cacheKey = 'questions_metadata';
-      const cachedData = sessionStorage.getItem(cacheKey);
-      const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-      
-      if (!cachedData || !cacheTimestamp || (Date.now() - parseInt(cacheTimestamp)) > 60000) { // 1 min cache
-        console.log('🔄 Cache missing/expired, refetching metadata');
-        try {
-          metadataRefreshInProgress.current = true;
-          await fetchQuestionMetadata(true);
-        } catch (error) {
-          console.error('Error refetching metadata:', error);
-        } finally {
-          metadataRefreshInProgress.current = false;
-        }
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('👁️ Page became visible, checking for cache invalidation');
-        checkAndRefetch();
-      }
-    };
-
-    const handleFocus = () => {
-      console.log('🎯 Window focused, checking for cache invalidation');
-      checkAndRefetch();
-    };
-
-    // Check when page becomes visible/focused
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
+    if (swrQuestionNumbers.length > 0) {
+      timingLog('metadata synced', { questionCount: swrQuestionNumbers.length, totalGroups: swrTotalGroups });
+      setAllQuestionNumbers(swrQuestionNumbers);
+      setTotalQuestionGroups(swrTotalGroups);
+      setTotalPages(Math.ceil(swrTotalGroups / ROWS_PER_PAGE));
+      setAnswerCounts(swrAnswerCounts);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // fetchQuestionMetadata is stable, don't need in deps
+  }, [metadataKey]);
+
+  // Sync SWR answers into existing state
+  const filterAnsweredRef = useRef(false);
+  useEffect(() => {
+    if (!swrAnswersLoading && swrAnswers !== userAnswers) {
+      timingLog('answers synced', { count: swrAnswers.length });
+      setUserAnswers(swrAnswers);
+      answersLoaded.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answersKey, swrAnswersLoading]);
+
+  // Handle answered/unanswered filter when both metadata and answers are ready
+  useEffect(() => {
+    if (swrAnswersLoading || swrQuestionNumbers.length === 0) return;
+    const willFilterAnswered = filters.questions.answered;
+    const willFilterUnanswered = filters.questions.unanswered;
+    if (!(willFilterAnswered || willFilterUnanswered) || filterFetchDone.current) return;
+    if (filterAnsweredRef.current) return; // prevent duplicate fetches
+    filterAnsweredRef.current = true;
+
+    const answeredNumbers = new Set(
+      swrAnswers.map((a: UserAnswer) => a.question.question_number)
+    );
+    const matchingNumbers = willFilterAnswered
+      ? swrQuestionNumbers.filter((n: number) => answeredNumbers.has(n))
+      : swrQuestionNumbers.filter((n: number) => !answeredNumbers.has(n));
+
+    if (matchingNumbers.length > 0) {
+      const params = matchingNumbers.map((n: number) => `question_number=${n}`).join('&');
+      fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${params}&page_size=500`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+        .then(resp => resp.json())
+        .then(data => {
+          const allQuestions = (data.results || []).sort((a: Question, b: Question) => {
+            if (a.question_number !== b.question_number) return a.question_number - b.question_number;
+            return (a.group_number || 0) - (b.group_number || 0);
+          });
+          setFilteredQuestions(allQuestions);
+          filterFetchDone.current = true;
+          lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${swrAnswers.length}`;
+        });
+    } else {
+      setFilteredQuestions([]);
+      filterFetchDone.current = true;
+      lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${swrAnswers.length}`;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metadataKey, answersKey, swrAnswersLoading, filters.questions.answered, filters.questions.unanswered]);
+
+  // Derive loading from SWR states
+  useEffect(() => {
+    if (!swrMetadataLoading && !swrAnswersLoading) {
+      timingLog('SWR loading complete (metadata + answers ready)');
+      setLoading(false);
+    }
+  }, [swrMetadataLoading, swrAnswersLoading, timingLog]);
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -625,17 +369,7 @@ function QuestionsPageContent() {
   // Fetch questions for current page
   const fetchQuestionsForCurrentPage = React.useCallback(async () => {
     if (allQuestionNumbers.length === 0) return;
-
-    // Debug: Log what's in allQuestionNumbers
-    const sortedAllNumbers = [...allQuestionNumbers].sort((a, b) => a - b);
-    console.log('🔍 allQuestionNumbers content:', {
-      total_count: allQuestionNumbers.length,
-      all_numbers: sortedAllNumbers,
-      has_13: allQuestionNumbers.includes(13),
-      has_18: allQuestionNumbers.includes(18),
-      missing_from_sequence: Array.from({length: Math.max(...sortedAllNumbers, 0)}, (_, i) => i + 1)
-        .filter(n => !sortedAllNumbers.includes(n))
-    });
+    const fetchStart = performance.now();
 
     // Sort question numbers based on sort option
     const questionNumbersWithMetadata = allQuestionNumbers.map(qNum => ({
@@ -670,30 +404,7 @@ function QuestionsPageContent() {
       const pageQuestionNumbers = sortedQuestionNumbers.slice(startIndex, endIndex);
       const pageKey = pageQuestionNumbers.join(',');
 
-      // Debug: Check what question numbers we're requesting
-      const sortedAllNumbers = [...allQuestionNumbers].sort((a, b) => a - b);
-      console.log('📤 Requesting questions for page:', {
-        currentPage,
-        startIndex,
-        endIndex,
-        all_question_numbers: sortedAllNumbers,
-        sorted_question_numbers: sortedQuestionNumbers,
-        page_question_numbers: pageQuestionNumbers,
-        specifically_checking_13: pageQuestionNumbers.includes(13),
-        specifically_checking_18: pageQuestionNumbers.includes(18),
-        position_of_13_in_sorted: sortedQuestionNumbers.indexOf(13),
-        position_of_18_in_sorted: sortedQuestionNumbers.indexOf(18),
-        position_of_13_in_all: sortedAllNumbers.indexOf(13),
-        position_of_18_in_all: sortedAllNumbers.indexOf(18),
-        slice_details: {
-          before_slice: sortedQuestionNumbers.slice(0, startIndex),
-          slice_content: sortedQuestionNumbers.slice(startIndex, endIndex),
-          after_slice: sortedQuestionNumbers.slice(endIndex)
-        }
-      });
-
       if (pageKey && pageKey === lastFetchedQuestionNumbersRef.current) {
-        console.log('⏭️ Skipping fetch; page question numbers unchanged');
         return;
       }
 
@@ -710,7 +421,7 @@ function QuestionsPageContent() {
 
       // Build single batch API call with multiple question_number params
       const questionNumberParams = pageQuestionNumbers.map(num => `question_number=${num}`).join('&');
-      let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=100`;
+      let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=200`;
 
       // Fetch all pages if paginated
       let allPageQuestions = [];
@@ -728,14 +439,6 @@ function QuestionsPageContent() {
         const data = await response.json();
         const results = data.results || [];
         allPageQuestions = [...allPageQuestions, ...results];
-
-        console.log(`📥 API Response (page ${pageNum}):`, {
-          total_in_response: data.count,
-          results_this_page: results.length,
-          accumulated_total: allPageQuestions.length,
-          has_next: !!data.next,
-          question_numbers: allPageQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b)
-        });
 
         if (data.next) {
           url = data.next;
@@ -755,19 +458,6 @@ function QuestionsPageContent() {
         return (a.group_number || 0) - (b.group_number || 0);
       });
 
-      // Debug: Check what question numbers we fetched
-      const fetchedQuestionNumbers = pageQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
-      console.log('📥 Fetched questions - Question numbers received:', fetchedQuestionNumbers);
-      console.log('📥 Fetched questions - Requested vs Received:', {
-        requested_question_numbers: pageQuestionNumbers.sort((a, b) => a - b),
-        received_question_numbers: fetchedQuestionNumbers,
-        missing_from_response: pageQuestionNumbers.filter(n => !fetchedQuestionNumbers.includes(n)),
-        specifically_checking_13: fetchedQuestionNumbers.includes(13),
-        specifically_checking_18: fetchedQuestionNumbers.includes(18),
-        questions_with_13: pageQuestions.filter(q => q.question_number === 13),
-        questions_with_18: pageQuestions.filter(q => q.question_number === 18)
-      });
-
       setQuestions(pageQuestions);
       lastFetchedQuestionNumbersRef.current = pageKey;
       // Only set filteredQuestions if no filters are active
@@ -777,29 +467,23 @@ function QuestionsPageContent() {
       if (!hasAnyFilters) {
         setFilteredQuestions(pageQuestions);
       }
+      timingLog('page questions fetched', {
+        page: currentPage,
+        questionsCount: pageQuestions.length,
+        fetchDuration: `${(performance.now() - fetchStart).toFixed(0)}ms`,
+      });
     } catch (error) {
       console.error('Error fetching questions for page:', error);
       setError('Failed to load questions');
     }
-  }, [allQuestionNumbers, currentPage, sortOption, answerCounts]);
+  }, [allQuestionNumbers, currentPage, sortOption, answerCounts, timingLog]);
 
   // Effect to handle page changes (skip if using client-side filters since we do client-side pagination)
   useEffect(() => {
-    // Don't fetch until page restoration is complete
-    if (!pageRestoredRef.current) {
-      console.log('⏳ Waiting for page restoration before fetching questions...');
-      return;
-    }
-    
-    // Don't fetch page questions if using answered/unanswered filters —
-    // the filter logic fetches ALL matching questions and paginates client-side
+    if (!pageRestoredRef.current) return;
     const hasAnsweredUnansweredFilter = filters.questions.answered || filters.questions.unanswered;
-    if (hasAnsweredUnansweredFilter) {
-      return;
-    }
-    // Only fetch if we have question numbers
+    if (hasAnsweredUnansweredFilter) return;
     if (allQuestionNumbers.length > 0) {
-      console.log('📥 Fetching questions for restored page:', currentPage);
       fetchQuestionsForCurrentPage();
     }
   }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, questions.length, currentPage]);
@@ -822,16 +506,9 @@ function QuestionsPageContent() {
         if (cancelled || searchTerm.trim() !== activeTerm) return;
         setSearchResults(items);
         setFilteredQuestions(items);
-        // Only reset page if we didn't just restore a non-1 page
-        console.log('🔵 applyResults (search) - checking page reset guard:', {
-          pageRestoredRef: pageRestoredRef.current,
-          restoredPageNumberRef: restoredPageNumberRef.current,
-          guardWillPass: pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1
-        });
         if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-          console.log('🛡️ applyResults: Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+          // Don't reset — page was restored
         } else {
-          console.log('🔴 applyResults: RESETTING page to 1');
           setCurrentPage(1);
         }
       };
@@ -842,7 +519,7 @@ function QuestionsPageContent() {
         // 1) Server-side search first
         let serverResults: Question[] = [];
         try {
-          let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?search=${encodeURIComponent(activeTerm)}&page_size=200&include_unapproved=true&skip_user_answers=true`;
+          let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?search=${encodeURIComponent(activeTerm)}&page_size=500&include_unapproved=true&skip_user_answers=true`;
           let page = 0;
           while (nextUrl && page < 10) { // safety limit
             const response = await fetch(nextUrl, {
@@ -883,7 +560,7 @@ function QuestionsPageContent() {
         if (!indexIsFresh && !searchIndexBuilding.current) {
           searchIndexBuilding.current = true;
           try {
-            let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=200&include_unapproved=true&skip_user_answers=true`;
+            let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=500&include_unapproved=true&skip_user_answers=true`;
             let page = 0;
             const results: Question[] = [];
 
@@ -1117,20 +794,10 @@ function QuestionsPageContent() {
     
     setFilteredQuestions(filteredQuestionData);
 
-    // Reset to page 1 when filters change (only if not already on page 1 to prevent duplicate fetch)
-    // But don't reset if we just restored a page (user navigated back)
-    console.log('🔶 applyFilters effect - checking page reset guard:', {
-      pageRestoredRef: pageRestoredRef.current,
-      restoredPageNumberRef: restoredPageNumberRef.current,
-      currentPage,
-      guardWillPass: pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1
-    });
     if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-      console.log('🛡️ applyFilters: Preventing page reset - page was restored to:', restoredPageNumberRef.current);
-      return; // Don't reset if we restored to a non-1 page
+      return;
     }
     if (currentPage !== 1) {
-      console.log('🔴 applyFilters: RESETTING page from', currentPage, 'to 1');
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
@@ -1170,21 +837,14 @@ function QuestionsPageContent() {
       // Create a stable key for the current filter state to prevent duplicate fetches
       const filterKey = `${filters.questions.answered}-${filters.questions.unanswered}-${allQuestionNumbers.length}-${userAnswers.length}`;
       
-      // Prevent concurrent fetches and duplicate fetches with same filter state
       if (isFetchingFilteredQuestions.current || lastFilterState.current === filterKey) {
-        console.log('⏭️ Skipping fetch - already in progress or same filter state');
         return;
       }
 
-      // Mark as fetching and store current state
       isFetchingFilteredQuestions.current = true;
       lastFilterState.current = filterKey;
 
-      console.log('✅ Ready to apply filter. UserAnswers count:', userAnswers.length);
-
-      // If filtering by answered and user genuinely has 0 answers (answersLoaded is guaranteed true here)
       if (filters.questions.answered && userAnswers.length === 0) {
-        console.log('ℹ️ No answers found, showing empty results for ANSWERED filter');
         setFilteredQuestions([]);
         filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
@@ -1198,30 +858,13 @@ function QuestionsPageContent() {
 
       let matchingQuestionNumbers: number[];
       if (filters.questions.answered) {
-        // Only show question numbers that the user has answered
         matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
           answeredQuestionNumbers.has(qNum)
         );
-        console.log('🔍 ANSWERED Filter Applied:', {
-          total_question_numbers: allQuestionNumbers.length,
-          answered_count: answeredQuestionNumbers.size,
-          matched_count: matchingQuestionNumbers.length,
-          answered_numbers: [...answeredQuestionNumbers].sort((a, b) => a - b),
-          matched_numbers: matchingQuestionNumbers.sort((a, b) => a - b)
-        });
       } else if (filters.questions.unanswered) {
-        // Only show question numbers that the user has NOT answered
         matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
           !answeredQuestionNumbers.has(qNum)
         );
-        console.log('🔍 UNANSWERED Filter Applied:', {
-          total_question_numbers: allQuestionNumbers.length,
-          answered_count: answeredQuestionNumbers.size,
-          unanswered_count: matchingQuestionNumbers.length,
-          answered_numbers: [...answeredQuestionNumbers].sort((a, b) => a - b),
-          unanswered_numbers: matchingQuestionNumbers.sort((a, b) => a - b).slice(0, 20), // Show first 20
-          all_question_numbers_sample: allQuestionNumbers.slice(0, 10)
-        });
       } else {
         return;
       }
@@ -1238,7 +881,7 @@ function QuestionsPageContent() {
 
         // Fetch ALL matching questions (not paginated)
         const questionNumberParams = matchingQuestionNumbers.map(num => `question_number=${num}`).join('&');
-        let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=100`;
+        let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=500`;
 
         // Fetch all pages if paginated
         let allQuestions: Question[] = [];
@@ -1273,9 +916,8 @@ function QuestionsPageContent() {
         });
 
         setFilteredQuestions(allQuestions);
-        // Reset to page 1 when filter changes, but don't reset if we just restored a page
         if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-          console.log('🛡️ Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+          // Don't reset — page was restored
         } else {
           setCurrentPage(1);
         }
@@ -1306,17 +948,9 @@ function QuestionsPageContent() {
         setSearchIndex(searchResults);
         searchIndexTimestamp.current = Date.now();
       }
-      // Only reset page if we didn't just restore a non-1 page
-      console.log('🔷 searchResults effect - checking page reset guard:', {
-        pageRestoredRef: pageRestoredRef.current,
-        restoredPageNumberRef: restoredPageNumberRef.current,
-        currentPage,
-        guardWillPass: pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1
-      });
       if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-        console.log('🛡️ searchResults: Preventing page reset - page was restored to:', restoredPageNumberRef.current);
+        // Don't reset — page was restored
       } else if (currentPage !== 1) {
-        console.log('🔴 searchResults: RESETTING page from', currentPage, 'to 1');
         setCurrentPage(1);
       }
       return;
@@ -1329,7 +963,6 @@ function QuestionsPageContent() {
     // If filters are active but questions haven't been loaded yet, trigger fetch
     // But only if page restoration is complete
     if ((hasQuestionFilters || hasTagFilters) && questions.length === 0 && allQuestionNumbers.length > 0 && pageRestoredRef.current) {
-      console.log('📥 Fetching filtered questions for page:', currentPage);
       fetchQuestionsForCurrentPage();
       return; // Will re-run when questions are loaded
     }
@@ -1368,16 +1001,6 @@ function QuestionsPageContent() {
   // Group questions intelligently based on question_type
   const groupedQuestions = React.useMemo(() => {
     const searchActive = searchTerm.trim().length > 0;
-    console.log('🔍 Grouping questions. filteredQuestions:', {
-      count: filteredQuestions.length,
-      question_numbers: filteredQuestions.map(q => q.question_number).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b),
-      all_question_numbers_with_details: filteredQuestions.map(q => ({
-        question_number: q.question_number,
-        id: q.id,
-        text: q.text.substring(0, 50),
-        question_type: q.question_type
-      }))
-    });
 
     const grouped: Record<string, { questions: Question[], displayName: string, questionNumber: number, answerCount: number, totalAnswerCount?: number }> = {};
 
@@ -1417,19 +1040,6 @@ function QuestionsPageContent() {
         }
         grouped[key].questions.push(question);
       }
-    });
-
-    // Debug: Check what question numbers we have after grouping
-    const groupedQuestionNumbers = Object.values(grouped).map(g => g.questionNumber).sort((a, b) => a - b);
-    console.log('📊 After grouping - Question numbers present:', groupedQuestionNumbers);
-    console.log('📊 After grouping - Missing numbers check:', {
-      all_question_numbers_in_metadata: allQuestionNumbers.sort((a, b) => a - b),
-      grouped_question_numbers: groupedQuestionNumbers,
-      missing_from_grouped: allQuestionNumbers.filter(n => !groupedQuestionNumbers.includes(n)).sort((a, b) => a - b),
-      specifically_checking_13: groupedQuestionNumbers.includes(13),
-      specifically_checking_18: groupedQuestionNumbers.includes(18),
-      questions_with_13: filteredQuestions.filter(q => q.question_number === 13),
-      questions_with_18: filteredQuestions.filter(q => q.question_number === 18)
     });
 
     return grouped;
@@ -1481,17 +1091,6 @@ function QuestionsPageContent() {
         });
     }
 
-    // Debug: Check what question numbers are in the sorted list
-    const sortedQuestionNumbers = sorted.map(([key, group]) => group.questionNumber).sort((a, b) => a - b);
-    console.log('📊 After sorting - Question numbers in display order:', sortedQuestionNumbers);
-    console.log('📊 After sorting - Missing numbers:', {
-      expected_range: Array.from({length: Math.max(...sortedQuestionNumbers, 0)}, (_, i) => i + 1),
-      actual_numbers: sortedQuestionNumbers,
-      missing: Array.from({length: Math.max(...sortedQuestionNumbers, 0)}, (_, i) => i + 1)
-        .filter(n => !sortedQuestionNumbers.includes(n))
-    });
-
-    // Just use question_number directly - no display number calculation needed
     return sorted;
   }, [groupedQuestions, sortOption]);
 
@@ -1524,21 +1123,10 @@ function QuestionsPageContent() {
   };
 
   const handleQuestionClick = (questionNumber: number) => {
-    console.log('🖱️ handleQuestionClick - saving page before navigation:', {
-      currentPage,
-      questionNumber,
-      restoredPageNumberRef: restoredPageNumberRef.current
-    });
-
-    // Store questions and answers in sessionStorage to avoid refetching while preventing URL issues
     sessionStorage.setItem('questionsData', JSON.stringify(questions));
     sessionStorage.setItem('userAnswersData', JSON.stringify(userAnswers));
     sessionStorage.setItem('questionsDataTimestamp', Date.now().toString());
-
-    // Store current page so we can restore it when coming back
     sessionStorage.setItem('questions_current_page', currentPage.toString());
-    console.log('🖱️ handleQuestionClick - sessionStorage after save:', sessionStorage.getItem('questions_current_page'));
-
     router.push(`/questions/${questionNumber}`);
   };
 

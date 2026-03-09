@@ -2,12 +2,16 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useUserAnswers } from '@/hooks/useUserAnswers';
+import { useGroupedQuestions } from '@/hooks/useGroupedQuestions';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -47,182 +51,75 @@ interface ProfileIcon {
 export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  // Always start with loading state to avoid hydration mismatch
-  // Client-side cache will be checked in useEffect
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
-  const [requiredQuestionsData, setRequiredQuestionsData] = useState<{
-    count: number;
-  } | null>(null);
-  const [expandedIconIndex, setExpandedIconIndex] = useState<number | null>(null);
-  const [groupedQuestions, setGroupedQuestions] = useState<Array<{ id: string; question_name: string; question_number: number; group_number?: number }>>([]);
 
-  // Fetch all questions for grouped categories (ethnicity=3, education=4, diet=5, faith=11)
-  useEffect(() => {
-    const fetchGroupedQuestions = async () => {
-      try {
-        const questionNumbers = [3, 4, 5, 11];
-        const allQuestions: Array<{ id: string; question_name: string; question_number: number; group_number?: number }> = [];
-        for (const qNum of questionNumbers) {
-          const res = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${qNum}&page_size=50`, {
-            headers: { 'Content-Type': 'application/json' },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const results = data.results || data;
-            for (const q of results) {
-              allQuestions.push({ id: q.id, question_name: q.question_name, question_number: q.question_number, group_number: q.group_number });
-            }
-          }
-        }
-        setGroupedQuestions(allQuestions);
-      } catch (err) {
-        console.error('Failed to fetch grouped questions:', err);
-      }
-    };
-    fetchGroupedQuestions();
+  // --- Timing diagnostics ---
+  const mountTime = useRef(performance.now());
+  const timingLog = useCallback((label: string, extra?: Record<string, unknown>) => {
+    const elapsed = (performance.now() - mountTime.current).toFixed(0);
+    console.log(`⏱️ [Profile ${elapsed}ms] ${label}`, extra ?? '');
   }, []);
 
-  // Fetch user profile and answers
+  const [expandedIconIndex, setExpandedIconIndex] = useState<number | null>(null);
+
+  // Resolve user ID from URL param or localStorage
+  const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        // PRIORITY 1: Check URL query parameter first (most recent/accurate)
-        // PRIORITY 2: Fall back to localStorage (may be stale)
-        const urlUserId = searchParams?.get('user_id');
-        const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null;
-        let userId = urlUserId || storedUserId;
-        
-        // If URL has user_id, update localStorage to keep it in sync
-        if (urlUserId && typeof window !== 'undefined') {
-          if (urlUserId !== storedUserId) {
-            console.log('🔄 Updating localStorage user_id from URL:', urlUserId);
-            localStorage.setItem('user_id', urlUserId);
-            // Clear any cached data for old user to prevent showing wrong profile
-            if (storedUserId) {
-              const oldCacheKey = `profile_${storedUserId}`;
-              sessionStorage.removeItem(oldCacheKey);
-              sessionStorage.removeItem(`${oldCacheKey}_timestamp`);
-              console.log('🗑️ Cleared cached profile for old user:', storedUserId);
-            }
-          }
-          userId = urlUserId;
-        }
-        
-        if (!userId) {
-          console.log('No user_id found in URL or localStorage, redirecting to login');
-          setError('User ID not found');
-          router.push('/auth/login');
-          return;
-        }
+    const urlUserId = searchParams?.get('user_id');
+    const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null;
+    const resolvedId = urlUserId || storedUserId;
 
-        console.log('🔍 Fetching profile for user:', userId, urlUserId ? '(from URL)' : '(from localStorage)');
+    if (urlUserId && typeof window !== 'undefined' && urlUserId !== storedUserId) {
+      localStorage.setItem('user_id', urlUserId);
+    }
 
-        // Define cacheKey and now outside the conditional block so they're available for caching later
-        const cacheKey = `profile_${userId}`;
-        const now = Date.now();
+    if (!resolvedId) {
+      router.push('/auth/login');
+      return;
+    }
 
-        // Check sessionStorage cache first (2 min TTL) - only on client
-        if (typeof window !== 'undefined') {
-          const cachedData = sessionStorage.getItem(cacheKey);
-          const cacheTimestamp = sessionStorage.getItem(`${cacheKey}_timestamp`);
-
-          if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
-            console.log('Using cached profile data');
-            const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
-            setUser(cachedUser);
-            setUserAnswers(cachedAnswers);
-            setLoading(false);
-            return;
-          }
-        }
-
-        // Fetch user and answers in parallel
-        // Use direct user ID endpoint instead of /me/ to avoid session issues
-        const [userResponse, answersResponse] = await Promise.all([
-          fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
-     
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }),
-          fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`, {
- 
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          })
-        ]);
-
-        if (!userResponse.ok) {
-          console.error('User API failed with status:', userResponse.status);
-          if (userResponse.status === 401 || userResponse.status === 403) {
-            console.error('Authentication failed, clearing localStorage and redirecting to login');
-            localStorage.removeItem('user_id');
-            router.push('/auth/login');
-          } else {
-            throw new Error('Failed to fetch user profile');
-          }
-          return;
-        }
-
-        if (!answersResponse.ok) {
-          throw new Error('Failed to fetch user answers');
-        }
-
-        const [userData, answersData] = await Promise.all([
-          userResponse.json(),
-          answersResponse.json()
-        ]);
-
-        const answers = answersData.results || [];
-
-        // Calculate required questions data
-        let requiredQuestionsData = null;
-        try {
-          const questionsResponse = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?is_required_for_match=true&page_size=100`, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (questionsResponse.ok) {
-            const questionsData = await questionsResponse.json();
-            const requiredQuestions = questionsData.results || [];
-            const totalRequired = requiredQuestions.length;
-            
-            requiredQuestionsData = {
-              count: totalRequired
-            };
-          }
-        } catch (error) {
-          console.error('Error fetching required questions:', error);
-          // Continue without required questions data if fetch fails
-        }
-
-        // Cache the data - only on client
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(cacheKey, JSON.stringify({ user: userData, answers }));
-          sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
-        }
-
-        setUser(userData);
-        setUserAnswers(answers);
-        setRequiredQuestionsData(requiredQuestionsData);
-
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
+    setUserId(resolvedId);
   }, [router, searchParams]);
+
+  // All data fetches fire in parallel via SWR hooks
+  const { user, userError, userLoading } = useUserProfile(userId);
+  const { answers: userAnswers, answersLoading } = useUserAnswers<UserAnswer>(userId);
+  const { groupedQuestions } = useGroupedQuestions();
+
+  // Required questions count
+  const { data: requiredData } = useSWR<{ results: unknown[] }>(
+    `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?is_required_for_match=true&page_size=100`,
+    { dedupingInterval: 300000 }
+  );
+  const requiredQuestionsData = requiredData?.results
+    ? { count: requiredData.results.length }
+    : null;
+
+  // Log when SWR data arrives
+  useEffect(() => {
+    if (user) timingLog('user profile loaded', { id: user.id });
+  }, [user, timingLog]);
+  useEffect(() => {
+    if (userAnswers.length > 0) timingLog('answers loaded', { count: userAnswers.length });
+  }, [userAnswers.length, timingLog]);
+  useEffect(() => {
+    if (groupedQuestions.length > 0) timingLog('grouped questions loaded', { count: groupedQuestions.length });
+  }, [groupedQuestions.length, timingLog]);
+
+  // Derive loading/error from SWR states
+  const loading = userLoading || answersLoading;
+  const error = userError ? (userError.status === 401 || userError.status === 403 ? '' : 'Failed to load profile') : '';
+
+  useEffect(() => {
+    if (!loading) timingLog('all loading complete — rendering content');
+  }, [loading, timingLog]);
+
+  // Handle auth errors
+  useEffect(() => {
+    if (userError?.status === 401 || userError?.status === 403) {
+      localStorage.removeItem('user_id');
+      router.push('/auth/login');
+    }
+  }, [userError, router]);
 
 
   // Helper function to get answer value for specific question
@@ -231,23 +128,6 @@ export default function ProfilePage() {
       a.question.question_number === questionNumber &&
       (groupNumber === undefined || a.question.group_number === groupNumber)
     );
-
-    // Debug for question 1 (I'm Looking For section)
-    if (questionNumber === 1) {
-      console.log(`🔍 Relationship Question Q${questionNumber} G${groupNumber} (${answerType}):`, {
-        found: !!answer,
-        value: answer ? answer[answerType] : null,
-        question: answer?.question.question_name,
-        me_answer: answer?.me_answer,
-        looking_for_answer: answer?.looking_for_answer,
-        allQ1Answers: userAnswers.filter(a => a.question.question_number === 1).map(a => ({
-          group: a.question.group_number,
-          name: a.question.question_name,
-          me: a.me_answer,
-          looking: a.looking_for_answer
-        }))
-      });
-    }
 
     return answer ? answer[answerType] : null;
   };
