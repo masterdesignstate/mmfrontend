@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import HeartLoader from '@/components/HeartLoader';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 function MatchesPageContent() {
@@ -113,14 +114,7 @@ function MatchesPageContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading matches...</p>
-        </div>
-      </div>
-    );
+    return <HeartLoader texts={['Loading matches...', 'Finding your connections...', 'Almost ready...']} />;
   }
 
   return (

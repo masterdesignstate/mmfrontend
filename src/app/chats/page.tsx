@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import HeartLoader from '@/components/HeartLoader';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 function ChatsPageContent() {
@@ -54,11 +55,7 @@ function ChatsPageContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading chats...</div>
-      </div>
-    );
+    return <HeartLoader texts={['Loading chats...', 'Fetching conversations...', 'Almost ready...']} />;
   }
 
   return (
