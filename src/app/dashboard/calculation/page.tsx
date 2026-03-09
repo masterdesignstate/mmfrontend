@@ -648,8 +648,6 @@ export default function CalculationPage() {
     totalMax: number,
     requiredIds: Set<string>,
     otherRequiredIds: Set<string>,
-    personLabel: string,
-    otherLabel: string,
   ) => (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-6 border-b border-gray-200">
@@ -666,11 +664,16 @@ export default function CalculationPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Q#
+                #
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Req
+                Q#
               </th>
+              {!showRequired && (
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Req
+                </th>
+              )}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Question
               </th>
@@ -707,23 +710,28 @@ export default function CalculationPage() {
               const isNotAnswered = result.status === 'not_answered';
               return (
                 <tr key={index} className={isNotAnswered ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {index + 1}
+                  </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                     {result.questionNumber}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-xs">
-                    <div className="flex gap-1">
-                      {isP1Req && (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
-                          {personLabel}
-                        </span>
-                      )}
-                      {isP2Req && (
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-                          {otherLabel}
-                        </span>
-                      )}
-                    </div>
-                  </td>
+                  {!showRequired && (
+                    <td className="px-4 py-4 whitespace-nowrap text-xs">
+                      <div className="flex gap-1">
+                        {isP1Req && (
+                          <span className="inline-block px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                            R
+                          </span>
+                        )}
+                        {isP2Req && (
+                          <span className="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+                            R
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  )}
                   <td className="px-4 py-4 text-sm text-gray-900 whitespace-normal break-words max-w-xs">
                     {result.question}
                   </td>
@@ -764,8 +772,9 @@ export default function CalculationPage() {
             })}
             {/* Summary Row */}
             <tr className="bg-gray-50 font-medium">
-              <td className="px-4 py-4 text-sm text-gray-900">Summary</td>
               <td className="px-4 py-4 text-sm text-gray-900">-</td>
+              <td className="px-4 py-4 text-sm text-gray-900">Summary</td>
+              {!showRequired && <td className="px-4 py-4 text-sm text-gray-900">-</td>}
               <td className="px-4 py-4 text-sm text-gray-900">-</td>
               <td className="px-4 py-4 text-sm text-gray-900">-</td>
               <td className="px-4 py-4 text-sm text-gray-900">-</td>
@@ -1205,10 +1214,20 @@ export default function CalculationPage() {
 
         const displayResults1 = activeRequiredIds
           ? calculationResults1.filter(r => activeRequiredIds.has(r.questionId.toLowerCase()))
-          : calculationResults1;
+          : calculationResults1.filter(r => {
+              const qId = r.questionId.toLowerCase();
+              const isOnlyP1 = p1RequiredIds.has(qId) && !p2RequiredIds.has(qId);
+              const isOnlyP2 = !p1RequiredIds.has(qId) && p2RequiredIds.has(qId);
+              return !isOnlyP1 && !isOnlyP2;
+            });
         const displayResults2 = activeRequiredIds
           ? calculationResults2.filter(r => activeRequiredIds.has(r.questionId.toLowerCase()))
-          : calculationResults2;
+          : calculationResults2.filter(r => {
+              const qId = r.questionId.toLowerCase();
+              const isOnlyP1 = p1RequiredIds.has(qId) && !p2RequiredIds.has(qId);
+              const isOnlyP2 = !p1RequiredIds.has(qId) && p2RequiredIds.has(qId);
+              return !isOnlyP1 && !isOnlyP2;
+            });
 
         const answered1 = displayResults1.filter(r => r.status !== 'not_answered');
         const answered2 = displayResults2.filter(r => r.status !== 'not_answered');
@@ -1221,11 +1240,11 @@ export default function CalculationPage() {
           <>
             {renderResultTable(
               displayResults1, p1Name, dScore1, dMax1,
-              p1RequiredIds, p2RequiredIds, 'P1', 'P2'
+              p1RequiredIds, p2RequiredIds
             )}
             {renderResultTable(
               displayResults2, p2Name, dScore2, dMax2,
-              p2RequiredIds, p1RequiredIds, 'P2', 'P1'
+              p2RequiredIds, p1RequiredIds
             )}
           </>
         );

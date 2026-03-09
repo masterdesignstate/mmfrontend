@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
+import RestrictedUserGate from '@/components/RestrictedUserGate';
 
 function ChatsPageContent() {
   const router = useRouter();
@@ -164,8 +165,10 @@ function ChatsPageContent() {
 
 export default function ChatsPage() {
   return (
-    <MandatoryQuestionsGate>
-      <ChatsPageContent />
-    </MandatoryQuestionsGate>
+    <RestrictedUserGate>
+      <MandatoryQuestionsGate>
+        <ChatsPageContent />
+      </MandatoryQuestionsGate>
+    </RestrictedUserGate>
   );
 }

@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
+import RestrictedUserGate from '@/components/RestrictedUserGate';
 
 interface Question {
   id: string;
@@ -2503,8 +2504,10 @@ function QuestionsPageContent() {
 
 export default function QuestionsPage() {
   return (
-    <MandatoryQuestionsGate>
-      <QuestionsPageContent />
-    </MandatoryQuestionsGate>
+    <RestrictedUserGate>
+      <MandatoryQuestionsGate>
+        <QuestionsPageContent />
+      </MandatoryQuestionsGate>
+    </RestrictedUserGate>
   );
 }

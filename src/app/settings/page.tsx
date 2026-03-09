@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
+import RestrictedUserGate from '@/components/RestrictedUserGate';
 
 function SettingsPageContent() {
   const router = useRouter();
@@ -316,8 +317,10 @@ function SettingsPageContent() {
 
 export default function SettingsPage() {
   return (
-    <MandatoryQuestionsGate>
-      <SettingsPageContent />
-    </MandatoryQuestionsGate>
+    <RestrictedUserGate>
+      <MandatoryQuestionsGate>
+        <SettingsPageContent />
+      </MandatoryQuestionsGate>
+    </RestrictedUserGate>
   );
 }

@@ -12,12 +12,6 @@ interface ProfileData {
   age: number;
   live: string;
   answers: number;
-  friend: number | null;
-  hookup: number | null;
-  date: number | null;
-  partner: number | null;
-  male: number | null;
-  female: number | null;
   restrictionType: string;
 }
 
@@ -65,12 +59,6 @@ export default function ProfilesPage() {
           age: user.age || 0,
           live: user.live || '',
           answers: user.questions_answered_count || 0,
-          male: questionAnswers.male || null,
-          female: questionAnswers.female || null,
-          friend: questionAnswers.friend || null,
-          hookup: questionAnswers.hookup || null,
-          date: questionAnswers.date || null,
-          partner: questionAnswers.partner || null,
           restrictionType: user.is_banned ? 'Restricted' : 'None'
         };
       });
@@ -311,60 +299,6 @@ export default function ProfilesPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Restriction Type
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('male')}
-                >
-                  <div className="flex flex-col">
-                    <span>Male</span>
-                    <span className="mt-1"><SortIcon field="male" /></span>
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('female')}
-                >
-                  <div className="flex flex-col">
-                    <span>Female</span>
-                    <span className="mt-1"><SortIcon field="female" /></span>
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('friend')}
-                >
-                  <div className="flex flex-col">
-                    <span>Friend</span>
-                    <span className="mt-1"><SortIcon field="friend" /></span>
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('hookup')}
-                >
-                  <div className="flex flex-col">
-                    <span>Hookup</span>
-                    <span className="mt-1"><SortIcon field="hookup" /></span>
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('date')}
-                >
-                  <div className="flex flex-col">
-                    <span>Date</span>
-                    <span className="mt-1"><SortIcon field="date" /></span>
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('partner')}
-                >
-                  <div className="flex flex-col">
-                    <span>Partner</span>
-                    <span className="mt-1"><SortIcon field="partner" /></span>
-                  </div>
-                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -413,24 +347,6 @@ export default function ProfilesPage() {
                     }`}>
                       {profile.restrictionType}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.male ?? '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.female ?? '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.friend ?? '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.hookup ?? '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.date ?? '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.partner ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-3">

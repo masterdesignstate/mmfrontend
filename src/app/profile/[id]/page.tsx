@@ -49,6 +49,7 @@ interface ProfileIcon {
   image: string;
   label: string;
   show: boolean;
+  options: Array<{ value: string; label: string }>;
 }
 
 // Interactive editable slider component (for answering pending questions inline)
@@ -247,6 +248,34 @@ export default function UserProfilePage() {
   const [editError, setEditError] = useState('');
   const [isAnsweringPending, setIsAnsweringPending] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
+  const [expandedIconIndex, setExpandedIconIndex] = useState<number | null>(null);
+  const [groupedQuestions, setGroupedQuestions] = useState<Array<{ id: string; question_name: string; question_number: number; group_number?: number }>>([]);
+
+  // Fetch all questions for grouped categories (ethnicity=3, education=4, diet=5, faith=11)
+  useEffect(() => {
+    const fetchGroupedQuestions = async () => {
+      try {
+        const questionNumbers = [3, 4, 5, 11];
+        const allQuestions: Array<{ id: string; question_name: string; question_number: number; group_number?: number }> = [];
+        for (const qNum of questionNumbers) {
+          const res = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${qNum}&page_size=50`, {
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const results = data.results || data;
+            for (const q of results) {
+              allQuestions.push({ id: q.id, question_name: q.question_name, question_number: q.question_number, group_number: q.group_number });
+            }
+          }
+        }
+        setGroupedQuestions(allQuestions);
+      } catch (err) {
+        console.error('Failed to fetch grouped questions:', err);
+      }
+    };
+    fetchGroupedQuestions();
+  }, []);
 
   // Check if required filter was enabled from results page
   useEffect(() => {
@@ -830,17 +859,22 @@ export default function UserProfilePage() {
       icons.push({
         image: '/assets/exercise.png',
         label: labels[exerciseValue as keyof typeof labels] || '',
-        show: true
+        show: true,
+        options: Object.entries(labels).map(([v, l]) => ({ value: v, label: l }))
       });
     }
 
     // Education icon (question_number === 4, highest value)
     const educationAnswer = getHighestAnswer(4);
     if (educationAnswer) {
+      const allEducationQuestions = groupedQuestions.filter(q => q.question_number === 4);
       icons.push({
         image: '/assets/cap.png',
         label: educationAnswer.question.question_name || '',
-        show: true
+        show: true,
+        options: allEducationQuestions.length > 0
+          ? allEducationQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
+          : userAnswers.filter(a => a.question.question_number === 4).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
       });
     }
 
@@ -851,7 +885,8 @@ export default function UserProfilePage() {
       icons.push({
         image: '/assets/drink.png',
         label: labels[alcoholValue as keyof typeof labels] || '',
-        show: true
+        show: true,
+        options: Object.entries(labels).map(([v, l]) => ({ value: v, label: l }))
       });
     }
 
@@ -859,16 +894,20 @@ export default function UserProfilePage() {
     const dietAnswers = userAnswers.filter(a => a.question.question_number === 5);
     if (dietAnswers.length > 0) {
       // Get the answer with the highest value (most strongly identified with)
-      const highestDietAnswer = dietAnswers.reduce((prev, curr) => 
+      const highestDietAnswer = dietAnswers.reduce((prev, curr) =>
         curr.me_answer > prev.me_answer ? curr : prev
       );
-      
+
       const dietLabel = highestDietAnswer.question.question_name || '';
-      
+      const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
+
       icons.push({
         image: '/assets/leaf.png',
         label: dietLabel,
-        show: true
+        show: true,
+        options: allDietQuestions.length > 0
+          ? allDietQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
+          : dietAnswers.map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
       });
     }
 
@@ -879,7 +918,8 @@ export default function UserProfilePage() {
       icons.push({
         image: '/assets/smk.png',
         label: labels[smokingValue as keyof typeof labels] || '',
-        show: true
+        show: true,
+        options: Object.entries(labels).map(([v, l]) => ({ value: v, label: l }))
       });
     }
 
@@ -890,7 +930,8 @@ export default function UserProfilePage() {
       icons.push({
         image: '/assets/vape.png',
         label: labels[vapingValue as keyof typeof labels] || '',
-        show: true
+        show: true,
+        options: Object.entries(labels).map(([v, l]) => ({ value: v, label: l }))
       });
     }
 
@@ -900,7 +941,8 @@ export default function UserProfilePage() {
       icons.push({
         image: '/assets/pacifier.png',
         label: haveChildrenLabel,
-        show: true
+        show: true,
+        options: [{ value: '1', label: "Don't Have" }, { value: '5', label: 'Have' }]
       });
     }
 
@@ -910,7 +952,14 @@ export default function UserProfilePage() {
       icons.push({
         image: '/assets/pacifier.png',
         label: wantChildrenLabel,
-        show: true
+        show: true,
+        options: [
+          { value: '1', label: "Don't Want" },
+          { value: '2', label: 'Doubtful' },
+          { value: '3', label: 'Unsure' },
+          { value: '4', label: 'Eventually' },
+          { value: '5', label: 'Want' }
+        ]
       });
     }
 
@@ -929,7 +978,8 @@ export default function UserProfilePage() {
         icons.push({
           image: '/assets/politics.png',
           label: label,
-          show: true
+          show: true,
+          options: Object.entries(politicsLabels).map(([v, l]) => ({ value: v, label: l }))
         });
       }
     }
@@ -938,16 +988,20 @@ export default function UserProfilePage() {
     const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === 3);
     if (ethnicityAnswers.length > 0) {
       // Get the answer with the highest value (most strongly identified with)
-      const highestEthnicityAnswer = ethnicityAnswers.reduce((prev, curr) => 
+      const highestEthnicityAnswer = ethnicityAnswers.reduce((prev, curr) =>
         curr.me_answer > prev.me_answer ? curr : prev
       );
-      
+
       const ethnicityLabel = highestEthnicityAnswer.question.question_name || '';
-      
+      const allEthnicityQuestions = groupedQuestions.filter(q => q.question_number === 3);
+
       icons.push({
         image: '/assets/globex.png',
         label: ethnicityLabel,
-        show: true
+        show: true,
+        options: allEthnicityQuestions.length > 0
+          ? allEthnicityQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
+          : ethnicityAnswers.map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
       });
     }
 
@@ -966,7 +1020,8 @@ export default function UserProfilePage() {
         icons.push({
           image: '/assets/prayin.png',
           label: label,
-          show: true
+          show: true,
+          options: Object.entries(religionLabels).map(([v, l]) => ({ value: v, label: l }))
         });
       }
     }
@@ -974,10 +1029,14 @@ export default function UserProfilePage() {
     // Faith icon (question_number === 11, highest value)
     const faithAnswer = getHighestAnswer(11);
     if (faithAnswer) {
+      const allFaithQuestions = groupedQuestions.filter(q => q.question_number === 11);
       icons.push({
         image: '/assets/prayin.png',
         label: faithAnswer.question.question_name || '',
-        show: true
+        show: true,
+        options: allFaithQuestions.length > 0
+          ? allFaithQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
+          : userAnswers.filter(a => a.question.question_number === 11).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
       });
     }
 
@@ -2429,22 +2488,58 @@ export default function UserProfilePage() {
 
         {/* Profile Icons - horizontal layout with containers */}
         {profileIcons.length > 0 && (
-          <div className="flex justify-start flex-wrap gap-3 mb-6">
-            {profileIcons.map((icon, index) => (
-              <div key={index} className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1">
-                <div className="w-7 h-7 mr-1 relative">
-                  <Image
-                    src={icon.image}
-                    alt={icon.label}
-                    width={icon.image.includes('drink.png') ? 25 : 28}
-                    height={icon.image.includes('drink.png') ? 25 : 28}
-                    className="object-contain"
-                    style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-4px' } : {}}
-                  />
+          <div className="mb-6">
+            <div className="flex justify-start flex-wrap gap-3">
+              {profileIcons.map((icon, index) => (
+                <div
+                  key={index}
+                  className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 cursor-pointer transition-colors"
+                  onClick={() => setExpandedIconIndex(expandedIconIndex === index ? null : index)}
+                >
+                  <div className="w-7 h-7 mr-1 relative">
+                    <Image
+                      src={icon.image}
+                      alt={icon.label}
+                      width={icon.image.includes('drink.png') ? 25 : 28}
+                      height={icon.image.includes('drink.png') ? 25 : 28}
+                      className="object-contain"
+                      style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-4px' } : {}}
+                    />
+                  </div>
+                  <span className="text-base text-black font-medium">{icon.label}</span>
+                  {expandedIconIndex === index && (
+                    <svg
+                      className="w-4 h-4 ml-1 text-gray-500 rotate-180"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
                 </div>
-                <span className="text-base text-black font-medium">{icon.label}</span>
+              ))}
+            </div>
+
+            {/* Expanded dropdown for selected icon */}
+            {expandedIconIndex !== null && profileIcons[expandedIconIndex]?.options && (
+              <div className="mt-3 bg-[#F3F3F3] rounded-xl p-4">
+                <div className="space-y-2">
+                  {profileIcons[expandedIconIndex].options.map((option, optIndex) => (
+                    <div key={optIndex} className="flex items-center gap-3 py-1">
+                      <div className="w-6 h-6 relative flex-shrink-0">
+                        <Image
+                          src={profileIcons[expandedIconIndex].image}
+                          alt={option.label}
+                          width={24}
+                          height={24}
+                          className="object-contain"
+                        />
+                      </div>
+                      <span className="text-sm text-gray-700">{option.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
           </div>
         )}
 

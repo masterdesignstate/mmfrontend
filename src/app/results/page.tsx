@@ -11,6 +11,7 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
 import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
+import RestrictedUserGate from '@/components/RestrictedUserGate';
 import { getDistance } from '@/utils/distance';
 
 interface ResultProfile {
@@ -2403,8 +2404,10 @@ function ResultsPageContent() {
 
 export default function ResultsPage() {
   return (
-    <MandatoryQuestionsGate>
-      <ResultsPageContent />
-    </MandatoryQuestionsGate>
+    <RestrictedUserGate>
+      <MandatoryQuestionsGate>
+        <ResultsPageContent />
+      </MandatoryQuestionsGate>
+    </RestrictedUserGate>
   );
 }

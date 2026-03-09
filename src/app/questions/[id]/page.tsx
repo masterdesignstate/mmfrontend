@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MandatoryQuestionsGate from '@/components/MandatoryQuestionsGate';
+import RestrictedUserGate from '@/components/RestrictedUserGate';
 
 interface Question {
   id: string;
@@ -2262,8 +2263,10 @@ function QuestionEditPageContent() {
 
 export default function QuestionEditPage() {
   return (
-    <MandatoryQuestionsGate>
-      <QuestionEditPageContent />
-    </MandatoryQuestionsGate>
+    <RestrictedUserGate>
+      <MandatoryQuestionsGate>
+        <QuestionEditPageContent />
+      </MandatoryQuestionsGate>
+    </RestrictedUserGate>
   );
 }
