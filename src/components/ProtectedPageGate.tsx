@@ -20,8 +20,8 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
     return null;
   }
 
-  // Ban overlay takes priority
-  if (isBanned) {
+  // Ban overlay takes priority (wait for data to load so we don't flash onboarding first)
+  if (!isLoading && isBanned) {
     return (
       <div className="relative min-h-screen">
         {/* Blurred page content as preview */}
