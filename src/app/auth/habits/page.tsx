@@ -258,11 +258,18 @@ export default function HabitsPage() {
       // Continue with navigation immediately
       console.log('🏃 Continuing with navigation...');
       
+      // Track question 7 as answered for introcard routing
+      try {
+        const key = `onboarding_answered_numbers_${userId}`;
+        const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(7)) { existing.push(7); localStorage.setItem(key, JSON.stringify(existing)); }
+      } catch {}
+
       // Navigate to next onboarding step immediately
-      const params = new URLSearchParams({ 
+      const params = new URLSearchParams({
         user_id: userId
       });
-      
+
       router.push(`/auth/question/8?${params.toString()}`);
     } catch (error) {
       console.error('Error saving habits answers:', error);

@@ -148,11 +148,18 @@ export default function DietPage() {
       
       console.log('✅ User has answered', answeredDiets.size, 'diet question(s), proceeding to next page');
 
+      // Track question 5 as answered for introcard routing
+      try {
+        const key = `onboarding_answered_numbers_${userId}`;
+        const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(5)) { existing.push(5); localStorage.setItem(key, JSON.stringify(existing)); }
+      } catch {}
+
       // Navigate to next onboarding step (exercise question page)
-      const params = new URLSearchParams({ 
+      const params = new URLSearchParams({
         user_id: userId
       });
-      
+
       router.push(`/auth/question/6?${params.toString()}`);
     } catch (error) {
       console.error('Error checking diet answers:', error);

@@ -872,21 +872,39 @@ export default function QuestionPage() {
           });
           router.push(`/auth/diet?${params.toString()}`);
         } else if (params.id === '6') {
-          
+          // Track question 6 as answered for introcard routing
+          try {
+            const lsKey = `onboarding_answered_numbers_${userId}`;
+            const existing: number[] = JSON.parse(localStorage.getItem(lsKey) || '[]');
+            if (!existing.includes(6)) { existing.push(6); localStorage.setItem(lsKey, JSON.stringify(existing)); }
+          } catch {}
+
           // Navigate to habits page (next in onboarding flow)
           const params = new URLSearchParams({
             user_id: userId
           });
           router.push(`/auth/habits?${params.toString()}`);
         } else if (params.id === '8') {
-          
+          // Track question 8 as answered for introcard routing
+          try {
+            const lsKey = `onboarding_answered_numbers_${userId}`;
+            const existing: number[] = JSON.parse(localStorage.getItem(lsKey) || '[]');
+            if (!existing.includes(8)) { existing.push(8); localStorage.setItem(lsKey, JSON.stringify(existing)); }
+          } catch {}
+
           // Navigate to politics page (next in onboarding flow)
           const params = new URLSearchParams({
             user_id: userId
           });
           router.push(`/auth/question/9?${params.toString()}`);
         } else if (params.id === '9') {
-          
+          // Track question 9 as answered for introcard routing
+          try {
+            const lsKey = `onboarding_answered_numbers_${userId}`;
+            const existing: number[] = JSON.parse(localStorage.getItem(lsKey) || '[]');
+            if (!existing.includes(9)) { existing.push(9); localStorage.setItem(lsKey, JSON.stringify(existing)); }
+          } catch {}
+
           // Navigate to kids page (next in onboarding flow)
           const params = new URLSearchParams({
             user_id: userId

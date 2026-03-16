@@ -218,6 +218,13 @@ export default function KidsPage() {
       // Continue with navigation immediately to profile page
       console.log('👶 Continuing with navigation...');
       
+      // Track question 10 as answered for introcard routing
+      try {
+        const key = `onboarding_answered_numbers_${userId}`;
+        const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(10)) { existing.push(10); localStorage.setItem(key, JSON.stringify(existing)); }
+      } catch {}
+
       // Mark mandatory questions as complete so gated pages unlock instantly
       localStorage.setItem('mandatory_questions_complete', 'true');
 

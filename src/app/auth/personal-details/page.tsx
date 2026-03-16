@@ -51,18 +51,31 @@ export default function PersonalDetailsPage() {
     return `${feet}' ${inches}"`;
   };
 
-  // Extract user data from URL parameters
+  // Extract user data from URL parameters or localStorage
   useEffect(() => {
-    const user_id = searchParams.get('user_id');
+    const user_id = searchParams.get('user_id') || localStorage.getItem('user_id');
     const email = searchParams.get('email');
-    
-    if (!user_id || !email) {
-      // If no user data provided, redirect back to signup
+
+    if (!user_id) {
+      // No user_id anywhere — redirect to register
       router.push('/auth/register');
       return;
     }
-    
-    setUserCredentials({ user_id, email });
+
+    if (email) {
+      setUserCredentials({ user_id, email });
+    } else {
+      // Returning user (e.g. from introcard back button) — fetch email from backend
+      setUserCredentials(prev => ({ ...prev, user_id }));
+      fetch(getApiUrl(`/users/${user_id}/`))
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.email) {
+            setUserCredentials({ user_id, email: data.email });
+          }
+        })
+        .catch(() => {});
+    }
   }, [searchParams, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -269,15 +282,17 @@ export default function PersonalDetailsPage() {
           />
         </div>
         
-        {/* Right side icons */}
-        <div className="flex items-center space-x-4">
-          {/* Hamburger menu */}
-          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </div>
-        </div>
+        {/* Log out button */}
+        <button
+          onClick={() => {
+            localStorage.clear();
+            sessionStorage.clear();
+            router.push('/auth/login');
+          }}
+          className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors cursor-pointer"
+        >
+          Log out
+        </button>
       </div>
 
       {/* Main Content */}

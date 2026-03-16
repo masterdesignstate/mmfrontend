@@ -20,32 +20,124 @@ export default function IntroCardPage() {
     open_to_all_looking_for: boolean;
   }>>([]);
 
+  const [answeredNumbers, setAnsweredNumbers] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string>('');
 
+  // Question number → route mapping for mandatory questions
+  const QUESTION_ROUTES: Record<number, string> = {
+    1: '/auth/relationship',
+    2: '/auth/gender',
+    3: '/auth/ethnicity',
+    4: '/auth/education',
+    5: '/auth/diet',
+    6: '/auth/question/6',
+    7: '/auth/habits',
+    8: '/auth/question/8',
+    9: '/auth/question/9',
+    10: '/auth/kids',
+  };
+
+  // Helper: localStorage key for tracking answered question numbers during onboarding
+  const getLocalKey = (uid: string) => `onboarding_answered_numbers_${uid}`;
+
+  // Read locally-tracked answered numbers
+  const getLocalAnswered = (uid: string): number[] => {
+    try {
+      return JSON.parse(localStorage.getItem(getLocalKey(uid)) || '[]');
+    } catch { return []; }
+  };
+
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
-    
-    console.log('🔍 IntroCard Page Load - URL Params:', {
-      userIdParam
-    });
-    
+    const answeredParam = searchParams.get('answered');
+
     // Get userId from URL params first, then try localStorage as fallback
-    if (userIdParam) {
-      setUserId(userIdParam);
-      console.log('📋 Set userId from URL param:', userIdParam);
-    } else {
-      // Try to get user_id from localStorage (set during login)
-      const storedUserId = localStorage.getItem('user_id');
-      if (storedUserId) {
-        setUserId(storedUserId);
-        console.log('📋 Set userId from localStorage:', storedUserId);
-      } else {
-        console.log('❌ No userId found in URL params or localStorage');
+    const resolvedUserId = userIdParam || localStorage.getItem('user_id') || '';
+    if (resolvedUserId) {
+      setUserId(resolvedUserId);
+    }
+
+    // Start with locally-tracked numbers (instant)
+    const localNums = resolvedUserId ? getLocalAnswered(resolvedUserId) : [];
+    const merged = new Set<number>(localNums);
+
+    // Parse answered mandatory question numbers from URL if available
+    if (answeredParam) {
+      try {
+        const parsed = JSON.parse(answeredParam) as number[];
+        parsed.forEach(n => merged.add(n));
+      } catch {
+        // ignore parse errors
       }
+      setAnsweredNumbers(merged);
+    } else if (resolvedUserId) {
+      // Set what we have locally right away
+      setAnsweredNumbers(merged);
+      // Also fetch from backend to merge in any server-side answers
+      fetch(getApiUrl(`/users/${resolvedUserId}/`))
+        .then(res => res.ok ? res.json() : null)
+        .then(userData => {
+          if (userData?.email) {
+            return fetch(getApiUrl(API_ENDPOINTS.ONBOARDING_STATUS), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: userData.email })
+            });
+          }
+          return null;
+        })
+        .then(res => res?.ok ? res.json() : null)
+        .then(data => {
+          if (data?.answered_mandatory_numbers) {
+            const backendNums = data.answered_mandatory_numbers as number[];
+            backendNums.forEach(n => merged.add(n));
+          }
+          setAnsweredNumbers(new Set(merged));
+          // Sync merged set back to localStorage
+          localStorage.setItem(getLocalKey(resolvedUserId), JSON.stringify([...merged]));
+        })
+        .catch(() => {});
     }
   }, [searchParams]);
+
+  // Re-read localStorage when page becomes visible (handles back/forward navigation)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && userId) {
+        const freshNums = getLocalAnswered(userId);
+        if (freshNums.length > 0) {
+          setAnsweredNumbers(prev => {
+            const updated = new Set(prev);
+            freshNums.forEach(n => updated.add(n));
+            return updated;
+          });
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Also re-read on focus (covers Next.js soft navigation back)
+    const handleFocus = () => {
+      if (userId) {
+        const freshNums = getLocalAnswered(userId);
+        if (freshNums.length > 0) {
+          setAnsweredNumbers(prev => {
+            const updated = new Set(prev);
+            freshNums.forEach(n => updated.add(n));
+            return updated;
+          });
+        }
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [userId]);
 
   // Fetch relationship questions (question_number = 1) from backend
   // Fetch relationship questions from backend when userId is available (only once)
@@ -106,15 +198,31 @@ export default function IntroCardPage() {
     setError('');
 
     try {
-      // Navigate to relationship page with questions data
-      const params = new URLSearchParams({ 
-        user_id: userId,
-        questions: JSON.stringify(questions)
-      });
-      router.push(`/auth/relationship?${params.toString()}`);
+      // Read localStorage directly at click time to get the freshest data
+      // (state may be stale if useEffect didn't re-run)
+      const freshLocal = getLocalAnswered(userId);
+      const freshSet = new Set<number>([...answeredNumbers, ...freshLocal]);
+
+      // Find the first unanswered mandatory question
+      const allMandatoryNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const nextUnanswered = allMandatoryNumbers.find(qn => !freshSet.has(qn));
+
+      const params = new URLSearchParams({ user_id: userId });
+
+      if (!nextUnanswered) {
+        // All mandatory questions answered — go to results
+        router.push('/results');
+      } else if (nextUnanswered === 1) {
+        // Relationship page needs questions data
+        params.set('questions', JSON.stringify(questions));
+        router.push(`/auth/relationship?${params.toString()}`);
+      } else {
+        const route = QUESTION_ROUTES[nextUnanswered];
+        router.push(`${route}?${params.toString()}`);
+      }
     } catch (error) {
-      console.error('Error navigating to relationship page:', error);
-      setError(error instanceof Error ? error.message : 'Failed to navigate to relationship page');
+      console.error('Error navigating to next question:', error);
+      setError(error instanceof Error ? error.message : 'Failed to navigate');
     } finally {
       setLoading(false);
     }

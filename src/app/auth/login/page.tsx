@@ -15,20 +15,20 @@ export default function LoginPage() {
 
   // Clear all stored data when landing on login page (but preserve celebrated matches)
   useEffect(() => {
-    // Save celebrated matches before clearing
-    const celebratedMatchesKeys: { [key: string]: string } = {};
+    // Save keys to preserve before clearing
+    const preservedKeys: { [key: string]: string } = {};
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('celebrated_matches_')) {
-        celebratedMatchesKeys[key] = localStorage.getItem(key) || '';
+      if (key.startsWith('celebrated_matches_') || key.startsWith('onboarding_answered_numbers_')) {
+        preservedKeys[key] = localStorage.getItem(key) || '';
       }
     });
-    
+
     // Clear all localStorage
     localStorage.clear();
-    
-    // Restore celebrated matches
-    Object.keys(celebratedMatchesKeys).forEach(key => {
-      localStorage.setItem(key, celebratedMatchesKeys[key]);
+
+    // Restore preserved keys
+    Object.keys(preservedKeys).forEach(key => {
+      localStorage.setItem(key, preservedKeys[key]);
     });
     
     sessionStorage.clear();
@@ -117,10 +117,9 @@ export default function LoginPage() {
                 });
                 router.push(`/auth/add-photo?${params.toString()}`);
               } else if (onboardingData.step === 'gender') {
-                const params = new URLSearchParams({
-                  user_id: onboardingData.user_id
-                });
-                router.push(`/auth/relationship?${params.toString()}`);
+                // Incomplete mandatory questions — let user see results page
+                // The ProtectedPageGate overlay will prompt them to continue onboarding
+                router.push('/results');
               } else if (onboardingData.step === 'complete') {
                 // Onboarding complete - redirect to results page for regular users
                 console.log('✅ Onboarding complete, redirecting to results');

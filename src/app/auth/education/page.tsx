@@ -178,8 +178,13 @@ export default function EducationPage() {
         user_id: userId
       });
       
-      // No need to pass diet questions - diet page will handle its own fetching
-      
+      // Track question 4 as answered for introcard routing
+      try {
+        const key = `onboarding_answered_numbers_${userId}`;
+        const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(4)) { existing.push(4); localStorage.setItem(key, JSON.stringify(existing)); }
+      } catch {}
+
       router.push(`/auth/diet?${params.toString()}`);
     } catch (error) {
       console.error('Error checking education answers:', error);

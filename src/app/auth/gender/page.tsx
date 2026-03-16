@@ -73,8 +73,15 @@ export default function GenderPage() {
 
     console.log('🚀 Gender page - Starting optimistic navigation to ethnicity');
 
+    // Track question 2 as answered for introcard routing
+    try {
+      const key = `onboarding_answered_numbers_${userId}`;
+      const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!existing.includes(2)) { existing.push(2); localStorage.setItem(key, JSON.stringify(existing)); }
+    } catch {}
+
     // Navigate immediately to ethnicity page (optimistic)
-    const params = new URLSearchParams({ 
+    const params = new URLSearchParams({
       user_id: userId
     });
     router.push(`/auth/ethnicity?${params.toString()}`);

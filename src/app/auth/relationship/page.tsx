@@ -83,6 +83,13 @@ export default function RelationshipPage() {
         user_id: userId
       });
       
+      // Track question 1 as answered for introcard routing
+      try {
+        const key = `onboarding_answered_numbers_${userId}`;
+        const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(1)) { existing.push(1); localStorage.setItem(key, JSON.stringify(existing)); }
+      } catch {}
+
       router.push(`/auth/gender?${params.toString()}`);
 
       // Save answers to backend in the background (don't wait for response)

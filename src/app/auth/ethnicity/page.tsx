@@ -264,8 +264,15 @@ export default function EthnicityPage() {
       
       console.log('✅ User has answered', answeredEthnicities.size, 'ethnicity question(s), proceeding to next page');
 
+      // Track question 3 as answered for introcard routing
+      try {
+        const key = `onboarding_answered_numbers_${userId}`;
+        const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.includes(3)) { existing.push(3); localStorage.setItem(key, JSON.stringify(existing)); }
+      } catch {}
+
       // Navigate to next onboarding step (education page)
-      const params = new URLSearchParams({ 
+      const params = new URLSearchParams({
         user_id: userId
       });
       

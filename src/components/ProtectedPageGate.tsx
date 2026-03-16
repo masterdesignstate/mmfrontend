@@ -103,7 +103,11 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
 
             {/* CTA Button */}
             <button
-              onClick={() => router.push('/auth/relationship')}
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (userId) params.set('user_id', userId);
+                router.push(`/auth/introcard?${params.toString()}`);
+              }}
               className="w-full py-3 bg-[#672DB7] text-white font-semibold rounded-xl hover:bg-[#5624A0] transition-colors duration-200 cursor-pointer"
             >
               Continue Onboarding
