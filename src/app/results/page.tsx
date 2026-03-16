@@ -1646,25 +1646,68 @@ function ResultsPageContent() {
             </p>
           </div>
 
-          {/* Required Compatibility Badge */}
-          {hasHydrated && filters.requiredOnly && (
-            <div className="inline-flex items-center gap-3 px-5 py-3 bg-white rounded-2xl border border-purple-200/60 shadow-sm backdrop-blur-sm">
-              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 shadow-sm">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-gray-900 leading-tight tracking-tight">Required Compatibility</span>
-                <span className="text-xs text-gray-500 leading-tight mt-0.5">
-                  {(filters.requiredScope ?? 'my') === 'their'
-                    ? 'Showing compatibility based on their required questions only'
-                    : 'Showing compatibility based on required questions only'}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Active Filter Chips */}
+        {hasHydrated && showFiltersApplied && (
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            {/* Compatibility Type chip (only when non-default) */}
+            {filters.compatibilityType !== 'overall' && (
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }}>
+                <svg className="w-3.5 h-3.5" style={{ color: '#672DB7' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                <span className="relative z-10">
+                  {filters.compatibilityType === 'compatible_with_me' ? 'Compatible with Me' : "I'm Compatible with"}
+                </span>
+              </span>
+            )}
+
+            {/* Required chip */}
+            {filters.requiredOnly && (
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }}>
+                <svg className="w-3.5 h-3.5" style={{ color: '#672DB7' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="relative z-10">
+                  {(filters.requiredScope ?? 'my') === 'their' ? 'Their Required' : 'My Required'}
+                </span>
+              </span>
+            )}
+
+            {/* Compatibility range chip (only when non-default) */}
+            {(filters.compatibility.min > 0 || filters.compatibility.max < 100) && (
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-400 bg-gray-50 text-gray-900">
+                <span className="relative z-10">Compatibility {filters.compatibility.min === filters.compatibility.max ? `${filters.compatibility.min}%` : `${filters.compatibility.min}% – ${filters.compatibility.max}%`}</span>
+              </span>
+            )}
+
+            {/* Distance range chip (only when non-default) */}
+            {(filters.distance.min > 1 || filters.distance.max < 100) && (
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-400 bg-gray-50 text-gray-900">
+                <span className="relative z-10">Distance {filters.distance.min === filters.distance.max ? `${filters.distance.min} mi` : `${filters.distance.min} – ${filters.distance.max} mi`}</span>
+              </span>
+            )}
+
+            {/* Age range chip (only when non-default) */}
+            {(filters.age.min > 18 || filters.age.max < 80) && (
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-400 bg-gray-50 text-gray-900">
+                <span className="relative z-10">Age {filters.age.min === filters.age.max ? filters.age.min : `${filters.age.min} – ${filters.age.max}`}</span>
+              </span>
+            )}
+
+            {/* Tag chips */}
+            {filters.tags.map((tag: string) => (
+              <span
+                key={tag}
+                className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium"
+              >
+                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
+                <span className="relative z-10">{tag}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         {loading && profiles.length === 0 ? (
           <div className="flex justify-center items-center py-20">
