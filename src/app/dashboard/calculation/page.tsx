@@ -1207,20 +1207,10 @@ export default function CalculationPage() {
 
         const displayResults1 = activeRequiredIds
           ? calculationResults1.filter(r => activeRequiredIds.has(r.questionId.toLowerCase()))
-          : calculationResults1.filter(r => {
-              const qId = r.questionId.toLowerCase();
-              const isOnlyP1 = p1RequiredIds.has(qId) && !p2RequiredIds.has(qId);
-              const isOnlyP2 = !p1RequiredIds.has(qId) && p2RequiredIds.has(qId);
-              return !isOnlyP1 && !isOnlyP2;
-            });
+          : calculationResults1.filter(r => r.status !== 'not_answered');
         const displayResults2 = activeRequiredIds
           ? calculationResults2.filter(r => activeRequiredIds.has(r.questionId.toLowerCase()))
-          : calculationResults2.filter(r => {
-              const qId = r.questionId.toLowerCase();
-              const isOnlyP1 = p1RequiredIds.has(qId) && !p2RequiredIds.has(qId);
-              const isOnlyP2 = !p1RequiredIds.has(qId) && p2RequiredIds.has(qId);
-              return !isOnlyP1 && !isOnlyP2;
-            });
+          : calculationResults2.filter(r => r.status !== 'not_answered');
 
         const answered1 = displayResults1.filter(r => r.status !== 'not_answered');
         const answered2 = displayResults2.filter(r => r.status !== 'not_answered');
