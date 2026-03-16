@@ -716,19 +716,13 @@ export default function ProfilePage() {
             <nav className="space-y-4">
               <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
                 <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                  {user.profile_photo ? (
-                    <Image
-                      src={user.profile_photo}
-                      alt={displayName}
-                      width={32}
-                      height={32}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center text-white text-sm font-bold">
-                      {displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <Image
+                    src={user.profile_photo || '/assets/usxr.png'}
+                    alt={displayName}
+                    width={32}
+                    height={32}
+                    className="object-cover w-full h-full"
+                  />
                 </div>
                 <span className="font-medium text-gray-900">About me</span>
               </div>
@@ -763,18 +757,12 @@ export default function ProfilePage() {
           {/* Profile Photo and Name */}
           <div className="relative mb-6">
             <div className="w-full sm:w-95 aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative mx-auto">
-              {user.profile_photo ? (
-                <Image
-                  src={user.profile_photo}
-                  alt={displayName}
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white text-6xl font-bold">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <Image
+                src={user.profile_photo || '/assets/usxr.png'}
+                alt={displayName}
+                fill
+                className="object-cover"
+              />
               <div className="absolute bottom-4 left-4">
                 <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
                   {displayName}{user.age ? `, ${user.age}` : ''}

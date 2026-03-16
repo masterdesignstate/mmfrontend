@@ -354,7 +354,7 @@ export default function PictureModerationPage() {
             <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="relative">
                 <img 
-                  src={item.user.profile_photo || '/assets/default-avatar.jpg'} 
+                  src={item.user.profile_photo || '/assets/usxr.png'} 
                   alt={`${item.user.first_name} ${item.user.last_name}`}
                   className="w-full aspect-square object-cover"
                 />
@@ -454,7 +454,7 @@ export default function PictureModerationPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <img 
-                        src={item.user.profile_photo || '/assets/default-avatar.jpg'} 
+                        src={item.user.profile_photo || '/assets/usxr.png'} 
                         alt={`${item.user.first_name} ${item.user.last_name}`}
                         className="h-12 w-12 rounded-full object-cover"
                       />

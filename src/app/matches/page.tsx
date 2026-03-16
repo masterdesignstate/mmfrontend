@@ -68,19 +68,13 @@ function MatchesPageContent() {
         {/* Profile Photo */}
         <div className="relative flex-shrink-0">
           <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-b from-orange-400 to-orange-600">
-            {otherUser.profile_photo ? (
-              <Image
-                src={otherUser.profile_photo}
-                alt={displayName}
-                width={64}
-                height={64}
-                className="object-cover w-full h-full"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-2xl font-bold">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <Image
+              src={otherUser.profile_photo || '/assets/usxr.png'}
+              alt={displayName}
+              width={64}
+              height={64}
+              className="object-cover w-full h-full"
+            />
           </div>
           {conversation.unread_count > 0 && (
             <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium">

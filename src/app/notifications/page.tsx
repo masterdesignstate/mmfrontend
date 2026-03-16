@@ -210,17 +210,11 @@ function NotificationsPageContent() {
                 <div className="flex items-center gap-4">
                   {/* Sender's profile photo */}
                   <div className="flex-shrink-0 relative">
-                    {notification.sender.profile_photo ? (
-                      <img
-                        src={notification.sender.profile_photo}
-                        alt={notification.sender.first_name}
-                        className="w-14 h-14 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-lg font-medium">
-                        {notification.sender.first_name?.[0] || notification.sender.username?.[0] || '?'}
-                      </div>
-                    )}
+                    <img
+                      src={notification.sender.profile_photo || '/assets/usxr.png'}
+                      alt={notification.sender.first_name}
+                      className="w-14 h-14 rounded-full object-cover"
+                    />
                     {/* Green dot indicator if user is online */}
                     {notification.sender.is_online && (
                       <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>

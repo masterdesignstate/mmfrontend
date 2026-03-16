@@ -26,9 +26,7 @@ interface ResultProfile {
   tags: string[]; // Add tags to the interface
 }
 
-// Inline SVG default avatar (avoids 400 from missing /assets/default-avatar.png)
-const DEFAULT_AVATAR =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ccircle cx='100' cy='85' r='40' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='180' rx='60' ry='50' fill='%239ca3af'/%3E%3C/svg%3E";
+const DEFAULT_AVATAR = '/assets/usxr.png';
 
 const COMPATIBILITY_TYPE_MAP: Record<string, string> = {
   overall: 'overall_compatibility',

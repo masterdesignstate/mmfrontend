@@ -120,21 +120,15 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-start space-x-6">
               <div className="flex-shrink-0">
-                {user.profile_photo ? (
-                  <div className="w-24 h-24 rounded-full overflow-hidden">
-                    <Image
-                      src={user.profile_photo}
-                      alt={displayName}
-                      width={96}
-                      height={96}
-                      className="object-cover w-full h-full"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#672DB7] to-[#8b5cf6] flex items-center justify-center text-white text-3xl font-bold">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="w-24 h-24 rounded-full overflow-hidden">
+                  <Image
+                    src={user.profile_photo || '/assets/usxr.png'}
+                    alt={displayName}
+                    width={96}
+                    height={96}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
               </div>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">

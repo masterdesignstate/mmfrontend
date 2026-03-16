@@ -2397,18 +2397,12 @@ export default function UserProfilePage() {
         <div className="relative mb-6 w-full sm:w-95 mx-auto">
           {/* Photo Card - on top */}
           <div className="w-full aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative z-10">
-            {user.profile_photo ? (
-              <Image
-                src={user.profile_photo}
-                alt={displayName}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-6xl font-bold">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <Image
+              src={user.profile_photo || '/assets/usxr.png'}
+              alt={displayName}
+              fill
+              className="object-cover"
+            />
             <div className="absolute bottom-4 left-4">
               <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
                 {displayName}{user.age ? `, ${user.age}` : ''}

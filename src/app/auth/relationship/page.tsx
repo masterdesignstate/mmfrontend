@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import HamburgerMenu from '@/components/HamburgerMenu';
+
 
 export default function RelationshipPage() {
   const router = useRouter();
@@ -309,7 +309,6 @@ export default function RelationshipPage() {
             className="mr-2"
           />
         </div>
-        <HamburgerMenu />
       </div>
 
       {/* Main Content */}

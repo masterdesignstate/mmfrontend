@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import HamburgerMenu from '@/components/HamburgerMenu';
+
 
 export default function QuestionPage() {
   const router = useRouter();
@@ -1163,7 +1163,6 @@ export default function QuestionPage() {
             className="mr-2"
           />
         </div>
-        <HamburgerMenu />
       </div>
 
       {/* Main Content */}

@@ -100,21 +100,13 @@ function ChatsPageContent() {
                   {/* Profile Photo */}
                   <div className="relative">
                     <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-200">
-                      {otherUser.profile_photo ? (
-                        <Image
-                          src={otherUser.profile_photo}
-                          alt={otherUser.first_name || otherUser.username}
-                          width={56}
-                          height={56}
-                          className="object-cover w-full h-full"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
+                      <Image
+                        src={otherUser.profile_photo || '/assets/usxr.png'}
+                        alt={otherUser.first_name || otherUser.username}
+                        width={56}
+                        height={56}
+                        className="object-cover w-full h-full"
+                      />
                     </div>
                     {conversation.unread_count > 0 && (
                       <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">

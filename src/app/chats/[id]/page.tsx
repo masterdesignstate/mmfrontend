@@ -182,21 +182,13 @@ export default function ChatConversationPage() {
               >
                 <div className="relative flex-shrink-0">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
-                    {other.profile_photo ? (
-                      <Image
-                        src={other.profile_photo}
-                        alt={other.first_name || other.username}
-                        width={48}
-                        height={48}
-                        className="object-cover w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    )}
+                    <Image
+                      src={other.profile_photo || '/assets/usxr.png'}
+                      alt={other.first_name || other.username}
+                      width={48}
+                      height={48}
+                      className="object-cover w-full h-full"
+                    />
                   </div>
                   {conv.unread_count > 0 && (
                     <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
@@ -246,21 +238,13 @@ export default function ChatConversationPage() {
               onClick={() => router.push(`/profile/${otherUser.id}`)}
             >
               <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
-                {otherUser.profile_photo ? (
-                  <Image
-                    src={otherUser.profile_photo}
-                    alt={otherUser.first_name || otherUser.username}
-                    width={40}
-                    height={40}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
+                <Image
+                  src={otherUser.profile_photo || '/assets/usxr.png'}
+                  alt={otherUser.first_name || otherUser.username}
+                  width={40}
+                  height={40}
+                  className="object-cover w-full h-full"
+                />
               </div>
               <div>
                 <h2 className="font-semibold text-gray-900">{otherUser.first_name || otherUser.username}</h2>
