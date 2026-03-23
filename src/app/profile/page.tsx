@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUserAnswers } from '@/hooks/useUserAnswers';
@@ -696,13 +697,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
-          />
+          <NavLogo />
         </div>
         <HamburgerMenu />
       </div>

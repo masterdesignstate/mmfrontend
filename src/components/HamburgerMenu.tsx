@@ -187,6 +187,13 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           </button>
 
           <button
+            onClick={() => handleNavigation(`/auth/introcard${userId ? `?user_id=${userId}` : ''}`)}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            How It Works
+          </button>
+
+          <button
             onClick={() => {
               // Clear filter state on logout
               if (typeof window !== 'undefined') {

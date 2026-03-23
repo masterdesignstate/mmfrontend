@@ -9,6 +9,7 @@ import ReactSlider from 'react-slider';
 import { apiService, type ApiUser, type CompatibilityResult } from '@/services/api';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import NavLogo from '@/components/NavLogo';
 import MatchCelebration from '@/components/MatchCelebration';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { getDistance } from '@/utils/distance';
@@ -1381,7 +1382,8 @@ function ResultsPageContent() {
         }
       }
       // Fallback to regular compatibility or non-required if missing required
-      const useNonRequired = filters.requiredOnly && profile.missingRequired && profile.compatibilityNonRequired;
+      const scopeMissing = (filters.requiredScope ?? 'my') === 'their' ? profile.theirMissingRequired : profile.missingRequired;
+      const useNonRequired = filters.requiredOnly && scopeMissing && profile.compatibilityNonRequired;
       const compatibility = useNonRequired ? profile.compatibilityNonRequired : profile.compatibility;
       switch (compatibilityType) {
         case 'compatible_with_me':
@@ -1395,8 +1397,9 @@ function ResultsPageContent() {
 
     const compareMissingRequired = (a: ResultProfile, b: ResultProfile) => {
       if (!filters.requiredOnly) return 0;
-      const aMissing = Boolean(a.missingRequired);
-      const bMissing = Boolean(b.missingRequired);
+      const useTheirRequired = (filters.requiredScope ?? 'my') === 'their';
+      const aMissing = useTheirRequired ? Boolean(a.theirMissingRequired) : Boolean(a.missingRequired);
+      const bMissing = useTheirRequired ? Boolean(b.theirMissingRequired) : Boolean(b.missingRequired);
       if (aMissing === bMissing) return 0;
       return aMissing ? 1 : -1;
     };
@@ -1450,12 +1453,7 @@ function ResultsPageContent() {
       {/* Header */}
       <div className="relative flex items-center p-4 border-b border-gray-200">
         <div className="absolute left-4">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-          />
+          <NavLogo />
         </div>
 
         {/* Centered Search Bar */}
@@ -1653,7 +1651,7 @@ function ResultsPageContent() {
           <div className="flex items-center gap-2 flex-wrap mb-4">
             {/* Compatibility Type chip (only when non-default) */}
             {filters.compatibilityType !== 'overall' && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }}>
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900 cursor-pointer" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }} onClick={() => setShowFilterModal(true)}>
                 <svg className="w-3.5 h-3.5" style={{ color: '#672DB7' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
@@ -1665,7 +1663,7 @@ function ResultsPageContent() {
 
             {/* Required chip */}
             {filters.requiredOnly && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }}>
+              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900 cursor-pointer" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }} onClick={() => setShowFilterModal(true)}>
                 <svg className="w-3.5 h-3.5" style={{ color: '#672DB7' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -1677,21 +1675,24 @@ function ResultsPageContent() {
 
             {/* Compatibility range chip (only when non-default) */}
             {(filters.compatibility.min > 0 || filters.compatibility.max < 100) && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-400 bg-gray-50 text-gray-900">
+              <span className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer" onClick={() => setShowFilterModal(true)}>
+                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
                 <span className="relative z-10">Compatibility {filters.compatibility.min === filters.compatibility.max ? `${filters.compatibility.min}%` : `${filters.compatibility.min}% – ${filters.compatibility.max}%`}</span>
               </span>
             )}
 
             {/* Distance range chip (only when non-default) */}
             {(filters.distance.min > 1 || filters.distance.max < 100) && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-400 bg-gray-50 text-gray-900">
+              <span className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer" onClick={() => setShowFilterModal(true)}>
+                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
                 <span className="relative z-10">Distance {filters.distance.min === filters.distance.max ? `${filters.distance.min} mi` : `${filters.distance.min} – ${filters.distance.max} mi`}</span>
               </span>
             )}
 
             {/* Age range chip (only when non-default) */}
             {(filters.age.min > 18 || filters.age.max < 80) && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-400 bg-gray-50 text-gray-900">
+              <span className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer" onClick={() => setShowFilterModal(true)}>
+                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
                 <span className="relative z-10">Age {filters.age.min === filters.age.max ? filters.age.min : `${filters.age.min} – ${filters.age.max}`}</span>
               </span>
             )}
@@ -1700,7 +1701,8 @@ function ResultsPageContent() {
             {filters.tags.map((tag: string) => (
               <span
                 key={tag}
-                className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium"
+                className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer"
+                onClick={() => setShowFilterModal(true)}
               >
                 <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
                 <span className="relative z-10">{tag}</span>

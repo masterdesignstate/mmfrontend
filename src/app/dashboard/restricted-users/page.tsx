@@ -45,6 +45,7 @@ export default function RestrictedUsersPage() {
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedUserForAction, setSelectedUserForAction] = useState<RestrictedUser | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [modifyDuration, setModifyDuration] = useState(30);
 
   // Fetch restricted users from API
   const fetchRestrictedUsers = async () => {
@@ -52,10 +53,9 @@ export default function RestrictedUsersPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch all users and filter for banned ones
-      const allUsers = await apiService.getUsers();
+      // Fetch only restricted users directly
+      const allUsers = await apiService.getRestrictedUsers();
       const restrictedUsers: RestrictedUser[] = allUsers
-        .filter((user: ApiUser) => user.is_banned)
         .map((user: ApiUser) => ({
           id: user.id,
           username: user.username,
@@ -63,12 +63,12 @@ export default function RestrictedUsersPage() {
           last_name: user.last_name || '',
           email: user.email,
           profile_photo: user.profile_photo,
-          restriction_reason: undefined,
-          restriction_date: undefined,
-          restriction_type: undefined,
-          restriction_duration: undefined,
+          restriction_reason: user.restriction_reason,
+          restriction_date: user.restriction_date,
+          restriction_type: user.restriction_type,
+          restriction_duration: user.restriction_duration,
           is_banned: user.is_banned || false,
-          last_seen: undefined,
+          last_seen: user.last_active || undefined,
           live: user.live,
           age: user.age
         }));
@@ -165,6 +165,54 @@ export default function RestrictedUsersPage() {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return 'N/A';
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const handleAction = (action: string, user: RestrictedUser) => {
+    setSelectedAction(action);
+    setSelectedUserForAction(user);
+    setModifyDuration(user.restriction_duration || 30);
+    setShowActionModal(true);
+  };
+
+  const executeAction = async () => {
+    if (!selectedUserForAction) return;
+    setActionLoading(true);
+    try {
+      if (selectedAction === 'unban') {
+        await apiService.removeRestriction(selectedUserForAction.id);
+        setUsers(prev => prev.filter(u => u.id !== selectedUserForAction.id));
+      } else if (selectedAction === 'modify') {
+        await apiService.restrictUser(selectedUserForAction.id, {
+          restriction_type: 'temporary',
+          duration: modifyDuration,
+          reason: selectedUserForAction.restriction_reason || '',
+        });
+        setUsers(prev => prev.map(u =>
+          u.id === selectedUserForAction.id
+            ? { ...u, restriction_type: 'temporary', restriction_duration: modifyDuration, restriction_date: new Date().toISOString() }
+            : u
+        ));
+      } else if (selectedAction === 'permanent') {
+        await apiService.restrictUser(selectedUserForAction.id, {
+          restriction_type: 'permanent',
+          duration: 0,
+          reason: selectedUserForAction.restriction_reason || '',
+        });
+        setUsers(prev => prev.map(u =>
+          u.id === selectedUserForAction.id
+            ? { ...u, restriction_type: 'permanent', restriction_duration: 0 }
+            : u
+        ));
+      }
+      setShowActionModal(false);
+      setSelectedAction('');
+      setSelectedUserForAction(null);
+    } catch (err) {
+      console.error('Error executing action:', err);
+      setError('Failed to execute action');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) {
@@ -340,13 +388,30 @@ export default function RestrictedUsersPage() {
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                     <div className="truncate">{user.restriction_reason || 'N/A'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <button
-                      className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
-                      title="View Details"
-                    >
-                      <i className="fas fa-eye"></i>
-                    </button>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleAction('unban', user)}
+                        className="text-green-600 hover:text-green-800 cursor-pointer"
+                        title="Unban User"
+                      >
+                        <i className="fas fa-unlock"></i>
+                      </button>
+                      <button
+                        onClick={() => handleAction('modify', user)}
+                        className="text-orange-600 hover:text-orange-800 cursor-pointer"
+                        title="Modify Suspension"
+                      >
+                        <i className="fas fa-clock"></i>
+                      </button>
+                      <button
+                        onClick={() => handleAction('permanent', user)}
+                        className="text-red-600 hover:text-red-800 cursor-pointer"
+                        title="Make Permanent"
+                      >
+                        <i className="fas fa-ban"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -431,6 +496,100 @@ export default function RestrictedUsersPage() {
           <i className="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">No Restricted Users</h3>
           <p className="text-gray-600">There are currently no restricted users in the system.</p>
+        </div>
+      )}
+
+      {/* Action Modal */}
+      {showActionModal && selectedUserForAction && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowActionModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-5">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                selectedAction === 'unban' ? 'bg-green-50' :
+                selectedAction === 'modify' ? 'bg-orange-50' : 'bg-red-50'
+              }`}>
+                <i className={`fas ${
+                  selectedAction === 'unban' ? 'fa-unlock text-green-600' :
+                  selectedAction === 'modify' ? 'fa-clock text-orange-600' : 'fa-ban text-red-600'
+                } text-xl`}></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {selectedAction === 'unban' && 'Unban User'}
+                {selectedAction === 'modify' && 'Modify Suspension'}
+                {selectedAction === 'permanent' && 'Make Permanent'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedAction === 'unban' && `Remove all restrictions from ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}?`}
+                {selectedAction === 'modify' && `Change the suspension duration for ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}.`}
+                {selectedAction === 'permanent' && `Permanently ban ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}? This cannot be automatically reversed.`}
+              </p>
+            </div>
+
+            {/* Duration Picker for modify action */}
+            {selectedAction === 'modify' && (
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Duration</label>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[7, 14, 30, 90].map(days => (
+                    <button
+                      key={days}
+                      onClick={() => setModifyDuration(days)}
+                      className={`py-2 px-3 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                        modifyDuration === days
+                          ? 'bg-[#672DB7] text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {days}d
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={modifyDuration}
+                    onChange={(e) => setModifyDuration(Math.max(1, Math.min(365, parseInt(e.target.value) || 1)))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7]"
+                  />
+                  <span className="text-sm text-gray-500 whitespace-nowrap">days</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  Timer resets from today. Current: {selectedUserForAction.restriction_duration || 'N/A'} days from {formatDate(selectedUserForAction.restriction_date)}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={executeAction}
+                disabled={actionLoading}
+                className={`w-full py-2.5 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-50 ${
+                  selectedAction === 'unban' ? 'bg-green-600 hover:bg-green-700' :
+                  selectedAction === 'modify' ? 'bg-orange-600 hover:bg-orange-700' :
+                  'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {actionLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <i className="fas fa-spinner fa-spin"></i> Processing...
+                  </span>
+                ) : (
+                  selectedAction === 'unban' ? 'Unban User' :
+                  selectedAction === 'modify' ? `Set to ${modifyDuration} days` :
+                  'Permanently Ban'
+                )}
+              </button>
+              <button
+                onClick={() => setShowActionModal(false)}
+                disabled={actionLoading}
+                className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

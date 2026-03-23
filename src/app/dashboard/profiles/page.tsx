@@ -24,13 +24,19 @@ export default function ProfilesPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [minAge, setMinAge] = useState('');
+  const [maxAge, setMaxAge] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [minAnswers, setMinAnswers] = useState('');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showActionModal, setShowActionModal] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<'restrict' | 'remove_restriction' | null>(null);
+  const [selectedAction, setSelectedAction] = useState<'restrict' | 'permanent' | 'remove_restriction' | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<ProfileData | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [restrictDuration, setRestrictDuration] = useState(30);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -47,7 +53,7 @@ export default function ProfilesPage() {
       setLoading(true);
       setError(null);
 
-      const users = await apiService.getUsers();
+      const users = await apiService.getAdminProfiles();
 
       // Transform API users to ProfileData format
       const transformedProfiles: ProfileData[] = users.map((user: ApiUser) => {
@@ -80,9 +86,10 @@ export default function ProfilesPage() {
     fetchProfiles();
   }, []);
 
-  const handleAction = (action: 'restrict' | 'remove_restriction', profile: ProfileData) => {
+  const handleAction = (action: 'restrict' | 'permanent' | 'remove_restriction', profile: ProfileData) => {
     setSelectedAction(action);
     setSelectedProfile(profile);
+    setRestrictDuration(30);
     setShowActionModal(true);
   };
 
@@ -94,10 +101,16 @@ export default function ProfilesPage() {
       if (selectedAction === 'restrict') {
         await apiService.restrictUser(selectedProfile.id, {
           restriction_type: 'temporary',
-          duration: 30,
+          duration: restrictDuration,
           reason: 'Restricted by admin'
         });
-        // Refresh the profiles list
+        await fetchProfiles();
+      } else if (selectedAction === 'permanent') {
+        await apiService.restrictUser(selectedProfile.id, {
+          restriction_type: 'permanent',
+          duration: 0,
+          reason: 'Permanently banned by admin'
+        });
         await fetchProfiles();
       } else if (selectedAction === 'remove_restriction') {
         await apiService.removeRestriction(selectedProfile.id);
@@ -123,7 +136,19 @@ export default function ProfilesPage() {
       profile.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       profile.live.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesSearch;
+    const matchesStatus = statusFilter === 'All' ||
+      (statusFilter === 'Restricted' && profile.restrictionType !== 'None') ||
+      (statusFilter === 'Active' && profile.restrictionType === 'None');
+
+    const matchesMinAge = minAge === '' || profile.age >= parseInt(minAge);
+    const matchesMaxAge = maxAge === '' || profile.age <= parseInt(maxAge);
+
+    const matchesLocation = locationFilter === '' ||
+      profile.live.toLowerCase().includes(locationFilter.toLowerCase());
+
+    const matchesMinAnswers = minAnswers === '' || profile.answers >= parseInt(minAnswers);
+
+    return matchesSearch && matchesStatus && matchesMinAge && matchesMaxAge && matchesLocation && matchesMinAnswers;
   });
 
   // Sort profiles
@@ -162,6 +187,11 @@ export default function ProfilesPage() {
 
   const resetFilters = () => {
     setSearchTerm('');
+    setStatusFilter('All');
+    setMinAge('');
+    setMaxAge('');
+    setLocationFilter('');
+    setMinAnswers('');
     setSortField('');
     setSortDirection('asc');
     setCurrentPage(1);
@@ -227,12 +257,60 @@ export default function ProfilesPage() {
               <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
               <input
                 type="text"
-                placeholder="Search profiles..."
+                placeholder="Name, username, or location..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
               />
             </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] bg-white cursor-pointer text-gray-900"
+            >
+              <option value="All">All</option>
+              <option value="Active">Active</option>
+              <option value="Restricted">Restricted</option>
+            </select>
+          </div>
+
+          {/* Age Range */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Age Range</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                placeholder="Min"
+                value={minAge}
+                onChange={(e) => { setMinAge(e.target.value); setCurrentPage(1); }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] text-gray-900"
+              />
+              <span className="text-gray-400">–</span>
+              <input
+                type="number"
+                placeholder="Max"
+                value={maxAge}
+                onChange={(e) => { setMaxAge(e.target.value); setCurrentPage(1); }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] text-gray-900"
+              />
+            </div>
+          </div>
+
+          {/* Min Answers */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Min Answers</label>
+            <input
+              type="number"
+              placeholder="e.g. 10"
+              value={minAnswers}
+              onChange={(e) => { setMinAnswers(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] text-gray-900"
+            />
           </div>
         </div>
       </div>
@@ -386,13 +464,22 @@ export default function ProfilesPage() {
                         <i className="fas fa-eye"></i>
                       </button>
                       {profile.restrictionType === 'None' ? (
-                        <button
-                          onClick={() => handleAction('restrict', profile)}
-                          className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
-                          title="Restrict User"
-                        >
-                          <i className="fas fa-ban"></i>
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleAction('restrict', profile)}
+                            className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
+                            title="Temporary Restrict"
+                          >
+                            <i className="fas fa-clock"></i>
+                          </button>
+                          <button
+                            onClick={() => handleAction('permanent', profile)}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"
+                            title="Permanently Ban"
+                          >
+                            <i className="fas fa-ban"></i>
+                          </button>
+                        </>
                       ) : (
                         <button
                           onClick={() => handleAction('remove_restriction', profile)}
@@ -481,47 +568,91 @@ export default function ProfilesPage() {
         )}
       </div>
 
-      {/* Action Confirmation Modal */}
+      {/* Action Modal */}
       {showActionModal && selectedProfile && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3 text-center">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Confirm Action
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                {selectedAction === 'restrict' && 
-                  `Are you sure you want to restrict user "${selectedProfile.name}"? This will temporarily ban the user.`}
-                {selectedAction === 'remove_restriction' && 
-                  `Are you sure you want to remove the restriction from user "${selectedProfile.name}"?`}
-              </p>
-              <div className="flex justify-center space-x-3">
-                <button
-                  onClick={() => {
-                    setShowActionModal(false);
-                    setSelectedAction(null);
-                    setSelectedProfile(null);
-                  }}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors duration-200 cursor-pointer disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={executeAction}
-                  disabled={actionLoading}
-                  className={`px-4 py-2 rounded-md text-white transition-colors duration-200 cursor-pointer disabled:opacity-50 ${
-                    selectedAction === 'restrict' 
-                      ? 'bg-orange-600 hover:bg-orange-700' 
-                      : 'bg-green-600 hover:bg-green-700'
-                  }`}
-                >
-                  {actionLoading ? (
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                  ) : null}
-                  Confirm
-                </button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowActionModal(false); setSelectedAction(null); setSelectedProfile(null); }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-5">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                selectedAction === 'restrict' ? 'bg-orange-50' :
+                selectedAction === 'permanent' ? 'bg-red-50' : 'bg-green-50'
+              }`}>
+                <i className={`fas ${
+                  selectedAction === 'restrict' ? 'fa-clock text-orange-600' :
+                  selectedAction === 'permanent' ? 'fa-ban text-red-600' : 'fa-unlock text-green-600'
+                } text-xl`}></i>
               </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {selectedAction === 'restrict' && 'Temporary Restriction'}
+                {selectedAction === 'permanent' && 'Permanent Ban'}
+                {selectedAction === 'remove_restriction' && 'Remove Restriction'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedAction === 'restrict' && `Set a temporary suspension for ${selectedProfile.name}.`}
+                {selectedAction === 'permanent' && `Permanently ban ${selectedProfile.name}? This cannot be automatically reversed.`}
+                {selectedAction === 'remove_restriction' && `Remove all restrictions from ${selectedProfile.name}?`}
+              </p>
+            </div>
+
+            {selectedAction === 'restrict' && (
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[7, 14, 30, 90].map(days => (
+                    <button
+                      key={days}
+                      onClick={() => setRestrictDuration(days)}
+                      className={`py-2 px-3 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                        restrictDuration === days
+                          ? 'bg-[#672DB7] text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {days}d
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={restrictDuration}
+                    onChange={(e) => setRestrictDuration(Math.max(1, Math.min(365, parseInt(e.target.value) || 1)))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7]"
+                  />
+                  <span className="text-sm text-gray-500 whitespace-nowrap">days</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={executeAction}
+                disabled={actionLoading}
+                className={`w-full py-2.5 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-50 ${
+                  selectedAction === 'restrict' ? 'bg-orange-600 hover:bg-orange-700' :
+                  selectedAction === 'permanent' ? 'bg-red-600 hover:bg-red-700' :
+                  'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {actionLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <i className="fas fa-spinner fa-spin"></i> Processing...
+                  </span>
+                ) : (
+                  selectedAction === 'restrict' ? `Suspend for ${restrictDuration} days` :
+                  selectedAction === 'permanent' ? 'Permanently Ban' :
+                  'Remove Restriction'
+                )}
+              </button>
+              <button
+                onClick={() => { setShowActionModal(false); setSelectedAction(null); setSelectedProfile(null); }}
+                disabled={actionLoading}
+                className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

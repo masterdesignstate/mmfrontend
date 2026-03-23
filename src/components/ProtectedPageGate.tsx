@@ -12,7 +12,7 @@ interface ProtectedPageGateProps {
 
 export default function ProtectedPageGate({ children, checkOnboarding = true }: ProtectedPageGateProps) {
   const router = useRouter();
-  const { isBanned, isOnboardingComplete, isLoading, userId } = useUserGateStatus();
+  const { isBanned, restrictionType, isOnboardingComplete, isLoading, userId } = useUserGateStatus();
 
   // Redirect to login if no userId (after loading completes)
   if (!isLoading && !userId) {
@@ -52,11 +52,27 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
 
             {/* Message */}
             <h2 className="text-xl font-bold text-gray-900 mb-2">
-              Account Restricted
+              {restrictionType === 'permanent' ? 'Account Permanently Banned' : 'Account Restricted'}
             </h2>
-            <p className="text-gray-600">
-              Your account has been restricted for violating our Terms of Service.
+            <p className="text-gray-600 mb-6">
+              {restrictionType === 'permanent'
+                ? 'Your account has been permanently banned for violating our Terms of Service. This decision is final.'
+                : 'Your account has been temporarily restricted for violating our Terms of Service. Your access will be restored once the restriction period ends.'}
             </p>
+
+            {/* Logout Button */}
+            <button
+              onClick={() => {
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('is_admin');
+                localStorage.removeItem('user_email');
+                localStorage.removeItem('mandatory_questions_complete');
+                router.push('/auth/login');
+              }}
+              className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              Log Out
+            </button>
           </div>
         </div>
       </div>

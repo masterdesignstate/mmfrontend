@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Notification } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import NavLogo from '@/components/NavLogo';
 import HeartLoader from '@/components/HeartLoader';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 
@@ -69,7 +70,7 @@ function NotificationsPageContent() {
     }
   }, [userId]);
 
-  // Mark notification as read and navigate to profile
+  // Mark notification as read and navigate
   const handleNotificationClick = async (notification: Notification) => {
     try {
       if (!notification.is_read) {
@@ -79,11 +80,20 @@ function NotificationsPageContent() {
         );
       }
 
-      // Navigate to profile for all notifications
+      // For admin notes, navigate to chats instead of profile
+      if (notification.notification_type === 'note' && notification.sender.is_admin) {
+        // Create or get conversation with admin, then navigate to it
+        try {
+          const conversation = await apiService.createOrGetConversation(userId, notification.sender.id);
+          router.push(`/chats/${conversation.id}`);
+        } catch {
+          router.push('/chats');
+        }
+      } else {
         router.push(`/profile/${notification.sender.id}`);
+      }
     } catch (error) {
       console.error('Error handling notification click:', error);
-      // Still navigate to profile even if something fails
       router.push(`/profile/${notification.sender.id}`);
     }
   };
@@ -158,12 +168,7 @@ function NotificationsPageContent() {
       {/* Header */}
       <div className="relative flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-          />
+          <NavLogo />
         </div>
 
         <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
@@ -227,6 +232,11 @@ function NotificationsPageContent() {
                       <span className="text-lg">{getNotificationIcon(notification.notification_type)}</span>
                       <p className="text-base font-medium text-gray-900">
                         {getNotificationText(notification)}
+                        {notification.sender.is_admin && (
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-[#672DB7]">
+                            Admin
+                          </span>
+                        )}
                       </p>
                     </div>
                     <p className="text-sm text-gray-500 mt-1">

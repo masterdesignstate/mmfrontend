@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import NavLogo from '@/components/NavLogo';
 import HeartLoader from '@/components/HeartLoader';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 
@@ -115,13 +116,7 @@ function MatchesPageContent() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <Image
-          src="/assets/mmlogox.png"
-          alt="mm logo"
-          width={32}
-          height={32}
-          className="object-contain"
-        />
+        <NavLogo />
         <h1 className="text-lg font-semibold text-gray-900">Matches</h1>
         <HamburgerMenu />
       </div>

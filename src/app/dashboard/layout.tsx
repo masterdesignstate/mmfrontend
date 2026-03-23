@@ -14,10 +14,11 @@ const sidebarItems = [
   { name: 'Create Question', href: '/dashboard/questions/create', icon: 'fas fa-plus-circle' },
   { name: 'Individual Calculation', href: '/dashboard/calculation', icon: 'fas fa-calculator' },
   { name: 'Picture Moderation Queue', href: '/dashboard/picture-moderation', icon: 'fas fa-images' },
-  // { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },
-  // { name: 'Reported Users', href: '/dashboard/reported-users', icon: 'fas fa-exclamation-triangle' },
+  { name: 'Restricted Users', href: '/dashboard/restricted-users', icon: 'fas fa-ban' },
+  { name: 'Reported Users', href: '/dashboard/reported-users', icon: 'fas fa-exclamation-triangle' },
   { name: 'Restricted Text', href: '/dashboard/restricted-text', icon: 'fas fa-shield-alt' },
   { name: 'Controls', href: '/dashboard/controls', icon: 'fas fa-sliders-h' },
+  { name: 'Messaging', href: '/dashboard/messaging', icon: 'fas fa-envelope' },
 ];
 
 export default function DashboardLayout({

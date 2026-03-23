@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { useQuestionMetadata } from '@/hooks/useQuestionMetadata';
 import { useAnsweredQuestions } from '@/hooks/useAnsweredQuestions';
@@ -1328,12 +1329,7 @@ function QuestionsPageContent() {
       {/* Header — padding so search bar never overlaps logo or hamburger */}
       <div className="flex items-center border-b border-gray-200 py-2 sm:py-3 pl-[52px] pr-[52px] sm:pl-14 sm:pr-14 relative">
         <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-          />
+          <NavLogo />
         </div>
         {/* Search + Filter + Sort — search bar WIDTH limited on small/medium screens */}
         <div className="flex items-center gap-1.5 sm:gap-2 w-full max-w-2xl mx-auto min-w-0">

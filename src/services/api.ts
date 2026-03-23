@@ -14,8 +14,13 @@ export interface ApiUser {
   live?: string;
   date_joined?: string;
   is_banned?: boolean;
+  restriction_type?: string;
+  restriction_duration?: number;
+  restriction_reason?: string;
+  restriction_date?: string;
   questions_answered_count?: number;
   is_online?: boolean;
+  is_admin?: boolean;
   last_active?: string | null;
   mandatory_questions_complete?: boolean;
   question_answers?: {
@@ -254,11 +259,11 @@ class ApiService {
 
   // Dashboard methods
   async getRestrictedUsers(): Promise<ApiUser[]> {
-    return this.fetchAllPages<ApiUser>('/users/restricted/');
+    return this.request('/users/restricted/', 'GET') as Promise<ApiUser[]>;
   }
 
   async getReportedUsers(): Promise<unknown[]> {
-    return this.fetchAllPages<unknown>('/reports/reported_users/');
+    return this.request('/reports/reported_users/', 'GET') as Promise<unknown[]>;
   }
 
   async restrictUser(userId: string, data: Record<string, unknown>): Promise<unknown> {
@@ -298,13 +303,19 @@ class ApiService {
     return this.request(`/questions/restricted_text/${wordId}/`, 'DELETE');
   }
 
-  async resolveReport(reportId: string, action: string): Promise<unknown> {
-    return this.request(`/reports/${reportId}/resolve/`, 'POST', { action });
+  async resolveReport(reportId: string, action: string, duration?: number): Promise<unknown> {
+    const data: Record<string, unknown> = { action };
+    if (duration !== undefined) data.duration = duration;
+    return this.request(`/reports/${reportId}/resolve/`, 'POST', data);
   }
 
   // Calculation methods
   async getUsers(): Promise<ApiUser[]> {
     return this.fetchAllPages<ApiUser>('/users/');
+  }
+
+  async getAdminProfiles(): Promise<ApiUser[]> {
+    return this.request('/users/admin_profiles/', 'GET') as Promise<ApiUser[]>;
   }
 
   async getUser(userId: string): Promise<ApiUser> {
@@ -750,6 +761,22 @@ class ApiService {
 
   async getUnreadMessageCount(userId: string): Promise<{ count: number }> {
     return this.request(`/conversations/unread_count/?user_id=${userId}`, 'GET') as Promise<{ count: number }>;
+  }
+
+  async broadcastMessage(senderId: string, content: string): Promise<{ sent_count: number }> {
+    return this.request('/conversations/broadcast/', 'POST', {
+      sender_id: senderId,
+      content: content
+    }) as Promise<{ sent_count: number }>;
+  }
+
+  async getAdminConversations(userId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<Conversation>> {
+    const url = `/conversations/admin_conversations/?user_id=${userId}&page=${page}&page_size=${pageSize}`;
+    return this.request(url, 'GET') as Promise<PaginatedResponse<Conversation>>;
+  }
+
+  async getAdminUser(): Promise<{ id: string; first_name: string }> {
+    return this.request('/users/get_admin/', 'GET') as Promise<{ id: string; first_name: string }>;
   }
 
   // Generic CRUD operations

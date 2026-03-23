@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 
 function SettingsPageContent() {
@@ -123,13 +124,7 @@ function SettingsPageContent() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
-          />
+          <NavLogo />
         </div>
         <HamburgerMenu />
       </div>
@@ -291,6 +286,34 @@ function SettingsPageContent() {
               </form>
             )}
           </div>
+        </div>
+
+        {/* Contact Admin Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Contact Admin</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Have a question or need help? Send a message to the admin team.
+          </p>
+          <button
+            onClick={async () => {
+              try {
+                const userId = localStorage.getItem('user_id');
+                if (!userId) return;
+                const admin = await apiService.getAdminUser();
+                const conversation = await apiService.createOrGetConversation(userId, admin.id);
+                router.push(`/chats/${conversation.id}`);
+              } catch (error) {
+                console.error('Error contacting admin:', error);
+                setMessage({ type: 'error', text: 'Unable to reach admin. Please try again later.' });
+              }
+            }}
+            className="inline-flex items-center px-4 py-2 bg-[#672DB7] text-white rounded-md hover:bg-[#5624A0] transition-colors duration-200 text-sm font-medium cursor-pointer"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Message Admin
+          </button>
         </div>
 
         {/* Terms of Service Section */}
