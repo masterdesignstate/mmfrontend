@@ -547,7 +547,8 @@ function QuestionEditPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const questionNumber = parseInt(params.id as string);
-  
+  const isDemo = searchParams.get('demo') === 'true';
+
   const [userId, setUserId] = useState<string>('');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [existingAnswers, setExistingAnswers] = useState<UserAnswer[]>([]);
@@ -615,19 +616,29 @@ function QuestionEditPageContent() {
     const fetchData = async () => {
       try {
         const storedUserId = localStorage.getItem('user_id');
-        if (!storedUserId) {
+        if (!storedUserId && !isDemo) {
           router.push('/auth/login');
           return;
         }
-        setUserId(storedUserId);
+        if (storedUserId) setUserId(storedUserId);
 
         const headers = { 'Content-Type': 'application/json' };
 
+        if (isDemo) {
+          // Demo mode: only fetch questions, no answers or required
+          const questionsRes = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`, { headers });
+          const questionsData = await questionsRes.json();
+          const questionsList: Question[] = (questionsData.results || []).sort(
+            (a: Question, b: Question) => (a.group_number || 0) - (b.group_number || 0)
+          );
+          setQuestions(questionsList);
+          initializeAnswerState(questionsList, []);
+        } else {
         // Fire all 3 requests in parallel instead of sequentially
         const [questionsRes, answersRes, requiredRes] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`, { headers }),
           fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&question_number=${questionNumber}&page_size=100`, { headers }),
-          fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId)}&page_size=200`, { headers }),
+          fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId!)}&page_size=200`, { headers }),
         ]);
 
         // Process questions
@@ -657,6 +668,7 @@ function QuestionEditPageContent() {
           setMeRequired(
             requiredQuestionIds.includes(firstQId) || questionsList[0].is_required_for_match === true
           );
+        }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -2130,6 +2142,10 @@ function QuestionEditPageContent() {
         <div className="flex justify-between items-center px-6 py-4">
           <button
             onClick={() => {
+              if (isDemo) {
+                router.push('/#questions');
+                return;
+              }
               // Restore the page from sessionStorage if available
               const savedPage = typeof window !== 'undefined'
                 ? sessionStorage.getItem('questions_current_page')
@@ -2137,37 +2153,48 @@ function QuestionEditPageContent() {
               const pageParam = savedPage ? `?page=${savedPage}` : '';
               router.push(`/questions${pageParam}`);
             }}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors"
+            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
           >
             Back
           </button>
 
           <div className="flex items-center gap-3">
-            {/* Undo button - only for non-mandatory questions that have been answered */}
-            {questionNumber > 10 && existingAnswers.length > 0 && (
+            {isDemo ? (
               <button
-                onClick={handleUndoAnswer}
-                disabled={saving}
-                className={`px-4 py-3 rounded-md font-medium transition-colors cursor-pointer ${
-                  !saving
-                    ? 'border border-red-300 text-red-500 hover:bg-red-50'
-                    : 'border border-gray-200 text-gray-400 !cursor-not-allowed'
-                }`}
+                onClick={() => router.push('/auth/register')}
+                className="px-8 py-3 rounded-md font-medium bg-[#672DB7] text-white hover:bg-[#5a27a0] cursor-pointer transition-colors"
               >
-                Clear Answer
+                Sign Up to Save
               </button>
+            ) : (
+              <>
+                {/* Undo button - only for non-mandatory questions that have been answered */}
+                {questionNumber > 10 && existingAnswers.length > 0 && (
+                  <button
+                    onClick={handleUndoAnswer}
+                    disabled={saving}
+                    className={`px-4 py-3 rounded-md font-medium transition-colors cursor-pointer ${
+                      !saving
+                        ? 'border border-red-300 text-red-500 hover:bg-red-50'
+                        : 'border border-gray-200 text-gray-400 !cursor-not-allowed'
+                    }`}
+                  >
+                    Clear Answer
+                  </button>
+                )}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className={`px-8 py-3 rounded-md font-medium transition-colors cursor-pointer ${
+                    !saving
+                      ? 'bg-black text-white hover:bg-gray-800'
+                      : 'bg-gray-300 text-gray-500 !cursor-not-allowed'
+                  }`}
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </>
             )}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className={`px-8 py-3 rounded-md font-medium transition-colors cursor-pointer ${
-                !saving
-                  ? 'bg-black text-white hover:bg-gray-800'
-                  : 'bg-gray-300 text-gray-500 !cursor-not-allowed'
-              }`}
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
           </div>
         </div>
       </footer>
@@ -2175,10 +2202,25 @@ function QuestionEditPageContent() {
   );
 }
 
-export default function QuestionEditPage() {
+function QuestionEditPageWrapper() {
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get('demo') === 'true';
+
+  if (isDemo) {
+    return <QuestionEditPageContent />;
+  }
+
   return (
     <ProtectedPageGate>
       <QuestionEditPageContent />
     </ProtectedPageGate>
+  );
+}
+
+export default function QuestionEditPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 border-2 border-gray-200 border-t-[#672DB7] rounded-full animate-spin" /></div>}>
+      <QuestionEditPageWrapper />
+    </React.Suspense>
   );
 }

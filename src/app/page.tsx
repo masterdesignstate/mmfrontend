@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import LiveQuestionsSection from '@/components/LiveQuestionsSection';
 
 export default function LandingPage() {
 const [mobileOpen, setMobileOpen] = useState(false);
@@ -149,6 +150,9 @@ return ( <div className="min-h-screen bg-white text-gray-900">
       </div>
     </div>
   </section>
+
+  {/* Live Questions */}
+  <LiveQuestionsSection />
 
   {/* Features */}
   <section id="features" className="mx-auto max-w-7xl px-6 py-16 md:py-24">
