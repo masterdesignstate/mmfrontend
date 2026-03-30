@@ -69,7 +69,11 @@ export default function ProfilesPage() {
           answers: user.questions_answered_count || 0,
           male: questionAnswers['male'] ?? 0,
           female: questionAnswers['female'] ?? 0,
-          restrictionType: user.is_banned ? 'Restricted' : 'None'
+          restrictionType: user.restriction_type === 'permanent' ? 'Banned'
+            : user.restriction_type === 'temporary' ? 'Restricted'
+            : user.is_banned ? 'Banned'
+            : (user as ApiUser & { has_pending_reports?: boolean }).has_pending_reports ? 'Pending'
+            : 'None'
         };
       });
 
@@ -102,14 +106,14 @@ export default function ProfilesPage() {
         await apiService.restrictUser(selectedProfile.id, {
           restriction_type: 'temporary',
           duration: restrictDuration,
-          reason: 'Restricted by admin'
+          reason: 'admin_restriction'
         });
         await fetchProfiles();
       } else if (selectedAction === 'permanent') {
         await apiService.restrictUser(selectedProfile.id, {
           restriction_type: 'permanent',
           duration: 0,
-          reason: 'Permanently banned by admin'
+          reason: 'admin_restriction'
         });
         await fetchProfiles();
       } else if (selectedAction === 'remove_restriction') {
@@ -136,9 +140,7 @@ export default function ProfilesPage() {
       profile.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       profile.live.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'All' ||
-      (statusFilter === 'Restricted' && profile.restrictionType !== 'None') ||
-      (statusFilter === 'Active' && profile.restrictionType === 'None');
+    const matchesStatus = statusFilter === 'All' || statusFilter === profile.restrictionType;
 
     const matchesMinAge = minAge === '' || profile.age >= parseInt(minAge);
     const matchesMaxAge = maxAge === '' || profile.age <= parseInt(maxAge);
@@ -274,8 +276,10 @@ export default function ProfilesPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] bg-white cursor-pointer text-gray-900"
             >
               <option value="All">All</option>
-              <option value="Active">Active</option>
+              <option value="None">None</option>
+              <option value="Banned">Banned</option>
               <option value="Restricted">Restricted</option>
+              <option value="Pending">Pending</option>
             </select>
           </div>
 
@@ -397,7 +401,7 @@ export default function ProfilesPage() {
                   </div>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Restriction Type
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -449,46 +453,49 @@ export default function ProfilesPage() {
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                       profile.restrictionType === 'None'
                         ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                        : profile.restrictionType === 'Banned'
+                        ? 'bg-red-100 text-red-800'
+                        : profile.restrictionType === 'Restricted'
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-yellow-100 text-yellow-800'
                     }`}>
                       {profile.restrictionType}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
-                        title="View Profile"
-                      >
-                        <i className="fas fa-eye"></i>
-                      </button>
-                      {profile.restrictionType === 'None' ? (
-                        <>
-                          <button
-                            onClick={() => handleAction('restrict', profile)}
-                            className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
-                            title="Temporary Restrict"
-                          >
-                            <i className="fas fa-clock"></i>
-                          </button>
-                          <button
-                            onClick={() => handleAction('permanent', profile)}
-                            className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"
-                            title="Permanently Ban"
-                          >
-                            <i className="fas fa-ban"></i>
-                          </button>
-                        </>
-                      ) : (
+                      {profile.restrictionType === 'None' || profile.restrictionType === 'Pending' ? (
+                        <button
+                          onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
+                          title="View Profile"
+                        >
+                          <i className="fas fa-eye"></i>
+                        </button>
+                      ) : null}
+                      {profile.restrictionType !== 'None' && (
                         <button
                           onClick={() => handleAction('remove_restriction', profile)}
-                          className="text-green-600 hover:text-green-800 transition-colors duration-200 cursor-pointer"
-                          title="Remove Restriction"
+                          className="text-gray-600 hover:text-gray-800 transition-colors duration-200 cursor-pointer"
+                          title="Dismiss"
                         >
-                          <i className="fas fa-unlock"></i>
+                          <i className="fas fa-times"></i>
                         </button>
                       )}
+                      <button
+                        onClick={() => handleAction('restrict', profile)}
+                        className="text-orange-600 hover:text-orange-800 transition-colors duration-200 cursor-pointer"
+                        title={profile.restrictionType === 'Restricted' ? 'Modify Suspension' : 'Temporary Restrict'}
+                      >
+                        <i className="fas fa-clock"></i>
+                      </button>
+                      <button
+                        onClick={() => handleAction('permanent', profile)}
+                        className="text-red-600 hover:text-red-800 transition-colors duration-200 cursor-pointer"
+                        title="Make Permanent"
+                      >
+                        <i className="fas fa-ban"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -575,22 +582,22 @@ export default function ProfilesPage() {
             <div className="text-center mb-5">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
                 selectedAction === 'restrict' ? 'bg-orange-50' :
-                selectedAction === 'permanent' ? 'bg-red-50' : 'bg-green-50'
+                selectedAction === 'permanent' ? 'bg-red-50' : 'bg-gray-100'
               }`}>
                 <i className={`fas ${
                   selectedAction === 'restrict' ? 'fa-clock text-orange-600' :
-                  selectedAction === 'permanent' ? 'fa-ban text-red-600' : 'fa-unlock text-green-600'
+                  selectedAction === 'permanent' ? 'fa-ban text-red-600' : 'fa-times text-gray-600'
                 } text-xl`}></i>
               </div>
               <h3 className="text-lg font-semibold text-gray-900">
-                {selectedAction === 'restrict' && 'Temporary Restriction'}
+                {selectedAction === 'restrict' && (selectedProfile.restrictionType === 'Restricted' ? 'Modify Suspension' : 'Temporary Restriction')}
                 {selectedAction === 'permanent' && 'Permanent Ban'}
-                {selectedAction === 'remove_restriction' && 'Remove Restriction'}
+                {selectedAction === 'remove_restriction' && 'Dismiss'}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {selectedAction === 'restrict' && `Set a temporary suspension for ${selectedProfile.name}.`}
+                {selectedAction === 'restrict' && (selectedProfile.restrictionType === 'Restricted' ? `Change the suspension duration for ${selectedProfile.name}.` : `Set a temporary suspension for ${selectedProfile.name}.`)}
                 {selectedAction === 'permanent' && `Permanently ban ${selectedProfile.name}? This cannot be automatically reversed.`}
-                {selectedAction === 'remove_restriction' && `Remove all restrictions from ${selectedProfile.name}?`}
+                {selectedAction === 'remove_restriction' && `Dismiss all restrictions and reports for ${selectedProfile.name}? Their status will be set to None.`}
               </p>
             </div>
 
@@ -633,7 +640,7 @@ export default function ProfilesPage() {
                 className={`w-full py-2.5 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-50 ${
                   selectedAction === 'restrict' ? 'bg-orange-600 hover:bg-orange-700' :
                   selectedAction === 'permanent' ? 'bg-red-600 hover:bg-red-700' :
-                  'bg-green-600 hover:bg-green-700'
+                  'bg-gray-600 hover:bg-gray-700'
                 }`}
               >
                 {actionLoading ? (
@@ -641,9 +648,9 @@ export default function ProfilesPage() {
                     <i className="fas fa-spinner fa-spin"></i> Processing...
                   </span>
                 ) : (
-                  selectedAction === 'restrict' ? `Suspend for ${restrictDuration} days` :
+                  selectedAction === 'restrict' ? (selectedProfile.restrictionType === 'Restricted' ? `Set to ${restrictDuration} days` : `Suspend for ${restrictDuration} days`) :
                   selectedAction === 'permanent' ? 'Permanently Ban' :
-                  'Remove Restriction'
+                  'Dismiss'
                 )}
               </button>
               <button

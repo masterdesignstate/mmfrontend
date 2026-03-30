@@ -215,11 +215,21 @@ function NotificationsPageContent() {
                 <div className="flex items-center gap-4">
                   {/* Sender's profile photo */}
                   <div className="flex-shrink-0 relative">
-                    <img
-                      src={notification.sender.profile_photo || '/assets/usxr.png'}
-                      alt={notification.sender.first_name}
-                      className="w-14 h-14 rounded-full object-cover"
-                    />
+                    {notification.sender.is_admin ? (
+                      <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center p-1.5 overflow-hidden">
+                        <img
+                          src="/assets/mmlogox.png"
+                          alt="Matchmatical"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <img
+                        src={notification.sender.profile_photo || '/assets/usxr.png'}
+                        alt={notification.sender.first_name}
+                        className="w-14 h-14 rounded-full object-cover"
+                      />
+                    )}
                     {/* Green dot indicator if user is online */}
                     {notification.sender.is_online && (
                       <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>

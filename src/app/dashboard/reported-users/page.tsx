@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { apiService } from '@/services/api';
+import { ReasonChip } from '@/components/ReasonChip';
+import { REPORT_REASONS } from '@/config/reportReasons';
 
 interface ReportedUser {
   id: string;
@@ -13,7 +15,9 @@ interface ReportedUser {
     profile_photo?: string;
   };
   report_ids: string[];
+  report_reasons?: string[];
   report_reason: string;
+  report_reason_detail?: string;
   report_date: string;
   report_count: number;
   status: string;
@@ -30,7 +34,7 @@ export default function ReportedUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedReason, setSelectedReason] = useState('All');
   const [selectedSeverity, setSelectedSeverity] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -69,8 +73,8 @@ export default function ReportedUsersPage() {
       user.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.report_reason.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = selectedStatus === 'All' ||
-      user.status === selectedStatus.toLowerCase().replace(' ', '_');
+    const userReasons = user.report_reasons || [user.report_reason];
+    const matchesReason = selectedReason === 'All' || userReasons.includes(selectedReason);
 
     const matchesSeverity = selectedSeverity === 'All' ||
       user.severity === selectedSeverity.toLowerCase();
@@ -78,7 +82,7 @@ export default function ReportedUsersPage() {
     const matchesDateRange = (!startDate || !user.report_date || user.report_date >= startDate) &&
                            (!endDate || !user.report_date || user.report_date <= endDate);
 
-    return matchesSearch && matchesStatus && matchesSeverity && matchesDateRange;
+    return matchesSearch && matchesReason && matchesSeverity && matchesDateRange;
   });
 
   const sortedUsers = [...filteredUsers].sort((a, b) => {
@@ -108,7 +112,7 @@ export default function ReportedUsersPage() {
 
   const resetFilters = () => {
     setSearchTerm('');
-    setSelectedStatus('All');
+    setSelectedReason('All');
     setSelectedSeverity('All');
     setStartDate('');
     setEndDate('');
@@ -195,16 +199,6 @@ export default function ReportedUsersPage() {
       setError(err instanceof Error ? err.message : 'Failed to execute action');
     } finally {
       setActionLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'investigating': return 'bg-blue-100 text-blue-800';
-      case 'resolved': return 'bg-green-100 text-green-800';
-      case 'dismissed': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -301,17 +295,18 @@ export default function ReportedUsersPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
             <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              value={selectedReason}
+              onChange={(e) => setSelectedReason(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] bg-white cursor-pointer"
             >
               <option value="All">All</option>
-              <option value="Pending">Pending</option>
-              <option value="Investigating">Investigating</option>
-              <option value="Resolved">Resolved</option>
-              <option value="Dismissed">Dismissed</option>
+              {Object.entries(REPORT_REASONS)
+                .filter(([key]) => key !== 'admin_restriction')
+                .map(([key, { label }]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
             </select>
           </div>
 
@@ -391,23 +386,33 @@ export default function ReportedUsersPage() {
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
                           {user.user.first_name} {user.user.last_name}
-                          {user.current_restriction && (
-                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                              Banned
-                            </span>
-                          )}
                         </div>
                         <div className="text-sm text-gray-500">{user.user.email}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{user.report_reason}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(user.report_reasons || [user.report_reason]).map((reason: string) => (
+                        <ReasonChip key={reason} reason={reason} />
+                      ))}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
-                      {user.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </span>
+                    {(() => {
+                      const userStatus = user.restriction_type === 'permanent' ? 'Banned'
+                        : user.restriction_type === 'temporary' ? 'Restricted'
+                        : user.current_restriction ? 'Banned'
+                        : 'Pending';
+                      const statusColor = userStatus === 'Banned' ? 'bg-red-100 text-red-800'
+                        : userStatus === 'Restricted' ? 'bg-orange-100 text-orange-800'
+                        : 'bg-yellow-100 text-yellow-800';
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                          {userStatus}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(user.severity)}`}>

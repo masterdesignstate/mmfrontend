@@ -94,13 +94,13 @@ function ChatsPageContent() {
                 >
                   {/* Profile Photo */}
                   <div className="relative">
-                    <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-200">
+                    <div className={`w-14 h-14 rounded-full overflow-hidden ${otherUser.is_admin ? 'bg-white flex items-center justify-center p-1.5' : 'bg-gray-200'}`}>
                       <Image
-                        src={otherUser.profile_photo || '/assets/usxr.png'}
+                        src={otherUser.is_admin ? '/assets/mmlogox.png' : (otherUser.profile_photo || '/assets/usxr.png')}
                         alt={otherUser.first_name || otherUser.username}
                         width={56}
                         height={56}
-                        className="object-cover w-full h-full"
+                        className={otherUser.is_admin ? 'object-contain w-full h-full' : 'object-cover w-full h-full'}
                       />
                     </div>
                     {conversation.unread_count > 0 && (

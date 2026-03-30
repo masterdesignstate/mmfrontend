@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { apiService, Conversation } from '@/services/api';
+import { apiService, Conversation, BroadcastMessage } from '@/services/api';
 
 export default function MessagingPage() {
   const router = useRouter();
@@ -16,6 +16,15 @@ export default function MessagingPage() {
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [broadcastHistory, setBroadcastHistory] = useState<BroadcastMessage[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+
+  const [convPage, setConvPage] = useState(1);
+  const [convHasMore, setConvHasMore] = useState(false);
+  const [convLoadingMore, setConvLoadingMore] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id');
@@ -25,17 +34,55 @@ export default function MessagingPage() {
     }
     setAdminId(userId);
     fetchConversations(userId);
+    fetchBroadcastHistory(userId);
   }, [router]);
 
-  const fetchConversations = async (userId: string) => {
+  const fetchConversations = async (userId: string, page = 1, append = false) => {
     try {
-      const response = await apiService.getAdminConversations(userId);
-      setConversations(response.results);
+      const response = await apiService.getAdminConversations(userId, page, 20);
+      if (append) {
+        setConversations(prev => [...prev, ...response.results]);
+      } else {
+        setConversations(response.results);
+      }
+      setConvPage(page);
+      setConvHasMore(!!response.next);
     } catch (error) {
       console.error('Error fetching admin conversations:', error);
     } finally {
       setLoading(false);
+      setConvLoadingMore(false);
     }
+  };
+
+  const loadMoreConversations = () => {
+    if (convLoadingMore || !convHasMore) return;
+    setConvLoadingMore(true);
+    fetchConversations(adminId, convPage + 1, true);
+  };
+
+  const fetchBroadcastHistory = async (userId: string, page = 1, append = false) => {
+    try {
+      const response = await apiService.getBroadcastHistory(userId, page, 10);
+      if (append) {
+        setBroadcastHistory(prev => [...prev, ...response.results]);
+      } else {
+        setBroadcastHistory(response.results);
+      }
+      setHistoryPage(page);
+      setHistoryHasMore(response.next);
+    } catch (error) {
+      console.error('Error fetching broadcast history:', error);
+    } finally {
+      setHistoryLoading(false);
+      setHistoryLoadingMore(false);
+    }
+  };
+
+  const loadMoreHistory = () => {
+    if (historyLoadingMore || !historyHasMore) return;
+    setHistoryLoadingMore(true);
+    fetchBroadcastHistory(adminId, historyPage + 1, true);
   };
 
   const handleBroadcast = async () => {
@@ -48,7 +95,8 @@ export default function MessagingPage() {
       const result = await apiService.broadcastMessage(adminId, broadcastContent.trim());
       setBroadcastResult({ type: 'success', message: `Sent to ${result.sent_count} users` });
       setBroadcastContent('');
-      fetchConversations(adminId);
+      fetchConversations(adminId, 1, false);
+      fetchBroadcastHistory(adminId, 1, false);
     } catch (error) {
       console.error('Broadcast error:', error);
       setBroadcastResult({ type: 'error', message: 'Failed to send broadcast' });
@@ -148,6 +196,63 @@ export default function MessagingPage() {
         </div>
       )}
 
+      {/* Broadcast History Section */}
+      <div className="mb-10">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">Broadcast History</h2>
+
+        {historyLoading ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#672DB7] rounded-full animate-spin mx-auto" />
+          </div>
+        ) : broadcastHistory.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+            <p className="text-sm text-gray-500">No broadcasts sent yet</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            {broadcastHistory.map((broadcast, index) => (
+              <div
+                key={`${broadcast.sent_at}-${index}`}
+                className={`px-5 py-4 ${index > 0 ? 'border-t border-gray-50' : ''}`}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg className="w-4.5 h-4.5 text-[#672DB7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] text-gray-900 whitespace-pre-wrap break-words">{broadcast.content}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="text-xs text-gray-400">
+                        {new Date(broadcast.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {' '}
+                        {new Date(broadcast.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="text-xs text-gray-300">·</span>
+                      <span className="text-xs text-[#672DB7] font-medium">
+                        {broadcast.recipient_count} {broadcast.recipient_count === 1 ? 'recipient' : 'recipients'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {historyHasMore && (
+              <div className="border-t border-gray-50 px-5 py-3 text-center">
+                <button
+                  onClick={loadMoreHistory}
+                  disabled={historyLoadingMore}
+                  className="text-sm text-[#672DB7] font-medium hover:text-[#5a27a0] transition-colors disabled:opacity-50"
+                >
+                  {historyLoadingMore ? 'Loading...' : 'Load more'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Conversations Section */}
       <div>
         <h2 className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">Conversations</h2>
@@ -228,6 +333,17 @@ export default function MessagingPage() {
                 </div>
               );
             })}
+            {convHasMore && (
+              <div className="border-t border-gray-50 px-4 py-3 text-center">
+                <button
+                  onClick={loadMoreConversations}
+                  disabled={convLoadingMore}
+                  className="text-sm text-[#672DB7] font-medium hover:text-[#5a27a0] transition-colors disabled:opacity-50"
+                >
+                  {convLoadingMore ? 'Loading...' : 'Load more'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

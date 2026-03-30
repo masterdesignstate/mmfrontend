@@ -160,14 +160,22 @@ export default function ChatBell({ userId }: ChatBellProps) {
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 relative">
-                        {other.profile_photo ? (
+                        {other.is_admin ? (
+                          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 overflow-hidden">
+                            <img
+                              src="/assets/mmlogox.png"
+                              alt="Matchmatical"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ) : other.profile_photo ? (
                           <img
                             src={other.profile_photo}
                             alt={other.first_name || other.username}
                             className="w-10 h-10 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justifycenter text-gray-600 text-sm font-medium">
+                          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-medium">
                             {other.first_name?.[0] || other.username?.[0] || '?'}
                           </div>
                         )}

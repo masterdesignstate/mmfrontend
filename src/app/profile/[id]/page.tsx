@@ -10,6 +10,7 @@ import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
 import ActivityStatus from '@/components/ActivityStatus';
+import { USER_REPORT_REASONS } from '@/config/reportReasons';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -213,7 +214,8 @@ export default function UserProfilePage() {
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [showReportPopup, setShowReportPopup] = useState(false);
-  const [reportReason, setReportReason] = useState('');
+  const [selectedReasonCategory, setSelectedReasonCategory] = useState('');
+  const [reportReasonDetail, setReportReasonDetail] = useState('');
   const [showPrivateAnswerPopup, setShowPrivateAnswerPopup] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -866,7 +868,8 @@ export default function UserProfilePage() {
 
     // Education icon (question_number === 4, highest value)
     const educationAnswer = getHighestAnswer(4);
-    if (educationAnswer) {
+    const educationAnswerCount = userAnswers.filter(a => a.question.question_number === 4).length;
+    if (educationAnswer && !(educationAnswerCount === 1 && educationAnswer.me_answer === 1)) {
       const allEducationQuestions = groupedQuestions.filter(q => q.question_number === 4);
       icons.push({
         image: '/assets/cap.png',
@@ -892,7 +895,7 @@ export default function UserProfilePage() {
 
     // Diet icon (question_number === 5) - check all diet answers
     const dietAnswers = userAnswers.filter(a => a.question.question_number === 5);
-    if (dietAnswers.length > 0) {
+    if (dietAnswers.length > 0 && !(dietAnswers.length === 1 && dietAnswers[0].me_answer === 1)) {
       // Get the answer with the highest value (most strongly identified with)
       const highestDietAnswer = dietAnswers.reduce((prev, curr) =>
         curr.me_answer > prev.me_answer ? curr : prev
@@ -986,7 +989,7 @@ export default function UserProfilePage() {
 
     // Ethnicity icon (question_number === 3)
     const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === 3);
-    if (ethnicityAnswers.length > 0) {
+    if (ethnicityAnswers.length > 0 && !(ethnicityAnswers.length === 1 && ethnicityAnswers[0].me_answer === 1)) {
       // Get the answer with the highest value (most strongly identified with)
       const highestEthnicityAnswer = ethnicityAnswers.reduce((prev, curr) =>
         curr.me_answer > prev.me_answer ? curr : prev
@@ -1027,8 +1030,9 @@ export default function UserProfilePage() {
     }
 
     // Faith icon (question_number === 11, highest value)
+    const faithAnswerCount = userAnswers.filter(a => a.question.question_number === 11).length;
     const faithAnswer = getHighestAnswer(11);
-    if (faithAnswer) {
+    if (faithAnswer && !(faithAnswerCount === 1 && faithAnswer.me_answer === 1)) {
       const allFaithQuestions = groupedQuestions.filter(q => q.question_number === 11);
       icons.push({
         image: '/assets/prayin.png',
@@ -4448,26 +4452,49 @@ export default function UserProfilePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-2xl font-bold text-center mb-6">Report User</h2>
-            <textarea
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value)}
-              placeholder="Please describe the reason for reporting this user..."
-              className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 mb-6"
-            />
+            <p className="text-sm text-gray-500 text-center mb-4">Select a reason for reporting</p>
+            <div className="flex flex-col gap-2 mb-4">
+              {USER_REPORT_REASONS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedReasonCategory(key)}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-sm font-medium transition-colors cursor-pointer ${
+                    selectedReasonCategory === key
+                      ? 'bg-red-50 border-2 border-red-500 text-red-700'
+                      : 'bg-gray-50 border-2 border-transparent text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {selectedReasonCategory === 'other' && (
+              <textarea
+                value={reportReasonDetail}
+                onChange={(e) => setReportReasonDetail(e.target.value)}
+                placeholder="Please describe the reason..."
+                className="w-full h-24 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              />
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => {
                   setShowReportPopup(false);
-                  setReportReason('');
+                  setSelectedReasonCategory('');
+                  setReportReasonDetail('');
                 }}
-                className="flex-1 py-3 px-6 rounded-full border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 py-3 px-6 rounded-full border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={async () => {
-                  if (!reportReason.trim()) {
-                    alert('Please enter a reason for reporting');
+                  if (!selectedReasonCategory) {
+                    alert('Please select a reason for reporting');
+                    return;
+                  }
+                  if (selectedReasonCategory === 'other' && !reportReasonDetail.trim()) {
+                    alert('Please describe the reason');
                     return;
                   }
 
@@ -4483,14 +4510,16 @@ export default function UserProfilePage() {
                       body: JSON.stringify({
                         reporter: currentUserId,
                         reported_user: userId,
-                        reason: reportReason,
+                        reason_category: selectedReasonCategory,
+                        reason: selectedReasonCategory === 'other' ? reportReasonDetail : '',
                       }),
                     });
 
                     if (response.ok) {
                       alert('Report submitted successfully');
                       setShowReportPopup(false);
-                      setReportReason('');
+                      setSelectedReasonCategory('');
+                      setReportReasonDetail('');
                     } else {
                       alert('Failed to submit report');
                     }
@@ -4499,7 +4528,12 @@ export default function UserProfilePage() {
                     alert('Error submitting report');
                   }
                 }}
-                className="flex-1 py-3 px-6 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+                className={`flex-1 py-3 px-6 rounded-full font-semibold transition-colors cursor-pointer ${
+                  selectedReasonCategory
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                disabled={!selectedReasonCategory}
               >
                 Submit Report
               </button>

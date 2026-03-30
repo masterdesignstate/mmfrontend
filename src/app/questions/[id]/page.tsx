@@ -1215,8 +1215,8 @@ function QuestionEditPageContent() {
     // Special handling for Relationship question (question_number === 1) - ONLY Me section, no "Looking For"
     if (questionNumber === 1) {
       return (
-        <div className="mb-6 w-full overflow-x-hidden">
-          <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+        <div className="mb-2 w-full overflow-x-hidden">
+          <h3 className="text-xl font-bold text-center mb-1">Me</h3>
 
           {/* Responsive slider block — narrower on medium and smaller */}
           <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
@@ -1233,7 +1233,7 @@ function QuestionEditPageContent() {
           </div>
 
           {/* Grid container for perfect alignment — responsive */}
-          <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+          <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-2 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-2">
 
             {/* Question Rows for Relationship Questions */}
             {questions.map((question) => {
@@ -2055,7 +2055,9 @@ function QuestionEditPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <>
+    <style jsx global>{`html, body { overflow: hidden !important; height: 100vh !important; }`}</style>
+    <div className="h-screen bg-white overflow-hidden flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
@@ -2071,10 +2073,10 @@ function QuestionEditPageContent() {
       </div>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] px-4 sm:px-6 py-6 overflow-x-hidden">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 overflow-hidden">
         <div className={`w-full min-w-0 mx-auto ${[1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || questionNumber > 10 ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]' : 'max-w-4xl'}`}>
           {/* Title — responsive typography for small/medium/large */}
-          <div className="text-center mb-4 sm:mb-6 lg:mb-8">
+          <div className={`text-center ${questionNumber === 1 ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
             <div className="inline-block w-full max-w-full px-0 sm:px-1">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2">
                 {questionNumber}. {questions && questions.length > 0 ? (
@@ -2120,7 +2122,7 @@ function QuestionEditPageContent() {
                 </div>
               )}
             </div>
-            <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black mb-6 sm:mb-8 lg:mb-12 break-words">
+            <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black break-words ${questionNumber === 1 ? 'mb-3 sm:mb-4' : 'mb-6 sm:mb-8 lg:mb-12'}`}>
               {questions && questions.length > 0 && questions[0].group_name_text ? questions[0].group_name_text : questionTexts[questionNumber]}
             </p>
           </div>
@@ -2199,6 +2201,7 @@ function QuestionEditPageContent() {
         </div>
       </footer>
     </div>
+    </>
   );
 }
 

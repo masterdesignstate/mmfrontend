@@ -143,6 +143,12 @@ export interface Conversation {
   updated_at: string;
 }
 
+export interface BroadcastMessage {
+  content: string;
+  recipient_count: number;
+  sent_at: string;
+}
+
 interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -768,6 +774,10 @@ class ApiService {
       sender_id: senderId,
       content: content
     }) as Promise<{ sent_count: number }>;
+  }
+
+  async getBroadcastHistory(userId: string, page = 1, pageSize = 10): Promise<{ results: BroadcastMessage[]; count: number; next: boolean }> {
+    return this.request(`/conversations/broadcast_history/?user_id=${userId}&page=${page}&page_size=${pageSize}`, 'GET') as Promise<{ results: BroadcastMessage[]; count: number; next: boolean }>;
   }
 
   async getAdminConversations(userId: string, page = 1, pageSize = 20): Promise<PaginatedResponse<Conversation>> {

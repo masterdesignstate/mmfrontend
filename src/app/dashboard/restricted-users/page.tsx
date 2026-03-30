@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { apiService, ApiUser } from '@/services/api';
+import { ReasonChip } from '@/components/ReasonChip';
+import { REPORT_REASONS } from '@/config/reportReasons';
 
 // Type definition for restricted user
 interface RestrictedUser {
@@ -21,9 +23,6 @@ interface RestrictedUser {
   age?: number;
 }
 
-const restrictionTypes = ["All", "Temporary", "Permanent"];
-const statusTypes = ["All", "Active", "Expired"];
-const severityTypes = ["All", "Low", "Medium", "High"];
 
 export default function RestrictedUsersPage() {
   const [users, setUsers] = useState<RestrictedUser[]>([]);
@@ -95,13 +94,14 @@ export default function RestrictedUsersPage() {
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesRestrictionType = selectedRestrictionType === 'All' ||
-      (selectedRestrictionType === 'Temporary' && user.restriction_type === 'temporary') ||
-      (selectedRestrictionType === 'Permanent' && user.restriction_type === 'permanent');
+      (selectedRestrictionType === 'Restricted' && user.restriction_type === 'temporary') ||
+      (selectedRestrictionType === 'Banned' && user.restriction_type === 'permanent');
 
-    const matchesDateRange = (!startDate || (user.restriction_date && user.restriction_date >= startDate)) &&
-                           (!endDate || (user.restriction_date && user.restriction_date <= endDate));
+    const matchesDateRange = !startDate || (user.restriction_date && user.restriction_date >= startDate);
 
-    return matchesSearch && matchesRestrictionType && matchesDateRange;
+    const matchesReason = selectedSeverity === 'All' || user.restriction_reason === selectedSeverity;
+
+    return matchesSearch && matchesRestrictionType && matchesDateRange && matchesReason;
   });
 
   // Sort users
@@ -167,6 +167,22 @@ export default function RestrictedUsersPage() {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const getTimeLeft = (restrictionDate?: string, durationDays?: number) => {
+    if (!restrictionDate || !durationDays) return { text: 'N/A', expired: false };
+    const start = new Date(restrictionDate);
+    if (isNaN(start.getTime())) return { text: 'N/A', expired: false };
+    const endDate = new Date(start.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const diff = endDate.getTime() - now.getTime();
+    if (diff <= 0) return { text: 'Expired', expired: true };
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (days > 0) return { text: `${days}d ${hours}h`, expired: false };
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) return { text: `${hours}h ${minutes}m`, expired: false };
+    return { text: `${minutes}m`, expired: false };
+  };
+
   const handleAction = (action: string, user: RestrictedUser) => {
     setSelectedAction(action);
     setSelectedUserForAction(user);
@@ -178,7 +194,7 @@ export default function RestrictedUsersPage() {
     if (!selectedUserForAction) return;
     setActionLoading(true);
     try {
-      if (selectedAction === 'unban') {
+      if (selectedAction === 'dismiss') {
         await apiService.removeRestriction(selectedUserForAction.id);
         setUsers(prev => prev.filter(u => u.id !== selectedUserForAction.id));
       } else if (selectedAction === 'modify') {
@@ -198,11 +214,8 @@ export default function RestrictedUsersPage() {
           duration: 0,
           reason: selectedUserForAction.restriction_reason || '',
         });
-        setUsers(prev => prev.map(u =>
-          u.id === selectedUserForAction.id
-            ? { ...u, restriction_type: 'permanent', restriction_duration: 0 }
-            : u
-        ));
+        // Remove from list - permanently banned users don't belong on restricted page
+        setUsers(prev => prev.filter(u => u.id !== selectedUserForAction.id));
       }
       setShowActionModal(false);
       setSelectedAction('');
@@ -274,17 +287,17 @@ export default function RestrictedUsersPage() {
             </div>
           </div>
 
-          {/* Restriction Type */}
+          {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Restriction Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
             <select
               value={selectedRestrictionType}
               onChange={(e) => setSelectedRestrictionType(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900"
             >
-              {restrictionTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
+              <option value="All">All</option>
+              <option value="Restricted">Restricted</option>
+              <option value="Banned">Banned</option>
             </select>
           </div>
 
@@ -299,15 +312,19 @@ export default function RestrictedUsersPage() {
             />
           </div>
 
-          {/* Date Until */}
+          {/* Reason */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Restricted Until</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white shadow-sm transition-all duration-200 hover:border-gray-400 text-gray-900 cursor-text"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+            <select
+              value={selectedSeverity}
+              onChange={(e) => setSelectedSeverity(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer text-gray-900"
+            >
+              <option value="All">All</option>
+              {Object.entries(REPORT_REASONS).map(([key, { label }]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -331,21 +348,14 @@ export default function RestrictedUsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Email
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('age')}
-                >
-                  Age
-                  <SortIcon field="age" />
-                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Restriction Type
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Restricted Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Time Left
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Reason
@@ -367,35 +377,49 @@ export default function RestrictedUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {user.email}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.age || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.live || 'N/A'}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      user.restriction_type === 'permanent'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                      user.restriction_type === 'permanent' ? 'bg-red-100 text-red-800'
+                        : 'bg-orange-100 text-orange-800'
                     }`}>
-                      {user.restriction_type || 'N/A'}
+                      {user.restriction_type === 'permanent' ? 'Banned' : 'Restricted'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(user.restriction_date)}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {user.restriction_type === 'permanent' ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <i className="fas fa-infinity mr-1"></i>Permanent
+                      </span>
+                    ) : (() => {
+                      const { text, expired } = getTimeLeft(user.restriction_date, user.restriction_duration);
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          expired ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {expired ? <i className="fas fa-exclamation-circle mr-1"></i> : <i className="fas fa-hourglass-half mr-1"></i>}
+                          {text}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                    <div className="truncate">{user.restriction_reason || 'N/A'}</div>
+                    {user.restriction_reason ? (
+                      <ReasonChip reason={user.restriction_reason} />
+                    ) : (
+                      <span className="text-gray-400">N/A</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => handleAction('unban', user)}
-                        className="text-green-600 hover:text-green-800 cursor-pointer"
-                        title="Unban User"
+                        onClick={() => handleAction('dismiss', user)}
+                        className="text-gray-600 hover:text-gray-800 cursor-pointer"
+                        title="Dismiss"
                       >
-                        <i className="fas fa-unlock"></i>
+                        <i className="fas fa-times"></i>
                       </button>
                       <button
                         onClick={() => handleAction('modify', user)}
@@ -505,22 +529,22 @@ export default function RestrictedUsersPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-center mb-5">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
-                selectedAction === 'unban' ? 'bg-green-50' :
+                selectedAction === 'dismiss' ? 'bg-gray-100' :
                 selectedAction === 'modify' ? 'bg-orange-50' : 'bg-red-50'
               }`}>
                 <i className={`fas ${
-                  selectedAction === 'unban' ? 'fa-unlock text-green-600' :
+                  selectedAction === 'dismiss' ? 'fa-times text-gray-600' :
                   selectedAction === 'modify' ? 'fa-clock text-orange-600' : 'fa-ban text-red-600'
                 } text-xl`}></i>
               </div>
               <h3 className="text-lg font-semibold text-gray-900">
-                {selectedAction === 'unban' && 'Unban User'}
+                {selectedAction === 'dismiss' && 'Dismiss'}
                 {selectedAction === 'modify' && 'Modify Suspension'}
                 {selectedAction === 'permanent' && 'Make Permanent'}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {selectedAction === 'unban' && `Remove all restrictions from ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}?`}
-                {selectedAction === 'modify' && `Change the suspension duration for ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}.`}
+                {selectedAction === 'dismiss' && `Dismiss all restrictions and reports for ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}? Their status will be set to None.`}
+                {selectedAction === 'modify' && `Change the suspension duration for ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}`}
                 {selectedAction === 'permanent' && `Permanently ban ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}? This cannot be automatically reversed.`}
               </p>
             </div>
@@ -566,7 +590,7 @@ export default function RestrictedUsersPage() {
                 onClick={executeAction}
                 disabled={actionLoading}
                 className={`w-full py-2.5 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-50 ${
-                  selectedAction === 'unban' ? 'bg-green-600 hover:bg-green-700' :
+                  selectedAction === 'dismiss' ? 'bg-gray-600 hover:bg-gray-700' :
                   selectedAction === 'modify' ? 'bg-orange-600 hover:bg-orange-700' :
                   'bg-red-600 hover:bg-red-700'
                 }`}
@@ -576,7 +600,7 @@ export default function RestrictedUsersPage() {
                     <i className="fas fa-spinner fa-spin"></i> Processing...
                   </span>
                 ) : (
-                  selectedAction === 'unban' ? 'Unban User' :
+                  selectedAction === 'dismiss' ? 'Dismiss' :
                   selectedAction === 'modify' ? `Set to ${modifyDuration} days` :
                   'Permanently Ban'
                 )}

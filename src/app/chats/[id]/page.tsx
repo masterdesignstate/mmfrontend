@@ -181,13 +181,13 @@ export default function ChatConversationPage() {
                 }`}
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
+                  <div className={`w-12 h-12 rounded-full overflow-hidden ${other.is_admin ? 'bg-white flex items-center justify-center p-1' : 'bg-gray-200'}`}>
                     <Image
-                      src={other.profile_photo || '/assets/usxr.png'}
+                      src={other.is_admin ? '/assets/mmlogox.png' : (other.profile_photo || '/assets/usxr.png')}
                       alt={other.first_name || other.username}
                       width={48}
                       height={48}
-                      className="object-cover w-full h-full"
+                      className={other.is_admin ? 'object-contain w-full h-full' : 'object-cover w-full h-full'}
                     />
                   </div>
                   {conv.unread_count > 0 && (
@@ -237,13 +237,13 @@ export default function ChatConversationPage() {
               className="flex items-center gap-3 flex-1 cursor-pointer"
               onClick={() => router.push(`/profile/${otherUser.id}`)}
             >
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
+              <div className={`w-10 h-10 rounded-full overflow-hidden ${otherUser.is_admin ? 'bg-white flex items-center justify-center p-1' : 'bg-gray-200'}`}>
                 <Image
-                  src={otherUser.profile_photo || '/assets/usxr.png'}
+                  src={otherUser.is_admin ? '/assets/mmlogox.png' : (otherUser.profile_photo || '/assets/usxr.png')}
                   alt={otherUser.first_name || otherUser.username}
                   width={40}
                   height={40}
-                  className="object-cover w-full h-full"
+                  className={otherUser.is_admin ? 'object-contain w-full h-full' : 'object-cover w-full h-full'}
                 />
               </div>
               <div>
