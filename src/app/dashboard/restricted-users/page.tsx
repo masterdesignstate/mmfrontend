@@ -14,6 +14,7 @@ interface RestrictedUser {
   email: string;
   profile_photo?: string;
   restriction_reason?: string;
+  restriction_reason_detail?: string;
   restriction_date?: string;
   restriction_type?: string;
   restriction_duration?: number;
@@ -45,6 +46,7 @@ export default function RestrictedUsersPage() {
   const [selectedUserForAction, setSelectedUserForAction] = useState<RestrictedUser | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [modifyDuration, setModifyDuration] = useState(30);
+  const [dismissDescription, setDismissDescription] = useState('');
 
   // Fetch restricted users from API
   const fetchRestrictedUsers = async () => {
@@ -63,6 +65,7 @@ export default function RestrictedUsersPage() {
           email: user.email,
           profile_photo: user.profile_photo,
           restriction_reason: user.restriction_reason,
+          restriction_reason_detail: user.restriction_reason_detail,
           restriction_date: user.restriction_date,
           restriction_type: user.restriction_type,
           restriction_duration: user.restriction_duration,
@@ -187,6 +190,7 @@ export default function RestrictedUsersPage() {
     setSelectedAction(action);
     setSelectedUserForAction(user);
     setModifyDuration(user.restriction_duration || 30);
+    setDismissDescription('');
     setShowActionModal(true);
   };
 
@@ -195,7 +199,7 @@ export default function RestrictedUsersPage() {
     setActionLoading(true);
     try {
       if (selectedAction === 'dismiss') {
-        await apiService.removeRestriction(selectedUserForAction.id);
+        await apiService.removeRestriction(selectedUserForAction.id, dismissDescription ? { description: dismissDescription } : undefined);
         setUsers(prev => prev.filter(u => u.id !== selectedUserForAction.id));
       } else if (selectedAction === 'modify') {
         await apiService.restrictUser(selectedUserForAction.id, {
@@ -407,7 +411,7 @@ export default function RestrictedUsersPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                     {user.restriction_reason ? (
-                      <ReasonChip reason={user.restriction_reason} />
+                      <ReasonChip reason={user.restriction_reason} description={user.restriction_reason_detail} />
                     ) : (
                       <span className="text-gray-400">N/A</span>
                     )}
@@ -548,6 +552,19 @@ export default function RestrictedUsersPage() {
                 {selectedAction === 'permanent' && `Permanently ban ${selectedUserForAction.first_name} ${selectedUserForAction.last_name}? This cannot be automatically reversed.`}
               </p>
             </div>
+
+            {/* Description for dismiss action */}
+            {selectedAction === 'dismiss' && (
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
+                <textarea
+                  value={dismissDescription}
+                  onChange={(e) => setDismissDescription(e.target.value)}
+                  placeholder="Add a note about why this restriction is being dismissed..."
+                  className="w-full h-20 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#672DB7]"
+                />
+              </div>
+            )}
 
             {/* Duration Picker for modify action */}
             {selectedAction === 'modify' && (

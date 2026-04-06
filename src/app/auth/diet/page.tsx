@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function DietPage() {
   const router = useRouter();
@@ -160,6 +161,7 @@ export default function DietPage() {
         user_id: userId
       });
 
+      posthog.capture('onboarding_step_completed', { step: 'diet', question_number: 5 });
       router.push(`/auth/question/6?${params.toString()}`);
     } catch (error) {
       console.error('Error checking diet answers:', error);

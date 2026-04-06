@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function EthnicityPage() {
   const router = useRouter();
@@ -282,6 +283,7 @@ export default function EthnicityPage() {
         console.log('📋 Passing pre-loaded education questions to education page');
       }
       
+      posthog.capture('onboarding_step_completed', { step: 'ethnicity', question_number: 3 });
       router.push(`/auth/education?${params.toString()}`);
     } catch (error) {
       console.error('Error checking ethnicity answers:', error);

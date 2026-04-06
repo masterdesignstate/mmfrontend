@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -68,7 +69,10 @@ export default function LoginPage() {
 
         if (userId) {
           localStorage.setItem('user_id', userId);
+          posthog.identify(userId, { email: normalizedEmail });
         }
+
+        posthog.capture('user_logged_in', { email: normalizedEmail, is_admin: isAdminLogin });
 
         if (isAdminLogin) {
           console.log('🛡️ Admin login detected, redirecting directly to dashboard');
@@ -150,8 +154,10 @@ export default function LoginPage() {
           }
         });
         console.log('🧹 Cleared all user data on failed login');
+        posthog.capture('login_failed', { email: email.trim().toLowerCase() });
       }
     } catch (error) {
+      posthog.captureException(error);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);

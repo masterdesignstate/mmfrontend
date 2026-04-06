@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -58,6 +59,8 @@ export default function RegisterPage() {
 
       if (response.ok) {
         console.log('✅ Signup successful:', data);
+        posthog.identify(data.user_id, { email: email.trim().toLowerCase() });
+        posthog.capture('user_signed_up', { email: email.trim().toLowerCase(), user_id: data.user_id });
         // Redirect to personal details page with user data
         const params = new URLSearchParams({
           user_id: data.user_id,
@@ -70,6 +73,7 @@ export default function RegisterPage() {
       }
     } catch (error) {
       console.error('❌ Network error:', error);
+      posthog.captureException(error);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);

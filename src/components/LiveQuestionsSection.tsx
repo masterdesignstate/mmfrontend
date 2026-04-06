@@ -47,7 +47,6 @@ export default function LiveQuestionsSection() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [valueLabel1, setValueLabel1] = useState('');
   const [valueLabel5, setValueLabel5] = useState('');
-  const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
   const [sliderValue, setSliderValue] = useState(3);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
@@ -372,64 +371,24 @@ export default function LiveQuestionsSection() {
             {/* Footer */}
             <div className="flex items-center justify-end p-8 border-t border-gray-200">
               <button
-                onClick={async () => {
+                onClick={() => {
                   if (!questionText.trim() || !valueLabel1.trim() || !valueLabel5.trim() || selectedTags.length === 0) {
                     return;
                   }
 
-                  setIsSubmittingQuestion(true);
-
-                  try {
-                    const storedUserId = localStorage.getItem('user_id');
-
-                    const questionData = {
-                      text: questionText.trim(),
-                      question_name: questionText.trim().substring(0, 50),
-                      question_type: 'basic',
-                      tags: selectedTags.map(tag => tag.toLowerCase()),
-                      is_approved: false,
-                      is_mandatory: false,
-                      is_required_for_match: false,
-                      skip_me: false,
-                      skip_looking_for: false,
-                      open_to_all_me: true,
-                      open_to_all_looking_for: true,
-                      is_group: false,
-                      value_label_1: valueLabel1.trim(),
-                      value_label_5: valueLabel5.trim(),
-                      user_id: storedUserId
-                    };
-
-                    const response = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(questionData),
-                    });
-
-                    if (response.ok) {
-                      setQuestionText('');
-                      setSelectedTags([]);
-                      setValueLabel1('');
-                      setValueLabel5('');
-                      setSliderValue(3);
-                      setShowAskQuestionModal(false);
-                      setShowSuccessMessage(true);
-                      setTimeout(() => setShowSuccessMessage(false), 3000);
-                    } else {
-                      const responseData = await response.json();
-                      alert(responseData.error || 'Failed to submit question. Please try again.');
-                    }
-                  } catch (error) {
-                    console.error('Error submitting question:', error);
-                    alert('Failed to submit question. Please check your connection and try again.');
-                  } finally {
-                    setIsSubmittingQuestion(false);
-                  }
+                  setQuestionText('');
+                  setSelectedTags([]);
+                  setValueLabel1('');
+                  setValueLabel5('');
+                  setSliderValue(3);
+                  setShowAskQuestionModal(false);
+                  setShowSuccessMessage(true);
+                  setTimeout(() => setShowSuccessMessage(false), 3000);
                 }}
-                disabled={!questionText.trim() || !valueLabel1.trim() || !valueLabel5.trim() || selectedTags.length === 0 || isSubmittingQuestion}
+                disabled={!questionText.trim() || !valueLabel1.trim() || !valueLabel5.trim() || selectedTags.length === 0}
                 className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-800 font-medium cursor-pointer disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                {isSubmittingQuestion ? 'Submitting...' : 'Submit'}
+                Submit
               </button>
             </div>
           </div>

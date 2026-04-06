@@ -13,6 +13,7 @@
     "@babel/runtime": "^7.28.4",
     "@react-google-maps/api": "^2.20.7",
     "next": "15.4.8",
+    "posthog-js": "^1.364.6",
     "react": "19.1.0",
     "react-confetti-explosion": "^3.0.3",
     "react-dom": "19.1.0",

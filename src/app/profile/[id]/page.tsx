@@ -11,6 +11,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
 import ActivityStatus from '@/components/ActivityStatus';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
+import posthog from 'posthog-js';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -604,6 +605,7 @@ export default function UserProfilePage() {
           }
         }
 
+        posthog.capture('profile_viewed', { viewed_user_id: userId });
       } catch (error) {
         console.error('Error fetching profile:', error);
         setError(error instanceof Error ? error.message : 'Failed to load profile');
@@ -870,14 +872,12 @@ export default function UserProfilePage() {
     const educationAnswer = getHighestAnswer(4);
     const educationAnswerCount = userAnswers.filter(a => a.question.question_number === 4).length;
     if (educationAnswer && !(educationAnswerCount === 1 && educationAnswer.me_answer === 1)) {
-      const allEducationQuestions = groupedQuestions.filter(q => q.question_number === 4);
+      const educationLabel = educationAnswer.question.question_name || '';
       icons.push({
         image: '/assets/cap.png',
-        label: educationAnswer.question.question_name || '',
+        label: educationAnswer.me_answer === 3 ? `Some ${educationLabel}` : educationLabel,
         show: true,
-        options: allEducationQuestions.length > 0
-          ? allEducationQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : userAnswers.filter(a => a.question.question_number === 4).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
+        options: []
       });
     }
 
@@ -996,15 +996,12 @@ export default function UserProfilePage() {
       );
 
       const ethnicityLabel = highestEthnicityAnswer.question.question_name || '';
-      const allEthnicityQuestions = groupedQuestions.filter(q => q.question_number === 3);
 
       icons.push({
         image: '/assets/globex.png',
-        label: ethnicityLabel,
+        label: highestEthnicityAnswer.me_answer === 3 ? `Some ${ethnicityLabel}` : ethnicityLabel,
         show: true,
-        options: allEthnicityQuestions.length > 0
-          ? allEthnicityQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : ethnicityAnswers.map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
+        options: []
       });
     }
 
@@ -1110,6 +1107,7 @@ export default function UserProfilePage() {
 
         if (noteResponse.ok) {
           console.log('✅ Note sent successfully');
+          posthog.capture('note_sent', { recipient_id: userId });
         } else {
           console.error('❌ Failed to send note');
         }
@@ -1317,6 +1315,10 @@ export default function UserProfilePage() {
             : prev.filter(t => t !== normalizedTag)
         );
         console.error('Failed to toggle tag');
+      } else if (!isCurrentlySelected) {
+        // Track engagement events for new tag additions
+        if (normalizedTag === 'approve') posthog.capture('approve_sent', { approved_user_id: userId });
+        if (normalizedTag === 'hide') posthog.capture('user_hidden', { hidden_user_id: userId });
       }
     } catch (error) {
       // Revert on error
@@ -2228,6 +2230,7 @@ export default function UserProfilePage() {
           }
           console.log('✅ Adding approve tag');
           await toggleTagAPI('Approve');
+          posthog.capture('approve_sent', { approved_user_id: userId });
           break;
       }
 
@@ -2491,8 +2494,8 @@ export default function UserProfilePage() {
               {profileIcons.map((icon, index) => (
                 <div
                   key={index}
-                  className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 cursor-pointer transition-colors"
-                  onClick={() => setExpandedIconIndex(expandedIconIndex === index ? null : index)}
+                  className={`flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
+                  onClick={() => icon.options.length > 0 && setExpandedIconIndex(expandedIconIndex === index ? null : index)}
                 >
                   <div className="w-7 h-7 mr-1 relative">
                     <Image
@@ -2505,7 +2508,7 @@ export default function UserProfilePage() {
                     />
                   </div>
                   <span className="text-base text-black font-medium">{icon.label}</span>
-                  {expandedIconIndex === index && (
+                  {expandedIconIndex === index && icon.options.length > 0 && (
                     <svg
                       className="w-4 h-4 ml-1 text-gray-500 rotate-180"
                       fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -2518,7 +2521,7 @@ export default function UserProfilePage() {
             </div>
 
             {/* Expanded dropdown for selected icon */}
-            {expandedIconIndex !== null && profileIcons[expandedIconIndex]?.options && (
+            {expandedIconIndex !== null && profileIcons[expandedIconIndex]?.options?.length > 0 && (
               <div className="mt-3 bg-[#F3F3F3] rounded-xl p-4">
                 <div className="space-y-2">
                   {profileIcons[expandedIconIndex].options.map((option, optIndex) => (
@@ -4468,11 +4471,11 @@ export default function UserProfilePage() {
                 </button>
               ))}
             </div>
-            {selectedReasonCategory === 'other' && (
+            {selectedReasonCategory && (
               <textarea
                 value={reportReasonDetail}
                 onChange={(e) => setReportReasonDetail(e.target.value)}
-                placeholder="Please describe the reason..."
+                placeholder={selectedReasonCategory === 'other' ? "Please describe the reason..." : "Add details (optional)..."}
                 className="w-full h-24 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
               />
             )}
@@ -4511,11 +4514,12 @@ export default function UserProfilePage() {
                         reporter: currentUserId,
                         reported_user: userId,
                         reason_category: selectedReasonCategory,
-                        reason: selectedReasonCategory === 'other' ? reportReasonDetail : '',
+                        reason: reportReasonDetail,
                       }),
                     });
 
                     if (response.ok) {
+                      posthog.capture('user_reported', { reported_user_id: userId, reason_category: selectedReasonCategory });
                       alert('Report submitted successfully');
                       setShowReportPopup(false);
                       setSelectedReasonCategory('');

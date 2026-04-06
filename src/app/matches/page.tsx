@@ -8,6 +8,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import HeartLoader from '@/components/HeartLoader';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import posthog from 'posthog-js';
 
 function MatchesPageContent() {
   const router = useRouter();
@@ -36,7 +37,8 @@ function MatchesPageContent() {
     }
   };
 
-  const handleMatchClick = (conversationId: string) => {
+  const handleMatchClick = (conversationId: string, otherUserId?: string) => {
+    posthog.capture('match_opened', { conversation_id: conversationId, other_user_id: otherUserId });
     router.push(`/chats/${conversationId}`);
   };
 
@@ -63,7 +65,7 @@ function MatchesPageContent() {
     return (
       <div
         key={conversation.id}
-        onClick={() => handleMatchClick(conversation.id)}
+        onClick={() => handleMatchClick(conversation.id, conversation.other_participant?.id)}
         className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer transition-colors"
       >
         {/* Profile Photo */}

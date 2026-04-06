@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import posthog from 'posthog-js';
 
 interface Question {
   id: string;
@@ -1007,28 +1008,35 @@ function QuestionEditPageContent() {
         throw new Error('Failed to save some answers');
       }
 
+      posthog.capture('question_answered', { question_number: questionNumber, question_count: questions.length });
+      if (meRequired) {
+        posthog.capture('question_marked_required', { question_number: questionNumber });
+      }
       // Navigate back to questions list with refresh parameter
       router.push('/questions?refresh=true');
     } catch (error) {
       console.error('Error saving answers:', error);
+      posthog.captureException(error);
       setError('Failed to save answers');
     } finally {
       setSaving(false);
     }
   };
 
-  const SliderComponent = ({ 
-    value, 
+  const SliderComponent = ({
+    value,
     onChange,
     isOpenToAll = false,
     isImportance = false,
-    labels = []
-  }: { 
-    value: number; 
-    onChange: (value: number) => void; 
+    labels = [],
+    isBinary = false
+  }: {
+    value: number;
+    onChange: (value: number) => void;
     isOpenToAll?: boolean;
     isImportance?: boolean;
     labels?: Array<{ value: string; answer_text: string }>;
+    isBinary?: boolean;
   }) => {
     const [fillWidth, setFillWidth] = useState('0%');
     const hasAnimatedRef = useRef(false);
@@ -1057,15 +1065,21 @@ function QuestionEditPageContent() {
 
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
-      
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percentage = clickX / rect.width;
+
+      if (isBinary) {
+        onChange(percentage < 0.5 ? 1 : 5);
+        return;
+      }
+
       // Get min and max values from labels, fallback to 1 and 5
       const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
       const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
       const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
-      
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percentage = clickX / rect.width;
+
       const newValue = Math.round(percentage * (maxValue - minValue)) + minValue;
       onChange(Math.max(minValue, Math.min(maxValue, newValue)));
     };
@@ -1135,18 +1149,20 @@ function QuestionEditPageContent() {
               </div>
               
               {!isOpenToAll && (
-                <div 
+                <div
                   className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
                   style={{
                     backgroundColor: isImportance ? 'white' : '#672DB7',
                     boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                    left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`
+                    left: isBinary
+                      ? (value === 1 ? '0px' : 'calc(100% - 28px)')
+                      : (value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`)
                   }}
                 >
                   <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
                 </div>
               )}
-              
+
               <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
             </>
           );
@@ -1453,6 +1469,7 @@ function QuestionEditPageContent() {
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                         isOpenToAll={openToAllStates[meKey] || false}
                         labels={question.answers}
+                        isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
                     <div>
@@ -1490,6 +1507,11 @@ function QuestionEditPageContent() {
     if ([6, 7, 8, 9, 10].includes(questionNumber)) {
       const isKidsQuestion = questionNumber === 10;
 
+      // For kids question, sort so Want (group_number=2) comes before Have (group_number=1)
+      if (isKidsQuestion) {
+        questions.sort((a, b) => (b.group_number || 0) - (a.group_number || 0));
+      }
+
       // Show "Them" first, then "Me" (like onboarding) — responsive container and grids for small/medium devices
       return (
         <div className="w-full overflow-x-hidden">
@@ -1498,6 +1520,7 @@ function QuestionEditPageContent() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
+            {!isKidsQuestion && (
             <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
@@ -1508,6 +1531,14 @@ function QuestionEditPageContent() {
                 {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
               </div>
             </div>
+            )}
+            {isKidsQuestion && (
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+              <div></div>
+              <div></div>
+              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">OTA</div>
+            </div>
+            )}
 
             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question) => {
@@ -1517,20 +1548,30 @@ function QuestionEditPageContent() {
                 // For Kids question, use WANT/HAVE labels
                 let label = (question.question_name || 'ANSWER').toUpperCase();
                 if (isKidsQuestion && question.group_number === 1) {
-                  label = 'WANT';
-                } else if (isKidsQuestion && question.group_number === 2) {
                   label = 'HAVE';
+                } else if (isKidsQuestion && question.group_number === 2) {
+                  label = 'WANT';
                 }
 
                 return (
                   <React.Fragment key={`looking-${question.id}`}>
                     <div className="text-xs font-semibold text-gray-400 min-w-0">{label}</div>
                     <div className="relative min-w-0">
+                      {isKidsQuestion && (
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          {question.group_number === 1 ? (
+                            <><span>DON&apos;T HAVE</span><span>HAVE</span></>
+                          ) : (
+                            <><span>DON&apos;T WANT</span><span>DOUBTFUL</span><span>UNSURE</span><span>EVENTUALLY</span><span>WANT</span></>
+                          )}
+                        </div>
+                      )}
                       <SliderComponent
                         value={sliderAnswers[lookingKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
                         isOpenToAll={openToAllStates[lookingKey] || false}
                         labels={question.answers}
+                        isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
                     <div>
@@ -1600,6 +1641,7 @@ function QuestionEditPageContent() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
+            {!isKidsQuestion && (
             <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
@@ -1610,6 +1652,16 @@ function QuestionEditPageContent() {
                 {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
               </div>
             </div>
+            )}
+            {isKidsQuestion && (
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+              <div></div>
+              <div></div>
+              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
+                {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
+              </div>
+            </div>
+            )}
 
             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question) => {
@@ -1619,20 +1671,30 @@ function QuestionEditPageContent() {
                 // For Kids question, use WANT/HAVE labels
                 let label = (question.question_name || 'ANSWER').toUpperCase();
                 if (isKidsQuestion && question.group_number === 1) {
-                  label = 'WANT';
-                } else if (isKidsQuestion && question.group_number === 2) {
                   label = 'HAVE';
+                } else if (isKidsQuestion && question.group_number === 2) {
+                  label = 'WANT';
                 }
 
                 return (
                   <React.Fragment key={question.id}>
                     <div className="text-xs font-semibold text-gray-400 min-w-0">{label}</div>
                     <div className="relative min-w-0">
+                      {isKidsQuestion && (
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          {question.group_number === 1 ? (
+                            <><span>DON&apos;T HAVE</span><span>HAVE</span></>
+                          ) : (
+                            <><span>DON&apos;T WANT</span><span>DOUBTFUL</span><span>UNSURE</span><span>EVENTUALLY</span><span>WANT</span></>
+                          )}
+                        </div>
+                      )}
                       <SliderComponent
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                         isOpenToAll={openToAllStates[meKey] || false}
                         labels={question.answers}
+                        isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
                     <div>

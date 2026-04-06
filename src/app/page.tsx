@@ -2,12 +2,17 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import posthog from 'posthog-js';
 import LiveQuestionsSection from '@/components/LiveQuestionsSection';
 
 export default function LandingPage() {
 const [mobileOpen, setMobileOpen] = useState(false);
 const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
+useEffect(() => {
+  posthog.capture('landing_page_viewed');
+}, []);
 
 return ( <div className="min-h-screen bg-white text-gray-900">
 <header className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"> <div className="mx-auto max-w-7xl px-6 py-4"> <div className="flex items-center justify-between">
@@ -28,12 +33,14 @@ return ( <div className="min-h-screen bg-white text-gray-900">
           <Link
             href="/auth/login"
             className="hidden md:inline-flex text-sm font-medium px-4 py-2 rounded-md border border-gray-200 hover:border-gray-300"
+            onClick={() => posthog.capture('cta_clicked', { cta_label: 'log_in', location: 'header' })}
           >
             Log in
           </Link>
           <Link
             href="/auth/register"
             className="hidden md:inline-flex text-sm font-medium px-4 py-2 rounded-md bg-[#672DB7] text-white hover:bg-[#5a2a9e]"
+            onClick={() => posthog.capture('cta_clicked', { cta_label: 'get_started', location: 'header' })}
           >
             Get started
           </Link>
@@ -93,7 +100,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
 
           <form
             className="mt-8 flex flex-col sm:flex-row gap-3"
-            onSubmit={(e) => { e.preventDefault(); window.location.href = '/auth/register'; }}
+            onSubmit={(e) => { e.preventDefault(); posthog.capture('cta_clicked', { cta_label: 'join_waitlist', location: 'hero' }); window.location.href = '/auth/register'; }}
           >
             <input
               type="email"
@@ -242,7 +249,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
       </div>
 
       <div className="mt-10 flex justify-center">
-        <Link href="/auth/register" className="inline-flex items-center rounded-md bg-[#672DB7] px-6 py-3 text-white font-medium hover:bg-[#5a2a9e]">
+        <Link href="/auth/register" className="inline-flex items-center rounded-md bg-[#672DB7] px-6 py-3 text-white font-medium hover:bg-[#5a2a9e]" onClick={() => posthog.capture('cta_clicked', { cta_label: 'reserve_spot', location: 'how_it_works' })}>
           Reserve your spot
         </Link>
       </div>
@@ -265,7 +272,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
         </ul>
         <div className="mt-8 flex gap-3">
           <a href="#faq" className="inline-flex items-center rounded-md border border-gray-300 px-5 py-2.5 font-medium hover:bg-gray-50">Read FAQ</a>
-          <Link href="/auth/register" className="inline-flex items-center rounded-md bg-[#672DB7] px-5 py-2.5 text-white font-medium hover:bg-[#5a2a9e]">Get early access</Link>
+          <Link href="/auth/register" className="inline-flex items-center rounded-md bg-[#672DB7] px-5 py-2.5 text-white font-medium hover:bg-[#5a2a9e]" onClick={() => posthog.capture('cta_clicked', { cta_label: 'get_early_access', location: 'science' })}>Get early access</Link>
         </div>
       </div>
 
@@ -340,12 +347,14 @@ return ( <div className="min-h-screen bg-white text-gray-900">
           <Link
             href="/auth/register"
             className="inline-flex items-center justify-center rounded-md bg-white px-6 py-3 text-[#672DB7] font-medium hover:bg-gray-100"
+            onClick={() => posthog.capture('cta_clicked', { cta_label: 'join_waitlist', location: 'bottom_cta' })}
           >
             Join the waitlist
           </Link>
           <Link
             href="/auth/login"
             className="inline-flex items-center justify-center rounded-md border border-white/70 px-6 py-3 font-medium hover:bg-white/10"
+            onClick={() => posthog.capture('cta_clicked', { cta_label: 'log_in', location: 'bottom_cta' })}
           >
             Log in
           </Link>

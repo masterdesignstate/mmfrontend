@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function HabitsPage() {
   const router = useRouter();
@@ -270,6 +271,7 @@ export default function HabitsPage() {
         user_id: userId
       });
 
+      posthog.capture('onboarding_step_completed', { step: 'habits', question_number: 7 });
       router.push(`/auth/question/8?${params.toString()}`);
     } catch (error) {
       console.error('Error saving habits answers:', error);

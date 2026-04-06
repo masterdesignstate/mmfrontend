@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { apiService, Conversation, Message } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import posthog from 'posthog-js';
 
 export default function ChatConversationPage() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function ChatConversationPage() {
       return;
     }
     setCurrentUserId(userId);
+    posthog.capture('conversation_opened', { conversation_id: conversationId });
     fetchConversation(userId);
     fetchMessages();
     fetchAllConversations(userId);
@@ -85,10 +87,15 @@ export default function ChatConversationPage() {
     try {
       const message = await apiService.sendMessage(conversationId, currentUserId, newMessage.trim());
       setMessages((prev) => [...prev, message]);
+      posthog.capture('message_sent', {
+        conversation_id: conversationId,
+        recipient_id: conversation?.other_participant?.id,
+      });
       setNewMessage('');
       inputRef.current?.focus();
     } catch (error) {
       console.error('Error sending message:', error);
+      posthog.captureException(error);
     } finally {
       setSending(false);
     }

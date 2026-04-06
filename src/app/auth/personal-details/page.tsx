@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import PlacesHttpAutocomplete from '@/components/PlacesHttpAutocomplete';
+import posthog from 'posthog-js';
 
 export default function PersonalDetailsPage() {
   const [formData, setFormData] = useState({
@@ -252,6 +253,7 @@ export default function PersonalDetailsPage() {
       const data = await response.json();
 
       if (response.ok) {
+        posthog.capture('personal_details_completed');
         // Redirect to add photo page with user_id
         const params = new URLSearchParams({
           user_id: userCredentials.user_id

@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function AddPhotoClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -109,6 +110,8 @@ export default function AddPhotoClient() {
         await new Promise(resolve => setTimeout(resolve, 1000 - elapsedTime));
       }
 
+      posthog.capture('profile_photo_uploaded', { user_id: userId });
+
       const params = new URLSearchParams({
         user_id: userId,
         questions: JSON.stringify(questions)
@@ -117,6 +120,7 @@ export default function AddPhotoClient() {
       router.push(`/auth/introcard?${params.toString()}`);
     } catch (error) {
       console.error('❌ Upload failed:', error);
+      posthog.captureException(error);
       setError(error instanceof Error ? error.message : 'Upload failed');
       setUploading(false);
       setUploadProgress(0);

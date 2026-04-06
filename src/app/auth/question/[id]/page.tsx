@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 
 export default function QuestionPage() {
@@ -880,6 +881,7 @@ export default function QuestionPage() {
           } catch {}
 
           // Navigate to habits page (next in onboarding flow)
+          posthog.capture('onboarding_step_completed', { step: 'exercise', question_number: 6 });
           const params = new URLSearchParams({
             user_id: userId
           });
@@ -893,6 +895,7 @@ export default function QuestionPage() {
           } catch {}
 
           // Navigate to politics page (next in onboarding flow)
+          posthog.capture('onboarding_step_completed', { step: 'religion', question_number: 8 });
           const params = new URLSearchParams({
             user_id: userId
           });
@@ -906,6 +909,7 @@ export default function QuestionPage() {
           } catch {}
 
           // Navigate to kids page (next in onboarding flow)
+          posthog.capture('onboarding_step_completed', { step: 'politics', question_number: 9 });
           const params = new URLSearchParams({
             user_id: userId
           });

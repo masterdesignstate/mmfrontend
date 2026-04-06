@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import posthog from 'posthog-js';
 
 type User = {
   id: string;
@@ -232,6 +233,7 @@ export default function EditProfilePage() {
         throw new Error(data.error || 'Failed to save profile');
       }
 
+      posthog.capture('profile_updated', { user_id: userId, has_new_photo: !!selectedFile });
       setSuccess('Profile updated successfully');
       // Update initial snapshot so Save stays disabled until further edits
       setInitialFormState(form);
@@ -246,6 +248,7 @@ export default function EditProfilePage() {
       } catch (_) {}
 
     } catch (e: any) {
+      posthog.captureException(e);
       setError(e?.message || 'Failed to save changes');
     } finally {
       setSaving(false);

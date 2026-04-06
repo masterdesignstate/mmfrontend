@@ -17,6 +17,7 @@ export interface ApiUser {
   restriction_type?: string;
   restriction_duration?: number;
   restriction_reason?: string;
+  restriction_reason_detail?: string;
   restriction_date?: string;
   questions_answered_count?: number;
   is_online?: boolean;
@@ -276,8 +277,8 @@ class ApiService {
     return this.request(`/users/${userId}/restrict/`, 'POST', data);
   }
 
-  async removeRestriction(userId: string): Promise<unknown> {
-    return this.request(`/users/${userId}/remove_restriction/`, 'POST');
+  async removeRestriction(userId: string, data?: { description?: string }): Promise<unknown> {
+    return this.request(`/users/${userId}/remove_restriction/`, 'POST', data);
   }
 
   async getPictureModerationQueue(): Promise<unknown[]> {

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function FaithPage() {
   const router = useRouter();
@@ -273,6 +274,7 @@ export default function FaithPage() {
         user_id: userId
       });
       
+      posthog.capture('onboarding_step_completed', { step: 'faith', question_number: 11 });
       router.push(`/dashboard?${params.toString()}`);
     } catch (error) {
       console.error('Error checking faith answers:', error);

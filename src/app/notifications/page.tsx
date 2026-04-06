@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 import Image from 'next/image';
 import { apiService, Notification } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
@@ -67,6 +68,7 @@ function NotificationsPageContent() {
   useEffect(() => {
     if (userId) {
       fetchNotifications(1);
+      posthog.capture('notifications_opened');
     }
   }, [userId]);
 

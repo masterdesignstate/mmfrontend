@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  skipTrailingSlashRedirect: true,
   async rewrites() {
     // Use the same base URL logic as api.ts
     const apiUrl = getApiBaseUrl();
@@ -35,6 +36,14 @@ const nextConfig: NextConfig = {
       {
         source: '/api/:path*',
         destination: `${normalized}/:path*`,
+      },
+      {
+        source: '/ingest/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*',
+      },
+      {
+        source: '/ingest/:path*',
+        destination: 'https://us.i.posthog.com/:path*',
       },
     ];
   },

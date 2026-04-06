@@ -18,6 +18,7 @@ interface ReportedUser {
   report_reasons?: string[];
   report_reason: string;
   report_reason_detail?: string;
+  report_reason_details?: Record<string, string>;
   report_date: string;
   report_count: number;
   status: string;
@@ -394,7 +395,7 @@ export default function ReportedUsersPage() {
                   <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                     <div className="flex flex-wrap gap-1">
                       {(user.report_reasons || [user.report_reason]).map((reason: string) => (
-                        <ReasonChip key={reason} reason={reason} />
+                        <ReasonChip key={reason} reason={reason} description={user.report_reason_details?.[reason]} />
                       ))}
                     </div>
                   </td>

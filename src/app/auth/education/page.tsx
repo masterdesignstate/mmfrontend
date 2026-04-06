@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function EducationPage() {
   const router = useRouter();
@@ -185,6 +186,7 @@ export default function EducationPage() {
         if (!existing.includes(4)) { existing.push(4); localStorage.setItem(key, JSON.stringify(existing)); }
       } catch {}
 
+      posthog.capture('onboarding_step_completed', { step: 'education', question_number: 4 });
       router.push(`/auth/diet?${params.toString()}`);
     } catch (error) {
       console.error('Error checking education answers:', error);

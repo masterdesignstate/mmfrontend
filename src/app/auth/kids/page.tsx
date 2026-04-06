@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function KidsPage() {
   const router = useRouter();
@@ -227,6 +228,8 @@ export default function KidsPage() {
 
       // Mark mandatory questions as complete so gated pages unlock instantly
       localStorage.setItem('mandatory_questions_complete', 'true');
+      posthog.capture('onboarding_step_completed', { step: 'kids', question_number: 10 });
+      posthog.capture('onboarding_completed');
 
       // Navigate directly to profile page (it will show loading UI if needed)
       const params = new URLSearchParams({
@@ -251,22 +254,29 @@ export default function KidsPage() {
   };
 
   // Slider component - EXACT COPY from habits page
-  const SliderComponent = ({ 
-    value, 
+  const SliderComponent = ({
+    value,
     onChange,
     isOpenToAll = false,
-    isImportance = false
-  }: { 
-    value: number; 
-    onChange: (value: number) => void; 
+    isImportance = false,
+    isBinary = false
+  }: {
+    value: number;
+    onChange: (value: number) => void;
     isOpenToAll?: boolean;
     isImportance?: boolean;
+    isBinary?: boolean;
   }) => {
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
+      if (isBinary) {
+        // Binary: left half = 1, right half = 5
+        onChange(percentage < 0.5 ? 1 : 5);
+        return;
+      }
       const newValue = Math.round(percentage * 4) + 1; // 1-5 range
       onChange(Math.max(1, Math.min(5, newValue)));
     };
@@ -303,9 +313,9 @@ export default function KidsPage() {
         onDragStart={handleDragStart}
       >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-          
+
           {/* Custom Slider Track */}
-          <div 
+          <div
             className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
@@ -317,22 +327,24 @@ export default function KidsPage() {
             onMouseDown={handleSliderDrag}
             onDragStart={handleDragStart}
           />
-          
+
           {/* Slider Thumb - OUTSIDE the track container */}
           {!isOpenToAll && (
-            <div 
+            <div
               className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
               style={{
                 backgroundColor: isImportance ? 'white' : '#672DB7',
                 boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
+                left: isBinary
+                  ? (value === 1 ? '0px' : 'calc(100% - 28px)')
+                  : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
               }}
               onDragStart={handleDragStart}
             >
               <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
             </div>
           )}
-          
+
           {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
       </div>
     );
@@ -404,6 +416,7 @@ export default function KidsPage() {
                         value={lookingFor[kidsKey]}
                         onChange={(value) => handleSliderChange('lookingFor', kidsKey, value)}
                         isOpenToAll={openToAll[lookingOpenKey]}
+                        isBinary={kidsKey === 'kids2'}
                       />
                     </div>
                     <div className="flex flex-col">
@@ -512,6 +525,7 @@ export default function KidsPage() {
                         value={myKids[kidsKey]}
                         onChange={(value) => handleSliderChange('myKids', kidsKey, value)}
                         isOpenToAll={openToAll[meOpenKey]}
+                        isBinary={kidsKey === 'kids2'}
                       />
                     </div>
                     <div className="flex flex-col">

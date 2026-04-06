@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiService, ApiUser } from '@/services/api';
+import { ReasonChip } from '@/components/ReasonChip';
+import { REPORT_REASONS } from '@/config/reportReasons';
 
 interface ProfileData {
   id: string;
@@ -15,6 +17,8 @@ interface ProfileData {
   male: number;
   female: number;
   restrictionType: string;
+  restrictionReason?: string;
+  restrictionReasonDetail?: string;
 }
 
 export default function ProfilesPage() {
@@ -37,6 +41,9 @@ export default function ProfilesPage() {
   const [selectedProfile, setSelectedProfile] = useState<ProfileData | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [restrictDuration, setRestrictDuration] = useState(30);
+  const [dismissDescription, setDismissDescription] = useState('');
+  const [restrictReason, setRestrictReason] = useState('admin_restriction');
+  const [restrictReasonDetail, setRestrictReasonDetail] = useState('');
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -73,7 +80,9 @@ export default function ProfilesPage() {
             : user.restriction_type === 'temporary' ? 'Restricted'
             : user.is_banned ? 'Banned'
             : (user as ApiUser & { has_pending_reports?: boolean }).has_pending_reports ? 'Pending'
-            : 'None'
+            : 'None',
+          restrictionReason: user.restriction_reason || undefined,
+          restrictionReasonDetail: user.restriction_reason_detail || undefined
         };
       });
 
@@ -94,6 +103,9 @@ export default function ProfilesPage() {
     setSelectedAction(action);
     setSelectedProfile(profile);
     setRestrictDuration(30);
+    setDismissDescription('');
+    setRestrictReason('admin_restriction');
+    setRestrictReasonDetail('');
     setShowActionModal(true);
   };
 
@@ -106,18 +118,20 @@ export default function ProfilesPage() {
         await apiService.restrictUser(selectedProfile.id, {
           restriction_type: 'temporary',
           duration: restrictDuration,
-          reason: 'admin_restriction'
+          reason: restrictReason,
+          reason_detail: restrictReasonDetail
         });
         await fetchProfiles();
       } else if (selectedAction === 'permanent') {
         await apiService.restrictUser(selectedProfile.id, {
           restriction_type: 'permanent',
           duration: 0,
-          reason: 'admin_restriction'
+          reason: restrictReason,
+          reason_detail: restrictReasonDetail
         });
         await fetchProfiles();
       } else if (selectedAction === 'remove_restriction') {
-        await apiService.removeRestriction(selectedProfile.id);
+        await apiService.removeRestriction(selectedProfile.id, dismissDescription ? { description: dismissDescription } : undefined);
         // Refresh the profiles list
         await fetchProfiles();
       }
@@ -461,6 +475,11 @@ export default function ProfilesPage() {
                     }`}>
                       {profile.restrictionType}
                     </span>
+                    {profile.restrictionReason && profile.restrictionType !== 'None' && (
+                      <span className="ml-1">
+                        <ReasonChip reason={profile.restrictionReason} description={profile.restrictionReasonDetail} />
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-3">
@@ -600,6 +619,40 @@ export default function ProfilesPage() {
                 {selectedAction === 'remove_restriction' && `Dismiss all restrictions and reports for ${selectedProfile.name}? Their status will be set to None.`}
               </p>
             </div>
+
+            {selectedAction === 'remove_restriction' && (
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
+                <textarea
+                  value={dismissDescription}
+                  onChange={(e) => setDismissDescription(e.target.value)}
+                  placeholder="Add a note about why this restriction is being dismissed..."
+                  className="w-full h-20 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#672DB7]"
+                />
+              </div>
+            )}
+
+            {(selectedAction === 'restrict' || selectedAction === 'permanent') && (
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                <select
+                  value={restrictReason}
+                  onChange={(e) => setRestrictReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7] bg-white cursor-pointer mb-3"
+                >
+                  {Object.entries(REPORT_REASONS).map(([key, { label }]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Details (optional)</label>
+                <textarea
+                  value={restrictReasonDetail}
+                  onChange={(e) => setRestrictReasonDetail(e.target.value)}
+                  placeholder="Add details about the restriction reason..."
+                  className="w-full h-20 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#672DB7]"
+                />
+              </div>
+            )}
 
             {selectedAction === 'restrict' && (
               <div className="mb-5">

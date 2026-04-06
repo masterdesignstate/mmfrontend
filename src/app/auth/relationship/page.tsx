@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 
 export default function RelationshipPage() {
@@ -90,6 +91,7 @@ export default function RelationshipPage() {
         if (!existing.includes(1)) { existing.push(1); localStorage.setItem(key, JSON.stringify(existing)); }
       } catch {}
 
+      posthog.capture('onboarding_step_completed', { step: 'relationship', question_number: 1 });
       router.push(`/auth/gender?${params.toString()}`);
 
       // Save answers to backend in the background (don't wait for response)

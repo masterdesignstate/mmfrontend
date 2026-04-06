@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SWRProvider from "@/providers/SWRProvider";
+import PostHogProvider from "@/providers/PostHogProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SWRProvider>{children}</SWRProvider>
+        <PostHogProvider>
+          <SWRProvider>{children}</SWRProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

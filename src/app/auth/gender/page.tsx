@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import posthog from 'posthog-js';
 
 export default function GenderPage() {
   const router = useRouter();
@@ -84,6 +85,7 @@ export default function GenderPage() {
     const params = new URLSearchParams({
       user_id: userId
     });
+    posthog.capture('onboarding_step_completed', { step: 'gender', question_number: 2 });
     router.push(`/auth/ethnicity?${params.toString()}`);
 
     // Save answers in background

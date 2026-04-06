@@ -7,6 +7,7 @@ import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import posthog from 'posthog-js';
 
 function SettingsPageContent() {
   const router = useRouter();
@@ -60,6 +61,7 @@ function SettingsPageContent() {
       });
 
       if (response.success) {
+        posthog.capture('email_changed');
         setMessage({ type: 'success', text: response.message });
         setCurrentEmail(response.email || emailForm.new_email);
         localStorage.setItem('user_email', response.email || emailForm.new_email);
@@ -68,6 +70,7 @@ function SettingsPageContent() {
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
+      posthog.captureException(error as Error);
       setMessage({
         type: 'error',
         text: err.message || 'Failed to change email. Please check your password and try again.'
@@ -104,12 +107,14 @@ function SettingsPageContent() {
       });
 
       if (response.success) {
+        posthog.capture('password_changed');
         setMessage({ type: 'success', text: response.message });
         setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
         setShowEditPassword(false);
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
+      posthog.captureException(error as Error);
       setMessage({
         type: 'error',
         text: err.message || 'Failed to change password. Please check your current password and try again.'

@@ -13,6 +13,7 @@ import NavLogo from '@/components/NavLogo';
 import MatchCelebration from '@/components/MatchCelebration';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { getDistance } from '@/utils/distance';
+import posthog from 'posthog-js';
 
 interface ResultProfile {
   id: string;
@@ -561,6 +562,7 @@ function ResultsPageContent() {
     if (hasMountedRef.current) return;
     hasMountedRef.current = true;
     timingLog('mount effect');
+    posthog.capture('results_viewed');
 
     const hasActiveFilters = filtersApplied ||
       filters.compatibility.min !== 0 ||
@@ -1002,6 +1004,7 @@ function ResultsPageContent() {
 
       // Add like tag to backend
       await toggleTagAPI(profileId, 'Like');
+      posthog.capture('profile_liked', { liked_user_id: profileId, has_note: !!noteText.trim() });
 
       // Send note if provided
       if (noteText.trim()) {
@@ -1014,6 +1017,7 @@ function ResultsPageContent() {
             note: noteText.trim(),
           }),
         });
+        posthog.capture('note_sent', { recipient_id: profileId });
       }
 
       // Check for match after adding like
@@ -1021,6 +1025,10 @@ function ResultsPageContent() {
       setProfiles(prev => prev.map(p =>
         p.id === profileId ? { ...p, isMatched: nowMatched } : p
       ));
+
+      if (nowMatched) {
+        posthog.capture('match_created', { matched_user_id: profileId });
+      }
 
       // Trigger celebration if it's a new match and hasn't been celebrated yet
       if (nowMatched) {
@@ -1153,6 +1161,7 @@ function ResultsPageContent() {
             await toggleTagAPI(profileId, 'Hide');
           }
           await toggleTagAPI(profileId, 'Approve');
+          posthog.capture('approve_sent', { approved_user_id: profileId });
           break;
       }
 
