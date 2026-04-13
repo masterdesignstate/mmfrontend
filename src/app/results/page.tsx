@@ -532,6 +532,9 @@ function ResultsPageContent() {
       try {
         const user = await apiService.getUser(currentUserId);
         setCurrentUserLive(user.live || null);
+        if (user.profile_photo) {
+          localStorage.setItem('user_profile_photo', user.profile_photo);
+        }
       } catch (error) {
         console.error('Error fetching current user:', error);
       }

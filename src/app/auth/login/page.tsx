@@ -19,7 +19,7 @@ export default function LoginPage() {
     // Save keys to preserve before clearing
     const preservedKeys: { [key: string]: string } = {};
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('celebrated_matches_') || key.startsWith('onboarding_answered_numbers_')) {
+      if (key.startsWith('celebrated_matches_') || key.startsWith('onboarding_answered_numbers_') || key.startsWith('impostor_') || key === 'is_impostor') {
         preservedKeys[key] = localStorage.getItem(key) || '';
       }
     });

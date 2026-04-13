@@ -281,6 +281,14 @@ class ApiService {
     return this.request(`/users/${userId}/remove_restriction/`, 'POST', data);
   }
 
+  async impostorLogin(adminUserId: string, targetUserId: string): Promise<Record<string, unknown>> {
+    return this.request('/auth/impostor-login/', 'POST', { admin_user_id: adminUserId, target_user_id: targetUserId }) as Promise<Record<string, unknown>>;
+  }
+
+  async impostorExit(adminUserId: string): Promise<Record<string, unknown>> {
+    return this.request('/auth/impostor-exit/', 'POST', { admin_user_id: adminUserId }) as Promise<Record<string, unknown>>;
+  }
+
   async getPictureModerationQueue(): Promise<unknown[]> {
     // The /queue/ endpoint returns a plain array, not a paginated response
     return this.request('/picture-moderation/queue/', 'GET') as Promise<unknown[]>;

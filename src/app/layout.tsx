@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SWRProvider from "@/providers/SWRProvider";
 import PostHogProvider from "@/providers/PostHogProvider";
+import { ImpostorBanner } from "@/components/ImpostorBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PostHogProvider>
+          <ImpostorBanner />
           <SWRProvider>{children}</SWRProvider>
         </PostHogProvider>
       </body>

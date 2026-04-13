@@ -99,6 +99,39 @@ export default function ProfilesPage() {
     fetchProfiles();
   }, []);
 
+  const [impostorLoading, setImpostorLoading] = useState(false);
+
+  const handleImpostorLogin = async (targetUserId: string, profileName: string) => {
+    if (impostorLoading) return;
+    // Use the real admin ID — if we're in a stuck impostor state, restore admin first
+    const storedAdminId = localStorage.getItem('impostor_admin_user_id');
+    if (storedAdminId) {
+      localStorage.setItem('user_id', storedAdminId);
+      localStorage.setItem('is_admin', 'true');
+      localStorage.removeItem('is_impostor');
+      localStorage.removeItem('impostor_admin_user_id');
+      localStorage.removeItem('impostor_target_name');
+    }
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) return;
+
+    setImpostorLoading(true);
+    try {
+      const data = await apiService.impostorLogin(adminUserId, targetUserId);
+      localStorage.setItem('impostor_admin_user_id', adminUserId);
+      const userData = data.user_data as Record<string, string> | undefined;
+      localStorage.setItem('impostor_target_name', userData?.full_name || profileName);
+      localStorage.setItem('user_id', data.user_id as string);
+      localStorage.removeItem('is_admin');
+      localStorage.setItem('is_impostor', 'true');
+      // Hard redirect to avoid React re-renders triggering duplicate calls
+      window.location.href = '/results';
+    } catch (err) {
+      console.error('Impostor login failed:', err);
+      setImpostorLoading(false);
+    }
+  };
+
   const handleAction = (action: 'restrict' | 'permanent' | 'remove_restriction', profile: ProfileData) => {
     setSelectedAction(action);
     setSelectedProfile(profile);
@@ -514,6 +547,13 @@ export default function ProfilesPage() {
                         title="Make Permanent"
                       >
                         <i className="fas fa-ban"></i>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleImpostorLogin(profile.id, profile.name); }}
+                        className="text-purple-600 hover:text-purple-800 transition-colors duration-200 cursor-pointer"
+                        title="Impostor Mode - Login as this user"
+                      >
+                        <i className="fas fa-user-secret"></i>
                       </button>
                     </div>
                   </td>

@@ -38,7 +38,10 @@ export default function DashboardLayout({
     localStorage.removeItem('user_id');
     localStorage.removeItem('is_admin');
     localStorage.removeItem('user_email');
-    
+    localStorage.removeItem('is_impostor');
+    localStorage.removeItem('impostor_admin_user_id');
+    localStorage.removeItem('impostor_target_name');
+
     // Clear user-specific celebrated matches (but keep them if user logs back in with same ID)
     // Actually, we want to KEEP celebrated matches so they don't see the popup again
     // So we're NOT clearing celebrated_matches_${currentUserId}
