@@ -315,9 +315,20 @@ export default function PersonalDetailsPage() {
             <form onSubmit={handleSubmit} className="space-y-4" style={{ opacity: userCredentials.email ? 1 : 0.6 }}>
               {/* Full Name Field */}
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-900 mb-2">
-                  Full Name
-                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-900">
+                    Full Name
+                  </label>
+                  <div className="relative group">
+                    <svg className="w-4 h-4 text-purple-600 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      This can&apos;t be changed later.
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
                 <input
                   type="text"
                   id="fullName"
@@ -333,9 +344,20 @@ export default function PersonalDetailsPage() {
 
               {/* Username Field */}
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-900 mb-2">
-                  Username
-                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-900">
+                    Username
+                  </label>
+                  <div className="relative group">
+                    <svg className="w-4 h-4 text-purple-600 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      This can&apos;t be changed later.
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
                 <input
                   type="text"
                   id="username"
@@ -384,9 +406,20 @@ export default function PersonalDetailsPage() {
 
               {/* Date of Birth Field */}
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-900 mb-2">
-                  Date of Birth
-                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-900">
+                    Date of Birth
+                  </label>
+                  <div className="relative group">
+                    <svg className="w-4 h-4 text-purple-600 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      This can&apos;t be changed later.
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
                 <input
                   type="text"
                   id="dateOfBirth"

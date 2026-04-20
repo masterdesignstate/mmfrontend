@@ -945,7 +945,7 @@ export default function UserProfilePage() {
         image: '/assets/pacifier.png',
         label: haveChildrenLabel,
         show: true,
-        options: [{ value: '1', label: "Don't Have" }, { value: '5', label: 'Have' }]
+        options: []
       });
     }
 

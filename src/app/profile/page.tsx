@@ -251,14 +251,11 @@ export default function ProfilePage() {
     // Education icon (question_number === 4, highest value)
     const educationAnswer = getHighestAnswer(4);
     if (educationAnswer) {
-      const allEducationQuestions = groupedQuestions.filter(q => q.question_number === 4);
       icons.push({
         image: '/assets/cap.png',
         label: educationAnswer.question.question_name || '',
         show: true,
-        options: allEducationQuestions.length > 0
-          ? allEducationQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : userAnswers.filter(a => a.question.question_number === 4).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
+        options: []
       });
     }
 
@@ -327,7 +324,7 @@ export default function ProfilePage() {
         image: '/assets/pacifier.png',
         label: haveChildrenLabel,
         show: true,
-        options: [{ value: '1', label: "Don't Have" }, { value: '5', label: 'Have' }]
+        options: []
       });
     }
 
@@ -378,15 +375,12 @@ export default function ProfilePage() {
       );
 
       const ethnicityLabel = highestEthnicityAnswer.question.question_name || '';
-      const allEthnicityQuestions = groupedQuestions.filter(q => q.question_number === 3);
 
       icons.push({
         image: '/assets/globex.png',
         label: ethnicityLabel,
         show: true,
-        options: allEthnicityQuestions.length > 0
-          ? allEthnicityQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : ethnicityAnswers.map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
+        options: []
       });
     }
 
@@ -780,8 +774,8 @@ export default function ProfilePage() {
                 {profileIcons.map((icon, index) => (
                   <div
                     key={index}
-                    className="flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 cursor-pointer transition-colors"
-                    onClick={() => setExpandedIconIndex(expandedIconIndex === index ? null : index)}
+                    className={`flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
+                    onClick={() => icon.options.length > 0 && setExpandedIconIndex(expandedIconIndex === index ? null : index)}
                   >
                     <div className="w-7 h-7 mr-1 relative">
                       <Image
@@ -794,7 +788,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <span className="text-base text-black font-medium">{icon.label}</span>
-                    {expandedIconIndex === index && (
+                    {expandedIconIndex === index && icon.options.length > 0 && (
                       <svg
                         className="w-4 h-4 ml-1 text-gray-500 rotate-180"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -807,7 +801,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Expanded dropdown for selected icon */}
-              {expandedIconIndex !== null && profileIcons[expandedIconIndex]?.options && (
+              {expandedIconIndex !== null && (profileIcons[expandedIconIndex]?.options?.length ?? 0) > 0 && (
                 <div className="mt-3 bg-[#F3F3F3] rounded-xl p-4">
                   <div className="space-y-2">
                     {profileIcons[expandedIconIndex].options.map((option, optIndex) => (

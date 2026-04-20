@@ -209,14 +209,12 @@ export default function EditProfilePage() {
         await uploadToAzureBlob(selectedFile, userId, (p) => setUploadProgress(p));
       }
 
-      // 2) Update personal details
-      const [m, d, y] = form.dateOfBirth.split('/');
+      // 2) Update personal details.
+      // full_name, username, date_of_birth are locked after onboarding and are
+      // intentionally omitted from the payload; the backend also ignores them.
       const payload = {
         user_id: userId,
-        full_name: form.fullName,
-        username: form.username,
         tagline: form.tagline,
-        date_of_birth: `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`,
         height: form.height,
         from: form.from,
         live: form.live,
@@ -384,28 +382,30 @@ export default function EditProfilePage() {
             {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded">{success}</div>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Full Name */}
+              {/* Full Name (locked) */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Full Name</label>
                 <input
                   name="fullName"
                   value={form.fullName}
-                  onChange={onChange}
+                  readOnly
                   placeholder="Enter your full name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
                 />
+                <p className="mt-1 text-xs text-gray-500">This cannot be changed.</p>
               </div>
 
-              {/* Username */}
+              {/* Username (locked) */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Username</label>
                 <input
                   name="username"
                   value={form.username}
-                  onChange={onChange}
+                  readOnly
                   placeholder="Enter username"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
                 />
+                <p className="mt-1 text-xs text-gray-500">This cannot be changed.</p>
               </div>
 
               {/* Tagline */}
@@ -424,17 +424,18 @@ export default function EditProfilePage() {
                 />
               </div>
 
-              {/* Date of Birth */}
+              {/* Date of Birth (locked) */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Date of Birth</label>
                 <input
                   name="dateOfBirth"
                   value={form.dateOfBirth}
-                  onChange={onChange}
+                  readOnly
                   placeholder="MM/DD/YYYY"
                   maxLength={10}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
                 />
+                <p className="mt-1 text-xs text-gray-500">This cannot be changed.</p>
               </div>
 
               {/* Height */}
