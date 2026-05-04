@@ -1659,66 +1659,130 @@ function ResultsPageContent() {
         </div>
 
         {/* Active Filter Chips */}
-        {hasHydrated && showFiltersApplied && (
+        {hasHydrated && (
           <div className="flex items-center gap-2 flex-wrap mb-4">
-            {/* Compatibility Type chip (only when non-default) */}
-            {filters.compatibilityType !== 'overall' && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900 cursor-pointer" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }} onClick={() => setShowFilterModal(true)}>
-                <svg className="w-3.5 h-3.5" style={{ color: '#672DB7' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-                <span className="relative z-10">
-                  {filters.compatibilityType === 'compatible_with_me' ? 'Compatible with Me' : "I'm Compatible with"}
-                </span>
-              </span>
-            )}
+            {/* Compatibility Type chip (always visible, including default 'Overall') */}
+            {(() => {
+              const label =
+                filters.compatibilityType === 'compatible_with_me'
+                  ? 'Compatible with Me'
+                  : filters.compatibilityType === 'im_compatible_with'
+                    ? "I'm Compatible with"
+                    : 'Overall Compatibility';
+              const iconPath =
+                filters.compatibilityType === 'compatible_with_me'
+                  ? 'M17 8l4 4m0 0l-4 4m4-4H3' // arrow-right
+                  : filters.compatibilityType === 'im_compatible_with'
+                    ? 'M7 16l-4-4m0 0l4-4m-4 4h18' // arrow-left
+                    : 'M13 10V3L4 14h7v7l9-11h-7z'; // bolt/spark
+              return (
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(true)}
+                  className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                >
+                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
+                    </svg>
+                  </span>
+                  <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
+                    {label}
+                  </span>
+                </button>
+              );
+            })()}
 
             {/* Required chip */}
-            {filters.requiredOnly && (
-              <span className="relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 text-gray-900 cursor-pointer" style={{ borderColor: '#672DB7', backgroundColor: 'rgba(103, 45, 183, 0.08)' }} onClick={() => setShowFilterModal(true)}>
-                <svg className="w-3.5 h-3.5" style={{ color: '#672DB7' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="relative z-10">
+            {showFiltersApplied && filters.requiredOnly && (
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(true)}
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+              >
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
                   {(filters.requiredScope ?? 'my') === 'their' ? 'Their Required' : 'My Required'}
                 </span>
-              </span>
+              </button>
             )}
 
             {/* Compatibility range chip (only when non-default) */}
-            {(filters.compatibility.min > 0 || filters.compatibility.max < 100) && (
-              <span className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer" onClick={() => setShowFilterModal(true)}>
-                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
-                <span className="relative z-10">Compatibility {filters.compatibility.min === filters.compatibility.max ? `${filters.compatibility.min}%` : `${filters.compatibility.min}% – ${filters.compatibility.max}%`}</span>
-              </span>
+            {showFiltersApplied && (filters.compatibility.min > 0 || filters.compatibility.max < 100) && (
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(true)}
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+              >
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19l9-9M7.5 7.5h.01M16.5 16.5h.01M6.6 4h10.8a2.6 2.6 0 012.6 2.6v10.8a2.6 2.6 0 01-2.6 2.6H6.6A2.6 2.6 0 014 17.4V6.6A2.6 2.6 0 016.6 4z" />
+                  </svg>
+                </span>
+                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                  Compatibility {filters.compatibility.min === filters.compatibility.max ? `${filters.compatibility.min}%` : `${filters.compatibility.min}% – ${filters.compatibility.max}%`}
+                </span>
+              </button>
             )}
 
             {/* Distance range chip (only when non-default) */}
-            {(filters.distance.min > 1 || filters.distance.max < 100) && (
-              <span className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer" onClick={() => setShowFilterModal(true)}>
-                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
-                <span className="relative z-10">Distance {filters.distance.min === filters.distance.max ? `${filters.distance.min} mi` : `${filters.distance.min} – ${filters.distance.max} mi`}</span>
-              </span>
+            {showFiltersApplied && (filters.distance.min > 1 || filters.distance.max < 100) && (
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(true)}
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+              >
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </span>
+                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                  Distance {filters.distance.min === filters.distance.max ? `${filters.distance.min} mi` : `${filters.distance.min} – ${filters.distance.max} mi`}
+                </span>
+              </button>
             )}
 
             {/* Age range chip (only when non-default) */}
-            {(filters.age.min > 18 || filters.age.max < 80) && (
-              <span className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer" onClick={() => setShowFilterModal(true)}>
-                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
-                <span className="relative z-10">Age {filters.age.min === filters.age.max ? filters.age.min : `${filters.age.min} – ${filters.age.max}`}</span>
-              </span>
+            {showFiltersApplied && (filters.age.min > 18 || filters.age.max < 80) && (
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(true)}
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+              >
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </span>
+                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                  Age {filters.age.min === filters.age.max ? filters.age.min : `${filters.age.min} – ${filters.age.max}`}
+                </span>
+              </button>
             )}
 
             {/* Tag chips */}
-            {filters.tags.map((tag: string) => (
-              <span
+            {showFiltersApplied && filters.tags.map((tag: string) => (
+              <button
                 key={tag}
-                className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer"
+                type="button"
                 onClick={() => setShowFilterModal(true)}
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
               >
-                <div className="absolute inset-0 bg-black opacity-[0.03]" style={{ borderRadius: '24px' }}></div>
-                <span className="relative z-10">{tag}</span>
-              </span>
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </span>
+                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                  {tag}
+                </span>
+              </button>
             ))}
           </div>
         )}
@@ -1915,12 +1979,17 @@ function ResultsPageContent() {
                           </h3>
                         </div>
 
-                        {/* Active Indicator - Green circle at bottom right (only if online) */}
-                        {profile.user.is_online && (
-                        <div className="absolute bottom-2 right-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        {/* Compatibility Percentage Corner Badge */}
+                        <div
+                          className={`absolute bottom-0 right-0 z-20 flex items-center justify-center rounded-tl-2xl px-3 py-1.5 text-base font-bold text-white backdrop-blur-md pointer-events-none
+                            [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]
+                            ${profile.user.is_online
+                              ? 'bg-green-500/40 shadow-[inset_0_2px_0_0_rgba(34,197,94,0.9),inset_2px_0_0_0_rgba(34,197,94,0.9)]'
+                              : 'bg-white/25'
+                            }`}
+                        >
+                          {Math.round(compatibilityScore)}%
                         </div>
-                        )}
                       </div>
                     </div>
                   </CardWithProgressBorder>
@@ -2088,64 +2157,103 @@ function ResultsPageContent() {
                 </div>
               </div>
 
-              {/* Required Toggle */}
-              <div className={`${pendingFilters.requiredOnly ? 'mb-2' : 'mb-8'} flex items-center justify-between`}>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-semibold text-black">Required</h4>
-                  <div className="relative group">
-                    <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
-                      <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
-                    </div>
-                    <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                      When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
-                      <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+              {/* Required Section — grouped card */}
+              <div className="mb-8 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                    <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required</h4>
+                    <div className="relative group">
+                      <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
+                        <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                      </div>
+                      <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                        When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
+                        <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={toggleRequiredOnly}
+                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                    style={{ backgroundColor: pendingFilters.requiredOnly ? '#672DB7' : '#ADADAD' }}
+                    aria-pressed={pendingFilters.requiredOnly}
+                  >
+                    <span
+                      className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                      style={{ transform: pendingFilters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
+                    />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={toggleRequiredOnly}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                  style={{ backgroundColor: pendingFilters.requiredOnly ? '#672DB7' : '#ADADAD' }}
-                  aria-pressed={pendingFilters.requiredOnly}
-                >
-                  <span
-                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                    style={{ transform: pendingFilters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
-                  />
-                </button>
+
+                {/* Scope picker (only when Required is on) */}
+                {pendingFilters.requiredOnly && (
+                  <div className="mb-4">
+                    <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleRequiredScopeChange('my')}
+                        className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                          (pendingFilters.requiredScope ?? 'my') === 'my'
+                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                            : 'text-purple-900 hover:bg-purple-50'
+                        }`}
+                      >
+                        My Required
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRequiredScopeChange('their')}
+                        className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                          (pendingFilters.requiredScope ?? 'my') === 'their'
+                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                            : 'text-purple-900 hover:bg-purple-50'
+                        }`}
+                      >
+                        Their Required
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Required-related tag chips */}
+                <div className="flex flex-wrap gap-2">
+                  {['Required', 'Pending', 'Their Required', 'Their Pending'].map((tag) => {
+                    const active = pendingFilters.tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleFilterTagToggle(tag)}
+                        className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                          active
+                            ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
+                            : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
+                        }`}
+                      >
+                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                          active
+                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
+                            : 'bg-purple-200'
+                        }`}>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
+                          </svg>
+                        </span>
+                        <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
+                          {tag}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-
-              {/* Required scope sub-picker: My Required / Their Required (only when Required is on) - same width as Compatibility Type picker */}
-              {pendingFilters.requiredOnly && (
-                <div className="mb-8">
-                  <div className="inline-flex items-center bg-white rounded-lg p-1.5 border border-gray-300 w-full">
-                    <button
-                      type="button"
-                      onClick={() => handleRequiredScopeChange('my')}
-                      className={`flex-1 px-6 py-3 rounded-lg text-base font-semibold transition-all cursor-pointer ${
-                        (pendingFilters.requiredScope ?? 'my') === 'my'
-                          ? 'bg-white text-black shadow-sm border border-black'
-                          : 'text-black hover:bg-gray-50 border border-transparent'
-                      }`}
-                    >
-                      My Required
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRequiredScopeChange('their')}
-                      className={`flex-1 px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                        (pendingFilters.requiredScope ?? 'my') === 'their'
-                          ? 'bg-white text-black shadow-sm border border-black'
-                          : 'text-black hover:bg-gray-50 border border-transparent'
-                      }`}
-                    >
-                      Their Required
-                    </button>
-                  </div>
-                </div>
-              )}
-
               </div>
 
               {/* Compatibility Slider */}
@@ -2184,7 +2292,7 @@ function ResultsPageContent() {
                 <div className="flex flex-wrap gap-3">
                   {[
                     'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
-                    'Liked Me', 'Matched', 'Required', 'Pending', 'Their Required', 'Their Pending', 'Saved', 'Not Approved', 'Hide'
+                    'Liked Me', 'Matched', 'Saved', 'Not Approved', 'Hide'
                   ].map((tag) => (
                     <button
                       key={tag}

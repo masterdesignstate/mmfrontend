@@ -2547,62 +2547,6 @@ export default function UserProfilePage() {
         {/* Compatibility Section */}
         {compatibility && (
           <div className="mb-8">
-            {/* Required Compatibility Toggle */}
-            <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 mb-3">
-              {/* Toggle Row */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-black">Required</span>
-                <button
-                  type="button"
-                  onClick={() => setShowRequiredCompatibility(!showRequiredCompatibility)}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer"
-                  style={{ backgroundColor: showRequiredCompatibility ? '#672DB7' : '#ADADAD' }}
-                  aria-pressed={showRequiredCompatibility}
-                  aria-label="Toggle required compatibility view"
-                >
-                  <span
-                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                    style={{ transform: showRequiredCompatibility ? 'translateX(20px)' : 'translateX(2px)' }}
-                  />
-                </button>
-              </div>
-
-              {/* Scope Picker - slides in when toggle is ON */}
-              <div
-                className="overflow-hidden transition-all duration-300 ease-in-out"
-                style={{
-                  maxHeight: showRequiredCompatibility ? '56px' : '0px',
-                  opacity: showRequiredCompatibility ? 1 : 0,
-                  marginTop: showRequiredCompatibility ? '12px' : '0px',
-                }}
-              >
-                <div className="inline-flex items-center bg-white rounded-lg p-1 border border-gray-200 w-full">
-                  <button
-                    type="button"
-                    onClick={() => setRequiredScope('my')}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-center ${
-                      requiredScope === 'my'
-                        ? 'bg-white text-black shadow-sm border border-black'
-                        : 'text-gray-500 hover:bg-gray-50 border border-transparent'
-                    }`}
-                  >
-                    My Required
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRequiredScope('their')}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-center ${
-                      requiredScope === 'their'
-                        ? 'bg-white text-black shadow-sm border border-black'
-                        : 'text-gray-500 hover:bg-gray-50 border border-transparent'
-                    }`}
-                  >
-                    Their Required
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* First Row: Overall, Me, Them - Larger Cards */}
             <div className="flex gap-3 mb-3">
               {/* Overall */}
@@ -2659,60 +2603,8 @@ export default function UserProfilePage() {
               </div>
             </div>
 
-            {/* Second Row: My Required, Their Required, Mutual Questions, Questions Answered - Smaller Cards */}
-            <div className="flex gap-3">
-              {/* My Required */}
-              <div className={`bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1 transition-all duration-200 ${showRequired && requiredScope === 'my' ? 'ring-2 ring-[#672DB7]/30' : ''}`}>
-                <div className="text-sm font-normal text-black capitalize mb-2">
-                  My Required
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <div className="flex items-baseline">
-                    <span className={`text-3xl font-black ${accentColor}`}>
-                      {compatibility.user1_required_completeness !== undefined
-                        ? Math.round(compatibility.user1_required_completeness * 100)
-                        : 'N/A'}
-                    </span>
-                    {compatibility.user1_required_completeness !== undefined && (
-                      <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
-                    )}
-                  </div>
-                  {compatibility.my_required_mutual_count !== undefined &&
-                   compatibility.my_required_total_count !== undefined &&
-                   compatibility.my_required_total_count > 0 && (
-                    <span className="text-gray-600">
-                      {compatibility.my_required_mutual_count}/{compatibility.my_required_total_count}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Their Required */}
-              <div className={`bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1 transition-all duration-200 ${showRequired && requiredScope === 'their' ? 'ring-2 ring-[#672DB7]/30' : ''}`}>
-                <div className="text-sm font-normal text-black capitalize mb-2">
-                  Their Required
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <div className="flex items-baseline">
-                    <span className={`text-3xl font-black ${accentColor}`}>
-                      {compatibility.user2_required_completeness !== undefined
-                        ? Math.round(compatibility.user2_required_completeness * 100)
-                        : 'N/A'}
-                    </span>
-                    {compatibility.user2_required_completeness !== undefined && (
-                      <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
-                    )}
-                  </div>
-                  {compatibility.their_required_mutual_count !== undefined &&
-                   compatibility.their_required_total_count !== undefined &&
-                   compatibility.their_required_total_count > 0 && (
-                    <span className="text-gray-600">
-                      {compatibility.their_required_mutual_count}/{compatibility.their_required_total_count}
-                    </span>
-                  )}
-                </div>
-              </div>
-
+            {/* Second Row: Mutual Questions, Questions Answered */}
+            <div className="flex gap-3 mb-3">
               {/* Mutual Questions */}
               <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
@@ -2735,6 +2627,128 @@ export default function UserProfilePage() {
                     {userAnswers.length}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Required Section — matches the filter panel Required card */}
+            <div className="rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
+              <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </span>
+                  <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRequiredCompatibility(!showRequiredCompatibility)}
+                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer"
+                  style={{ backgroundColor: showRequiredCompatibility ? '#672DB7' : '#E5E7EB' }}
+                  aria-pressed={showRequiredCompatibility}
+                  aria-label="Toggle required compatibility view"
+                >
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow"
+                    style={{ transform: showRequiredCompatibility ? 'translateX(20px)' : 'translateX(2px)' }}
+                  />
+                </button>
+              </div>
+
+              {/* Scope picker (only when Required is on) */}
+              {showRequiredCompatibility && (
+                <div className="mb-4">
+                  <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setRequiredScope('my')}
+                      className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                        requiredScope === 'my'
+                          ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                          : 'text-purple-900 hover:bg-purple-50'
+                      }`}
+                    >
+                      My Required
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRequiredScope('their')}
+                      className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                        requiredScope === 'their'
+                          ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                          : 'text-purple-900 hover:bg-purple-50'
+                      }`}
+                    >
+                      Their Required
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* My / Their Required stat tiles */}
+              <div className="grid grid-cols-2 gap-3">
+                {(() => {
+                  const tiles = [
+                    {
+                      label: 'My Required',
+                      pct: compatibility.user1_required_completeness !== undefined ? Math.round(compatibility.user1_required_completeness * 100) : null,
+                      mutual: compatibility.my_required_mutual_count,
+                      total: compatibility.my_required_total_count,
+                      isActive: showRequired && requiredScope === 'my',
+                    },
+                    {
+                      label: 'Their Required',
+                      pct: compatibility.user2_required_completeness !== undefined ? Math.round(compatibility.user2_required_completeness * 100) : null,
+                      mutual: compatibility.their_required_mutual_count,
+                      total: compatibility.their_required_total_count,
+                      isActive: showRequired && requiredScope === 'their',
+                    },
+                  ];
+                  return tiles.map((t) => (
+                    <div
+                      key={t.label}
+                      className={`relative rounded-xl px-4 py-3 transition-all duration-200 ${
+                        t.isActive
+                          ? 'bg-white shadow-sm ring-1 ring-purple-300'
+                          : 'bg-white/60 ring-1 ring-purple-200/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                          t.isActive
+                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
+                            : 'bg-purple-200'
+                        }`}>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                        <span className={`text-sm font-semibold ${t.isActive ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}`}>
+                          {t.label}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <div className="flex items-baseline">
+                          <span className={`text-3xl font-black ${accentColor}`}>
+                            {t.pct !== null ? t.pct : 'N/A'}
+                          </span>
+                          {t.pct !== null && (
+                            <span className={`text-lg font-bold ml-0.5 ${accentColor}`}>%</span>
+                          )}
+                        </div>
+                        {t.mutual !== undefined && t.total !== undefined && t.total > 0 && (
+                          <span className="text-xs font-medium text-gray-500 tabular-nums">
+                            {t.mutual}/{t.total}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
               </div>
             </div>
           </div>
