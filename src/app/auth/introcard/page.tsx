@@ -166,7 +166,7 @@ export default function IntroCardPage() {
       const params = new URLSearchParams({ user_id: userId });
 
       if (!nextUnanswered) {
-        router.push('/results');
+        router.push('/feed');
       } else if (nextUnanswered === 1) {
         params.set('questions', JSON.stringify(questions));
         router.push(`/auth/relationship?${params.toString()}`);

@@ -1,6 +1,101 @@
 // Type definitions for API responses
 import { API_BASE_URL as CONFIG_API_BASE_URL } from '@/config/api';
 
+export interface UserPicture {
+  id: string;
+  image_url: string;
+  order: number;
+  created_at?: string;
+}
+
+export const MAX_USER_PICTURES = 5;
+
+// ----- Feed -----
+export const MAX_POST_IMAGES = 5;
+
+export interface PostImageData {
+  id: string;
+  image_url: string;
+  order: number;
+}
+
+export interface ReactionSummary {
+  like: number;
+  dislike: number;
+}
+
+export interface FeedAuthor {
+  id: string;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  profile_photo?: string | null;
+  pictures?: UserPicture[];
+}
+
+export type PostVisibility = 'all' | 'approved' | 'liked' | 'matched';
+
+export interface Post {
+  id: string;
+  author: FeedAuthor;
+  body: string;
+  visibility: PostVisibility;
+  created_at: string;
+  updated_at: string;
+  edited_count: number;
+  images: PostImageData[];
+  hashtags: string[];
+  reaction_summary: ReactionSummary;
+  viewer_reaction: 'like' | 'dislike' | null;
+  comment_count: number;
+  is_own: boolean;
+}
+
+export interface HashtagCategory {
+  tag: string;
+  count: number;
+}
+
+export interface PostComment {
+  id: string;
+  post: string;
+  author: FeedAuthor;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  is_deleted?: boolean;
+}
+
+export interface PostRevision {
+  id: string;
+  body: string;
+  edited_at: string;
+}
+
+export interface FeedActivity {
+  id: string;
+  user: FeedAuthor;
+  kind: 'bio_updated' | 'photo_added' | 'question_answered';
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export type FeedAudience = 'all' | 'matches' | 'approved' | 'liked';
+
+export interface FeedItem {
+  kind: 'post' | 'bio_updated' | 'photo_added' | 'question_answered';
+  created_at: string;
+  post?: Post;
+  activity?: FeedActivity;
+}
+
+export interface FeedResponse {
+  results: FeedItem[];
+  has_next: boolean;
+  page: number;
+  audience: FeedAudience;
+}
+
 export interface ApiUser {
   id: string;
   username: string;
@@ -24,6 +119,8 @@ export interface ApiUser {
   is_admin?: boolean;
   last_active?: string | null;
   mandatory_questions_complete?: boolean;
+  require_answers_for_likes?: boolean;
+  pictures?: UserPicture[];
   question_answers?: {
     male?: number;
     female?: number;
@@ -335,6 +432,27 @@ class ApiService {
 
   async getUser(userId: string): Promise<ApiUser> {
     return this.request(`/users/${userId}/`, 'GET') as Promise<ApiUser>;
+  }
+
+  async updateUser(userId: string, patch: Partial<ApiUser>): Promise<ApiUser> {
+    return this.request(`/users/${userId}/`, 'PATCH', patch) as Promise<ApiUser>;
+  }
+
+  // ----- Picture gallery -----
+  async getUserPictures(userId: string): Promise<UserPicture[]> {
+    return this.request(`/users/${userId}/pictures/`, 'GET') as Promise<UserPicture[]>;
+  }
+
+  async addUserPicture(userId: string, imageUrl: string): Promise<UserPicture> {
+    return this.request(`/users/${userId}/pictures/`, 'POST', { image_url: imageUrl }) as Promise<UserPicture>;
+  }
+
+  async deleteUserPicture(userId: string, pictureId: string): Promise<void> {
+    await this.request(`/users/${userId}/pictures/${pictureId}/`, 'DELETE');
+  }
+
+  async reorderUserPictures(userId: string, orderedIds: string[]): Promise<UserPicture[]> {
+    return this.request(`/users/${userId}/pictures/reorder/`, 'POST', { order: orderedIds }) as Promise<UserPicture[]>;
   }
 
   async getCompatibleUsers(params: {
@@ -813,6 +931,78 @@ class ApiService {
 
   async delete(endpoint: string): Promise<unknown> {
     return this.request(endpoint, 'DELETE');
+  }
+
+  // ----- Feed -----
+  async getFeed(opts: {
+    audience?: FeedAudience;
+    page?: number;
+    pageSize?: number;
+    viewerId?: string;
+    q?: string;
+    hashtag?: string;
+  } = {}): Promise<FeedResponse> {
+    const { audience = 'all', page = 1, pageSize = 20, viewerId, q, hashtag } = opts;
+    const qs = new URLSearchParams({ audience, page: String(page), page_size: String(pageSize) });
+    if (viewerId) qs.set('user_id', viewerId);
+    if (q && q.trim()) qs.set('q', q.trim());
+    if (hashtag && hashtag.trim()) qs.set('hashtag', hashtag.trim().toLowerCase().replace(/^#/, ''));
+    return this.request(`/feed/?${qs.toString()}`, 'GET') as Promise<FeedResponse>;
+  }
+
+  async getFeedHashtags(viewerId?: string, limit = 20): Promise<HashtagCategory[]> {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    if (viewerId) qs.set('user_id', viewerId);
+    return this.request(`/feed/hashtags/?${qs.toString()}`, 'GET') as Promise<HashtagCategory[]>;
+  }
+
+  async createPost(body: string, imageUrls: string[], visibility: PostVisibility = 'all', viewerId?: string): Promise<Post> {
+    const payload: Record<string, unknown> = { body, image_urls: imageUrls, visibility };
+    if (viewerId) payload.user_id = viewerId;
+    return this.request('/posts/', 'POST', payload) as Promise<Post>;
+  }
+
+  async updatePost(postId: string, patch: { body?: string; visibility?: PostVisibility }, viewerId?: string): Promise<Post> {
+    const payload: Record<string, unknown> = { ...patch };
+    if (viewerId) payload.user_id = viewerId;
+    return this.request(`/posts/${postId}/`, 'PATCH', payload) as Promise<Post>;
+  }
+
+  async deletePost(postId: string, viewerId?: string): Promise<void> {
+    const url = viewerId ? `/posts/${postId}/?user_id=${viewerId}` : `/posts/${postId}/`;
+    await this.request(url, 'DELETE');
+  }
+
+  async reactToPost(postId: string, kind: 'like' | 'dislike', viewerId?: string): Promise<Post> {
+    const payload: Record<string, unknown> = { kind };
+    if (viewerId) payload.user_id = viewerId;
+    return this.request(`/posts/${postId}/react/`, 'POST', payload) as Promise<Post>;
+  }
+
+  async getPostRevisions(postId: string, viewerId?: string): Promise<PostRevision[]> {
+    const url = viewerId ? `/posts/${postId}/revisions/?user_id=${viewerId}` : `/posts/${postId}/revisions/`;
+    return this.request(url, 'GET') as Promise<PostRevision[]>;
+  }
+
+  async getPostComments(postId: string): Promise<PostComment[]> {
+    return this.request(`/comments/?post=${postId}`, 'GET') as Promise<PostComment[]>;
+  }
+
+  async createComment(postId: string, body: string, viewerId?: string): Promise<PostComment> {
+    const payload: Record<string, unknown> = { post: postId, body };
+    if (viewerId) payload.user_id = viewerId;
+    return this.request('/comments/', 'POST', payload) as Promise<PostComment>;
+  }
+
+  async updateComment(commentId: string, body: string, viewerId?: string): Promise<PostComment> {
+    const payload: Record<string, unknown> = { body };
+    if (viewerId) payload.user_id = viewerId;
+    return this.request(`/comments/${commentId}/`, 'PATCH', payload) as Promise<PostComment>;
+  }
+
+  async deleteComment(commentId: string, viewerId?: string): Promise<void> {
+    const url = viewerId ? `/comments/${commentId}/?user_id=${viewerId}` : `/comments/${commentId}/`;
+    await this.request(url, 'DELETE');
   }
 }
 

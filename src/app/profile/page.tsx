@@ -22,6 +22,7 @@ interface UserProfile {
   last_name: string;
   age?: number;
   profile_photo?: string;
+  pictures?: { id: string; image_url: string; order: number }[];
   bio?: string;
   height?: number;
   live?: string;
@@ -743,28 +744,55 @@ export default function ProfilePage() {
 
         {/* Main Content */}
         <div className="flex-1 lg:max-w-4xl lg:mx-auto px-6 lg:px-12 xl:px-20 py-4">
-          {/* Profile Photo and Name */}
+          {/* Profile Photos (swipeable gallery) and Name */}
           <div className="relative mb-6">
-            <div className="w-full sm:w-95 aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative mx-auto">
-              <Image
-                src={user.profile_photo || '/assets/usxr.png'}
-                alt={displayName}
-                fill
-                className="object-cover"
-              />
-              <div className="absolute bottom-4 left-4">
-                <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
-                  {displayName}{user.age ? `, ${user.age}` : ''}
-                </h1>
-              </div>
-            </div>
-            
-            {/* Tagline below the profile photo */}
-            {user.tagline && (
-              <div className="mt-2 text-center">
-                <p className="text-gray-700 text-lg">{user.tagline}</p>
-              </div>
-            )}
+            {(() => {
+              const gallery = user.pictures && user.pictures.length > 0
+                ? [...user.pictures].sort((a, b) => a.order - b.order).map(p => p.image_url)
+                : [user.profile_photo || '/assets/usxr.png'];
+              const showDots = gallery.length > 1;
+              return (
+                <div className="w-full sm:w-95 mx-auto">
+                  <div className="relative">
+                    <div
+                      className="flex w-full overflow-x-auto snap-x snap-mandatory scroll-smooth aspect-[4/3] sm:aspect-[4/4] rounded-2xl bg-gradient-to-b from-orange-400 to-orange-600 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                      {gallery.map((src, i) => (
+                        <div key={i} className="relative shrink-0 w-full h-full snap-center">
+                          <Image
+                            src={src}
+                            alt={`${displayName} photo ${i + 1}`}
+                            fill
+                            className="object-cover"
+                          />
+                          {i === 0 && (
+                            <div className="absolute bottom-4 left-4">
+                              <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
+                                {displayName}{user.age ? `, ${user.age}` : ''}
+                              </h1>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {showDots && (
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm">
+                        {gallery.map((_, i) => (
+                          <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tagline below the profile photo */}
+                  {user.tagline && (
+                    <div className="mt-2 text-center">
+                      <p className="text-gray-700 text-lg">{user.tagline}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Profile Icons - horizontal layout with containers */}

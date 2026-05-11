@@ -222,6 +222,10 @@ function ResultsPageContent() {
     }
     return [];
   });
+  // Snapshot of required-related filter state that the currently-displayed profiles correspond to.
+  // Updated only when new results arrive — prevents card colors flipping before data refreshes.
+  const [appliedRequiredOnly, setAppliedRequiredOnly] = useState<boolean>(false);
+  const [appliedRequiredScope, setAppliedRequiredScope] = useState<'my' | 'their'>('my');
   const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
@@ -475,6 +479,11 @@ function ResultsPageContent() {
 
       if (page === 1) {
         setProfiles(filteredProfiles);
+        // Sync color-affecting filter snapshots with the filters we just fetched against.
+        // This prevents card colors from flipping before the new profile data arrives.
+        setAppliedRequiredOnly(applyFilters ? !!activeFilters.requiredOnly : false);
+        setAppliedRequiredScope(applyFilters ? (activeFilters.requiredScope ?? 'my') : 'my');
+        setAppliedTags(applyFilters ? (activeFilters.tags || []) : []);
       } else {
         setProfiles(prev => [...prev, ...filteredProfiles]);
       }
@@ -801,6 +810,14 @@ function ResultsPageContent() {
       });
 
       if (!response.ok) {
+        // Surface the new "required questions unanswered" gate cleanly
+        let payload: { error?: string; message?: string } | null = null;
+        try { payload = await response.json(); } catch { /* noop */ }
+        if (response.status === 403 && payload?.error === 'required_questions_unanswered') {
+          const err = new Error(payload.message || 'Required questions not answered');
+          (err as Error & { code?: string }).code = 'required_questions_unanswered';
+          throw err;
+        }
         throw new Error('Failed to toggle tag');
       }
 
@@ -1006,7 +1023,20 @@ function ResultsPageContent() {
       }
 
       // Add like tag to backend
-      await toggleTagAPI(profileId, 'Like');
+      try {
+        await toggleTagAPI(profileId, 'Like');
+      } catch (err) {
+        const code = (err as Error & { code?: string }).code;
+        if (code === 'required_questions_unanswered') {
+          // Revert optimistic UI
+          setProfiles(prev => prev.map(p =>
+            p.id === profileId ? { ...p, tags: currentTags, isLiked: false, status: 'approved' } : p
+          ));
+          alert("You need to answer all of this user's required questions before you can like them.");
+          return;
+        }
+        throw err;
+      }
       posthog.capture('profile_liked', { liked_user_id: profileId, has_note: !!noteText.trim() });
 
       // Send note if provided
@@ -1089,6 +1119,11 @@ function ResultsPageContent() {
       // If matched or liked, remove like tag (go back to approved state)
       action = 'remove_like';
     } else if (currentTags.includes('approve')) {
+      // Gate: target requires answered required questions and we haven't answered them all
+      if (profile.user.require_answers_for_likes && profile.theirMissingRequired) {
+        alert("You need to answer all of this user's required questions before you can like them.");
+        return;
+      }
       // If approved, check if they have approved me before allowing like
       const theyApprovedMe = await checkIfTheyApprovedMe(profileId);
       if (!theyApprovedMe) {
@@ -1341,12 +1376,13 @@ function ResultsPageContent() {
     try {
       setIsApplyingFilters(true); // Shows loading animation inside modal
 
+      // NOTE: setAppliedTags is intentionally NOT called here.
+      // It's updated inside fetchCompatibleUsers when new profiles arrive,
+      // so card colors don't flip before the data refreshes.
       if (isClearing) {
         setFiltersApplied(false);
-        setAppliedTags([]);
       } else {
         setFiltersApplied(true);
-        setAppliedTags(filtersToApply.tags || []);
       }
 
       // Reset pagination but keep current profiles visible until new data arrives
@@ -1716,14 +1752,14 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19l9-9M7.5 7.5h.01M16.5 16.5h.01M6.6 4h10.8a2.6 2.6 0 012.6 2.6v10.8a2.6 2.6 0 01-2.6 2.6H6.6A2.6 2.6 0 014 17.4V6.6A2.6 2.6 0 016.6 4z" />
                   </svg>
                 </span>
-                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
                   Compatibility {filters.compatibility.min === filters.compatibility.max ? `${filters.compatibility.min}%` : `${filters.compatibility.min}% – ${filters.compatibility.max}%`}
                 </span>
               </button>
@@ -1734,15 +1770,15 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </span>
-                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
                   Distance {filters.distance.min === filters.distance.max ? `${filters.distance.min} mi` : `${filters.distance.min} – ${filters.distance.max} mi`}
                 </span>
               </button>
@@ -1753,14 +1789,14 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </span>
-                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
                   Age {filters.age.min === filters.age.max ? filters.age.min : `${filters.age.min} – ${filters.age.max}`}
                 </span>
               </button>
@@ -1772,14 +1808,14 @@ function ResultsPageContent() {
                 key={tag}
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-slate-200/70 hover:ring-slate-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-[0_2px_6px_-1px_rgba(100,116,139,0.5)]">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
                   </svg>
                 </span>
-                <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
                   {tag}
                 </span>
               </button>
@@ -1870,14 +1906,15 @@ function ResultsPageContent() {
               const hasRequiredTagApplied = appliedTags.includes('Required');
               const hasTheirPendingTagApplied = appliedTags.includes('Their Pending');
               const hasTheirRequiredTagApplied = appliedTags.includes('Their Required');
-              const scopeMissing = (filters.requiredScope ?? 'my') === 'their' ? profile.theirMissingRequired : profile.missingRequired;
-              const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (filters.requiredOnly && scopeMissing && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
-              
+              const scopeMissing = appliedRequiredScope === 'their' ? profile.theirMissingRequired : profile.missingRequired;
+              const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (appliedRequiredOnly && scopeMissing && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
+
               // When requiredOnly is enabled, show required compatibility if available
-              // Use appliedTags to determine which scores to show (matches the actual data displayed)
+              // Use appliedTags / appliedRequired* snapshots so the displayed colors and scores
+              // stay in sync with the currently-loaded profile data (don't flip on filter toggle).
               let compatibilitySource = profile.compatibility;
-              if (filters.requiredOnly || hasRequiredTagApplied || hasPendingTagApplied || hasTheirRequiredTagApplied || hasTheirPendingTagApplied) {
-                const useTheirRequired = (filters.requiredScope ?? 'my') === 'their';
+              if (appliedRequiredOnly || hasRequiredTagApplied || hasPendingTagApplied || hasTheirRequiredTagApplied || hasTheirPendingTagApplied) {
+                const useTheirRequired = appliedRequiredScope === 'their';
                 const theirScoreVal = profile.compatibility?.their_required_compatibility ?? profile.compatibility?.required_im_compatible_with;
                 if (useTheirRequired && theirScoreVal !== undefined && theirScoreVal !== null) {
                   const theirScore = theirScoreVal ?? 0;
@@ -1903,6 +1940,11 @@ function ResultsPageContent() {
               const firstName = profile.user.first_name || profile.user.username;
               const age = profile.user.age || 25;
               const profilePhoto = profile.user.profile_photo || DEFAULT_AVATAR;
+              const alreadyLikedOrMatched = profile.isMatched || profile.tags.map(t => t.toLowerCase()).includes('like');
+              const isApprovedState = !alreadyLikedOrMatched && profile.tags.map(t => t.toLowerCase()).includes('approve');
+              // Gate: target user requires answered required questions, and we haven't answered them all
+              const likeGated = !!profile.user.require_answers_for_likes && !!profile.theirMissingRequired;
+              const heartDisabled = likeGated && isApprovedState; // only block when next click would create a like
 
               return (
                 <div key={`${profile.user.id}-${index}`} className="relative">
@@ -1916,9 +1958,12 @@ function ResultsPageContent() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (heartDisabled) return;
                             handleHeartClick(profile.id);
                           }}
-                          className="flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                          disabled={heartDisabled}
+                          title={heartDisabled ? "Answer their required questions to like" : undefined}
+                          className={`flex items-center justify-center transition-transform ${heartDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
                         >
                           {isPending ? (
                             <div className="w-9 h-9 rounded-full bg-orange-100 border border-orange-400 flex items-center justify-center transform -translate-x-0.5 -translate-y-0.5">
@@ -1972,9 +2017,9 @@ function ResultsPageContent() {
                         {/* Gradient Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                        {/* Profile Info */}
-                        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                          <h3 className="font-semibold text-xl">
+                        {/* Profile Info — bottom padding matches the chip's py-1.5 so baselines align */}
+                        <div className="absolute bottom-0 left-0 right-0 px-3 pt-3 pb-1.5 text-white">
+                          <h3 className="font-bold text-xl leading-none [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
                             {firstName}, {age}
                           </h3>
                         </div>
@@ -2122,34 +2167,36 @@ function ResultsPageContent() {
                     </div>
                   </div>
                 </div>
-                <div className="inline-flex items-center bg-white rounded-lg p-1.5 border border-gray-300">
-
+                <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
                   <button
+                    type="button"
                     onClick={() => handleCompatibilityTypeChange('overall')}
-                    className={`px-6 py-3 rounded-lg text-base font-semibold transition-all cursor-pointer ${
+                    className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                       pendingFilters.compatibilityType === 'overall'
-                        ? 'bg-white text-black shadow-sm border border-black'
-                        : 'text-black hover:bg-gray-50 border border-transparent'
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                        : 'text-purple-900 hover:bg-purple-50'
                     }`}
                   >
                     Overall
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleCompatibilityTypeChange('compatible_with_me')}
-                    className={`px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                    className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
                       pendingFilters.compatibilityType === 'compatible_with_me'
-                        ? 'bg-white text-black shadow-sm border border-black'
-                        : 'text-black hover:bg-gray-50 border border-transparent'
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                        : 'text-purple-900 hover:bg-purple-50'
                     }`}
                   >
                     Compatible with Me
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleCompatibilityTypeChange('im_compatible_with')}
-                    className={`px-6 py-3 rounded-lg text-base font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                    className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
                       pendingFilters.compatibilityType === 'im_compatible_with'
-                        ? 'bg-white text-black shadow-sm border border-black'
-                        : 'text-black hover:bg-gray-50 border border-transparent'
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                        : 'text-purple-900 hover:bg-purple-50'
                     }`}
                   >
                     I&apos;m Compatible with
@@ -2223,7 +2270,7 @@ function ResultsPageContent() {
                 )}
 
                 {/* Required-related tag chips */}
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {['Required', 'Pending', 'Their Required', 'Their Pending'].map((tag) => {
                     const active = pendingFilters.tags.includes(tag);
                     return (
@@ -2289,26 +2336,38 @@ function ResultsPageContent() {
               {/* Tags Section */}
               <div className="mb-8">
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Tags</h3>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2">
                   {[
                     'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
                     'Liked Me', 'Matched', 'Saved', 'Not Approved', 'Hide'
-                  ].map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => handleFilterTagToggle(tag)}
-                      className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
-                        pendingFilters.tags.includes(tag)
-                          ? 'bg-white text-gray-900 border-black'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      {pendingFilters.tags.includes(tag) && (
-                        <div className="absolute inset-0 bg-black rounded-full" style={{ opacity: 0.05 }}></div>
-                      )}
-                      <span className="relative z-10">{tag}</span>
-                    </button>
-                  ))}
+                  ].map((tag) => {
+                    const active = pendingFilters.tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleFilterTagToggle(tag)}
+                        className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                          active
+                            ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
+                            : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
+                        }`}
+                      >
+                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                          active
+                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
+                            : 'bg-purple-200'
+                        }`}>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
+                          </svg>
+                        </span>
+                        <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
+                          {tag}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

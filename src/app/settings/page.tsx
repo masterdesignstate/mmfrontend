@@ -16,6 +16,8 @@ function SettingsPageContent() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [requireAnswersForLikes, setRequireAnswersForLikes] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
 
   // Email change form state
   const [emailForm, setEmailForm] = useState({
@@ -46,7 +48,33 @@ function SettingsPageContent() {
         console.error('Error loading user data:', err);
       });
     }
+    // Load privacy setting
+    if (userId) {
+      apiService.getUser(userId).then(user => {
+        setRequireAnswersForLikes(!!user.require_answers_for_likes);
+      }).catch(err => {
+        console.error('Error loading privacy settings:', err);
+      });
+    }
   }, []);
+
+  const handleToggleRequireAnswersForLikes = async () => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId || savingPrivacy) return;
+    const next = !requireAnswersForLikes;
+    setRequireAnswersForLikes(next); // optimistic
+    setSavingPrivacy(true);
+    try {
+      await apiService.updateUser(userId, { require_answers_for_likes: next });
+      posthog.capture('privacy_require_answers_for_likes_toggled', { value: next });
+    } catch (error) {
+      console.error('Error updating privacy setting:', error);
+      setRequireAnswersForLikes(!next); // revert
+      setMessage({ type: 'error', text: 'Could not update privacy setting. Please try again.' });
+    } finally {
+      setSavingPrivacy(false);
+    }
+  };
 
   const handleEmailChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -290,6 +318,35 @@ function SettingsPageContent() {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+
+        {/* Privacy Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">Privacy</h2>
+          </div>
+          <div className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Require answered required questions</h3>
+                <p className="text-sm text-gray-600">Only allow people to like you after they&apos;ve answered all of your required questions.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleRequireAnswersForLikes}
+                disabled={savingPrivacy}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0 mt-0.5"
+                style={{ backgroundColor: requireAnswersForLikes ? '#672DB7' : '#ADADAD' }}
+                aria-pressed={requireAnswersForLikes}
+                aria-label="Require answered required questions for likes"
+              >
+                <span
+                  className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow"
+                  style={{ transform: requireAnswersForLikes ? 'translateX(20px)' : 'translateX(2px)' }}
+                />
+              </button>
+            </div>
           </div>
         </div>
 

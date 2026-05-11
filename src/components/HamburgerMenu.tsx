@@ -132,6 +132,13 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           )}
 
           <button
+            onClick={() => handleNavigation('/feed')}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Feed
+          </button>
+
+          <button
             onMouseEnter={prefetchQuestions}
             onClick={() => handleNavigation('/questions')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

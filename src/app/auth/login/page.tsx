@@ -121,13 +121,13 @@ export default function LoginPage() {
                 });
                 router.push(`/auth/add-photo?${params.toString()}`);
               } else if (onboardingData.step === 'gender') {
-                // Incomplete mandatory questions — let user see results page
-                // The ProtectedPageGate overlay will prompt them to continue onboarding
-                router.push('/results');
+                // Incomplete mandatory questions — let user land on the feed.
+                // The ProtectedPageGate overlay will prompt them to continue onboarding.
+                router.push('/feed');
               } else if (onboardingData.step === 'complete') {
-                // Onboarding complete - redirect to results page for regular users
-                console.log('✅ Onboarding complete, redirecting to results');
-                router.push('/results');
+                // Onboarding complete — land on the feed.
+                console.log('✅ Onboarding complete, redirecting to feed');
+                router.push('/feed');
               } else {
                 router.push(onboardingData.step_url);
               }

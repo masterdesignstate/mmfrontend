@@ -7,6 +7,7 @@ import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import posthog from 'posthog-js';
+import { apiService, MAX_USER_PICTURES, type UserPicture } from '@/services/api';
 
 type User = {
   id: string;
@@ -59,10 +60,12 @@ export default function EditProfilePage() {
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
-  // Photo handling
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  // Photo gallery
+  const [pictures, setPictures] = useState<UserPicture[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string>('');
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<number>(0);
 
   const userId = useMemo(() => (typeof window !== 'undefined' ? localStorage.getItem('user_id') : null), []);
 
@@ -126,7 +129,11 @@ export default function EditProfilePage() {
         };
         setForm(prefilled);
         setInitialFormState(prefilled);
-        setPreviewUrl(data.profile_photo || null);
+        // Load picture gallery for this user
+        try {
+          const pics = await apiService.getUserPictures(data.id);
+          setPictures(pics);
+        } catch { /* noop */ }
       } catch (e: any) {
         setError(e?.message || 'Failed to load profile');
       } finally {
@@ -168,11 +175,59 @@ export default function EditProfilePage() {
     setForm((p) => ({ ...p, [name]: value } as FormState));
   };
 
-  // Photo selection
-  const onSelectPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    setSelectedFile(file);
-    if (file) setPreviewUrl(URL.createObjectURL(file));
+  // Photo gallery handlers
+  const onAddPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !userId) return;
+    if (pictures.length >= MAX_USER_PICTURES) {
+      setPhotoError(`You can have up to ${MAX_USER_PICTURES} photos.`);
+      return;
+    }
+    setPhotoError('');
+    setPhotoUploading(true);
+    setPhotoUploadProgress(0);
+    try {
+      const url = await uploadToAzureBlob(file, userId, (p) => setPhotoUploadProgress(p));
+      const created = await apiService.addUserPicture(userId, url);
+      setPictures((prev) => [...prev, created].sort((a, b) => a.order - b.order));
+      posthog.capture('profile_photo_uploaded', { user_id: userId });
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setPhotoUploading(false);
+      setPhotoUploadProgress(0);
+    }
+  };
+
+  const onRemovePhoto = async (pictureId: string) => {
+    if (!userId || photoBusy) return;
+    setPhotoBusy(true);
+    setPhotoError('');
+    try {
+      await apiService.deleteUserPicture(userId, pictureId);
+      const refreshed = await apiService.getUserPictures(userId);
+      setPictures(refreshed);
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Could not remove photo');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const onMakePrimary = async (pictureId: string) => {
+    if (!userId || photoBusy) return;
+    setPhotoBusy(true);
+    setPhotoError('');
+    try {
+      const newOrder = [pictureId, ...pictures.filter((p) => p.id !== pictureId).map((p) => p.id)];
+      const updated = await apiService.reorderUserPictures(userId, newOrder);
+      setPictures(updated);
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Could not reorder');
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
   const validate = (): string | null => {
@@ -203,13 +258,8 @@ export default function EditProfilePage() {
 
     setSaving(true);
     try {
-      // 1) Upload photo if selected
-      if (selectedFile) {
-        setUploadProgress(0);
-        await uploadToAzureBlob(selectedFile, userId, (p) => setUploadProgress(p));
-      }
-
-      // 2) Update personal details.
+      // Photo gallery is managed independently via add/remove/reorder above.
+      // Update personal details.
       // full_name, username, date_of_birth are locked after onboarding and are
       // intentionally omitted from the payload; the backend also ignores them.
       const payload = {
@@ -231,11 +281,10 @@ export default function EditProfilePage() {
         throw new Error(data.error || 'Failed to save profile');
       }
 
-      posthog.capture('profile_updated', { user_id: userId, has_new_photo: !!selectedFile });
+      posthog.capture('profile_updated', { user_id: userId });
       setSuccess('Profile updated successfully');
       // Update initial snapshot so Save stays disabled until further edits
       setInitialFormState(form);
-      setSelectedFile(null);
       // Refresh user data
       try {
         const meRes = await fetch(getApiUrl(API_ENDPOINTS.USERS_ME), { credentials: 'omit' });
@@ -269,7 +318,7 @@ export default function EditProfilePage() {
     }
   }, [form, initialFormState]);
 
-  const canSave = (isDirty || !!selectedFile) && !saving;
+  const canSave = isDirty && !saving;
 
   if (loading) {
     return (
@@ -327,51 +376,81 @@ export default function EditProfilePage() {
 
         {/* Main Content */}
         <div className="flex-1 px-6 py-6">
-          {/* Profile Photo Card centered */}
-          <div className="flex justify-center mb-6">
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm w-full max-w-xs">
-              <h2 className="text-base font-semibold text-gray-900 mb-4 text-center">Profile Photo</h2>
-              <div className="flex flex-col items-center">
-                <div className="relative">
-                  <div className="w-40 h-40 rounded-full overflow-hidden ring-2 ring-white shadow-lg">
-                    {previewUrl ? (
-                      <Image src={previewUrl} alt="Profile" width={160} height={160} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-40 h-40 bg-gray-100 flex items-center justify-center text-4xl font-bold text-gray-500">
-                        {user?.username?.[0]?.toUpperCase() || 'U'}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Edit pencil */}
-                  <button
-                    onClick={() => document.getElementById('photo-input')?.click()}
-                    className="absolute -bottom-2 -right-2 w-10 h-10 bg-black rounded-full flex items-center justify-center shadow-md hover:bg-gray-800 transition"
-                    title="Change photo"
-                  >
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-
-                  {/* Progress overlay */}
-                  {saving && selectedFile && (
-                    <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
-                      <span className="text-white font-semibold">{uploadProgress}%</span>
-                    </div>
-                  )}
-                </div>
-                <input id="photo-input" type="file" accept="image/*" className="hidden" onChange={onSelectPhoto} />
-                <button
-                  onClick={() => document.getElementById('photo-input')?.click()}
-                  className="mt-4 px-4 py-2 rounded-md text-sm text-white shadow-sm hover:shadow transition"
-                  style={{ backgroundColor: '#111111' }}
-                >
-                  Change photo
-                </button>
-                <p className="text-xs text-gray-500 mt-2">JPG or PNG, up to 10MB</p>
-              </div>
+          {/* Profile Photos Gallery (up to MAX_USER_PICTURES) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm max-w-4xl mx-auto mb-6">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Profile Photos</h2>
+              <span className="text-xs text-gray-500">{pictures.length} of {MAX_USER_PICTURES}</span>
             </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Your first photo is your main thumbnail across the app. Drag-free reorder coming soon — for now, click <strong>Make primary</strong> on any photo to move it to the front.
+            </p>
+            {photoError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{photoError}</div>
+            )}
+            <input id="photo-input" type="file" accept="image/*" className="hidden" onChange={onAddPhoto} disabled={photoUploading || photoBusy || pictures.length >= MAX_USER_PICTURES} />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {Array.from({ length: MAX_USER_PICTURES }).map((_, i) => {
+                const pic = pictures[i];
+                if (pic) {
+                  const isPrimary = i === 0;
+                  return (
+                    <div key={pic.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 ring-1 ring-gray-200">
+                      <Image src={pic.image_url} alt={`Photo ${i + 1}`} fill className="object-cover" />
+                      {isPrimary && (
+                        <div className="absolute top-1.5 left-1.5 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          Primary
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onRemovePhoto(pic.id)}
+                        disabled={photoBusy}
+                        className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/70 hover:bg-black text-white rounded-full flex items-center justify-center cursor-pointer disabled:opacity-50"
+                        title="Remove"
+                        aria-label="Remove photo"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      {!isPrimary && (
+                        <button
+                          type="button"
+                          onClick={() => onMakePrimary(pic.id)}
+                          disabled={photoBusy}
+                          className="absolute bottom-0 left-0 right-0 bg-black/70 hover:bg-black text-white text-[11px] font-semibold py-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          Make primary
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+                const isNextSlot = i === pictures.length;
+                const interactive = isNextSlot && pictures.length < MAX_USER_PICTURES && !photoUploading && !photoBusy;
+                return (
+                  <label
+                    key={`empty-${i}`}
+                    htmlFor={interactive ? 'photo-input' : undefined}
+                    className={`relative aspect-square rounded-lg border-2 border-dashed flex items-center justify-center ${
+                      interactive
+                        ? 'border-gray-400 bg-gray-50 cursor-pointer hover:bg-gray-100'
+                        : 'border-gray-200 bg-gray-50/50 cursor-not-allowed'
+                    }`}
+                  >
+                    {isNextSlot && photoUploading ? (
+                      <span className="text-xs font-semibold text-gray-700">{photoUploadProgress}%</span>
+                    ) : (
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-3">JPG or PNG, up to 10MB each.</p>
           </div>
 
           {/* Details Form Card centered */}

@@ -29,6 +29,8 @@ interface UserProfile {
   is_online?: boolean;
   last_active?: string | null;
   questions_answered_count?: number;
+  require_answers_for_likes?: boolean;
+  pictures?: { id: string; image_url: string; order: number }[];
 }
 
 interface UserAnswer {
@@ -1080,7 +1082,7 @@ export default function UserProfilePage() {
       }
 
       // Add like tag
-      await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
+      const likeResp = await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/toggle_tag/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1089,6 +1091,20 @@ export default function UserProfilePage() {
           tag: 'Like',
         }),
       });
+
+      if (!likeResp.ok) {
+        if (likeResp.status === 403) {
+          let payload: { error?: string; message?: string } | null = null;
+          try { payload = await likeResp.json(); } catch { /* noop */ }
+          if (payload?.error === 'required_questions_unanswered') {
+            // Revert optimistic UI
+            setSelectedTags(selectedTags);
+            alert(payload?.message || "You need to answer all of this user's required questions before you can like them.");
+            return;
+          }
+        }
+        throw new Error('Failed to send like');
+      }
 
       // Check for match after adding like
       await checkForMatch(newSelectedTags);
@@ -2169,6 +2185,12 @@ export default function UserProfilePage() {
       // If matched or liked, remove like tag (go back to approved state)
       action = 'remove_like';
     } else if (selectedTags.includes('approve')) {
+      // Gate: target requires answered required questions and we haven't answered them all
+      const myCompleteness = compatibility?.user1_required_completeness ?? 1;
+      if (user?.require_answers_for_likes && myCompleteness < 1) {
+        alert("You need to answer all of this user's required questions before you can like them.");
+        return;
+      }
       // If approved, check if they have approved me before allowing like
       const theyApprovedMe = await checkIfTheyApprovedMe();
       if (!theyApprovedMe) {
@@ -2371,6 +2393,13 @@ export default function UserProfilePage() {
     );
 
     if (!response.ok) {
+      let payload: { error?: string; message?: string } | null = null;
+      try { payload = await response.json(); } catch { /* noop */ }
+      if (response.status === 403 && payload?.error === 'required_questions_unanswered') {
+        const err = new Error(payload.message || 'Required questions not answered');
+        (err as Error & { code?: string }).code = 'required_questions_unanswered';
+        throw err;
+      }
       throw new Error('Failed to toggle tag');
     }
   };
@@ -2402,22 +2431,40 @@ export default function UserProfilePage() {
       <div className="flex-1 max-w-4xl mx-auto px-6 lg:px-12 xl:px-20 py-4">
         {/* Profile Photo and Name */}
         <div className="relative mb-6 w-full sm:w-95 mx-auto">
-          {/* Photo Card - on top */}
+          {/* Photo Card - on top (swipeable when there are multiple photos) */}
           <div className="w-full aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative z-10">
-            <Image
-              src={user.profile_photo || '/assets/usxr.png'}
-              alt={displayName}
-              fill
-              className="object-cover"
-            />
-            <div className="absolute bottom-4 left-4">
+            {(() => {
+              const gallery = user.pictures && user.pictures.length > 0
+                ? [...user.pictures].sort((a, b) => a.order - b.order).map(p => p.image_url)
+                : [user.profile_photo || '/assets/usxr.png'];
+              const showDots = gallery.length > 1;
+              return (
+                <>
+                  <div className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {gallery.map((src, i) => (
+                      <div key={i} className="relative shrink-0 w-full h-full snap-center">
+                        <Image src={src} alt={`${displayName} photo ${i + 1}`} fill className="object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                  {showDots && (
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex gap-1.5 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm pointer-events-none">
+                      {gallery.map((_, i) => (
+                        <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
               <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
                 {displayName}{user.age ? `, ${user.age}` : ''}
               </h1>
             </div>
 
             {/* Action Icons - Bottom Right */}
-            <div className="absolute bottom-4 right-4 flex flex-col gap-4">
+            <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-4">
               <button
                 onClick={() => handleTagToggle('Hide')}
                 className="hover:scale-105 transition-transform cursor-pointer"
@@ -2430,17 +2477,27 @@ export default function UserProfilePage() {
                   height={48}
                 />
               </button>
-              <button
-                onClick={() => handleActionButtonClick()}
-                className="hover:scale-105 transition-transform cursor-pointer"
-              >
-                <Image
-                  src={getActionButtonIcon()}
-                  alt={getActionButtonAlt()}
-                  width={48}
-                  height={48}
-                />
-              </button>
+              {(() => {
+                const myCompleteness = compatibility?.user1_required_completeness ?? 1;
+                const likeGated = !!user?.require_answers_for_likes && myCompleteness < 1;
+                const inApprovedState = !hasMatch && !selectedTags.includes('like') && selectedTags.includes('approve');
+                const actionDisabled = likeGated && inApprovedState;
+                return (
+                  <button
+                    onClick={() => { if (!actionDisabled) handleActionButtonClick(); }}
+                    disabled={actionDisabled}
+                    title={actionDisabled ? "Answer their required questions to like" : undefined}
+                    className={`transition-transform ${actionDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 cursor-pointer'}`}
+                  >
+                    <Image
+                      src={getActionButtonIcon()}
+                      alt={getActionButtonAlt()}
+                      width={48}
+                      height={48}
+                    />
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
