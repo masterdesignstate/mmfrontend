@@ -1063,11 +1063,11 @@ function QuestionEditPageContent() {
       }
     }, [isOpenToAll]);
 
-    const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const updateSliderValue = (clientX: number, target: HTMLDivElement) => {
       if (isOpenToAll) return;
 
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
+      const rect = target.getBoundingClientRect();
+      const clickX = clientX - rect.left;
       const percentage = clickX / rect.width;
 
       if (isBinary) {
@@ -1084,10 +1084,23 @@ function QuestionEditPageContent() {
       onChange(Math.max(minValue, Math.min(maxValue, newValue)));
     };
 
+    const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+      updateSliderValue(e.clientX, e.currentTarget);
+    };
+
     const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
         handleSliderClick(e);
       }
+    };
+
+    const handleSliderTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (isOpenToAll) return;
+
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      updateSliderValue(touch.clientX, e.currentTarget);
     };
 
     const handleMouseDown = () => {
@@ -1108,12 +1121,15 @@ function QuestionEditPageContent() {
     };
 
     return (
-      <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
-        style={{ userSelect: 'none' }}
+      <div className="w-full h-5 min-h-5 relative flex items-center select-none"
+        style={{ userSelect: 'none', touchAction: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onDragStart={handleDragStart}
+        onTouchStart={handleSliderTouch}
+        onTouchMove={handleSliderTouch}
+        onTouchEnd={handleMouseUp}
       >
         {(() => {
           // Get min and max values from labels, fallback to 1 and 5
@@ -1150,13 +1166,13 @@ function QuestionEditPageContent() {
               
               {!isOpenToAll && (
                 <div
-                  className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
+                  className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold z-30 cursor-pointer"
                   style={{
                     backgroundColor: isImportance ? 'white' : '#672DB7',
                     boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
                     left: isBinary
-                      ? (value === 1 ? '0px' : 'calc(100% - 28px)')
-                      : (value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`)
+                      ? (value === 1 ? '0px' : 'calc(100% - 24px)')
+                      : (value === minValue ? '0px' : value === maxValue ? 'calc(100% - 24px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 12px)`)
                   }}
                 >
                   <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
@@ -1230,26 +1246,31 @@ function QuestionEditPageContent() {
 
     // Special handling for Relationship question (question_number === 1) - ONLY Me section, no "Looking For"
     if (questionNumber === 1) {
-      return (
-        <div className="mb-2 w-full overflow-x-hidden">
-          <h3 className="text-xl font-bold text-center mb-1">Me</h3>
+      const relationshipHasOta = questions.some(q => q.open_to_all_me);
+      const relationshipGridClass = relationshipHasOta
+        ? 'grid items-center justify-center grid-cols-[114px_260px_42px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3'
+        : 'grid items-center justify-center grid-cols-[120px_290px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px] lg:gap-x-5 lg:gap-y-3';
 
-          {/* Responsive slider block — narrower on medium and smaller */}
-          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+      return (
+        <div className="mb-0 w-full">
+          <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+
+          {/* Relationship uses a compact fixed-width grid: matches medium-device sizing across all breakpoints below lg. */}
+          <div className="w-full max-w-[454px] lg:max-w-[692px] mx-auto">
           {/* LESS, MORE, and OTA labels — responsive grid */}
-          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+          <div className={`${relationshipGridClass} mb-2`}>
             <div></div>
-            <div className="flex justify-between text-xs text-gray-500 min-w-0">
+            <div className="flex justify-between text-xs text-gray-500 min-w-0 leading-none">
               <span>LESS</span>
               <span>MORE</span>
             </div>
-            <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-              {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
-            </div>
+            {relationshipHasOta && (
+              <div className="text-xs text-gray-500 text-center leading-none lg:ml-[-15px]">OTA</div>
+            )}
           </div>
 
           {/* Grid container for perfect alignment — responsive */}
-          <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-2 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-2">
+          <div className={`${relationshipGridClass}`}>
 
             {/* Question Rows for Relationship Questions */}
             {questions.map((question) => {
@@ -1258,7 +1279,9 @@ function QuestionEditPageContent() {
 
               return (
                 <React.Fragment key={question.id}>
-                  <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name.toUpperCase()}</div>
+                  <div className="text-xs font-semibold text-gray-400 min-w-0">
+                    {question.question_name.toUpperCase()}
+                  </div>
                   <div className="relative min-w-0">
                     <SliderComponent
                       value={sliderAnswers[meKey] || 3}
@@ -1267,27 +1290,29 @@ function QuestionEditPageContent() {
                       labels={question.answers}
                     />
                   </div>
-                  <div>
-                    {question.open_to_all_me ? (
-                      <label className="flex items-center cursor-pointer">
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            checked={openToAllStates[meKey] || false}
-                            onChange={() => setOpenToAllStates(prev => ({
-                              ...prev,
-                              [meKey]: !prev[meKey]
-                            }))}
-                            className="sr-only"
-                          />
-                          <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                          <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                        </div>
-                      </label>
-                    ) : (
-                      <div className="w-11 h-6"></div>
-                    )}
-                  </div>
+                  {relationshipHasOta && (
+                    <div>
+                      {question.open_to_all_me ? (
+                        <label className="flex items-center cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={openToAllStates[meKey] || false}
+                              onChange={() => setOpenToAllStates(prev => ({
+                                ...prev,
+                                [meKey]: !prev[meKey]
+                              }))}
+                              className="sr-only"
+                            />
+                            <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                          </div>
+                        </label>
+                      ) : (
+                        <div className="w-11 h-6"></div>
+                      )}
+                    </div>
+                  )}
                 </React.Fragment>
               );
             })}
@@ -1303,11 +1328,11 @@ function QuestionEditPageContent() {
                 labels={IMPORTANCE_LABELS}
               />
             </div>
-            <div className="w-11 h-6"></div>
+            {relationshipHasOta && <div className="w-11 h-6"></div>}
           </div>
 
           {/* Importance labels below Me section — responsive */}
-          <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+          <div className={`${relationshipGridClass} mt-2`}>
             <div></div>
             <div className="relative text-xs text-gray-500 w-full min-w-0">
               {importanceValues.me === 1 && (
@@ -1326,7 +1351,7 @@ function QuestionEditPageContent() {
                 <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
               )}
             </div>
-            <div></div>
+            {relationshipHasOta && <div></div>}
           </div>
           </div>
         </div>
@@ -1469,7 +1494,6 @@ function QuestionEditPageContent() {
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                         isOpenToAll={openToAllStates[meKey] || false}
                         labels={question.answers}
-                        isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
                     <div>
@@ -2117,9 +2141,7 @@ function QuestionEditPageContent() {
   }
 
   return (
-    <>
-    <style jsx global>{`html, body { overflow: hidden !important; height: 100vh !important; }`}</style>
-    <div className="h-screen bg-white overflow-hidden flex flex-col">
+    <div className="min-h-[100dvh] bg-white flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
@@ -2135,8 +2157,14 @@ function QuestionEditPageContent() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 overflow-hidden">
-        <div className={`w-full min-w-0 mx-auto ${[1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || questionNumber > 10 ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]' : 'max-w-4xl'}`}>
+      <main className={`flex-1 flex flex-col items-center justify-center ${questionNumber === 1 ? 'px-2 sm:px-6 py-1.5' : 'px-4 sm:px-6 py-4'}`}>
+        <div className={`w-full min-w-0 mx-auto ${
+          questionNumber === 1
+            ? 'max-w-[calc(100vw-1rem)] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]'
+            : [2, 6, 7, 8, 9, 10].includes(questionNumber) || questionNumber > 10
+              ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]'
+              : 'max-w-4xl'
+        }`}>
           {/* Title — responsive typography for small/medium/large */}
           <div className={`text-center ${questionNumber === 1 ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
             <div className="inline-block w-full max-w-full px-0 sm:px-1">
@@ -2202,8 +2230,8 @@ function QuestionEditPageContent() {
       </main>
 
       {/* Footer with Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div className="flex justify-between items-center px-6 py-4">
+      <footer className="shrink-0 bg-white border-t border-gray-200">
+        <div className="flex justify-between items-center px-6 py-3 sm:py-4">
           <button
             onClick={() => {
               if (isDemo) {
@@ -2263,7 +2291,6 @@ function QuestionEditPageContent() {
         </div>
       </footer>
     </div>
-    </>
   );
 }
 

@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
@@ -94,14 +94,16 @@ export default function ProfilePage() {
   const { answers: userAnswers, answersLoading } = useUserAnswers<UserAnswer>(userId);
   const { groupedQuestions } = useGroupedQuestions();
 
-  // Required questions count
-  const { data: requiredData } = useSWR<{ results: unknown[] }>(
-    `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?is_required_for_match=true&page_size=100`,
+  // Required questions count is per-user, not the global admin-required question flag.
+  const { data: requiredQuestionsCount } = useSWR<number>(
+    userId ? `profile-required-questions-${userId}` : null,
+    async () => {
+      if (!userId) return 0;
+      const requiredQuestionIds = await apiService.getRequiredQuestionIds(userId);
+      return requiredQuestionIds.length;
+    },
     { dedupingInterval: 300000 }
   );
-  const requiredQuestionsData = requiredData?.results
-    ? { count: requiredData.results.length }
-    : null;
 
   // Log when SWR data arrives
   useEffect(() => {
@@ -852,11 +854,23 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Required Questions and Questions Answered Section */}
-          {requiredQuestionsData && (
+          {/* Required Questions and Total Questions Answered Section */}
+          {requiredQuestionsCount !== undefined && (
             <div className="mb-8">
-              {/* Second Row: Required Questions, Questions Answered - Smaller Cards */}
+              {/* Second Row: Total Questions Answered, Required Questions - Smaller Cards */}
               <div className="flex gap-3">
+                {/* Total Questions Answered */}
+                <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                  <div className="text-sm font-normal text-black capitalize mb-2">
+                    Total Questions Answered
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-black text-[#672DB7]">
+                      {userAnswers.length}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Required Questions */}
                 <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
                   <div className="text-sm font-normal text-black capitalize mb-2">
@@ -864,19 +878,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex items-baseline">
                     <span className="text-3xl font-black text-[#672DB7]">
-                      {requiredQuestionsData.count}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Questions Answered */}
-                <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
-                  <div className="text-sm font-normal text-black capitalize mb-2">
-                    Questions Answered
-                  </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-black text-[#672DB7]">
-                      {userAnswers.length}
+                      {requiredQuestionsCount}
                     </span>
                   </div>
                 </div>

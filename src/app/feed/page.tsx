@@ -23,16 +23,16 @@ import {
 
 const AUDIENCE_OPTIONS: { value: FeedAudience; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'matches', label: 'Matches' },
   { value: 'approved', label: 'Approved' },
   { value: 'liked', label: 'Liked' },
+  { value: 'matches', label: 'Matched' },
 ];
 
 const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; description: string }[] = [
   { value: 'all', label: 'Everyone', description: 'Anyone can see this post.' },
   { value: 'approved', label: 'Approved', description: 'Only people you have approved.' },
   { value: 'liked', label: 'Liked', description: 'Only people you have liked.' },
-  { value: 'matched', label: 'Matches', description: 'Only your mutual matches.' },
+  { value: 'matched', label: 'Matched', description: 'Only your mutual matches.' },
 ];
 
 const visibilityLabel = (v: PostVisibility) => VISIBILITY_OPTIONS.find(o => o.value === v)?.label ?? 'Everyone';

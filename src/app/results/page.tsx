@@ -36,6 +36,39 @@ const COMPATIBILITY_TYPE_MAP: Record<string, string> = {
   im_compatible_with: 'im_compatible_with'
 };
 
+const COMPATIBILITY_TYPE_LABELS: Record<string, string> = {
+  overall: 'Overall',
+  compatible_with_me: 'My Preferences',
+  im_compatible_with: 'Their Preferences'
+};
+
+const REQUIRED_TAG_LABELS: Record<string, string> = {
+  Required: 'My Complete',
+  Pending: 'My Pending',
+  'Their Required': 'Their Complete',
+  'Their Pending': 'Their Pending'
+};
+
+const EXCLUSIVE_REQUIRED_TAGS: Record<string, string[]> = {
+  Required: ['Pending'],
+  Pending: ['Required'],
+  'Their Required': ['Their Pending'],
+  'Their Pending': ['Their Required']
+};
+
+const normalizeExclusiveRequiredTags = (tags: string[]) => {
+  const normalized: string[] = [];
+
+  tags.forEach((tag) => {
+    const exclusiveTags = EXCLUSIVE_REQUIRED_TAGS[tag] ?? [];
+    const nextTags = normalized.filter((currentTag) => currentTag !== tag && !exclusiveTags.includes(currentTag));
+    nextTags.push(tag);
+    normalized.splice(0, normalized.length, ...nextTags);
+  });
+
+  return normalized;
+};
+
 // Generate dummy profiles (fallback only)
 const generateDummyProfiles = (): ResultProfile[] => {
   const names = ['Amber', 'Sarah', 'Emily', 'Jessica', 'Ashley', 'Megan', 'Rachel', 'Lauren', 'Brittany', 'Taylor',
@@ -120,28 +153,25 @@ const CardWithProgressBorder = ({
   children
 }: {
   percentage: number;
-  variant?: 'default' | 'pending';
+  variant?: 'default' | 'pending' | 'complete';
   children: React.ReactNode;
 }) => {
   const borderWidth = 4; // Slightly thicker border
-  const gradient =
+  // Conic-gradient stops for each variant. Curve (0.9 / 1.8 / 2.7 / 3.6) is shared
+  // so the progress sweep looks identical regardless of color.
+  const stops =
     variant === 'pending'
-      ? `conic-gradient(from -90deg,
-            #FDBA74 0deg,
-            #FB923C ${percentage * 0.9}deg,
-            #F97316 ${percentage * 1.8}deg,
-            #EA580C ${percentage * 2.7}deg,
-            #C2410C ${percentage * 3.6}deg,
-            #C2410C ${percentage * 3.6 + 2}deg,
-            #d1d5db ${percentage * 3.6 + 3}deg,
-            #d1d5db 360deg)`
-      : `conic-gradient(from -90deg,
-            #A855F7 0deg,
-            #8B5CF6 ${percentage * 0.9}deg,
-            #7C3AED ${percentage * 1.8}deg,
-            #672DB7 ${percentage * 2.7}deg,
-            #5B21B6 ${percentage * 3.6}deg,
-            #5B21B6 ${percentage * 3.6 + 2}deg,
+      ? ['#FDBA74', '#FB923C', '#F97316', '#EA580C', '#C2410C']
+      : variant === 'complete'
+        ? ['#60A5FA', '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF']
+        : ['#A855F7', '#8B5CF6', '#7C3AED', '#672DB7', '#5B21B6'];
+  const gradient = `conic-gradient(from -90deg,
+            ${stops[0]} 0deg,
+            ${stops[1]} ${percentage * 0.9}deg,
+            ${stops[2]} ${percentage * 1.8}deg,
+            ${stops[3]} ${percentage * 2.7}deg,
+            ${stops[4]} ${percentage * 3.6}deg,
+            ${stops[4]} ${percentage * 3.6 + 2}deg,
             #d1d5db ${percentage * 3.6 + 3}deg,
             #d1d5db 360deg)`;
 
@@ -226,6 +256,41 @@ function ResultsPageContent() {
   // Updated only when new results arrive — prevents card colors flipping before data refreshes.
   const [appliedRequiredOnly, setAppliedRequiredOnly] = useState<boolean>(false);
   const [appliedRequiredScope, setAppliedRequiredScope] = useState<'my' | 'their'>('my');
+  // Snapshots for the sort/filter pipeline so the visible cards don't reorder or
+  // get distance-filtered until the newly-fetched profiles arrive.
+  const [appliedDistance, setAppliedDistance] = useState<{ min: number; max: number }>(() => {
+    if (typeof window !== 'undefined') {
+      const wasApplied = sessionStorage.getItem('results_page_filters_applied') === 'true';
+      if (wasApplied) {
+        const savedFilters = sessionStorage.getItem('results_page_filters');
+        if (savedFilters) {
+          try {
+            const parsed = JSON.parse(savedFilters);
+            if (parsed.distance) return parsed.distance;
+          } catch {}
+        }
+      }
+    }
+    return { min: 1, max: 100 };
+  });
+  const [appliedCompatibilityType, setAppliedCompatibilityType] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = sessionStorage.getItem('results_page_filters');
+      if (savedFilters) {
+        try {
+          const parsed = JSON.parse(savedFilters);
+          if (parsed.compatibilityType) return parsed.compatibilityType;
+        } catch {}
+      }
+    }
+    return 'overall';
+  });
+  const [appliedFiltersApplied, setAppliedFiltersApplied] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('results_page_filters_applied') === 'true';
+    }
+    return false;
+  });
   const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
@@ -484,6 +549,9 @@ function ResultsPageContent() {
         setAppliedRequiredOnly(applyFilters ? !!activeFilters.requiredOnly : false);
         setAppliedRequiredScope(applyFilters ? (activeFilters.requiredScope ?? 'my') : 'my');
         setAppliedTags(applyFilters ? (activeFilters.tags || []) : []);
+        setAppliedDistance(applyFilters && activeFilters.distance ? activeFilters.distance : { min: 1, max: 100 });
+        setAppliedCompatibilityType(activeFilters.compatibilityType ?? 'overall');
+        setAppliedFiltersApplied(applyFilters);
       } else {
         setProfiles(prev => [...prev, ...filteredProfiles]);
       }
@@ -515,7 +583,10 @@ function ResultsPageContent() {
   // Snapshot current filters into pendingFilters when modal opens
   useEffect(() => {
     if (showFilterModal) {
-      setPendingFilters({ ...filters });
+      setPendingFilters({
+        ...filters,
+        tags: normalizeExclusiveRequiredTags(filters.tags ?? [])
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showFilterModal]);
@@ -676,14 +747,15 @@ function ResultsPageContent() {
         });
       }
 
-      // Apply distance filtering if filters are applied and current user's live field is available
-      if (filtersApplied && currentUserLive && filters.distance) {
-        
+      // Apply distance filtering using the APPLIED snapshot — so the visible cards
+      // don't get re-filtered until the new fetch (which uses the new filters server-side) arrives.
+      if (appliedFiltersApplied && currentUserLive && appliedDistance) {
+
         // Maximum distance in the CSV is 64 miles (Hutto to San Marcos)
         // If max distance filter is >= 65, include all profiles since they're all within range
         const maxDistanceInCSV = 64;
-        const shouldIncludeAll = filters.distance.max >= maxDistanceInCSV;
-        
+        const shouldIncludeAll = appliedDistance.max >= maxDistanceInCSV;
+
         if (!shouldIncludeAll) {
           filteredProfiles = filteredProfiles.filter(profile => {
             const profileLive = profile.user.live;
@@ -696,20 +768,20 @@ function ResultsPageContent() {
             }
 
             // Check if distance is within the filter range
-            const isWithinRange = distance >= filters.distance.min && distance <= filters.distance.max;
+            const isWithinRange = distance >= appliedDistance.min && distance <= appliedDistance.max;
             return isWithinRange;
           });
-          
+
         }
       }
-      
-      // Then sort the filtered profiles
-      setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive, filters.compatibilityType));
+
+      // Then sort the filtered profiles using the applied-compatibility-type snapshot
+      setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive, appliedCompatibilityType));
     } else {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm, searchField, filtersApplied, filters.distance, filters.compatibilityType, filters.requiredOnly, filters.requiredScope, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, appliedFiltersApplied, appliedDistance, appliedCompatibilityType, appliedRequiredOnly, appliedRequiredScope, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -1332,12 +1404,21 @@ function ResultsPageContent() {
   };
 
   const handleFilterTagToggle = (tag: string) => {
-    setPendingFilters(prev => ({
-      ...prev,
-      tags: prev.tags.includes(tag)
+    setPendingFilters(prev => {
+      const isActive = prev.tags.includes(tag);
+      const exclusiveTags = EXCLUSIVE_REQUIRED_TAGS[tag] ?? [];
+      const nextTags = isActive
         ? prev.tags.filter((t: string) => t !== tag)
-        : [...prev.tags, tag]
-    }));
+        : [
+            ...prev.tags.filter((t: string) => t !== tag && !exclusiveTags.includes(t)),
+            tag
+          ];
+
+      return {
+        ...prev,
+        tags: normalizeExclusiveRequiredTags(nextTags)
+      };
+    });
   };
 
   const toggleRequiredOnly = () => {
@@ -1361,7 +1442,10 @@ function ResultsPageContent() {
     if (isApplyingFilters) return;
 
     // Commit pending filters → actual filters
-    const filtersToApply = { ...pendingFilters };
+    const filtersToApply = {
+      ...pendingFilters,
+      tags: normalizeExclusiveRequiredTags(pendingFilters.tags ?? [])
+    };
     setFilters(filtersToApply);
 
     // Check if clearing (all defaults)
@@ -1407,13 +1491,15 @@ function ResultsPageContent() {
     }
   };
 
-  // Sort profiles based on selected sort option
+  // Sort profiles based on selected sort option.
+  // Reads from applied* snapshots (not live `filters`) so the visible cards don't
+  // reorder until the new fetch corresponding to the new filters arrives.
   const sortProfiles = (profilesToSort: ResultProfile[], userLive: string | null = null, compatibilityType: string = 'overall') => {
     const sorted = [...profilesToSort];
     const getCompatibilityValue = (profile: ResultProfile) => {
       // If requiredOnly is enabled, use required compatibility scores
-      if (filters.requiredOnly && profile.compatibility) {
-        const useTheirRequired = (filters.requiredScope ?? 'my') === 'their';
+      if (appliedRequiredOnly && profile.compatibility) {
+        const useTheirRequired = appliedRequiredScope === 'their';
         if (useTheirRequired) {
           return profile.compatibility.their_required_compatibility ?? profile.compatibility.required_im_compatible_with ?? 0;
         }
@@ -1430,8 +1516,8 @@ function ResultsPageContent() {
         }
       }
       // Fallback to regular compatibility or non-required if missing required
-      const scopeMissing = (filters.requiredScope ?? 'my') === 'their' ? profile.theirMissingRequired : profile.missingRequired;
-      const useNonRequired = filters.requiredOnly && scopeMissing && profile.compatibilityNonRequired;
+      const scopeMissing = appliedRequiredScope === 'their' ? profile.theirMissingRequired : profile.missingRequired;
+      const useNonRequired = appliedRequiredOnly && scopeMissing && profile.compatibilityNonRequired;
       const compatibility = useNonRequired ? profile.compatibilityNonRequired : profile.compatibility;
       switch (compatibilityType) {
         case 'compatible_with_me':
@@ -1444,8 +1530,8 @@ function ResultsPageContent() {
     };
 
     const compareMissingRequired = (a: ResultProfile, b: ResultProfile) => {
-      if (!filters.requiredOnly) return 0;
-      const useTheirRequired = (filters.requiredScope ?? 'my') === 'their';
+      if (!appliedRequiredOnly) return 0;
+      const useTheirRequired = appliedRequiredScope === 'their';
       const aMissing = useTheirRequired ? Boolean(a.theirMissingRequired) : Boolean(a.missingRequired);
       const bMissing = useTheirRequired ? Boolean(b.theirMissingRequired) : Boolean(b.missingRequired);
       if (aMissing === bMissing) return 0;
@@ -1701,9 +1787,9 @@ function ResultsPageContent() {
             {(() => {
               const label =
                 filters.compatibilityType === 'compatible_with_me'
-                  ? 'Compatible with Me'
+                  ? COMPATIBILITY_TYPE_LABELS.compatible_with_me
                   : filters.compatibilityType === 'im_compatible_with'
-                    ? "I'm Compatible with"
+                    ? COMPATIBILITY_TYPE_LABELS.im_compatible_with
                     : 'Overall Compatibility';
               const iconPath =
                 filters.compatibilityType === 'compatible_with_me'
@@ -1742,7 +1828,7 @@ function ResultsPageContent() {
                   </svg>
                 </span>
                 <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
-                  {(filters.requiredScope ?? 'my') === 'their' ? 'Their Required' : 'My Required'}
+                  {(filters.requiredScope ?? 'my') === 'their' ? 'Their Required Questions' : 'My Required Questions'}
                 </span>
               </button>
             )}
@@ -1816,7 +1902,7 @@ function ResultsPageContent() {
                   </svg>
                 </span>
                 <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
-                  {tag}
+                  {REQUIRED_TAG_LABELS[tag] ?? tag}
                 </span>
               </button>
             ))}
@@ -1908,6 +1994,15 @@ function ResultsPageContent() {
               const hasTheirRequiredTagApplied = appliedTags.includes('Their Required');
               const scopeMissing = appliedRequiredScope === 'their' ? profile.theirMissingRequired : profile.missingRequired;
               const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (appliedRequiredOnly && scopeMissing && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
+              // Required scope active = the required filter or any Required/Pending tag is applied.
+              // Within scope: missing required → 'pending' (orange); otherwise → 'complete' (blue).
+              // Outside scope → 'default' (purple).
+              const inRequiredScope = appliedRequiredOnly || hasRequiredTagApplied || hasPendingTagApplied || hasTheirRequiredTagApplied || hasTheirPendingTagApplied;
+              const cardVariant: 'default' | 'pending' | 'complete' = isPending
+                ? 'pending'
+                : inRequiredScope
+                  ? 'complete'
+                  : 'default';
 
               // When requiredOnly is enabled, show required compatibility if available
               // Use appliedTags / appliedRequired* snapshots so the displayed colors and scores
@@ -1948,9 +2043,9 @@ function ResultsPageContent() {
 
               return (
                 <div key={`${profile.user.id}-${index}`} className="relative">
-                  <CardWithProgressBorder percentage={compatibilityScore} variant={isPending ? 'pending' : 'default'}>
+                  <CardWithProgressBorder percentage={compatibilityScore} variant={cardVariant}>
                     <div
-                      onClick={() => router.push(`/profile/${profile.user.id}?border=${isPending ? 'pending' : 'default'}`)}
+                      onClick={() => router.push(`/profile/${profile.user.id}?border=${cardVariant}`)}
                       className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     >
                       {/* Status Indicator */}
@@ -2141,166 +2236,178 @@ function ResultsPageContent() {
             </div>
 
             {/* Content */}
-            <div className="p-8 flex-1 overflow-y-auto">
-              <div className="inline-flex flex-col items-stretch">
-              {/* Compatibility Type Picker */}
-              <div className="mb-2">
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-lg font-semibold text-black">Compatibility Type</h3>
-                  <div className="relative group">
-                    <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
-                      <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
-                    </div>
-                    <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                      <div className="space-y-2">
-                        <div>
-                          <span className="font-semibold">Compatible with Me:</span> How well they match what you&apos;re looking for
-                        </div>
-                        <div>
-                          <span className="font-semibold">I&apos;m Compatible with:</span> How well you match what they&apos;re looking for
-                        </div>
-                        <div>
-                          <span className="font-semibold">Overall:</span> The combined score of both compatibilities
-                        </div>
+            <div className="p-4 sm:p-8 flex-1 overflow-y-auto">
+              <div className="w-full max-w-2xl">
+                {/* Compatibility Type Picker */}
+                <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </span>
+                        <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Compatibility Type</h3>
                       </div>
-                      <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
                     </div>
-                  </div>
-                </div>
-                <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
-                  <button
-                    type="button"
-                    onClick={() => handleCompatibilityTypeChange('overall')}
-                    className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                      pendingFilters.compatibilityType === 'overall'
-                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
-                        : 'text-purple-900 hover:bg-purple-50'
-                    }`}
-                  >
-                    Overall
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCompatibilityTypeChange('compatible_with_me')}
-                    className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                      pendingFilters.compatibilityType === 'compatible_with_me'
-                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
-                        : 'text-purple-900 hover:bg-purple-50'
-                    }`}
-                  >
-                    Compatible with Me
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCompatibilityTypeChange('im_compatible_with')}
-                    className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                      pendingFilters.compatibilityType === 'im_compatible_with'
-                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
-                        : 'text-purple-900 hover:bg-purple-50'
-                    }`}
-                  >
-                    I&apos;m Compatible with
-                  </button>
-                </div>
-              </div>
-
-              {/* Required Section — grouped card */}
-              <div className="mb-8 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </span>
-                    <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required</h4>
                     <div className="relative group">
                       <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
                         <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                       </div>
-                      <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                        When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
-                        <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                      <div className="absolute right-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                        <div className="space-y-2">
+                          <div>
+                            <span className="font-semibold">My Preferences:</span> How well they match what you&apos;re looking for
+                          </div>
+                          <div>
+                            <span className="font-semibold">Their Preferences:</span> How well you match what they&apos;re looking for
+                          </div>
+                          <div>
+                            <span className="font-semibold">Overall:</span> The combined score of both compatibilities
+                          </div>
+                        </div>
+                        <div className="absolute -top-1 right-2 w-2 h-2 bg-gray-900 rotate-45"></div>
                       </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={toggleRequiredOnly}
-                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                    style={{ backgroundColor: pendingFilters.requiredOnly ? '#672DB7' : '#ADADAD' }}
-                    aria-pressed={pendingFilters.requiredOnly}
-                  >
-                    <span
-                      className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
-                      style={{ transform: pendingFilters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
-                    />
-                  </button>
+                  <div className="grid grid-cols-[0.7fr_1fr_1.15fr] items-stretch bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
+                    <button
+                      type="button"
+                      onClick={() => handleCompatibilityTypeChange('overall')}
+                      className={`min-w-0 min-h-[44px] px-1 sm:px-3 py-2.5 rounded-lg text-[10px] sm:text-sm font-semibold leading-tight whitespace-nowrap transition-all cursor-pointer ${
+                        pendingFilters.compatibilityType === 'overall'
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                        : 'text-purple-900 hover:bg-purple-50'
+                      }`}
+                    >
+                      {COMPATIBILITY_TYPE_LABELS.overall}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCompatibilityTypeChange('compatible_with_me')}
+                      className={`min-w-0 min-h-[44px] px-1 sm:px-3 py-2.5 rounded-lg text-[10px] sm:text-sm font-semibold leading-tight whitespace-nowrap transition-all cursor-pointer ${
+                        pendingFilters.compatibilityType === 'compatible_with_me'
+                          ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                          : 'text-purple-900 hover:bg-purple-50'
+                        }`}
+                    >
+                      {COMPATIBILITY_TYPE_LABELS.compatible_with_me}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCompatibilityTypeChange('im_compatible_with')}
+                      className={`min-w-0 min-h-[44px] px-1 sm:px-3 py-2.5 rounded-lg text-[10px] sm:text-sm font-semibold leading-tight whitespace-nowrap transition-all cursor-pointer ${
+                        pendingFilters.compatibilityType === 'im_compatible_with'
+                          ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                          : 'text-purple-900 hover:bg-purple-50'
+                        }`}
+                    >
+                      {COMPATIBILITY_TYPE_LABELS.im_compatible_with}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Scope picker (only when Required is on) */}
-                {pendingFilters.requiredOnly && (
-                  <div className="mb-4">
-                    <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
-                      <button
-                        type="button"
-                        onClick={() => handleRequiredScopeChange('my')}
-                        className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                          (pendingFilters.requiredScope ?? 'my') === 'my'
-                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
-                            : 'text-purple-900 hover:bg-purple-50'
-                        }`}
-                      >
-                        My Required
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRequiredScopeChange('their')}
-                        className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                          (pendingFilters.requiredScope ?? 'my') === 'their'
-                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
-                            : 'text-purple-900 hover:bg-purple-50'
-                        }`}
-                      >
-                        Their Required
-                      </button>
+                {/* Required Section — grouped card */}
+                <div className="mb-8 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                      <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
+                      <div className="relative group">
+                        <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
+                          <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                        </div>
+                        <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                          When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
+                          <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleRequiredOnly}
+                      className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                      style={{ backgroundColor: pendingFilters.requiredOnly ? '#672DB7' : '#ADADAD' }}
+                      aria-pressed={pendingFilters.requiredOnly}
+                    >
+                      <span
+                        className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+                        style={{ transform: pendingFilters.requiredOnly ? 'translateX(20px)' : 'translateX(2px)' }}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Scope picker (only when Required is on) */}
+                  {pendingFilters.requiredOnly && (
+                    <div className="mb-4">
+                      <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
+                        <button
+                          type="button"
+                          onClick={() => handleRequiredScopeChange('my')}
+                          className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                            (pendingFilters.requiredScope ?? 'my') === 'my'
+                              ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                              : 'text-purple-900 hover:bg-purple-50'
+                          }`}
+                        >
+                          My Required
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRequiredScopeChange('their')}
+                          className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                            (pendingFilters.requiredScope ?? 'my') === 'their'
+                              ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
+                              : 'text-purple-900 hover:bg-purple-50'
+                          }`}
+                        >
+                          Their Required
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Required-related tag chips */}
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-purple-900/55">Show only:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Required', 'Pending', 'Their Required', 'Their Pending'].map((tag) => {
+                        const active = pendingFilters.tags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => handleFilterTagToggle(tag)}
+                            className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                              active
+                                ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
+                                : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
+                            }`}
+                          >
+                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                              active
+                                ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
+                                : 'bg-purple-200'
+                            }`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
+                              </svg>
+                            </span>
+                            <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
+                              {REQUIRED_TAG_LABELS[tag] ?? tag}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                )}
-
-                {/* Required-related tag chips */}
-                <div className="grid grid-cols-2 gap-2">
-                  {['Required', 'Pending', 'Their Required', 'Their Pending'].map((tag) => {
-                    const active = pendingFilters.tags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => handleFilterTagToggle(tag)}
-                        className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                          active
-                            ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
-                            : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
-                        }`}
-                      >
-                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
-                          active
-                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
-                            : 'bg-purple-200'
-                        }`}>
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
-                          </svg>
-                        </span>
-                        <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
-                          {tag}
-                        </span>
-                      </button>
-                    );
-                  })}
                 </div>
-              </div>
               </div>
 
               {/* Compatibility Slider */}

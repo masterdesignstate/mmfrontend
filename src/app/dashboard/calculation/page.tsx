@@ -5,7 +5,7 @@ import { apiService } from '@/services/api';
 import type { ApiUser, UserAnswer, Question } from '@/services/api';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 
-type MatchStatus = 'match' | 'mismatch' | 'open' | 'not_answered';
+type MatchStatus = 'match' | 'mismatch' | 'open';
 
 interface DirectionalResult {
   questionNumber: number;
@@ -21,7 +21,6 @@ interface DirectionalResult {
   maxScore: number;
   delta: number | null;
   status: MatchStatus;
-  notAnsweredBy?: string; // name of user who hasn't answered
 }
 
 interface ControlsState {
@@ -78,6 +77,7 @@ export default function CalculationPage() {
   const [p2RequiredResult, setP2RequiredResult] = useState<RequiredCompatResult | null>(null);
   const [showRequired, setShowRequired] = useState(false);
   const [requiredScope, setRequiredScope] = useState<'p1' | 'p2'>('p1');
+  const [impostorLoading, setImpostorLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -173,6 +173,41 @@ export default function CalculationPage() {
     setPerson2Results([]);
   };
 
+  const handleImpostorLogin = async (targetUserId: string, profileName: string) => {
+    if (impostorLoading) return;
+
+    const storedAdminId = localStorage.getItem('impostor_admin_user_id');
+    if (storedAdminId) {
+      localStorage.setItem('user_id', storedAdminId);
+      localStorage.setItem('is_admin', 'true');
+      localStorage.removeItem('is_impostor');
+      localStorage.removeItem('impostor_admin_user_id');
+      localStorage.removeItem('impostor_target_name');
+    }
+
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) return;
+
+    const impostorWindow = window.open('about:blank', '_blank');
+    if (!impostorWindow) return;
+
+    setImpostorLoading(true);
+    try {
+      const data = await apiService.impostorLogin(adminUserId, targetUserId);
+      localStorage.setItem('impostor_admin_user_id', adminUserId);
+      const userData = data.user_data as Record<string, string> | undefined;
+      localStorage.setItem('impostor_target_name', userData?.full_name || profileName);
+      localStorage.setItem('user_id', data.user_id as string);
+      localStorage.removeItem('is_admin');
+      localStorage.setItem('is_impostor', 'true');
+      impostorWindow.location.href = '/results';
+    } catch (error) {
+      console.error('Impostor login failed:', error);
+      impostorWindow.close();
+      setImpostorLoading(false);
+    }
+  };
+
   // Fetch user answers and required question IDs when person changes
   useEffect(() => {
     let cancelled = false;
@@ -258,11 +293,13 @@ export default function CalculationPage() {
     let maxA = 0;
     let statusA: MatchStatus = 'mismatch';
 
-    if (
+    const directionAUsesOpenToAll = (
       Boolean(p1Answer.looking_for_open_to_all) ||
       p1Answer.looking_for_answer === 6 ||
       p2Answer.me_answer === 6
-    ) {
+    ) && p1ImportanceLevel > 1;
+
+    if (directionAUsesOpenToAll) {
       scoreA = adjust * ota;
       maxA = adjust;
       statusA = 'open';
@@ -278,11 +315,13 @@ export default function CalculationPage() {
     let maxB = 0;
     let statusB: MatchStatus = 'mismatch';
 
-    if (
+    const directionBUsesOpenToAll = (
       Boolean(p2Answer.me_open_to_all) ||
       p2Answer.looking_for_answer === 6 ||
       p1Answer.me_answer === 6
-    ) {
+    ) && p2ImportanceLevel > 1;
+
+    if (directionBUsesOpenToAll) {
       scoreB = adjust * ota;
       maxB = adjust;
       statusB = 'open';
@@ -373,18 +412,6 @@ export default function CalculationPage() {
         q => person1AnswerMap.has(q.id) && person2AnswerMap.has(q.id)
       );
 
-      if (mutualQuestions.length === 0) {
-        setCalculationResults1([]);
-        setCalculationResults2([]);
-        setCompatibilityPercentage1(0);
-        setCompatibilityPercentage2(0);
-        setOverallCompatibility(0);
-        setP1RequiredResult(null);
-        setP2RequiredResult(null);
-        setShowResults(true);
-        return;
-      }
-
       const results1: DirectionalResult[] = [];
       const results2: DirectionalResult[] = [];
 
@@ -460,57 +487,6 @@ export default function CalculationPage() {
           ? Math.sqrt(percentage1 * percentage2)
           : 0;
       const overall = Number.isFinite(overallRaw) ? parseFloat(overallRaw.toFixed(2)) : 0;
-
-      // Add "not answered" rows for required questions that only one user answered
-      // P1's required that P2 hasn't answered
-      const mutualIds = new Set(mutualQuestions.map(q => q.id));
-      for (const question of questions) {
-        if (mutualIds.has(question.id)) continue;
-        const qIdLower = question.id.toLowerCase();
-        const questionNumber = question.question_number ?? 0;
-
-        // P1 required, P1 answered, P2 didn't answer → show in P1's table as "P2 not answered"
-        if (freshP1RequiredIds.has(qIdLower) && person1AnswerMap.has(question.id) && !person2AnswerMap.has(question.id)) {
-          const p1Answer = person1AnswerMap.get(question.id)!;
-          results1.push({
-            questionNumber,
-            questionId: question.id,
-            question: question.text,
-            preferenceValue: p1Answer.looking_for_answer,
-            preferenceOpen: Boolean(p1Answer.looking_for_open_to_all) || p1Answer.looking_for_answer === 6,
-            importance: getImportanceLevel(p1Answer.looking_for_importance, p1Answer.looking_for_multiplier),
-            importanceFactor: mapImportanceToFactor(getImportanceLevel(p1Answer.looking_for_importance, p1Answer.looking_for_multiplier)),
-            counterpartValue: 0,
-            counterpartOpen: false,
-            score: 0,
-            maxScore: 0,
-            delta: null,
-            status: 'not_answered',
-            notAnsweredBy: p2Name,
-          });
-        }
-
-        // P2 required, P2 answered, P1 didn't answer → show in P2's table as "P1 not answered"
-        if (freshP2RequiredIds.has(qIdLower) && person2AnswerMap.has(question.id) && !person1AnswerMap.has(question.id)) {
-          const p2Answer = person2AnswerMap.get(question.id)!;
-          results2.push({
-            questionNumber,
-            questionId: question.id,
-            question: question.text,
-            preferenceValue: p2Answer.looking_for_answer,
-            preferenceOpen: Boolean(p2Answer.looking_for_open_to_all) || p2Answer.looking_for_answer === 6,
-            importance: getImportanceLevel(p2Answer.looking_for_importance, p2Answer.looking_for_multiplier),
-            importanceFactor: mapImportanceToFactor(getImportanceLevel(p2Answer.looking_for_importance, p2Answer.looking_for_multiplier)),
-            counterpartValue: 0,
-            counterpartOpen: false,
-            score: 0,
-            maxScore: 0,
-            delta: null,
-            status: 'not_answered',
-            notAnsweredBy: p1Name,
-          });
-        }
-      }
 
       setCalculationResults1(results1);
       setCalculationResults2(results2);
@@ -596,35 +572,68 @@ export default function CalculationPage() {
     return Number.isInteger(rounded) ? `${rounded.toFixed(0)}` : `${rounded}`;
   };
 
-  const formatFactor = (value: number) => {
-    if (!Number.isFinite(value)) return '0';
-    const formatted = value.toFixed(2);
-    return formatted.replace(/\.00$/, '');
+  const formatTableDecimal = (value: number) => {
+    if (!Number.isFinite(value)) return '0.00';
+    return value.toFixed(2);
   };
 
   const formatDelta = (value: number | null) => {
-    if (value === null || !Number.isFinite(value)) return '—';
+    if (value === null || !Number.isFinite(value)) return '0';
     return value.toString();
   };
 
   const formatPercent = (value: number) => {
-    if (!Number.isFinite(value)) return '0%';
-    const fixed = value.toFixed(2);
-    if (fixed.endsWith('00')) {
-      return `${Number.parseInt(fixed, 10)}%`;
-    }
-    if (fixed.endsWith('0')) {
-      return `${Number.parseFloat(fixed).toFixed(1)}%`;
-    }
-    return `${Number.parseFloat(fixed)}%`;
+    if (!Number.isFinite(value)) return '0.00%';
+    return `${value.toFixed(2)}%`;
   };
 
-  const displayAnswerValue = (value: number, isOpen: boolean) => {
-    if (isOpen && value === 6) {
-      return 'Open (6)';
-    }
+  const displayAnswerValue = (value: number) => {
     return value;
   };
+
+  const buildMissingQuestions = (
+    answeredByOwner: Set<string>,
+    answeredByOther: Set<string>,
+    missingUser: string,
+    requiredIds?: Set<string>,
+  ): MissingQuestion[] => (
+    questions.flatMap((question, index) => {
+      const questionId = question.id;
+      const questionIdLower = questionId.toLowerCase();
+      const matchesRequiredScope = !requiredIds || requiredIds.has(questionIdLower);
+      if (!matchesRequiredScope || !answeredByOwner.has(questionId) || answeredByOther.has(questionId)) {
+        return [];
+      }
+
+      return [{
+        id: questionId,
+        questionNumber: resolveQuestionNumber(question, index),
+        text: question.text,
+        missingUser,
+      }];
+    })
+  );
+
+  const renderMissingQuestionList = (title: string, questionsToShow: MissingQuestion[]) => (
+    <div className="border border-gray-200 rounded-lg p-4">
+      <h4 className="text-sm font-semibold text-gray-900 mb-3">
+        {title}
+        <span className="ml-2 text-xs font-normal text-gray-500">({questionsToShow.length})</span>
+      </h4>
+      {questionsToShow.length > 0 ? (
+        <ul className="space-y-2">
+          {questionsToShow.map(question => (
+            <li key={question.id} className="text-sm text-gray-700 flex items-start gap-2">
+              <span className="text-[#672DB7] mt-0.5">&#x2022;</span>
+              <span>Q#{question.questionNumber}: {question.text}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-gray-500">No questions to show.</p>
+      )}
+    </div>
+  );
 
   const controlsModified = controls.adjust !== savedControls.adjust ||
     controls.exponent !== savedControls.exponent ||
@@ -644,14 +653,25 @@ export default function CalculationPage() {
   const renderResultTable = (
     results: DirectionalResult[],
     perspectiveName: string,
+    perspectiveUserId: string,
     totalScore: number,
     totalMax: number,
     requiredIds: Set<string>,
   ) => (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900">
-          {perspectiveName}
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <span>{perspectiveName}</span>
+          <button
+            type="button"
+            onClick={() => handleImpostorLogin(perspectiveUserId, perspectiveName)}
+            disabled={impostorLoading}
+            className="text-purple-600 hover:text-purple-800 transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Impostor Mode - Login as this user"
+          >
+            <i className="fas fa-user-secret" aria-hidden="true"></i>
+            <span className="sr-only">Enter impostor mode for {perspectiveName}</span>
+          </button>
         </h2>
         <p className="text-sm text-gray-600 mt-1">
           Compatibility calculation from {perspectiveName}&apos;s perspective
@@ -659,63 +679,76 @@ export default function CalculationPage() {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-[1060px] w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col style={{ width: '52px' }} />
+            <col style={{ width: '64px' }} />
+            {!showRequired && <col style={{ width: '56px' }} />}
+            <col style={{ width: '420px' }} />
+            <col style={{ width: '74px' }} />
+            <col style={{ width: '74px' }} />
+            <col style={{ width: '64px' }} />
+            <col style={{ width: '64px' }} />
+            <col style={{ width: '72px' }} />
+            <col style={{ width: '66px' }} />
+            <col style={{ width: '72px' }} />
+            <col style={{ width: '72px' }} />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 #
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Q#
               </th>
               {!showRequired && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Req
                 </th>
               )}
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Question
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Answer (Me)
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200">
+                Them (1)
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                OTA (Me)
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Me (2)
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Importance (Factor)
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Delta
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Answer (Them)
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Adjust
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                OTA (Them)
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                IMP(1)
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Factor
+              </th>
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Value
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Max
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Delta
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {results.map((result, index) => {
               const isReq = requiredIds.has(result.questionId.toLowerCase());
-              const isNotAnswered = result.status === 'not_answered';
               return (
-                <tr key={index} className={isNotAnswered ? 'bg-red-50' : 'hover:bg-gray-50'}>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                     {index + 1}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                     {result.questionNumber}
                   </td>
                   {!showRequired && (
-                    <td className="px-4 py-4 whitespace-nowrap text-xs">
+                    <td className="px-3 py-4 whitespace-nowrap text-center text-xs">
                       {isReq && (
                         <span className="inline-block px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-medium">
                           R
@@ -723,62 +756,54 @@ export default function CalculationPage() {
                       )}
                     </td>
                   )}
-                  <td className="px-4 py-4 text-sm text-gray-900 whitespace-normal break-words max-w-xs">
+                  <td className="px-3 py-4 text-center text-sm text-gray-900 whitespace-normal break-words">
                     {result.question}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {displayAnswerValue(result.preferenceValue, result.preferenceOpen)}
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900 border-l border-gray-200">
+                    {displayAnswerValue(result.preferenceValue)}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.preferenceOpen ? 'Yes' : 'No'}
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {displayAnswerValue(result.counterpartValue)}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.importance} ({formatFactor(result.importanceFactor)})
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {formatDelta(result.delta)}
                   </td>
-                  {isNotAnswered ? (
-                    <td colSpan={5} className="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">
-                      Not answered by {result.notAnsweredBy}
-                    </td>
-                  ) : (
-                    <>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {displayAnswerValue(result.counterpartValue, result.counterpartOpen)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {result.counterpartOpen ? 'Yes' : 'No'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatScore(result.score)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatScore(result.maxScore)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDelta(result.delta)}
-                      </td>
-                    </>
-                  )}
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {formatScore(controls.adjust)}
+                  </td>
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {result.importance}
+                  </td>
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {formatTableDecimal(result.importanceFactor)}
+                  </td>
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {formatTableDecimal(result.score)}
+                  </td>
+                  <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                    {formatTableDecimal(result.maxScore)}
+                  </td>
                 </tr>
               );
             })}
             {/* Summary Row */}
             <tr className="bg-gray-50 font-medium">
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 text-sm text-gray-900">Summary</td>
-              {!showRequired && <td className="px-4 py-4 text-sm text-gray-900">-</td>}
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
-              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                Total: {formatScore(totalScore)}
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              {!showRequired && <td className="px-3 py-4 text-center text-sm text-gray-900"></td>}
+              <td className="px-3 py-4 text-center text-sm text-gray-900">Summary</td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 text-center text-sm text-gray-900"></td>
+              <td className="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                {formatTableDecimal(totalScore)}
               </td>
-              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                Total: {formatScore(totalMax)}
+              <td className="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                {formatTableDecimal(totalMax)}
               </td>
-              <td className="px-4 py-4 text-sm text-gray-900">-</td>
             </tr>
           </tbody>
         </table>
@@ -788,6 +813,12 @@ export default function CalculationPage() {
 
   const p1Name = person1 ? getPersonName(person1) : 'P1';
   const p2Name = person2 ? getPersonName(person2) : 'P2';
+  const p1AnsweredQuestionIds = new Set((person1 ? userAnswers[person1] ?? [] : []).map(answer => answer.question.id));
+  const p2AnsweredQuestionIds = new Set((person2 ? userAnswers[person2] ?? [] : []).map(answer => answer.question.id));
+  const p1AnsweredMissingByP2 = buildMissingQuestions(p1AnsweredQuestionIds, p2AnsweredQuestionIds, p2Name);
+  const p2AnsweredMissingByP1 = buildMissingQuestions(p2AnsweredQuestionIds, p1AnsweredQuestionIds, p1Name);
+  const p1RequiredMissingByP2 = buildMissingQuestions(p1AnsweredQuestionIds, p2AnsweredQuestionIds, p2Name, p1RequiredIds);
+  const p2RequiredMissingByP1 = buildMissingQuestions(p2AnsweredQuestionIds, p1AnsweredQuestionIds, p1Name, p2RequiredIds);
 
   return (
     <div className="space-y-6">
@@ -957,7 +988,12 @@ export default function CalculationPage() {
           ? (requiredScope === 'p1' ? p1RequiredResult : p2RequiredResult)
           : null;
         const scopeOwner = requiredScope === 'p1' ? p1Name : p2Name;
-        const scopeOther = requiredScope === 'p1' ? p2Name : p1Name;
+        const activeCompleteness = activeResult
+          ? (requiredScope === 'p1' ? activeResult.p2Completeness : activeResult.p1Completeness)
+          : 1;
+        const completenessCardClass = activeCompleteness < 1
+          ? 'border-orange-300 bg-orange-50 shadow-[0_0_0_1px_rgba(251,146,60,0.25)]'
+          : 'border-[#672DB7]/40 bg-[#672DB7]/5 shadow-[0_0_0_1px_rgba(103,45,183,0.20)]';
 
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -1011,16 +1047,16 @@ export default function CalculationPage() {
                   <div className="text-4xl font-extrabold text-[#672DB7] mb-4">{formatPercent(overallCompatibility)}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-3 rounded border border-gray-200">
-                      <div className="text-sm text-gray-600">{p1Name} &rarr; {p2Name}</div>
+                      <div className="text-sm text-gray-600">Based on {p1Name}&apos;s Preferences</div>
                       <div className="text-2xl font-semibold text-green-600">{formatPercent(compatibilityPercentage1)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
-                      <div className="text-sm text-gray-600">{p2Name} &rarr; {p1Name}</div>
+                      <div className="text-sm text-gray-600">Based on {p2Name}&apos;s Preferences</div>
                       <div className="text-2xl font-semibold text-blue-600">{formatPercent(compatibilityPercentage2)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Mutual Questions</div>
-                      <div className="text-2xl font-semibold text-gray-900">{calculationResults1.filter(r => r.status !== 'not_answered').length}</div>
+                      <div className="text-2xl font-semibold text-gray-900">{calculationResults1.length}</div>
                     </div>
                   </div>
                 </>
@@ -1029,40 +1065,24 @@ export default function CalculationPage() {
                   <div className="text-4xl font-extrabold text-[#672DB7] mb-4">{formatPercent(activeResult.overall)}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div className="p-3 rounded border border-gray-200">
-                      <div className="text-sm text-gray-600">{p1Name} &rarr; {p2Name}</div>
+                      <div className="text-sm text-gray-600">Based on {p1Name}&apos;s Preferences</div>
                       <div className="text-2xl font-semibold text-green-600">{formatPercent(activeResult.percentage1)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
-                      <div className="text-sm text-gray-600">{p2Name} &rarr; {p1Name}</div>
+                      <div className="text-sm text-gray-600">Based on {p2Name}&apos;s Preferences</div>
                       <div className="text-2xl font-semibold text-blue-600">{formatPercent(activeResult.percentage2)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
-                      <div className="text-sm text-gray-600">Mutual / Total Required</div>
-                      <div className="text-2xl font-semibold text-gray-900">{activeResult.mutualCount} / {activeResult.totalRequired}</div>
+                      <div className="text-sm text-gray-600">Mutual Questions</div>
+                      <div className="text-2xl font-semibold text-gray-900">{activeResult.mutualCount}</div>
                     </div>
-                    <div className={`p-3 rounded border ${activeResult.p2Completeness < 1.0 || activeResult.p1Completeness < 1.0 ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}`}>
+                    <div className={`p-3 rounded border ${completenessCardClass}`}>
                       <div className="text-sm text-gray-600">Completeness</div>
-                      <div className="text-lg font-semibold text-gray-900">
-                        {scopeOther}: {requiredScope === 'p1' ? activeResult.p2Answered : activeResult.p1Answered}/{requiredScope === 'p1' ? activeResult.p1Answered : activeResult.p2Answered}
-                        {' '}({formatPercent((requiredScope === 'p1' ? activeResult.p2Completeness : activeResult.p1Completeness) * 100)})
+                      <div className="text-2xl font-semibold text-[#672DB7]">
+                        {formatPercent(activeCompleteness * 100)}
                       </div>
                     </div>
                   </div>
-                  {activeResult.missingQuestions.length > 0 && (
-                    <div className="mt-4 text-left border-t border-red-200 pt-3">
-                      <div className="text-sm text-red-600 font-medium mb-2">
-                        Not answered by {activeResult.missingQuestions[0].missingUser} ({activeResult.missingQuestions.length})
-                      </div>
-                      <ul className="space-y-1">
-                        {activeResult.missingQuestions.map(q => (
-                          <li key={q.id} className="text-sm text-gray-700 flex items-start gap-1">
-                            <span className="text-red-400 mt-0.5">&#x2022;</span>
-                            <span>Q#{q.questionNumber}: {q.text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </>
               ) : (
                 <p className="text-gray-500">No required questions set for {scopeOwner}</p>
@@ -1072,112 +1092,34 @@ export default function CalculationPage() {
         );
       })()}
 
-      {/* Required Compatibility (side-by-side, hidden when toggle ON) */}
-      {showResults && !showRequired && (p1RequiredResult || p2RequiredResult) && (
+      {/* Question Summary */}
+      {showResults && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Required Compatibility</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Question Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* P1's Required */}
-            <div className="border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-3">
-                {p1Name}&apos;s Required
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({p1RequiredIds.size} questions)
-                </span>
-              </h4>
-              {p1RequiredResult ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="text-gray-600">{p1Name} &rarr; {p2Name}:</div>
-                    <div className="font-semibold text-green-600">{formatPercent(p1RequiredResult.percentage1)}</div>
-                    <div className="text-gray-600">{p2Name} &rarr; {p1Name}:</div>
-                    <div className="font-semibold text-blue-600">{formatPercent(p1RequiredResult.percentage2)}</div>
-                    <div className="text-gray-600">Overall:</div>
-                    <div className="font-semibold text-[#672DB7]">{formatPercent(p1RequiredResult.overall)}</div>
-                    <div className="text-gray-600">Mutual questions:</div>
-                    <div className="font-semibold">{p1RequiredResult.mutualCount}</div>
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 mt-2">
-                    <div className="text-xs text-gray-500 mb-1">Completeness</div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-gray-600">{p2Name} answered:</div>
-                      <div className="font-medium">
-                        {p1RequiredResult.p2Answered}/{p1RequiredResult.p1Answered}
-                        {' '}({formatPercent(p1RequiredResult.p2Completeness * 100)})
-                      </div>
-                    </div>
-                  </div>
-                  {p1RequiredResult.missingQuestions.length > 0 && (
-                    <div className="border-t border-red-200 pt-2 mt-2">
-                      <div className="text-xs text-red-600 font-medium mb-1">
-                        Not answered by {p2Name} ({p1RequiredResult.missingQuestions.length})
-                      </div>
-                      <ul className="space-y-1">
-                        {p1RequiredResult.missingQuestions.map(q => (
-                          <li key={q.id} className="text-xs text-gray-700 flex items-start gap-1">
-                            <span className="text-red-400 mt-0.5">&#x2022;</span>
-                            <span>Q#{q.questionNumber}: {q.text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">No required questions set</p>
-              )}
-            </div>
-
-            {/* P2's Required */}
-            <div className="border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-3">
-                {p2Name}&apos;s Required
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({p2RequiredIds.size} questions)
-                </span>
-              </h4>
-              {p2RequiredResult ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="text-gray-600">{p1Name} &rarr; {p2Name}:</div>
-                    <div className="font-semibold text-green-600">{formatPercent(p2RequiredResult.percentage1)}</div>
-                    <div className="text-gray-600">{p2Name} &rarr; {p1Name}:</div>
-                    <div className="font-semibold text-blue-600">{formatPercent(p2RequiredResult.percentage2)}</div>
-                    <div className="text-gray-600">Overall:</div>
-                    <div className="font-semibold text-[#672DB7]">{formatPercent(p2RequiredResult.overall)}</div>
-                    <div className="text-gray-600">Mutual questions:</div>
-                    <div className="font-semibold">{p2RequiredResult.mutualCount}</div>
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 mt-2">
-                    <div className="text-xs text-gray-500 mb-1">Completeness</div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-gray-600">{p1Name} answered:</div>
-                      <div className="font-medium">
-                        {p2RequiredResult.p1Answered}/{p2RequiredResult.p2Answered}
-                        {' '}({formatPercent(p2RequiredResult.p1Completeness * 100)})
-                      </div>
-                    </div>
-                  </div>
-                  {p2RequiredResult.missingQuestions.length > 0 && (
-                    <div className="border-t border-red-200 pt-2 mt-2">
-                      <div className="text-xs text-red-600 font-medium mb-1">
-                        Not answered by {p1Name} ({p2RequiredResult.missingQuestions.length})
-                      </div>
-                      <ul className="space-y-1">
-                        {p2RequiredResult.missingQuestions.map(q => (
-                          <li key={q.id} className="text-xs text-gray-700 flex items-start gap-1">
-                            <span className="text-red-400 mt-0.5">&#x2022;</span>
-                            <span>Q#{q.questionNumber}: {q.text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">No required questions set</p>
-              )}
-            </div>
+            {showRequired ? (
+              <>
+                {renderMissingQuestionList(
+                  `${p1Name}'s required questions not answered by ${p2Name}`,
+                  p1RequiredMissingByP2
+                )}
+                {renderMissingQuestionList(
+                  `${p2Name}'s required questions not answered by ${p1Name}`,
+                  p2RequiredMissingByP1
+                )}
+              </>
+            ) : (
+              <>
+                {renderMissingQuestionList(
+                  `${p1Name} answered, not answered by ${p2Name}`,
+                  p1AnsweredMissingByP2
+                )}
+                {renderMissingQuestionList(
+                  `${p2Name} answered, not answered by ${p1Name}`,
+                  p2AnsweredMissingByP1
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1207,26 +1149,24 @@ export default function CalculationPage() {
 
         const displayResults1 = activeRequiredIds
           ? calculationResults1.filter(r => activeRequiredIds.has(r.questionId.toLowerCase()))
-          : calculationResults1.filter(r => r.status !== 'not_answered');
+          : calculationResults1;
         const displayResults2 = activeRequiredIds
           ? calculationResults2.filter(r => activeRequiredIds.has(r.questionId.toLowerCase()))
-          : calculationResults2.filter(r => r.status !== 'not_answered');
+          : calculationResults2;
 
-        const answered1 = displayResults1.filter(r => r.status !== 'not_answered');
-        const answered2 = displayResults2.filter(r => r.status !== 'not_answered');
-        const dScore1 = answered1.reduce((s, r) => s + r.score, 0);
-        const dMax1 = answered1.reduce((s, r) => s + r.maxScore, 0);
-        const dScore2 = answered2.reduce((s, r) => s + r.score, 0);
-        const dMax2 = answered2.reduce((s, r) => s + r.maxScore, 0);
+        const dScore1 = displayResults1.reduce((s, r) => s + r.score, 0);
+        const dMax1 = displayResults1.reduce((s, r) => s + r.maxScore, 0);
+        const dScore2 = displayResults2.reduce((s, r) => s + r.score, 0);
+        const dMax2 = displayResults2.reduce((s, r) => s + r.maxScore, 0);
 
         return (
           <>
             {renderResultTable(
-              displayResults1, p1Name, dScore1, dMax1,
+              displayResults1, p1Name, person1, dScore1, dMax1,
               p1RequiredIds
             )}
             {renderResultTable(
-              displayResults2, p2Name, dScore2, dMax2,
+              displayResults2, p2Name, person2, dScore2, dMax2,
               p2RequiredIds
             )}
           </>

@@ -333,6 +333,8 @@ export default function RelationshipPage() {
             </div>
           )}
 
+        {/* Sliders Container */}
+        <div className="max-w-2xl mx-auto">
           {/* Me Section */}
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
@@ -363,7 +365,7 @@ export default function RelationshipPage() {
               style={{
                 gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
                 columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(16px, 4vw, 28px)'
+                rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
               
@@ -444,6 +446,7 @@ export default function RelationshipPage() {
               <div></div> {/* Empty placeholder for switch column */}
             </div>
           </div>
+        </div>
         </div>
 
       </main>

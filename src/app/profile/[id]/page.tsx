@@ -158,9 +158,13 @@ export default function UserProfilePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const userId = params.id as string;
-  // Border color from results page: ?border=pending (orange) or ?border=default (purple)
+  // Border hint from results page: ?border=pending (orange), ?border=complete (blue), ?border=default (purple).
+  // Used to pre-toggle the required-compatibility switch when arriving from a required-scope card.
   const borderParam = searchParams?.get('border');
-  const useOrangeStyle = borderParam === 'pending' ? true : (borderParam === 'default' ? false : undefined);
+  const borderHint: 'default' | 'pending' | 'complete' | null =
+    borderParam === 'pending' || borderParam === 'complete' || borderParam === 'default'
+      ? borderParam
+      : null;
   const [user, setUser] = useState<UserProfile | null>(null);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [profileUserRequiredQuestionIds, setProfileUserRequiredQuestionIds] = useState<Set<string>>(new Set());
@@ -191,6 +195,12 @@ export default function UserProfilePage() {
     required_compatible_with_me?: number;
     required_im_compatible_with?: number;
     their_required_compatibility?: number;
+    my_required_overall_compatibility?: number;
+    my_required_compatible_with_me?: number;
+    my_required_im_compatible_with?: number;
+    their_required_overall_compatibility?: number;
+    their_required_compatible_with_me?: number;
+    their_required_im_compatible_with?: number;
     required_mutual_questions_count?: number;
     my_required_mutual_count?: number;
     my_required_total_count?: number;
@@ -200,7 +210,7 @@ export default function UserProfilePage() {
     user2_required_completeness?: number;
     required_completeness_ratio?: number; // Deprecated
   } | null>(null);
-  const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(useOrangeStyle === true);
+  const [showRequiredCompatibility, setShowRequiredCompatibility] = useState(borderHint === 'pending' || borderHint === 'complete');
   const [requiredScope, setRequiredScope] = useState<'my' | 'their'>('my');
   // Show required values when toggle is ON
   const showRequired = showRequiredCompatibility;
@@ -210,9 +220,32 @@ export default function UserProfilePage() {
       ? (compatibility.user2_required_completeness !== undefined && compatibility.user2_required_completeness < 1)
       : (compatibility.user1_required_completeness !== undefined && compatibility.user1_required_completeness < 1)
   );
-  // Toggle ON + completeness < 100% → orange; otherwise → purple
-  const effectiveShowOrange = showRequired && isRequiredIncomplete;
-  const accentColor = effectiveShowOrange ? 'text-[#EA580C]' : 'text-[#672DB7]';
+  // Three-state variant: required toggle off -> default (purple); on + incomplete -> pending (orange);
+  // on + 100% complete -> complete (blue).
+  const sleeveVariant: 'default' | 'pending' | 'complete' = showRequired
+    ? (isRequiredIncomplete ? 'pending' : 'complete')
+    : 'default';
+  const accentColor =
+    sleeveVariant === 'pending' ? 'text-[#EA580C]'
+    : sleeveVariant === 'complete' ? 'text-[#2563EB]'
+    : 'text-[#672DB7]';
+  const sleeveBackground =
+    sleeveVariant === 'pending' ? 'linear-gradient(135deg, #FB923C 0%, #F97316 50%, #EA580C 100%)'
+    : sleeveVariant === 'complete' ? 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 50%, #1D4ED8 100%)'
+    : 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)';
+  const activeRequiredScores = compatibility && showRequired
+    ? requiredScope === 'their'
+      ? {
+          overall: compatibility.their_required_overall_compatibility ?? compatibility.their_required_compatibility ?? compatibility.overall_compatibility,
+          myPreferences: compatibility.their_required_compatible_with_me ?? compatibility.compatible_with_me,
+          theirPreferences: compatibility.their_required_im_compatible_with ?? compatibility.their_required_compatibility ?? compatibility.im_compatible_with,
+        }
+      : {
+          overall: compatibility.my_required_overall_compatibility ?? compatibility.required_overall_compatibility ?? compatibility.overall_compatibility,
+          myPreferences: compatibility.my_required_compatible_with_me ?? compatibility.required_compatible_with_me ?? compatibility.compatible_with_me,
+          theirPreferences: compatibility.my_required_im_compatible_with ?? compatibility.im_compatible_with,
+        }
+    : null;
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -554,6 +587,12 @@ export default function UserProfilePage() {
               required_compatible_with_me: compatData.required_compatible_with_me,
               required_im_compatible_with: compatData.required_im_compatible_with,
               their_required_compatibility: compatData.their_required_compatibility,
+              my_required_overall_compatibility: compatData.my_required_overall_compatibility,
+              my_required_compatible_with_me: compatData.my_required_compatible_with_me,
+              my_required_im_compatible_with: compatData.my_required_im_compatible_with,
+              their_required_overall_compatibility: compatData.their_required_overall_compatibility,
+              their_required_compatible_with_me: compatData.their_required_compatible_with_me,
+              their_required_im_compatible_with: compatData.their_required_im_compatible_with,
               required_mutual_questions_count: compatData.required_mutual_questions_count,
               my_required_mutual_count: compatData.my_required_mutual_count,
               my_required_total_count: compatData.my_required_total_count,
@@ -592,6 +631,12 @@ export default function UserProfilePage() {
                   required_compatible_with_me: compatData.required_compatible_with_me,
                   required_im_compatible_with: compatData.required_im_compatible_with,
                   their_required_compatibility: compatData.their_required_compatibility,
+                  my_required_overall_compatibility: compatData.my_required_overall_compatibility,
+                  my_required_compatible_with_me: compatData.my_required_compatible_with_me,
+                  my_required_im_compatible_with: compatData.my_required_im_compatible_with,
+                  their_required_overall_compatibility: compatData.their_required_overall_compatibility,
+                  their_required_compatible_with_me: compatData.their_required_compatible_with_me,
+                  their_required_im_compatible_with: compatData.their_required_im_compatible_with,
                   required_mutual_questions_count: compatData.required_mutual_questions_count,
                   my_required_mutual_count: compatData.my_required_mutual_count,
                   my_required_total_count: compatData.my_required_total_count,
@@ -2502,7 +2547,7 @@ export default function UserProfilePage() {
           </div>
 
           {/* Purple/Orange Sleeve - pulled up behind the photo (color from results card when ?border= is set) */}
-          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: effectiveShowOrange ? 'linear-gradient(135deg, #FB923C 0%, #F97316 50%, #EA580C 100%)' : 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}>
+          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: sleeveBackground }}>
             <div className="flex justify-between gap-3">
               <button
                 onClick={handleChatClick}
@@ -2604,7 +2649,7 @@ export default function UserProfilePage() {
         {/* Compatibility Section */}
         {compatibility && (
           <div className="mb-8">
-            {/* First Row: Overall, Me, Them - Larger Cards */}
+            {/* First Row: Overall, My Preferences, Their Preferences - Larger Cards */}
             <div className="flex gap-3 mb-3">
               {/* Overall */}
               <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
@@ -2615,9 +2660,7 @@ export default function UserProfilePage() {
                   <span className={`text-3xl font-black ${accentColor}`}>
                     {Math.round(
                       showRequired
-                        ? (requiredScope === 'their'
-                            ? (compatibility.their_required_compatibility ?? compatibility.overall_compatibility)
-                            : (compatibility.required_overall_compatibility ?? compatibility.overall_compatibility))
+                        ? (activeRequiredScores?.overall ?? compatibility.overall_compatibility)
                         : compatibility.overall_compatibility
                     )}
                   </span>
@@ -2625,34 +2668,34 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
-              {/* Me */}
+              {/* My Preferences */}
               <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  Me
+                  My Preferences
                 </div>
                 <div className="flex items-baseline">
                   <span className={`text-3xl font-black ${accentColor}`}>
                     {Math.round(
                       showRequired
-                        ? (compatibility.required_im_compatible_with ?? compatibility.im_compatible_with)
-                        : compatibility.im_compatible_with
+                        ? (activeRequiredScores?.myPreferences ?? compatibility.compatible_with_me)
+                        : compatibility.compatible_with_me
                     )}
                   </span>
                   <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
 
-              {/* Them */}
+              {/* Their Preferences */}
               <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  Them
+                  Their Preferences
                 </div>
                 <div className="flex items-baseline">
                   <span className={`text-3xl font-black ${accentColor}`}>
                     {Math.round(
                       showRequired
-                        ? (compatibility.required_compatible_with_me ?? compatibility.compatible_with_me)
-                        : compatibility.compatible_with_me
+                        ? (activeRequiredScores?.theirPreferences ?? compatibility.im_compatible_with)
+                        : compatibility.im_compatible_with
                     )}
                   </span>
                   <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
@@ -2660,27 +2703,27 @@ export default function UserProfilePage() {
               </div>
             </div>
 
-            {/* Second Row: Mutual Questions, Questions Answered */}
+            {/* Second Row: Mutual Questions Answered, Total Questions Answered */}
             <div className="flex gap-3 mb-3">
-              {/* Mutual Questions */}
+              {/* Mutual Questions Answered */}
               <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  Mutual Questions
+                  Mutual Questions Answered
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${accentColor}`}>
+                  <span className="text-3xl font-black text-[#672DB7]">
                     {compatibility.mutual_questions_count || 0}
                   </span>
                 </div>
               </div>
 
-              {/* Questions Answered */}
+              {/* Total Questions Answered */}
               <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
-                  Questions Answered
+                  Total Questions Answered
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${accentColor}`}>
+                  <span className="text-3xl font-black text-[#672DB7]">
                     {userAnswers.length}
                   </span>
                 </div>
@@ -2764,46 +2807,53 @@ export default function UserProfilePage() {
                       isActive: showRequired && requiredScope === 'their',
                     },
                   ];
-                  return tiles.map((t) => (
-                    <div
-                      key={t.label}
-                      className={`relative rounded-xl px-4 py-3 transition-all duration-200 ${
-                        t.isActive
-                          ? 'bg-white shadow-sm ring-1 ring-purple-300'
-                          : 'bg-white/60 ring-1 ring-purple-200/60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
-                          t.isActive
-                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
-                            : 'bg-purple-200'
-                        }`}>
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span>
-                        <span className={`text-sm font-semibold ${t.isActive ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}`}>
-                          {t.label}
-                        </span>
-                      </div>
-                      <div className="flex items-baseline justify-between">
-                        <div className="flex items-baseline">
-                          <span className={`text-3xl font-black ${accentColor}`}>
-                            {t.pct !== null ? t.pct : 'N/A'}
+                  return tiles.map((t) => {
+                    const isComplete = t.pct === 100;
+                    const tileAccent = isComplete ? 'text-[#2563EB]' : 'text-[#EA580C]';
+                    const tileRing = isComplete ? 'ring-blue-300' : 'ring-orange-300';
+                    const tileBg = isComplete ? 'bg-blue-50/60' : 'bg-orange-50/70';
+                    const tileIconBg = isComplete
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-900 shadow-[0_2px_6px_-1px_rgba(37,99,235,0.5)]'
+                      : 'bg-gradient-to-br from-orange-400 to-orange-600 shadow-[0_2px_6px_-1px_rgba(234,88,12,0.45)]';
+
+                    return (
+                      <div
+                        key={t.label}
+                        className={`relative rounded-xl px-4 py-3 ring-1 transition-all duration-200 ${tileBg} ${tileRing} ${
+                          t.isActive ? 'shadow-sm' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${tileIconBg}`}>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
                           </span>
-                          {t.pct !== null && (
-                            <span className={`text-lg font-bold ml-0.5 ${accentColor}`}>%</span>
+                          <span className={`text-sm font-semibold ${tileAccent}`}>
+                            {t.label}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <div className="flex items-baseline">
+                            <span className={`text-3xl font-black ${tileAccent}`}>
+                              {t.pct !== null ? t.pct : 'N/A'}
+                            </span>
+                            {t.pct !== null && (
+                              <>
+                                <span className={`text-lg font-bold ml-0.5 ${tileAccent}`}>%</span>
+                                <span className={`text-sm font-semibold ml-1 ${tileAccent}`}>Complete</span>
+                              </>
+                            )}
+                          </div>
+                          {t.mutual !== undefined && t.total !== undefined && t.total > 0 && (
+                            <span className="text-xs font-medium text-gray-500 tabular-nums">
+                              {t.mutual}/{t.total}
+                            </span>
                           )}
                         </div>
-                        {t.mutual !== undefined && t.total !== undefined && t.total > 0 && (
-                          <span className="text-xs font-medium text-gray-500 tabular-nums">
-                            {t.mutual}/{t.total}
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
               </div>

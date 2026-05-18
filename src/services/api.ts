@@ -96,6 +96,8 @@ export interface FeedResponse {
   audience: FeedAudience;
 }
 
+export type FeedVisibility = 'none' | 'all' | 'approved' | 'liked' | 'matched';
+
 export interface ApiUser {
   id: string;
   username: string;
@@ -120,6 +122,9 @@ export interface ApiUser {
   last_active?: string | null;
   mandatory_questions_complete?: boolean;
   require_answers_for_likes?: boolean;
+  feed_visibility_bio?: FeedVisibility;
+  feed_visibility_photo?: FeedVisibility;
+  feed_visibility_question?: FeedVisibility;
   pictures?: UserPicture[];
   question_answers?: {
     male?: number;
@@ -197,6 +202,12 @@ export interface CompatibilityResult {
   required_im_compatible_with?: number;
   /** Their Required: compatibility calculated only on the other user's required questions */
   their_required_compatibility?: number;
+  my_required_overall_compatibility?: number;
+  my_required_compatible_with_me?: number;
+  my_required_im_compatible_with?: number;
+  their_required_overall_compatibility?: number;
+  their_required_compatible_with_me?: number;
+  their_required_im_compatible_with?: number;
   required_mutual_questions_count?: number;
   required_completeness_ratio?: number;
 }

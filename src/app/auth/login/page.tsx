@@ -6,6 +6,45 @@ import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import posthog from 'posthog-js';
 
+type OnboardingStatusResponse = {
+  step?: string;
+  step_url?: unknown;
+  user_id?: string;
+  is_admin?: boolean;
+};
+
+const addUserIdParam = (path: string, userId?: string) => {
+  if (!userId) return path;
+
+  const [pathname, queryString = ''] = path.split('?');
+  const params = new URLSearchParams(queryString);
+  params.set('user_id', userId);
+  return `${pathname}?${params.toString()}`;
+};
+
+const getOnboardingRedirectPath = (
+  onboardingData: OnboardingStatusResponse,
+  fallbackUserId?: string
+) => {
+  const resolvedUserId = onboardingData.user_id || fallbackUserId;
+
+  switch (onboardingData.step) {
+    case 'personal_details':
+      return addUserIdParam('/auth/personal-details', resolvedUserId);
+    case 'add_photo':
+      return addUserIdParam('/auth/add-photo', resolvedUserId);
+    case 'gender':
+    case 'complete':
+      return '/feed';
+    default:
+      if (typeof onboardingData.step_url === 'string' && onboardingData.step_url.startsWith('/')) {
+        return onboardingData.step_url;
+      }
+      console.warn('⚠️ Invalid onboarding redirect response, falling back to feed:', onboardingData);
+      return '/feed';
+  }
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -114,28 +153,16 @@ export default function LoginPage() {
                 return;
               }
 
-              // Redirect based on onboarding step with user_id if needed
-              if (onboardingData.step === 'add_photo') {
-                const params = new URLSearchParams({
-                  user_id: onboardingData.user_id
-                });
-                router.push(`/auth/add-photo?${params.toString()}`);
-              } else if (onboardingData.step === 'gender') {
-                // Incomplete mandatory questions — let user land on the feed.
-                // The ProtectedPageGate overlay will prompt them to continue onboarding.
-                router.push('/feed');
-              } else if (onboardingData.step === 'complete') {
-                // Onboarding complete — land on the feed.
+              const redirectPath = getOnboardingRedirectPath(onboardingData, userId);
+              if (onboardingData.step === 'complete') {
                 console.log('✅ Onboarding complete, redirecting to feed');
-                router.push('/feed');
-              } else {
-                router.push(onboardingData.step_url);
               }
+              router.push(redirectPath);
             } else {
               console.log('⚠️ Could not check onboarding status, redirecting to dashboard');
               router.push('/dashboard');
             }
-          } catch (error) {
+          } catch {
             console.log('⚠️ Error checking onboarding status, redirecting to dashboard');
             router.push('/dashboard');
           }

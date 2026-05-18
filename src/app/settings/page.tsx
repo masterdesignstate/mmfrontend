@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { apiService } from '@/services/api';
+import { apiService, type ApiUser, type FeedVisibility } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
@@ -18,6 +18,10 @@ function SettingsPageContent() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [requireAnswersForLikes, setRequireAnswersForLikes] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
+  const [bioVis, setBioVis] = useState<FeedVisibility>('all');
+  const [photoVis, setPhotoVis] = useState<FeedVisibility>('all');
+  const [questionVis, setQuestionVis] = useState<FeedVisibility>('all');
+  const [savingFeedVisibility, setSavingFeedVisibility] = useState(false);
 
   // Email change form state
   const [emailForm, setEmailForm] = useState({
@@ -48,10 +52,13 @@ function SettingsPageContent() {
         console.error('Error loading user data:', err);
       });
     }
-    // Load privacy setting
+    // Load privacy setting + feed visibility settings
     if (userId) {
       apiService.getUser(userId).then(user => {
         setRequireAnswersForLikes(!!user.require_answers_for_likes);
+        setBioVis((user.feed_visibility_bio ?? 'all') as FeedVisibility);
+        setPhotoVis((user.feed_visibility_photo ?? 'all') as FeedVisibility);
+        setQuestionVis((user.feed_visibility_question ?? 'all') as FeedVisibility);
       }).catch(err => {
         console.error('Error loading privacy settings:', err);
       });
@@ -73,6 +80,29 @@ function SettingsPageContent() {
       setMessage({ type: 'error', text: 'Could not update privacy setting. Please try again.' });
     } finally {
       setSavingPrivacy(false);
+    }
+  };
+
+  const handleChangeFeedVisibility = async (
+    field: 'feed_visibility_bio' | 'feed_visibility_photo' | 'feed_visibility_question',
+    next: FeedVisibility,
+    setter: (v: FeedVisibility) => void,
+    prev: FeedVisibility,
+  ) => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId || savingFeedVisibility || next === prev) return;
+    setter(next); // optimistic
+    setSavingFeedVisibility(true);
+    try {
+      const patch: Partial<ApiUser> = { [field]: next };
+      await apiService.updateUser(userId, patch);
+      posthog.capture('feed_visibility_changed', { field, value: next });
+    } catch (error) {
+      console.error('Error updating feed visibility:', error);
+      setter(prev); // revert
+      setMessage({ type: 'error', text: 'Could not update feed visibility. Please try again.' });
+    } finally {
+      setSavingFeedVisibility(false);
     }
   };
 
@@ -162,8 +192,8 @@ function SettingsPageContent() {
         <HamburgerMenu />
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-5">Settings</h1>
 
         {/* Message Display */}
         {message && (
@@ -180,13 +210,13 @@ function SettingsPageContent() {
         )}
 
         {/* Account Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Account</h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="px-5 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Account</h2>
           </div>
 
           {/* Email Section */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="px-5 py-3 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-900 mb-1">Email</h3>
@@ -245,7 +275,7 @@ function SettingsPageContent() {
           </div>
 
           {/* Password Section */}
-          <div className="p-6">
+          <div className="px-5 py-3">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-900 mb-1">Password</h3>
@@ -321,16 +351,15 @@ function SettingsPageContent() {
           </div>
         </div>
 
-        {/* Privacy Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Privacy</h2>
+        {/* Required Questions Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="px-5 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Required Questions</h2>
           </div>
-          <div className="p-6">
+          <div className="px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-gray-900 mb-1">Require answered required questions</h3>
-                <p className="text-sm text-gray-600">Only allow people to like you after they&apos;ve answered all of your required questions.</p>
+                <h3 className="text-sm font-medium text-gray-900">Only allow people to like you after they&apos;ve answered all of your required questions.</h3>
               </div>
               <button
                 type="button"
@@ -350,10 +379,41 @@ function SettingsPageContent() {
           </div>
         </div>
 
+        {/* Feed Visibility Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="px-5 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Feed Visibility</h2>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            {([
+              { label: 'Bio Updates', field: 'feed_visibility_bio' as const, value: bioVis, set: setBioVis },
+              { label: 'Photo Updates', field: 'feed_visibility_photo' as const, value: photoVis, set: setPhotoVis },
+              { label: 'Questions Answered', field: 'feed_visibility_question' as const, value: questionVis, set: setQuestionVis },
+            ]).map(row => (
+              <div key={row.field} className="flex items-center justify-between gap-4">
+                <h3 className="text-sm font-medium text-gray-900">{row.label}</h3>
+                <select
+                  value={row.value}
+                  onChange={(e) => handleChangeFeedVisibility(row.field, e.target.value as FeedVisibility, row.set, row.value)}
+                  disabled={savingFeedVisibility}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:ring-[#672DB7] focus:border-[#672DB7] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  aria-label={`Who can see your ${row.label.toLowerCase()}`}
+                >
+                  <option value="none">None</option>
+                  <option value="all">Everyone</option>
+                  <option value="approved">Approved</option>
+                  <option value="liked">Liked</option>
+                  <option value="matched">Matched</option>
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Contact Admin Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Contact Admin</h2>
-          <p className="text-sm text-gray-600 mb-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-5 py-4 mb-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Contact Admin</h2>
+          <p className="text-sm text-gray-600 mb-3">
             Have a question or need help? Send a message to the admin team.
           </p>
           <button
@@ -379,9 +439,9 @@ function SettingsPageContent() {
         </div>
 
         {/* Terms of Service Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Terms of Service</h2>
-          <p className="text-gray-600 mb-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-5 py-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-2">Terms of Service</h2>
+          <p className="text-sm text-gray-600 mb-3">
             By using this matchmaking platform, you agree to our terms of service and privacy policy.
           </p>
           <a

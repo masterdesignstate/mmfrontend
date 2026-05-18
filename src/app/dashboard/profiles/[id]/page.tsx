@@ -8,6 +8,7 @@ import Image from 'next/image';
 export default function ProfileDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [user, setUser] = useState<ApiUser | null>(null);
+  const [totalQuestionsAnswered, setTotalQuestionsAnswered] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,8 +17,12 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
       try {
         setLoading(true);
         setError(null);
-        const userData = await apiService.getUser(params.id);
+        const [userData, answers] = await Promise.all([
+          apiService.getUser(params.id),
+          apiService.getUserAnswers(params.id),
+        ]);
         setUser(userData);
+        setTotalQuestionsAnswered(answers.length);
       } catch (err) {
         console.error('Error fetching profile:', err);
         setError(err instanceof Error ? err.message : 'Failed to load profile');
@@ -213,8 +218,8 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Questions Answered</span>
-                <span className="font-semibold">{user.questions_answered_count || 0}</span>
+                <span className="text-gray-600">Total Questions Answered</span>
+                <span className="font-semibold">{totalQuestionsAnswered ?? user.questions_answered_count ?? 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Created</span>
