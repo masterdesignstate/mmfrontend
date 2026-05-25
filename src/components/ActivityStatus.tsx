@@ -18,7 +18,7 @@ function formatLastActive(isOnline: boolean, lastActive?: string | null): string
   }
 
   if (!lastActive) {
-    return 'Last seen recently';
+    return 'Recently';
   }
 
   const now = new Date();
@@ -33,17 +33,17 @@ function formatLastActive(isOnline: boolean, lastActive?: string | null): string
   if (diffMinutes < 1) {
     return 'Active now';
   } else if (diffMinutes < 60) {
-    return `Last seen ${diffMinutes} min${diffMinutes !== 1 ? 's' : ''}. ago`;
+    return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''} ago`;
   } else if (diffHours < 24) {
-    return `Last seen ${diffHours} hr${diffHours !== 1 ? 's' : ''}. ago`;
+    return `${diffHours} hr${diffHours !== 1 ? 's' : ''} ago`;
   } else if (diffDays < 7) {
-    return `Last seen ${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   } else if (diffWeeks < 4) {
-    return `Last seen ${diffWeeks} week${diffWeeks !== 1 ? 's' : ''} ago`;
+    return `${diffWeeks} week${diffWeeks !== 1 ? 's' : ''} ago`;
   } else if (diffMonths < 12) {
-    return `Last seen ${diffMonths} month${diffMonths !== 1 ? 's' : ''} ago`;
+    return `${diffMonths} month${diffMonths !== 1 ? 's' : ''} ago`;
   } else {
-    return 'Last seen over a year ago';
+    return 'Over a year ago';
   }
 }
 
@@ -52,10 +52,10 @@ export default function ActivityStatus({ isOnline, lastActive }: ActivityStatusP
   const dotColor = isOnline ? '#10B981' : '#6B7280'; // Green for online, gray for offline
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
       {/* Status dot */}
-      <div
-        className="w-2 h-2 rounded-full"
+      <span
+        className="inline-block w-2 h-2 rounded-full shrink-0"
         style={{ backgroundColor: dotColor }}
       />
       {/* Status text */}

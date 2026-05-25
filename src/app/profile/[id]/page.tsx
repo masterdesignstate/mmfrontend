@@ -1403,12 +1403,12 @@ export default function UserProfilePage() {
     isOpenToAll?: boolean;
   }) => {
     return (
-      <div className="w-full h-4 relative flex items-center select-none">
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
+      <div className="w-full h-5 relative flex items-center select-none">
+          {!isOpenToAll && <span className="absolute left-2.5 text-xs text-gray-500 pointer-events-none z-10">1</span>}
 
-          {/* Custom Slider Track - smaller version */}
+          {/* Custom Slider Track */}
           <div
-            className="w-full h-4 rounded-[16px] relative cursor-pointer transition-all duration-200 border"
+            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
               backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -1416,20 +1416,20 @@ export default function UserProfilePage() {
             }}
           />
 
-          {/* Slider Thumb - smaller version */}
+          {/* Slider Thumb */}
           {!isOpenToAll && (
             <div
-              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30"
+              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30"
               style={{
                 backgroundColor: '#672DB7',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 24px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
+                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
               }}
             >
               <span className="text-white">{value}</span>
             </div>
           )}
 
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
+          {!isOpenToAll && <span className="absolute right-2.5 text-xs text-gray-500 pointer-events-none z-10">5</span>}
       </div>
     );
   };
@@ -2547,7 +2547,12 @@ export default function UserProfilePage() {
           </div>
 
           {/* Purple/Orange Sleeve - pulled up behind the photo (color from results card when ?border= is set) */}
-          <div className="rounded-2xl -mt-6 pt-9 pb-3.5 px-5 relative z-0" style={{ background: sleeveBackground }}>
+          <div className="rounded-2xl -mt-6 pt-7 pb-3.5 px-5 relative z-0" style={{ background: sleeveBackground }}>
+            {user.tagline && (
+              <p className="text-center text-white text-sm font-semibold mb-1.5 px-2 truncate">
+                {user.tagline}
+              </p>
+            )}
             <div className="flex justify-between gap-3">
               <button
                 onClick={handleChatClick}
@@ -2573,43 +2578,54 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Tagline and Activity Status - below the purple extension */}
-        <div className="w-full sm:w-95 mx-auto -mt-2 mb-6">
-          <div className="flex items-center justify-between gap-4">
-            {/* Tagline - Left/Center side */}
-            {user.tagline && (
-              <p className="text-gray-700 text-lg flex-1">{user.tagline}</p>
-            )}
-
-            {/* Activity Status - Right side */}
-            <ActivityStatus
-              isOnline={user.is_online || false}
-              lastActive={user.last_active}
-            />
+        {/* Section 1 — Identity row (From / Live / Height / Activity) */}
+        <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="text-center">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</h3>
+              <p className="mt-1 text-sm font-medium text-gray-900">{user.from_location || 'Austin'}</p>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live</h3>
+              <p className="mt-1 text-sm font-medium text-gray-900">{user.live || 'Austin'}</p>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Height</h3>
+              <p className="mt-1 text-sm font-medium text-gray-900">{formatHeight(user.height)}</p>
+            </div>
+            <div className="text-center">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activity</h3>
+              <div className="mt-1 flex items-center justify-center">
+                <ActivityStatus
+                  isOnline={user.is_online || false}
+                  lastActive={user.last_active}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Profile Icons - horizontal layout with containers */}
+        {/* Section 2 — Profile icons (no outer card; chips inherit the section-card look) */}
         {profileIcons.length > 0 && (
-          <div className="mb-6">
-            <div className="flex justify-start flex-wrap gap-3">
+          <div className="w-full max-w-xl mx-auto mb-4">
+            <div className="flex flex-wrap gap-2 justify-center">
               {profileIcons.map((icon, index) => (
                 <div
                   key={index}
-                  className={`flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
+                  className={`flex items-center bg-white ring-1 ring-gray-200 shadow-sm rounded-full pl-2 pr-3 py-1.5 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
                   onClick={() => icon.options.length > 0 && setExpandedIconIndex(expandedIconIndex === index ? null : index)}
                 >
-                  <div className="w-7 h-7 mr-1 relative">
+                  <div className="w-5 h-5 mr-1.5 relative">
                     <Image
                       src={icon.image}
                       alt={icon.label}
-                      width={icon.image.includes('drink.png') ? 25 : 28}
-                      height={icon.image.includes('drink.png') ? 25 : 28}
+                      width={icon.image.includes('drink.png') ? 16 : 18}
+                      height={icon.image.includes('drink.png') ? 16 : 18}
                       className="object-contain"
-                      style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-4px' } : {}}
+                      style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-2px' } : {}}
                     />
                   </div>
-                  <span className="text-base text-black font-medium">{icon.label}</span>
+                  <span className="text-sm font-medium text-gray-900">{icon.label}</span>
                   {expandedIconIndex === index && icon.options.length > 0 && (
                     <svg
                       className="w-4 h-4 ml-1 text-gray-500 rotate-180"
@@ -2624,7 +2640,7 @@ export default function UserProfilePage() {
 
             {/* Expanded dropdown for selected icon */}
             {expandedIconIndex !== null && profileIcons[expandedIconIndex]?.options?.length > 0 && (
-              <div className="mt-3 bg-[#F3F3F3] rounded-xl p-4">
+              <div className="mt-3 bg-white ring-1 ring-gray-200 shadow-sm rounded-2xl p-4">
                 <div className="space-y-2">
                   {profileIcons[expandedIconIndex].options.map((option, optIndex) => (
                     <div key={optIndex} className="flex items-center gap-3 py-1">
@@ -2646,13 +2662,13 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        {/* Compatibility Section */}
+        {/* Section 3 — Compatibility cards + Required */}
         {compatibility && (
-          <div className="mb-8">
+          <div className="w-full max-w-xl mx-auto mb-4">
             {/* Mutual Questions Answered, Total Questions Answered */}
             <div className="flex gap-3 mb-3">
               {/* Mutual Questions Answered */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Mutual Questions Answered
                 </div>
@@ -2664,7 +2680,7 @@ export default function UserProfilePage() {
               </div>
 
               {/* Total Questions Answered */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Total Questions Answered
                 </div>
@@ -2679,7 +2695,7 @@ export default function UserProfilePage() {
             {/* Overall, My Preferences, Their Preferences */}
             <div className="flex gap-3 mb-3">
               {/* Overall */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Overall
                 </div>
@@ -2696,7 +2712,7 @@ export default function UserProfilePage() {
               </div>
 
               {/* My Preferences */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   My Preferences
                 </div>
@@ -2713,7 +2729,7 @@ export default function UserProfilePage() {
               </div>
 
               {/* Their Preferences */}
-              <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-4 py-3 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
                   Their Preferences
                 </div>
@@ -2862,141 +2878,85 @@ export default function UserProfilePage() {
         )}
 
 
-        {/* User Info - responsive layout */}
-        <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-16 mb-6">
-          <div>
-            <h3 className="font-semibold text-gray-900">Username</h3>
-            <p className="text-gray-600">{user.username}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">From</h3>
-            <p className="text-gray-600">{user.from_location || 'Austin'}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Live</h3>
-            <p className="text-gray-600">{user.live || 'Austin'}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Height</h3>
-            <p className="text-gray-600">{formatHeight(user.height)}</p>
-          </div>
+        {/* Section 4 — Bio (no heading, min-height card) */}
+        <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm min-h-[44px] flex items-center justify-center">
+          <p className="text-base text-gray-700 text-center">
+            {user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}
+          </p>
         </div>
 
-        {/* Bio */}
-        <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-2">Bio</h3>
-          <p className="text-gray-600">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
-        </div>
-
-        {/* My Gender Section - left aligned content block */}
-        <div className="mb-8">
-          <h3 className="text-xl font-bold mb-4">Gender</h3>
-
-          {/* Me Section */}
+        {/* Section 5 — Sliders (My Gender / Interested In / Looking For [/ Ideology]) */}
+        <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white p-4 shadow-sm">
+          {/* My Gender */}
           <div className="mb-6">
-            <div className="max-w-md">
-              {/* Me label aligned with middle of slider */}
-              <div className="mb-2 flex" style={{ paddingLeft: '5rem' }}>
-                <div className="flex-1 relative">
-                  <div className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                    <h4 className="font-semibold text-lg">Me</h4>
-                  </div>
-                </div>
-              </div>
-
-              {/* LESS, MORE labels above sliders - aligned with slider start */}
-              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
-
-              <div className="space-y-3">
-                {/* FEMALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 2) || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 2) === 6}
-                    />
-                  </div>
-                </div>
-
-                {/* MALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 1) || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 1) === 6}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center mb-2 ml-24">
+              <span className="text-xs text-gray-500">LESS</span>
+              <h4 className="flex-1 text-center text-base font-semibold text-black">My Gender</h4>
+              <span className="text-xs text-gray-500">MORE</span>
             </div>
-          </div>
-
-          {/* Interested In Section */}
-          <div className="mb-6">
-            <div className="max-w-md">
-              {/* Interested In label aligned with middle of slider */}
-              <div className="mb-2 flex" style={{ paddingLeft: '5rem' }}>
-                <div className="flex-1 relative">
-                  <div className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                    <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Interested In</h4>
-                  </div>
-                </div>
-              </div>
-              {/* LESS, MORE labels above sliders - aligned with slider start */}
-              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
-
-              <div className="space-y-3">
-                {/* FEMALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
-                    />
-                  </div>
-                </div>
-
-                {/* MALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* I'm Looking For Section */}
-        <div className="mb-8">
-          <h3 className="text-xl font-bold mb-4">I&apos;m Looking For</h3>
-
-          <div className="max-w-md">
-            {/* LESS, MORE labels above sliders - aligned with slider start */}
-            <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20 sm:ml-24">
-              <span>LESS</span>
-              <span>MORE</span>
-            </div>
-
             <div className="space-y-3">
-              {/* FRIEND Slider Row */}
+              <div className="flex items-center gap-4">
+                <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
+                <div className="flex-1">
+                  <SliderComponent
+                    value={getAnswerValue(2, 2) || 3}
+                    onChange={() => {}}
+                    isOpenToAll={getAnswerValue(2, 2) === 6}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
+                <div className="flex-1">
+                  <SliderComponent
+                    value={getAnswerValue(2, 1) || 3}
+                    onChange={() => {}}
+                    isOpenToAll={getAnswerValue(2, 1) === 6}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interested In */}
+          <div className="mb-6">
+            <div className="flex items-center mb-2 ml-24">
+              <span className="text-xs text-gray-500">LESS</span>
+              <h4 className="flex-1 text-center text-base font-semibold text-black">Interested In</h4>
+              <span className="text-xs text-gray-500">MORE</span>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
+                <div className="flex-1">
+                  <SliderComponent
+                    value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
+                    onChange={() => {}}
+                    isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
+                <div className="flex-1">
+                  <SliderComponent
+                    value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
+                    onChange={() => {}}
+                    isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Looking For */}
+          <div className={getRankedIdeologyQuestions().length > 0 ? 'mb-6' : ''}>
+            <div className="flex items-center mb-2 ml-24">
+              <span className="text-xs text-gray-500">LESS</span>
+              <h4 className="flex-1 text-center text-base font-semibold text-black">Looking For</h4>
+              <span className="text-xs text-gray-500">MORE</span>
+            </div>
+            <div className="space-y-3">
               <div className="flex items-center gap-4">
                 <div className="text-xs font-semibold text-gray-400 w-20">FRIEND</div>
                 <div className="flex-1">
@@ -3007,8 +2967,6 @@ export default function UserProfilePage() {
                   />
                 </div>
               </div>
-
-              {/* HOOK UP Slider Row */}
               <div className="flex items-center gap-4">
                 <div className="text-xs font-semibold text-gray-400 w-20">HOOK UP</div>
                 <div className="flex-1">
@@ -3019,8 +2977,6 @@ export default function UserProfilePage() {
                   />
                 </div>
               </div>
-
-              {/* DATE Slider Row */}
               <div className="flex items-center gap-4">
                 <div className="text-xs font-semibold text-gray-400 w-20">DATE</div>
                 <div className="flex-1">
@@ -3031,8 +2987,6 @@ export default function UserProfilePage() {
                   />
                 </div>
               </div>
-
-              {/* LIFE PARTNER Slider Row */}
               <div className="flex items-center gap-4">
                 <div className="text-xs font-semibold text-gray-400 w-20">PARTNER</div>
                 <div className="flex-1">
@@ -3045,28 +2999,23 @@ export default function UserProfilePage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Ideology Section */}
-        {getRankedIdeologyQuestions().length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4">Ideology</h3>
-
-            <div className="max-w-md">
-              <div className="relative text-xs text-gray-500 mb-2 ml-20 sm:ml-24" style={{ height: '14px' }}>
+          {/* Ideology (optional) */}
+          {getRankedIdeologyQuestions().length > 0 && (
+            <div>
+              <h4 className="text-base font-semibold text-black text-center mb-3">Ideology</h4>
+              <div className="relative text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
                 <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
                 <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
                 <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
                 <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
                 <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
               </div>
-
               <div className="space-y-3">
                 {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {
                   const questionName = ideologyAnswer.question.question_name || 'Unknown';
                   const answerValue = ideologyAnswer.me_answer;
                   const isOpenToAll = answerValue === 6;
-
                   return (
                     <div key={index} className="flex items-center gap-4">
                       <div className="text-xs font-semibold text-gray-400 w-20 uppercase">
@@ -3084,29 +3033,45 @@ export default function UserProfilePage() {
                 })}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Tags Section */}
-        <div className="mb-8">
-          <h3 className="text-xl font-bold mb-4">Tags</h3>
-          <div className="flex flex-wrap gap-3">
-            {['Approve', 'Hot', 'Maybe', 'Like', 'Save', 'Hide'].map((tag) => {
+        {/* Section 6 — Tag chips (filter-panel chip style, no heading, no outer card) */}
+        <div className="w-full max-w-2xl mx-auto mb-4">
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {['Approve', 'Like', 'Hot', 'Maybe', 'Save', 'Hide'].map((tag) => {
               const isSelected = selectedTags.includes(tag.toLowerCase());
               return (
                 <button
                   key={tag}
+                  type="button"
                   onClick={() => handleTagToggle(tag)}
-                  className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
+                  className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
                     isSelected
-                      ? 'bg-white text-gray-900 border-black'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                      ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
+                      : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
                   }`}
                 >
-                  {isSelected && (
-                    <div className="absolute inset-0 bg-black rounded-full" style={{ opacity: 0.05 }}></div>
-                  )}
-                  <span className="relative z-10">{tag}</span>
+                  <span
+                    className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
+                        : 'bg-purple-200'
+                    }`}
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={isSelected ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
+                    </svg>
+                  </span>
+                  <span
+                    className={
+                      isSelected
+                        ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent'
+                        : 'text-purple-900/70'
+                    }
+                  >
+                    {tag}
+                  </span>
                 </button>
               );
             })}
