@@ -3,9 +3,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { mutate } from 'swr';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import PlacesHttpAutocomplete from '@/components/PlacesHttpAutocomplete';
 import posthog from 'posthog-js';
 import { apiService, MAX_USER_PICTURES, type UserPicture } from '@/services/api';
 
@@ -48,6 +50,35 @@ const initialForm: FormState = {
 };
 
 const purple = '#672DB7';
+
+const buildFormState = (data: User): FormState => {
+  const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+
+  let dob = '';
+  if (data.date_of_birth) {
+    const [y, m, d] = data.date_of_birth.split('-');
+    if (y && m && d) dob = `${m}/${d}/${y}`;
+  }
+
+  let heightText = '';
+  if (data.height) {
+    const totalInches = Math.round(Number(data.height) / 2.54);
+    const feet = Math.floor(totalInches / 12);
+    const inches = totalInches % 12;
+    heightText = `${feet}' ${inches.toString().padStart(2, '0')}"`;
+  }
+
+  return {
+    fullName,
+    username: data.username || '',
+    tagline: data.tagline || '',
+    dateOfBirth: dob,
+    height: heightText,
+    from: data.from_location || '',
+    live: data.live || 'Austin',
+    bio: data.bio || '',
+  };
+};
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -100,33 +131,7 @@ export default function EditProfilePage() {
         if (!data) throw new Error('Failed to load user');
         setUser(data);
 
-        // Pre-fill the form
-        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
-        // Convert date YYYY-MM-DD -> MM/DD/YYYY
-        let dob = '';
-        if (data.date_of_birth) {
-          const [y, m, d] = data.date_of_birth.split('-');
-          if (y && m && d) dob = `${m}/${d}/${y}`;
-        }
-        // Convert height cm -> X' YY"
-        let heightText = '';
-        if (data.height) {
-          const totalInches = Math.round(Number(data.height) / 2.54);
-          const feet = Math.floor(totalInches / 12);
-          const inches = totalInches % 12;
-          heightText = `${feet}' ${inches.toString().padStart(2, '0')}"`;
-        }
-
-        const prefilled: FormState = {
-          fullName,
-          username: data.username || '',
-          tagline: data.tagline || '',
-          dateOfBirth: dob,
-          height: heightText,
-          from: data.from_location || '',
-          live: data.live || 'Austin',
-          bio: data.bio || '',
-        };
+        const prefilled = buildFormState(data);
         setForm(prefilled);
         setInitialFormState(prefilled);
         // Load picture gallery for this user
@@ -283,16 +288,30 @@ export default function EditProfilePage() {
 
       posthog.capture('profile_updated', { user_id: userId });
       setSuccess('Profile updated successfully');
-      // Update initial snapshot so Save stays disabled until further edits
-      setInitialFormState(form);
-      // Refresh user data
+
+      const profileUrl = `${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`;
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(`profile_${userId}`);
+        sessionStorage.removeItem(`profile_${userId}_timestamp`);
+      }
+
       try {
-        const meRes = await fetch(getApiUrl(API_ENDPOINTS.USERS_ME), { credentials: 'omit' });
-        if (meRes.ok) {
-          const refreshed = await meRes.json();
+        const refreshedRes = await fetch(profileUrl, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (refreshedRes.ok) {
+          const refreshed = await refreshedRes.json();
+          const refreshedForm = buildFormState(refreshed);
           setUser(refreshed);
+          setForm(refreshedForm);
+          setInitialFormState(refreshedForm);
+          mutate(profileUrl, refreshed, false);
+        } else {
+          setInitialFormState(form);
         }
-      } catch (_) {}
+      } catch (_) {
+        setInitialFormState(form);
+      }
 
     } catch (e: any) {
       posthog.captureException(e);
@@ -533,12 +552,13 @@ export default function EditProfilePage() {
               {/* From */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">From</label>
-                <input
-                  name="from"
+                <PlacesHttpAutocomplete
                   value={form.from}
-                  onChange={onChange}
+                  onChange={(value) => setForm((prev) => ({ ...prev, from: value }))}
                   placeholder="Where are you originally from?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent"
+                  className="focus:ring-[#672DB7]"
+                  disabled={saving}
+                  apiKey={process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
                 />
               </div>
 

@@ -935,18 +935,6 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="space-y-3">
-                  {/* MALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 1) || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 1) === 6}
-                      />
-                    </div>
-                  </div>
-
                   {/* FEMALE Slider Row */}
                   <div className="flex items-center gap-4">
                     <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
@@ -955,6 +943,18 @@ export default function ProfilePage() {
                         value={getAnswerValue(2, 2) || 3}
                         onChange={() => {}}
                         isOpenToAll={getAnswerValue(2, 2) === 6}
+                      />
+                    </div>
+                  </div>
+
+                  {/* MALE Slider Row */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
+                    <div className="flex-1">
+                      <SliderComponent
+                        value={getAnswerValue(2, 1) || 3}
+                        onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 1) === 6}
                       />
                     </div>
                   </div>
@@ -980,18 +980,6 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="space-y-3">
-                  {/* MALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
-                      />
-                    </div>
-                  </div>
-
                   {/* FEMALE Slider Row */}
                   <div className="flex items-center gap-4">
                     <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
@@ -1000,6 +988,18 @@ export default function ProfilePage() {
                         value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
                         onChange={() => {}}
                         isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
+                      />
+                    </div>
+                  </div>
+
+                  {/* MALE Slider Row */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
+                    <div className="flex-1">
+                      <SliderComponent
+                        value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
+                        onChange={() => {}}
+                        isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
                       />
                     </div>
                   </div>
@@ -1077,10 +1077,12 @@ export default function ProfilePage() {
               <h3 className="text-xl font-bold mb-4">Ideology</h3>
 
               <div className="max-w-md">
-                {/* LESS, MORE labels above sliders - aligned with slider start */}
-                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20 sm:ml-24">
-                  <span>LESS</span>
-                  <span>MORE</span>
+                <div className="relative text-xs text-gray-500 mb-2 ml-20 sm:ml-24" style={{ height: '14px' }}>
+                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
                 </div>
 
                 <div className="space-y-3">

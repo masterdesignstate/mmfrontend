@@ -38,6 +38,28 @@ const IMPORTANCE_LABELS = [
   { value: "5", answer_text: "ESSENTIAL" }
 ];
 
+const FREQUENCY_SCALE_LABELS = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
+const POLITICS_SCALE_LABELS = ['UNINVOLVED', 'OBSERVANT', 'ACTIVE', 'FERVENT', 'RADICAL'];
+const WANT_KIDS_SCALE_LABELS = ["DON'T WANT", 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
+const HAVE_KIDS_SCALE_LABELS = ["DON'T HAVE", 'HAVE'];
+
+const getScaleLabelsForQuestion = (questionNumber: number, question?: Pick<Question, 'group_number'>) => {
+  if ([6, 7, 8].includes(questionNumber)) return FREQUENCY_SCALE_LABELS;
+  if (questionNumber === 9) return POLITICS_SCALE_LABELS;
+  if (questionNumber === 10) {
+    return question?.group_number === 1 ? HAVE_KIDS_SCALE_LABELS : WANT_KIDS_SCALE_LABELS;
+  }
+  return null;
+};
+
+const ScaleLabels = ({ labels }: { labels: string[] }) => (
+  <div className="flex justify-between text-xs text-gray-500 mb-1">
+    {labels.map((label, index) => (
+      <span key={`${label}-${index}`}>{label}</span>
+    ))}
+  </div>
+);
+
 export default function ReadOnlyQuestionViewPage() {
   const router = useRouter();
   const params = useParams();
@@ -235,6 +257,8 @@ export default function ReadOnlyQuestionViewPage() {
 
     // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
     if (questionNumber === 2) {
+      const genderQuestions = [...questions].sort((a, b) => (b.group_number || 0) - (a.group_number || 0));
+
       return (
         <div>
           {/* Them Section */}
@@ -253,7 +277,7 @@ export default function ReadOnlyQuestionViewPage() {
             </div>
 
             <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              {questions.map((question) => {
+              {genderQuestions.map((question) => {
                 const answer = userAnswers.find(a => {
                   const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                   return questionId === question.id;
@@ -336,7 +360,7 @@ export default function ReadOnlyQuestionViewPage() {
             </div>
 
             <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              {questions.map((question) => {
+              {genderQuestions.map((question) => {
                 const answer = userAnswers.find(a => {
                   const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                   return questionId === question.id;
@@ -428,6 +452,7 @@ export default function ReadOnlyQuestionViewPage() {
     // Basic multi-slider questions like Exercise/Habits/Religion (question_number === 6, 7, 8, 9, 10, etc.)
     if ([6, 7, 8, 9, 10].includes(questionNumber)) {
       const isKidsQuestion = questionNumber === 10;
+      const hasRowScaleLabels = Boolean(getScaleLabelsForQuestion(questionNumber));
 
       // Show "Them" first, then "Me" (like onboarding)
       return (
@@ -436,45 +461,54 @@ export default function ReadOnlyQuestionViewPage() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
+            {!hasRowScaleLabels && (
+              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                <div></div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>LESS</span>
+                  <span>MORE</span>
+                </div>
+                <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                  {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                </div>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
-              </div>
-            </div>
+            )}
 
             <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              {questions.map((question) => {
+              {questions.map((question, index) => {
                 const answer = userAnswers.find(a => {
                   const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                   return questionId === question.id;
                 });
                 const lookingValue = answer?.looking_for_answer || 3;
                 const lookingOpenToAll = answer?.looking_for_open_to_all || false;
+                const scaleLabels = getScaleLabelsForQuestion(questionNumber, question);
 
                 // For Kids question, use WANT/HAVE labels
                 let label = (question.question_name || 'ANSWER').toUpperCase();
                 if (isKidsQuestion && question.group_number === 1) {
-                  label = 'WANT';
-                } else if (isKidsQuestion && question.group_number === 2) {
                   label = 'HAVE';
+                } else if (isKidsQuestion && question.group_number === 2) {
+                  label = 'WANT';
                 }
 
                 return (
                   <React.Fragment key={`looking-${question.id}`}>
                     <div className="text-xs font-semibold text-gray-400">{label}</div>
                     <div className="relative">
+                      {scaleLabels && <ScaleLabels labels={scaleLabels} />}
                       <ReadOnlySliderComponent
                         value={lookingValue}
                         isOpenToAll={lookingOpenToAll}
                         labels={question.answers}
                       />
                     </div>
-                    <div>
+                    <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
+                      {hasRowScaleLabels && (
+                        <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && questions.some(q => q.open_to_all_looking_for) ? '' : 'invisible'}`}>
+                          OTA
+                        </div>
+                      )}
                       {question.open_to_all_looking_for ? (
                         <div className="flex items-center">
                           <div className={`block w-11 h-6 rounded-full ${lookingOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
@@ -527,45 +561,54 @@ export default function ReadOnlyQuestionViewPage() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
+            {!hasRowScaleLabels && (
+              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                <div></div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>LESS</span>
+                  <span>MORE</span>
+                </div>
+                <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                  {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
+                </div>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
-              </div>
-            </div>
+            )}
 
             <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              {questions.map((question) => {
+              {questions.map((question, index) => {
                 const answer = userAnswers.find(a => {
                   const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                   return questionId === question.id;
                 });
                 const meValue = answer?.me_answer || 3;
                 const meOpenToAll = answer?.me_open_to_all || false;
+                const scaleLabels = getScaleLabelsForQuestion(questionNumber, question);
 
                 // For Kids question, use WANT/HAVE labels
                 let label = (question.question_name || 'ANSWER').toUpperCase();
                 if (isKidsQuestion && question.group_number === 1) {
-                  label = 'WANT';
-                } else if (isKidsQuestion && question.group_number === 2) {
                   label = 'HAVE';
+                } else if (isKidsQuestion && question.group_number === 2) {
+                  label = 'WANT';
                 }
 
                 return (
                   <React.Fragment key={`me-${question.id}`}>
                     <div className="text-xs font-semibold text-gray-400">{label}</div>
                     <div className="relative">
+                      {scaleLabels && <ScaleLabels labels={scaleLabels} />}
                       <ReadOnlySliderComponent
                         value={meValue}
                         isOpenToAll={meOpenToAll}
                         labels={question.answers}
                       />
                     </div>
-                    <div>
+                    <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
+                      {hasRowScaleLabels && (
+                        <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && questions.some(q => q.open_to_all_me) ? '' : 'invisible'}`}>
+                          OTA
+                        </div>
+                      )}
                       {question.open_to_all_me ? (
                         <div className="flex items-center">
                           <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
@@ -832,4 +875,3 @@ export default function ReadOnlyQuestionViewPage() {
     </div>
   );
 }
-

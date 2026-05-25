@@ -46,9 +46,9 @@ export default function HabitsPage() {
     habit1MeOpen: false,
     habit2MeOpen: false,
     habit3MeOpen: false,
-    habit1LookingOpen: false,
-    habit2LookingOpen: false,
-    habit3LookingOpen: false
+    habit1LookingOpen: true,
+    habit2LookingOpen: true,
+    habit3LookingOpen: true
   });
 
   const [importance, setImportance] = useState({

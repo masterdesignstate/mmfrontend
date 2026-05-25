@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { mutate as globalMutate } from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
@@ -35,6 +36,40 @@ interface UserAnswer {
   me_open_to_all: boolean;
   looking_for_open_to_all: boolean;
 }
+
+const FREQUENCY_SCALE_LABELS = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
+const POLITICS_SCALE_LABELS = ['UNINVOLVED', 'OBSERVANT', 'ACTIVE', 'FERVENT', 'RADICAL'];
+const WANT_KIDS_SCALE_LABELS = ["DON'T WANT", 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
+const HAVE_KIDS_SCALE_LABELS = ["DON'T HAVE", 'HAVE'];
+
+const getScaleLabelsForQuestion = (questionNumber: number, question?: Pick<Question, 'group_number'>) => {
+  if ([6, 7, 8].includes(questionNumber)) return FREQUENCY_SCALE_LABELS;
+  if (questionNumber === 9) return POLITICS_SCALE_LABELS;
+  if (questionNumber === 10) {
+    return question?.group_number === 1 ? HAVE_KIDS_SCALE_LABELS : WANT_KIDS_SCALE_LABELS;
+  }
+  return null;
+};
+
+const questionAllowsLookingOta = (question: Pick<Question, 'question_number' | 'open_to_all_looking_for'>) => (
+  question.open_to_all_looking_for || [2, 3, 4, 5, 6, 7, 8, 9, 10].includes(question.question_number)
+);
+
+const anyQuestionAllowsLookingOta = (questions: Array<Pick<Question, 'question_number' | 'open_to_all_looking_for'>>) => (
+  questions.some(questionAllowsLookingOta)
+);
+
+const getRequiredOverrideKey = (userId: string, questionId: string) => (
+  `question_required_override_${userId}_${questionId}`
+);
+
+const ScaleLabels = ({ labels }: { labels: string[] }) => (
+  <div className="flex justify-between text-xs text-gray-500 mb-1">
+    {labels.map((label, index) => (
+      <span key={`${label}-${index}`}>{label}</span>
+    ))}
+  </div>
+);
 
 // Template Components
 const CardSelectionTemplate = ({
@@ -258,7 +293,7 @@ const MultiSliderTemplate = ({
                         labels={question.answers}
                       />
                     </div>
-                    {question.open_to_all_looking_for ? (
+                    {questionAllowsLookingOta(question) ? (
                       <button
                         onClick={() => setOpenToAllStates({
                           ...openToAllStates,
@@ -473,7 +508,7 @@ const BasicSliderTemplate = ({
                     labels={question.answers}
                   />
                 </div>
-                {question.open_to_all_looking_for ? (
+                {questionAllowsLookingOta(question) ? (
                   <button
                     onClick={() => setOpenToAllStates({
                       ...openToAllStates,
@@ -663,12 +698,15 @@ function QuestionEditPageContent() {
 
         // Initialize state based on existing answers
         initializeAnswerState(questionsList, relevantAnswers);
-        // Per-user required: meRequired from user-required-questions list, else question default
+        // Per-user required: user-facing switch must reflect UserRequiredQuestion only.
+        // Question.is_required_for_match is an admin/default flag and should not re-enable
+        // a non-mandatory question after the user turns this switch off.
         if (questionsList.length > 0 && questionNumber > 10 && questionsList[0].question_type !== 'grouped') {
           const firstQId = questionsList[0].id;
-          setMeRequired(
-            requiredQuestionIds.includes(firstQId) || questionsList[0].is_required_for_match === true
-          );
+          const override = storedUserId
+            ? sessionStorage.getItem(getRequiredOverrideKey(storedUserId, firstQId))
+            : null;
+          setMeRequired(override === null ? requiredQuestionIds.includes(firstQId) : override === 'true');
         }
         }
       } catch (error) {
@@ -714,7 +752,7 @@ function QuestionEditPageContent() {
         sliders[`${key}_me`] = 3;
         sliders[`${key}_looking`] = 3;
         openToAll[`${key}_me`] = false;
-        openToAll[`${key}_looking`] = false;
+        openToAll[`${key}_looking`] = questionAllowsLookingOta(question);
       }
     });
     
@@ -843,7 +881,8 @@ function QuestionEditPageContent() {
       });
       
       localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
-      const updates = [];
+      const updates: Promise<Response>[] = [];
+      const isNonGroupedQuestionOver10 = questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped';
 
       if ([1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || (questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped')) {
         // Slider-based questions (including non-grouped questions > 10)
@@ -854,9 +893,8 @@ function QuestionEditPageContent() {
             return questionId === question.id;
           });
 
-          // For non-grouped questions > 10, use meShare and meRequired from state
-          // For other questions, use defaults
-          const isNonGroupedQuestionOver10 = questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped';
+          // For non-grouped questions > 10, use meShare and meRequired from state.
+          // For other questions, use defaults.
 
           const answerData = {
             user_id: userId,
@@ -1001,19 +1039,64 @@ function QuestionEditPageContent() {
         }
       }
 
-      const results = await Promise.all(updates);
-      const failed = results.find(r => !r.ok);
-      
-      if (failed) {
-        throw new Error('Failed to save some answers');
-      }
-
       posthog.capture('question_answered', { question_number: questionNumber, question_count: questions.length });
       if (meRequired) {
         posthog.capture('question_marked_required', { question_number: questionNumber });
       }
-      // Navigate back to questions list with refresh parameter
+
+      const answeredQuestionsUrl = userId
+        ? `${getApiUrl(API_ENDPOINTS.ANSWERS)}my_answered_questions/?user=${userId}`
+        : null;
+      if (answeredQuestionsUrl) {
+        globalMutate(
+          answeredQuestionsUrl,
+          (current: { answered_question_numbers?: number[] } | undefined) => ({
+            answered_question_numbers: Array.from(new Set([...(current?.answered_question_numbers ?? []), questionNumber])).sort((a, b) => a - b),
+          }),
+          { revalidate: false }
+        );
+      }
+
+      const requiredOverrideKey = isNonGroupedQuestionOver10 && questions[0]?.id
+        ? getRequiredOverrideKey(userId, questions[0].id)
+        : null;
+      if (requiredOverrideKey) {
+        sessionStorage.setItem(requiredOverrideKey, String(meRequired));
+      }
+
+      // Navigate optimistically; the network writes continue in the background.
       router.push('/questions?refresh=true');
+      setSaving(false);
+
+      void Promise.all(updates)
+        .then((results) => {
+          const failed = results.find(r => !r.ok);
+          if (failed) {
+            throw new Error('Failed to save some answers');
+          }
+
+          sessionStorage.removeItem('questionsMetadataCache');
+          sessionStorage.removeItem('questionsDataTimestamp');
+          sessionStorage.removeItem('userAnswersData');
+          if (requiredOverrideKey) {
+            sessionStorage.removeItem(requiredOverrideKey);
+          }
+          if (answeredQuestionsUrl) {
+            globalMutate(answeredQuestionsUrl);
+          }
+          globalMutate(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`);
+        })
+        .catch((error) => {
+          console.error('Background question save failed:', error);
+          posthog.captureException(error);
+          if (requiredOverrideKey) {
+            sessionStorage.removeItem(requiredOverrideKey);
+          }
+          if (answeredQuestionsUrl) {
+            globalMutate(answeredQuestionsUrl);
+          }
+          globalMutate(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}metadata/`);
+        });
     } catch (error) {
       console.error('Error saving answers:', error);
       posthog.captureException(error);
@@ -1367,6 +1450,8 @@ function QuestionEditPageContent() {
 
     // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
     if (questionNumber === 2) {
+      const genderQuestions = [...questions].sort((a, b) => (b.group_number || 0) - (a.group_number || 0));
+
       return (
         <div className="w-full overflow-x-hidden">
           {/* Responsive slider block — same as question 1 */}
@@ -1382,12 +1467,12 @@ function QuestionEditPageContent() {
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                {anyQuestionAllowsLookingOta(questions) ? 'OTA' : ''}
               </div>
             </div>
 
             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-              {questions.map((question) => {
+              {genderQuestions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
 
@@ -1403,7 +1488,7 @@ function QuestionEditPageContent() {
                       />
                     </div>
                     <div>
-                      {question.open_to_all_looking_for ? (
+                      {questionAllowsLookingOta(question) ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
                             <input
@@ -1481,7 +1566,7 @@ function QuestionEditPageContent() {
             </div>
 
             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-              {questions.map((question) => {
+              {genderQuestions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
 
@@ -1530,6 +1615,7 @@ function QuestionEditPageContent() {
     // Basic multi-slider questions like Exercise/Habits/Religion (question_number === 6, 7, 8, 9, 10, etc.)
     if ([6, 7, 8, 9, 10].includes(questionNumber)) {
       const isKidsQuestion = questionNumber === 10;
+      const hasRowScaleLabels = Boolean(getScaleLabelsForQuestion(questionNumber));
 
       // For kids question, sort so Want (group_number=2) comes before Have (group_number=1)
       if (isKidsQuestion) {
@@ -1544,7 +1630,7 @@ function QuestionEditPageContent() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            {!isKidsQuestion && (
+            {!hasRowScaleLabels && (
             <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
@@ -1552,22 +1638,15 @@ function QuestionEditPageContent() {
                 <span>MORE</span>
               </div>
               <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                {anyQuestionAllowsLookingOta(questions) ? 'OTA' : ''}
               </div>
             </div>
             )}
-            {isKidsQuestion && (
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-              <div></div>
-              <div></div>
-              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">OTA</div>
-            </div>
-            )}
-
             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-              {questions.map((question) => {
+              {questions.map((question, index) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
+                const scaleLabels = getScaleLabelsForQuestion(questionNumber, question);
 
                 // For Kids question, use WANT/HAVE labels
                 let label = (question.question_name || 'ANSWER').toUpperCase();
@@ -1581,15 +1660,7 @@ function QuestionEditPageContent() {
                   <React.Fragment key={`looking-${question.id}`}>
                     <div className="text-xs font-semibold text-gray-400 min-w-0">{label}</div>
                     <div className="relative min-w-0">
-                      {isKidsQuestion && (
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          {question.group_number === 1 ? (
-                            <><span>DON&apos;T HAVE</span><span>HAVE</span></>
-                          ) : (
-                            <><span>DON&apos;T WANT</span><span>DOUBTFUL</span><span>UNSURE</span><span>EVENTUALLY</span><span>WANT</span></>
-                          )}
-                        </div>
-                      )}
+                      {scaleLabels && <ScaleLabels labels={scaleLabels} />}
                       <SliderComponent
                         value={sliderAnswers[lookingKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
@@ -1598,8 +1669,13 @@ function QuestionEditPageContent() {
                         isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
-                    <div>
-                      {question.open_to_all_looking_for ? (
+                    <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
+                      {hasRowScaleLabels && (
+                        <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && anyQuestionAllowsLookingOta(questions) ? '' : 'invisible'}`}>
+                          OTA
+                        </div>
+                      )}
+                      {questionAllowsLookingOta(question) ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
                             <input
@@ -1665,7 +1741,7 @@ function QuestionEditPageContent() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-            {!isKidsQuestion && (
+            {!hasRowScaleLabels && (
             <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
@@ -1677,20 +1753,11 @@ function QuestionEditPageContent() {
               </div>
             </div>
             )}
-            {isKidsQuestion && (
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-              <div></div>
-              <div></div>
-              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
-              </div>
-            </div>
-            )}
-
             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-              {questions.map((question) => {
+              {questions.map((question, index) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
+                const scaleLabels = getScaleLabelsForQuestion(questionNumber, question);
 
                 // For Kids question, use WANT/HAVE labels
                 let label = (question.question_name || 'ANSWER').toUpperCase();
@@ -1704,15 +1771,7 @@ function QuestionEditPageContent() {
                   <React.Fragment key={question.id}>
                     <div className="text-xs font-semibold text-gray-400 min-w-0">{label}</div>
                     <div className="relative min-w-0">
-                      {isKidsQuestion && (
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          {question.group_number === 1 ? (
-                            <><span>DON&apos;T HAVE</span><span>HAVE</span></>
-                          ) : (
-                            <><span>DON&apos;T WANT</span><span>DOUBTFUL</span><span>UNSURE</span><span>EVENTUALLY</span><span>WANT</span></>
-                          )}
-                        </div>
-                      )}
+                      {scaleLabels && <ScaleLabels labels={scaleLabels} />}
                       <SliderComponent
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
@@ -1721,7 +1780,12 @@ function QuestionEditPageContent() {
                         isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
-                    <div>
+                    <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
+                      {hasRowScaleLabels && (
+                        <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && questions.some(q => q.open_to_all_me) ? '' : 'invisible'}`}>
+                          OTA
+                        </div>
+                      )}
                       {question.open_to_all_me ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
@@ -1913,7 +1977,7 @@ function QuestionEditPageContent() {
                 <span>{moreLabel}</span>
               </div>
               <div className="flex justify-center text-xs text-gray-500 min-w-0 shrink-0 w-11">
-                {question.open_to_all_looking_for ? 'OTA' : ''}
+                {questionAllowsLookingOta(question) ? 'OTA' : ''}
               </div>
             </div>
 
@@ -1928,7 +1992,7 @@ function QuestionEditPageContent() {
                 />
               </div>
               <div className="flex justify-center shrink-0 w-11">
-                {question.open_to_all_looking_for ? (
+                {questionAllowsLookingOta(question) ? (
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
                       <input

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -24,12 +24,12 @@ export default function QuestionPage() {
   } | null>(null);
 
   // Parse existing answer from URL (passed by questions page for instant loading)
-  const initialEa = (() => {
+  const initialEaRaw = searchParams.get('ea');
+  const initialEa = useMemo(() => {
     try {
-      const raw = searchParams.get('ea');
-      return raw ? JSON.parse(raw) : null;
+      return initialEaRaw ? JSON.parse(initialEaRaw) : null;
     } catch { return null; }
-  })();
+  }, [initialEaRaw]);
 
   // Question answer states — initialized from URL params when available (zero delay)
   const [meAnswer, setMeAnswer] = useState(initialEa ? (initialEa.mo ? 3 : initialEa.me) : 3);
@@ -127,8 +127,8 @@ export default function QuestionPage() {
       );
     }
     
-    // For religion questions, show NEVER, RARELY, SOMETIMES, REGULARLY, DAILY
-    if (params.id === '8') {
+    // For exercise, habits, and religion questions, show NEVER, RARELY, SOMETIMES, REGULARLY, DAILY
+    if (params.id === '6' || params.id === '7' || params.id === '8') {
       return (
         <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
           <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
@@ -463,6 +463,12 @@ export default function QuestionPage() {
               lookingForOpen: existing.looking_for_open_to_all || false,
             });
             setMeShare(existing.me_share !== false);
+          } else if (!initialEa && currentFetchId === answerFetchIdRef.current) {
+            setOpenToAll(prev => ({
+              ...prev,
+              meOpen: false,
+              lookingForOpen: question.open_to_all_looking_for || false,
+            }));
           }
         }
 
@@ -477,7 +483,7 @@ export default function QuestionPage() {
       }
     })();
     // No cleanup — staleness is detected via the ref counter
-  }, [userId, question?.id]);
+  }, [userId, question?.id, question?.open_to_all_looking_for, initialEa]);
 
   const fetchQuestion = async (questionId: string) => {
     setLoadingQuestion(true);
@@ -1010,15 +1016,6 @@ export default function QuestionPage() {
         // Importance sliders always use full 1-5 range
         const newValue = Math.round(percentage * 4) + 1; // 1-5 range
         onChange(Math.max(1, Math.min(5, newValue)));
-      } else if (params.id === 'education') {
-        // For education questions, only allow positions 1, 3, 5
-        if (percentage < 0.25) {
-          onChange(1);
-        } else if (percentage < 0.75) {
-          onChange(3);
-        } else {
-          onChange(5);
-        }
       } else if (params.id === 'diet') {
         // For diet questions, only allow positions 1, 5
         if (percentage < 0.5) {
@@ -1066,11 +1063,6 @@ export default function QuestionPage() {
       >
           {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
           
-          {/* Middle label for education questions */}
-          {!isOpenToAll && params.id === 'education' && (
-            <span className="absolute left-1/2 transform -translate-x-1/2 text-xs text-gray-500 pointer-events-none z-10">3</span>
-          )}
-          
           {/* Custom Slider Track */}
         <div 
           className="slider-track w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
@@ -1094,8 +1086,6 @@ export default function QuestionPage() {
                 boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
                 left: isImportance
                   ? (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
-                  : params.id === 'education' 
-                  ? (value === 1 ? '0px' : value === 3 ? 'calc(50% - 14px)' : 'calc(100% - 28px)')
                   : params.id === 'diet'
                   ? (value === 1 ? '0px' : 'calc(100% - 28px)')
                   : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)

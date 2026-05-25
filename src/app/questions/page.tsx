@@ -61,7 +61,6 @@ function QuestionsPageContent() {
   const [valueLabel5, setValueLabel5] = useState('');
   const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
   const [isRequiredForMatch, setIsRequiredForMatch] = useState(false);
-  const [shareAnswer, setShareAnswer] = useState(true);
   const [sliderValue, setSliderValue] = useState(3);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -247,7 +246,7 @@ function QuestionsPageContent() {
 
   // Stable serialized key to prevent infinite re-render loops.
   const metadataKey = JSON.stringify(swrQuestionNumbers);
-  const answeredKey = JSON.stringify(answeredQuestionNumbers);
+  const filterParam = searchParams.get('filter');
 
   // Sync SWR metadata into existing state variables (bridges SWR → existing logic)
   useEffect(() => {
@@ -262,49 +261,11 @@ function QuestionsPageContent() {
   }, [metadataKey]);
 
   // Log when answered question numbers arrive
-  const filterAnsweredRef = useRef(false);
   useEffect(() => {
     if (!answeredLoading && answeredQuestionNumbers.length > 0) {
       timingLog('answered questions loaded', { count: answeredQuestionNumbers.length });
     }
   }, [answeredLoading, answeredQuestionNumbers.length, timingLog]);
-
-  // Handle answered/unanswered filter when both metadata and answered data are ready
-  useEffect(() => {
-    if (answeredLoading || swrQuestionNumbers.length === 0) return;
-    const willFilterAnswered = filters.questions.answered;
-    const willFilterUnanswered = filters.questions.unanswered;
-    if (!(willFilterAnswered || willFilterUnanswered) || filterFetchDone.current) return;
-    if (filterAnsweredRef.current) return;
-    filterAnsweredRef.current = true;
-
-    const answeredSet = new Set(answeredQuestionNumbers);
-    const matchingNumbers = willFilterAnswered
-      ? swrQuestionNumbers.filter((n: number) => answeredSet.has(n))
-      : swrQuestionNumbers.filter((n: number) => !answeredSet.has(n));
-
-    if (matchingNumbers.length > 0) {
-      const params = matchingNumbers.map((n: number) => `question_number=${n}`).join('&');
-      fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${params}&page_size=500`, {
-        headers: { 'Content-Type': 'application/json' },
-      })
-        .then(resp => resp.json())
-        .then(data => {
-          const allQuestions = (data.results || []).sort((a: Question, b: Question) => {
-            if (a.question_number !== b.question_number) return a.question_number - b.question_number;
-            return (a.group_number || 0) - (b.group_number || 0);
-          });
-          setFilteredQuestions(allQuestions);
-          filterFetchDone.current = true;
-          lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
-        });
-    } else {
-      setFilteredQuestions([]);
-      filterFetchDone.current = true;
-      lastFilterState.current = `${willFilterAnswered}-${willFilterUnanswered}-${swrQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metadataKey, answeredKey, answeredLoading, filters.questions.answered, filters.questions.unanswered]);
 
   // Derive loading from metadata only — questions display as soon as metadata arrives.
   // Answered data loads in parallel and fills in when ready.
@@ -338,21 +299,26 @@ function QuestionsPageContent() {
   // Check for filter parameter and apply answered filter (for "My Questions")
   // useLayoutEffect blocks paint — user never sees the stale empty content
   useLayoutEffect(() => {
-    const filter = searchParams.get('filter');
-    if (filter === 'answered' && !filterAppliedFromUrl.current) {
+    if (filterParam === 'answered' && !filterAppliedFromUrl.current) {
       filterFetchDone.current = false; // Reset so loader shows until filter data is ready
+      isFetchingFilteredQuestions.current = false;
+      lastFilterState.current = '';
+      restoredPageNumberRef.current = 1;
+      sessionStorage.setItem('questions_current_page', '1');
+      setCurrentPage(1);
       setFilters(prev => ({
         ...prev,
         questions: {
           ...prev.questions,
-          answered: true
+          answered: true,
+          unanswered: false
         }
       }));
       filterAppliedFromUrl.current = true;
-    } else if (filter !== 'answered') {
+    } else if (filterParam !== 'answered') {
       filterAppliedFromUrl.current = false;
     }
-  }, [searchParams]);
+  }, [filterParam, setCurrentPage]);
 
   // Fetch questions for current page
   const fetchQuestionsForCurrentPage = React.useCallback(async () => {
@@ -812,6 +778,10 @@ function QuestionsPageContent() {
         return;
       }
 
+      if (answeredLoading) {
+        return;
+      }
+
       // Wait for metadata to load (need allQuestionNumbers to filter)
       if (allQuestionNumbers.length === 0) {
         filterFetchDone.current = true;
@@ -821,7 +791,12 @@ function QuestionsPageContent() {
       // Create a stable key for the current filter state to prevent duplicate fetches
       const filterKey = `${filters.questions.answered}-${filters.questions.unanswered}-${allQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
 
-      if (isFetchingFilteredQuestions.current || lastFilterState.current === filterKey) {
+      if (isFetchingFilteredQuestions.current) {
+        return;
+      }
+
+      if (lastFilterState.current === filterKey) {
+        filterFetchDone.current = true;
         return;
       }
 
@@ -913,7 +888,7 @@ function QuestionsPageContent() {
     };
 
     fetchFilteredQuestions();
-  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, answeredQuestionNumbers.length, searchTerm, loading]);
+  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, answeredQuestionNumbers.length, answeredLoading, searchTerm, loading]);
 
   // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
   useEffect(() => {
@@ -1208,6 +1183,8 @@ function QuestionsPageContent() {
     
     // Reset ref so loader shows until filter fetch completes
     filterFetchDone.current = false;
+    isFetchingFilteredQuestions.current = false;
+    lastFilterState.current = '';
     setShowFilterModal(false);
     // The fetchFilteredQuestions useEffect will handle the actual fetching
     // and will set filterFetchDone.current = true when done
@@ -1217,7 +1194,7 @@ function QuestionsPageContent() {
   // Final loader gate: if we have 0 questions to display but know questions exist,
   // show the loader. This catches every gap regardless of which state variable lags.
   const contentNotReady = paginatedGroupedQuestions.length === 0 && totalQuestionGroups > 0
-    && !searchTerm.trim() && !error;
+    && !searchTerm.trim() && !error && !isClientSideFiltered;
   if (isShowingLoader || contentNotReady) {
     const loadingTexts = ['Loading questions...', 'Gathering your answers...', 'Almost ready...'];
     return (
@@ -1457,29 +1434,49 @@ function QuestionsPageContent() {
             <div className="flex items-center gap-2 flex-wrap">
               {/* Question Type Filters */}
               {filters.questions.mandatory && (
-                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-red-500 bg-red-50 text-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(prev => !prev)}
+                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-red-500 bg-red-50 text-gray-900 cursor-pointer"
+                >
                   <Image src="/assets/asterisk.png" alt="Mandatory" width={24} height={24} />
-                </span>
+                </button>
               )}
               {filters.questions.answered && (
-                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-green-500 bg-green-50 text-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(prev => !prev)}
+                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-green-500 bg-green-50 text-gray-900 cursor-pointer"
+                >
                   <Image src="/assets/answered.png" alt="Answered" width={24} height={24} />
-                </span>
+                </button>
               )}
               {filters.questions.unanswered && (
-                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-blue-500 bg-blue-50 text-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(prev => !prev)}
+                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-blue-500 bg-blue-50 text-gray-900 cursor-pointer"
+                >
                   <Image src="/assets/un.png" alt="Unanswered" width={24} height={24} />
-                </span>
+                </button>
               )}
               {filters.questions.required && (
-                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-gray-800 bg-gray-50 text-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(prev => !prev)}
+                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-gray-800 bg-gray-50 text-gray-900 cursor-pointer"
+                >
                   <Image src="/assets/req.png" alt="Required" width={24} height={24} />
-                </span>
+                </button>
               )}
               {filters.questions.submitted && (
-                <span className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-orange-500 bg-orange-50 text-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(prev => !prev)}
+                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-orange-500 bg-orange-50 text-gray-900 cursor-pointer"
+                >
                   <Image src="/assets/submitted.png" alt="Submitted" width={24} height={24} />
-                </span>
+                </button>
               )}
 
               {/* Tag Filters */}
@@ -1487,13 +1484,15 @@ function QuestionsPageContent() {
                 if (!isActive) return null;
                 const tagName = tagKey.charAt(0).toUpperCase() + tagKey.slice(1);
                 return (
-                  <span
+                  <button
+                    type="button"
                     key={tagKey}
+                    onClick={() => setShowFilterModal(prev => !prev)}
                     className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer hover:border-gray-600"
                   >
                     <div className="absolute inset-0 bg-black opacity-3" style={{ borderRadius: '24px' }}></div>
                     <span className="relative z-10">{tagName}</span>
-                  </span>
+                  </button>
                 );
               })}
             </div>
@@ -1502,16 +1501,34 @@ function QuestionsPageContent() {
           {paginatedGroupedQuestions
             .map(([key, group]) => {
               const answerCount = getAnswerCount(group.questionNumber);
+              const isAnswered = answeredQuestionNumbers.includes(group.questionNumber) ||
+                group.questions.some(question => question.is_answered);
+              const isMandatory = group.questions.some(question => question.is_mandatory);
+
               return (
                 <div
                   key={String(key)}
                   onClick={() => handleQuestionClick(group.questionNumber)}
-                  className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  className={`relative flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                    isAnswered
+                      ? 'border-[#672DB7] bg-purple-50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
                 >
+                  {isMandatory && (
+                    <div className="absolute -left-2 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm">
+                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={21} />
+                    </div>
+                  )}
                   <div className="flex-1">
                     <div className="flex items-start">
                       <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
-                      <span className="text-gray-900 flex-1">{group.displayName}</span>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1">
+                        <span className="text-gray-900">{group.displayName}</span>
+                        {isAnswered && (
+                          <span className="text-[#672DB7] text-sm">✓ Answered</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -1995,8 +2012,8 @@ function QuestionsPageContent() {
                         is_required_for_match: isRequiredForMatch,
                         skip_me: false,
                         skip_looking_for: false,
-                        open_to_all_me: shareAnswer,
-                        open_to_all_looking_for: shareAnswer,
+                        open_to_all_me: false,
+                        open_to_all_looking_for: true,
                         is_group: false,
                         value_label_1: valueLabel1.trim(),
                         value_label_5: valueLabel5.trim(),
@@ -2025,7 +2042,6 @@ function QuestionsPageContent() {
                       setValueLabel1('');
                       setValueLabel5('');
                       setIsRequiredForMatch(false);
-                      setShareAnswer(true);
                       setSliderValue(3);
                       setShowAskQuestionModal(false);
                       

@@ -25,8 +25,8 @@ export default function GenderPage() {
   const [openToAll, setOpenToAll] = useState({
     maleMeOpen: false,
     femaleMeOpen: false,
-    maleLookingOpen: false,
-    femaleLookingOpen: false
+    maleLookingOpen: true,
+    femaleLookingOpen: true
   });
 
   const [importance, setImportance] = useState({
@@ -350,30 +350,6 @@ export default function GenderPage() {
                 rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
-              {/* Male Slider */}
-              <div className="text-xs font-semibold text-gray-400">MALE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={lookingFor.male}
-                  onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
-                  isOpenToAll={openToAll.maleLookingOpen}
-                />
-              </div>
-              <div className="flex justify-center">
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={openToAll.maleLookingOpen}
-                      onChange={() => handleOpenToAllToggle('maleLookingOpen')}
-                      className="sr-only"
-                    />
-                    <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                    <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                  </div>
-                </label>
-              </div>
-
               {/* Female Slider */}
               <div className="text-xs font-semibold text-gray-400">FEMALE</div>
               <div className="relative">
@@ -394,6 +370,30 @@ export default function GenderPage() {
                     />
                     <div className={`block w-11 h-6 rounded-full ${openToAll.femaleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
                     <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.femaleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Male Slider */}
+              <div className="text-xs font-semibold text-gray-400">MALE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={lookingFor.male}
+                  onChange={(value) => handleSliderChange('lookingFor', 'male', value)}
+                  isOpenToAll={openToAll.maleLookingOpen}
+                />
+              </div>
+              <div className="flex justify-center">
+                <label className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={openToAll.maleLookingOpen}
+                      onChange={() => handleOpenToAllToggle('maleLookingOpen')}
+                      className="sr-only"
+                    />
+                    <div className={`block w-11 h-6 rounded-full ${openToAll.maleLookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+                    <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleLookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
               </div>
@@ -441,6 +441,19 @@ export default function GenderPage() {
                 rowGap: 'clamp(8px, 2vw, 16px)'
               }}
             >
+              {/* Female Slider */}
+              <div className="text-xs font-semibold text-gray-400">FEMALE</div>
+              <div className="relative">
+                <SliderComponent
+                  value={myGender.female}
+                  onChange={(value) => handleSliderChange('myGender', 'female', value)}
+                  isOpenToAll={openToAll.femaleMeOpen}
+                />
+              </div>
+              <div className="flex justify-center">
+                <div className="w-11 h-6"></div>
+              </div>
+
               {/* Male Slider */}
               <div className="text-xs font-semibold text-gray-400">MALE</div>
               <div className="relative">
@@ -463,19 +476,6 @@ export default function GenderPage() {
                     <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.maleMeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                   </div>
                 </label>
-              </div>
-
-              {/* Female Slider */}
-              <div className="text-xs font-semibold text-gray-400">FEMALE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={myGender.female}
-                  onChange={(value) => handleSliderChange('myGender', 'female', value)}
-                  isOpenToAll={openToAll.femaleMeOpen}
-                />
-              </div>
-              <div className="flex justify-center">
-                <div className="w-11 h-6"></div>
               </div>
             </div>
           </div>

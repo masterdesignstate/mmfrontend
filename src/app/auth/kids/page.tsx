@@ -41,8 +41,8 @@ export default function KidsPage() {
   const [openToAll, setOpenToAll] = useState<Record<MeOpenKey | LookingOpenKey, boolean>>({
     kids1MeOpen: false,
     kids2MeOpen: false,
-    kids1LookingOpen: false,
-    kids2LookingOpen: false
+    kids1LookingOpen: true,
+    kids2LookingOpen: true
   });
 
   const [importance, setImportance] = useState({
@@ -419,17 +419,10 @@ export default function KidsPage() {
                         isBinary={kidsKey === 'kids2'}
                       />
                     </div>
-                    <div className="flex flex-col">
-                      {/* OTA label above switch */}
-                      {index === 0 && (
-                        <div className="text-xs text-gray-500 text-center mb-1" style={{ marginLeft: '-15px' }}>
-                          {anyLookingForOpen ? 'OTA' : ''}
-                        </div>
-                      )}
-                      {index !== 0 && (
-                        <div className="mb-1"></div>
-                      )}
-                      {/* Switch */}
+                    <div className="flex flex-col items-center">
+                      <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && anyLookingForOpen ? '' : 'invisible'}`}>
+                        OTA
+                      </div>
                       {true ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">
@@ -528,17 +521,10 @@ export default function KidsPage() {
                         isBinary={kidsKey === 'kids2'}
                       />
                     </div>
-                    <div className="flex flex-col">
-                      {/* OTA label above switch */}
-                      {index === 0 && (
-                        <div className="text-xs text-gray-500 text-center mb-1" style={{ marginLeft: '-15px' }}>
-                          {anyMeOpen ? 'OTA' : ''}
-                        </div>
-                      )}
-                      {index !== 0 && (
-                        <div className="mb-1"></div>
-                      )}
-                      {/* Switch */}
+                    <div className="flex flex-col items-center">
+                      <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && anyMeOpen ? '' : 'invisible'}`}>
+                        OTA
+                      </div>
                       {index === 0 ? (
                         <label className="flex items-center cursor-pointer">
                           <div className="relative">

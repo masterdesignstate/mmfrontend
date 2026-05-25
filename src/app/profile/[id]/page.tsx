@@ -2649,7 +2649,34 @@ export default function UserProfilePage() {
         {/* Compatibility Section */}
         {compatibility && (
           <div className="mb-8">
-            {/* First Row: Overall, My Preferences, Their Preferences - Larger Cards */}
+            {/* Mutual Questions Answered, Total Questions Answered */}
+            <div className="flex gap-3 mb-3">
+              {/* Mutual Questions Answered */}
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Mutual Questions Answered
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {compatibility.mutual_questions_count || 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Total Questions Answered */}
+              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Total Questions Answered
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {userAnswers.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Overall, My Preferences, Their Preferences */}
             <div className="flex gap-3 mb-3">
               {/* Overall */}
               <div className="bg-[#F3F3F3] rounded-xl px-4 py-3 flex-1">
@@ -2699,33 +2726,6 @@ export default function UserProfilePage() {
                     )}
                   </span>
                   <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Second Row: Mutual Questions Answered, Total Questions Answered */}
-            <div className="flex gap-3 mb-3">
-              {/* Mutual Questions Answered */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
-                  Mutual Questions Answered
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
-                    {compatibility.mutual_questions_count || 0}
-                  </span>
-                </div>
-              </div>
-
-              {/* Total Questions Answered */}
-              <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
-                  Total Questions Answered
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
-                    {userAnswers.length}
-                  </span>
                 </div>
               </div>
             </div>
@@ -2911,18 +2911,6 @@ export default function UserProfilePage() {
               </div>
 
               <div className="space-y-3">
-                {/* MALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 1) || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 1) === 6}
-                    />
-                  </div>
-                </div>
-
                 {/* FEMALE Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
@@ -2931,6 +2919,18 @@ export default function UserProfilePage() {
                       value={getAnswerValue(2, 2) || 3}
                       onChange={() => {}}
                       isOpenToAll={getAnswerValue(2, 2) === 6}
+                    />
+                  </div>
+                </div>
+
+                {/* MALE Slider Row */}
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 1) || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 1) === 6}
                     />
                   </div>
                 </div>
@@ -2956,18 +2956,6 @@ export default function UserProfilePage() {
               </div>
 
               <div className="space-y-3">
-                {/* MALE Slider Row */}
-                <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                  <div className="flex-1">
-                    <SliderComponent
-                      value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
-                      onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
-                    />
-                  </div>
-                </div>
-
                 {/* FEMALE Slider Row */}
                 <div className="flex items-center gap-4">
                   <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
@@ -2976,6 +2964,18 @@ export default function UserProfilePage() {
                       value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
                       onChange={() => {}}
                       isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
+                    />
+                  </div>
+                </div>
+
+                {/* MALE Slider Row */}
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
@@ -3053,10 +3053,12 @@ export default function UserProfilePage() {
             <h3 className="text-xl font-bold mb-4">Ideology</h3>
 
             <div className="max-w-md">
-              {/* LESS, MORE labels above sliders - aligned with slider start */}
-              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-20 sm:ml-24">
-                <span>LESS</span>
-                <span>MORE</span>
+              <div className="relative text-xs text-gray-500 mb-2 ml-20 sm:ml-24" style={{ height: '14px' }}>
+                <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
               </div>
 
               <div className="space-y-3">
@@ -3445,14 +3447,18 @@ export default function UserProfilePage() {
                     }
 
                     // Slider-based questions
-                    const lessLabel = selectedQuestionData[0]?.answers?.find((a: any) => String(a.value) === '1')?.answer_text?.toUpperCase() || 'LESS';
-                    const moreLabel = selectedQuestionData[0]?.answers?.find((a: any) => String(a.value) === '5')?.answer_text?.toUpperCase() || 'MORE';
+                    const displayQuestionData = questionNumber === 2
+                      ? [...selectedQuestionData].sort((a, b) => (b.group_number || 0) - (a.group_number || 0))
+                      : selectedQuestionData;
+                    const answerLabels = (selectedQuestionData[0]?.answers || []) as Array<{ value: string | number; answer_text?: string }>;
+                    const lessLabel = answerLabels.find((a) => String(a.value) === '1')?.answer_text?.toUpperCase() || 'LESS';
+                    const moreLabel = answerLabels.find((a) => String(a.value) === '5')?.answer_text?.toUpperCase() || 'MORE';
 
                     return (
                       <div className="w-full overflow-x-hidden">
                         <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
                         {/* Share/Required toggles for non-mandatory questions > 10 */}
-                        {questionNumber > 10 && selectedQuestionData[0]?.question_type !== 'grouped' && (
+                        {questionNumber > 10 && displayQuestionData[0]?.question_type !== 'grouped' && (
                           <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
                             <div className="flex items-center gap-3">
                               <button type="button" onClick={() => setEditMeRequired(!editMeRequired)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeRequired ? '#000000' : '#ADADAD' }}>
@@ -3477,14 +3483,14 @@ export default function UserProfilePage() {
                             <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                              <div className="flex justify-center text-xs text-gray-500">{selectedQuestionData.some((q: any) => q.open_to_all_looking_for) ? 'OTA' : ''}</div>
+                              <div className="flex justify-center text-xs text-gray-500">{displayQuestionData.some((q) => q.open_to_all_looking_for) ? 'OTA' : ''}</div>
                             </div>
 
                             <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-                              {selectedQuestionData.map((question: any) => {
+                              {displayQuestionData.map((question) => {
                                 const key = `q${question.group_number || question.id}`;
                                 const lookingKey = `${key}_looking`;
-                                const isSingleBasic = selectedQuestionData.length === 1;
+                                const isSingleBasic = displayQuestionData.length === 1;
                                 return (
                                   <React.Fragment key={`looking-${question.id}`}>
                                     {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
@@ -3500,7 +3506,7 @@ export default function UserProfilePage() {
                                 );
                               })}
                               {/* Importance slider row */}
-                              {selectedQuestionData.length === 1 ? <div></div> : <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>}
+                              {displayQuestionData.length === 1 ? <div></div> : <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>}
                               <div className="relative min-w-0">
                                 <EditableSlider value={editImportanceValues.lookingFor} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} />
                               </div>
@@ -3525,14 +3531,14 @@ export default function UserProfilePage() {
                           <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                            <div className="flex justify-center text-xs text-gray-500">{selectedQuestionData.some((q: any) => q.open_to_all_me) ? 'OTA' : ''}</div>
+                            <div className="flex justify-center text-xs text-gray-500">{displayQuestionData.some((q) => q.open_to_all_me) ? 'OTA' : ''}</div>
                           </div>
 
                           <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
-                            {selectedQuestionData.map((question: any) => {
+                            {displayQuestionData.map((question) => {
                               const key = `q${question.group_number || question.id}`;
                               const meKey = `${key}_me`;
-                              const isSingleBasic = selectedQuestionData.length === 1;
+                              const isSingleBasic = displayQuestionData.length === 1;
                               return (
                                 <React.Fragment key={question.id}>
                                   {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
@@ -3887,6 +3893,7 @@ export default function UserProfilePage() {
                         const isExerciseQuestion = questionNumber === 6;
                         const isHabitsQuestion = questionNumber === 7;
                         const isReligionQuestion = questionNumber === 8;
+                        const isPoliticsQuestion = questionNumber === 9;
                         
                         // Check if answer is shared
                         const isShared = answer?.me_share !== false; // Default to true if not set
@@ -3950,6 +3957,15 @@ export default function UserProfilePage() {
                                       <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
                                     </div>
                                   )}
+                                  {isPoliticsQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                                    </div>
+                                  )}
                                   {questionNumber === 3 && (
                                     <>
                                       <span>LESS</span>
@@ -3999,6 +4015,15 @@ export default function UserProfilePage() {
                                       <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
                                       <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
                                       <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                    </div>
+                                  )}
+                                  {isPoliticsQuestion && (
+                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
                                     </div>
                                   )}
                                   {questionNumber === 3 && (
@@ -4091,6 +4116,9 @@ export default function UserProfilePage() {
                     const isHabitsQuestion = questionNumber === 7;
                     const isReligionQuestion = questionNumber === 8;
                     const isPoliticsQuestion = questionNumber === 9;
+                    const displayQuestionData = isGenderQuestion
+                      ? [...selectedQuestionData].sort((a, b) => (b.group_number || 0) - (a.group_number || 0))
+                      : selectedQuestionData;
                     
                     // Check if all answers are shared (for non-grouped questions, check each answer)
                     // Default to true if me_share is not set (undefined/null)
@@ -4123,13 +4151,22 @@ export default function UserProfilePage() {
                               <span>YES</span>
                             </div>
                           )}
-                          {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion || isPoliticsQuestion) && (
+                          {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
                             <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
                               <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
                               <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
                               <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
                               <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
                               <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                            </div>
+                          )}
+                          {isPoliticsQuestion && (
+                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                              <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                              <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                              <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                              <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                              <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
                             </div>
                           )}
                           {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
@@ -4148,7 +4185,7 @@ export default function UserProfilePage() {
                     );
 
                     // Helper: compute hasAnyOTA for Me
-                    const meHasAnyOTA = selectedQuestionData.some((question: any) => {
+                    const meHasAnyOTA = displayQuestionData.some((question) => {
                       const answer = answersForQuestion.find((a: any) => {
                         const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                         return questionId === question.id;
@@ -4157,7 +4194,7 @@ export default function UserProfilePage() {
                     });
 
                     // Helper: compute hasAnyOTA for Them
-                    const themHasAnyOTA = selectedQuestionData.some((question: any) => {
+                    const themHasAnyOTA = displayQuestionData.some((question) => {
                       const answer = answersForQuestion.find((a: any) => {
                         const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                         return questionId === question.id;
@@ -4171,7 +4208,7 @@ export default function UserProfilePage() {
                         <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
                         {renderSectionLabels('me', meHasAnyOTA)}
                         <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: meHasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
-                          {selectedQuestionData.map((question: any) => {
+                          {displayQuestionData.map((question) => {
                             const answer = answersForQuestion.find((a: any) => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                               return questionId === question.id;
@@ -4210,7 +4247,7 @@ export default function UserProfilePage() {
                         <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
                         {renderSectionLabels('them', themHasAnyOTA)}
                         <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: themHasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
-                          {selectedQuestionData.map((question: any) => {
+                          {displayQuestionData.map((question) => {
                             const answer = answersForQuestion.find((a: any) => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                               return questionId === question.id;

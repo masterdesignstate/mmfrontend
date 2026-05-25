@@ -15,6 +15,13 @@ export function ImpostorBanner() {
     setTargetName(localStorage.getItem('impostor_target_name') || 'Unknown User');
   }, [pathname]);
 
+  const clearSessionFilters = () => {
+    sessionStorage.removeItem('results_page_filters');
+    sessionStorage.removeItem('results_page_filters_applied');
+    sessionStorage.removeItem('questions_page_filters');
+    sessionStorage.removeItem('questions_current_page');
+  };
+
   const handleExit = async () => {
     const adminUserId = localStorage.getItem('impostor_admin_user_id');
     if (!adminUserId) {
@@ -22,6 +29,7 @@ export function ImpostorBanner() {
       localStorage.removeItem('is_impostor');
       localStorage.removeItem('impostor_admin_user_id');
       localStorage.removeItem('impostor_target_name');
+      clearSessionFilters();
       window.location.href = '/dashboard/profiles';
       return;
     }
@@ -34,6 +42,7 @@ export function ImpostorBanner() {
       localStorage.removeItem('is_impostor');
       localStorage.removeItem('impostor_admin_user_id');
       localStorage.removeItem('impostor_target_name');
+      clearSessionFilters();
       window.location.href = '/dashboard/profiles';
     } catch (err) {
       console.error('Impostor exit API call failed:', err);
