@@ -591,29 +591,6 @@ export default function CalculationPage() {
     return value;
   };
 
-  const buildMissingQuestions = (
-    answeredByOwner: Set<string>,
-    answeredByOther: Set<string>,
-    missingUser: string,
-    requiredIds?: Set<string>,
-  ): MissingQuestion[] => (
-    questions.flatMap((question, index) => {
-      const questionId = question.id;
-      const questionIdLower = questionId.toLowerCase();
-      const matchesRequiredScope = !requiredIds || requiredIds.has(questionIdLower);
-      if (!matchesRequiredScope || !answeredByOwner.has(questionId) || answeredByOther.has(questionId)) {
-        return [];
-      }
-
-      return [{
-        id: questionId,
-        questionNumber: resolveQuestionNumber(question, index),
-        text: question.text,
-        missingUser,
-      }];
-    })
-  );
-
   const renderMissingQuestionList = (title: string, questionsToShow: MissingQuestion[]) => (
     <div className="border border-gray-200 rounded-lg p-4">
       <h4 className="text-sm font-semibold text-gray-900 mb-3">
@@ -720,7 +697,7 @@ export default function CalculationPage() {
                 Delta
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Adjust
+                A-Delta
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 IMP(1)
@@ -769,7 +746,7 @@ export default function CalculationPage() {
                     {formatDelta(result.delta)}
                   </td>
                   <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                    {formatScore(controls.adjust)}
+                    {result.delta === null ? '—' : formatScore(controls.adjust - result.delta)}
                   </td>
                   <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                     {result.importance}
@@ -811,14 +788,29 @@ export default function CalculationPage() {
     </div>
   );
 
-  const p1Name = person1 ? getPersonName(person1) : 'P1';
-  const p2Name = person2 ? getPersonName(person2) : 'P2';
+  const p1Name = person1 ? `(1) ${getPersonName(person1)}` : '(1) P1';
+  const p2Name = person2 ? `(2) ${getPersonName(person2)}` : '(2) P2';
   const p1AnsweredQuestionIds = new Set((person1 ? userAnswers[person1] ?? [] : []).map(answer => answer.question.id));
   const p2AnsweredQuestionIds = new Set((person2 ? userAnswers[person2] ?? [] : []).map(answer => answer.question.id));
-  const p1AnsweredMissingByP2 = buildMissingQuestions(p1AnsweredQuestionIds, p2AnsweredQuestionIds, p2Name);
-  const p2AnsweredMissingByP1 = buildMissingQuestions(p2AnsweredQuestionIds, p1AnsweredQuestionIds, p1Name);
-  const p1RequiredMissingByP2 = buildMissingQuestions(p1AnsweredQuestionIds, p2AnsweredQuestionIds, p2Name, p1RequiredIds);
-  const p2RequiredMissingByP1 = buildMissingQuestions(p2AnsweredQuestionIds, p1AnsweredQuestionIds, p1Name, p2RequiredIds);
+  const buildQuestionList = (predicate: (q: Question) => boolean): MissingQuestion[] => (
+    questions.flatMap((question, index) => (
+      predicate(question)
+        ? [{
+            id: question.id,
+            questionNumber: resolveQuestionNumber(question, index),
+            text: question.text,
+            missingUser: '',
+          }]
+        : []
+    ))
+  );
+
+  const p1AllAnswered = buildQuestionList(q => p1AnsweredQuestionIds.has(q.id));
+  const p2AllAnswered = buildQuestionList(q => p2AnsweredQuestionIds.has(q.id));
+  const scopeAllRequired = requiredScope === 'p1'
+    ? buildQuestionList(q => p1RequiredIds.has(q.id.toLowerCase()))
+    : buildQuestionList(q => p2RequiredIds.has(q.id.toLowerCase()));
+  const scopeRequiredOwner = requiredScope === 'p1' ? p1Name : p2Name;
 
   return (
     <div className="space-y-6">
@@ -991,9 +983,8 @@ export default function CalculationPage() {
         const activeCompleteness = activeResult
           ? (requiredScope === 'p1' ? activeResult.p2Completeness : activeResult.p1Completeness)
           : 1;
-        const completenessCardClass = activeCompleteness < 1
-          ? 'border-orange-300 bg-orange-50 shadow-[0_0_0_1px_rgba(251,146,60,0.25)]'
-          : 'border-[#672DB7]/40 bg-[#672DB7]/5 shadow-[0_0_0_1px_rgba(103,45,183,0.20)]';
+        const completenessIsFull = activeCompleteness >= 1;
+        const completenessTextClass = completenessIsFull ? 'text-blue-600' : 'text-orange-600';
 
         return (
           <div className="bg-white rounded-lg shadow p-6">
@@ -1023,7 +1014,7 @@ export default function CalculationPage() {
                     onClick={() => setRequiredScope('p1')}
                     className={`px-3 py-1 text-sm rounded-full border transition-colors cursor-pointer ${
                       requiredScope === 'p1'
-                        ? 'bg-green-100 border-green-300 text-green-800 font-medium'
+                        ? 'bg-purple-100 border-purple-300 text-[#672DB7] font-medium'
                         : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
@@ -1033,7 +1024,7 @@ export default function CalculationPage() {
                     onClick={() => setRequiredScope('p2')}
                     className={`px-3 py-1 text-sm rounded-full border transition-colors cursor-pointer ${
                       requiredScope === 'p2'
-                        ? 'bg-blue-100 border-blue-300 text-blue-800 font-medium'
+                        ? 'bg-purple-100 border-purple-300 text-[#672DB7] font-medium'
                         : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
@@ -1048,15 +1039,15 @@ export default function CalculationPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Based on {p1Name}&apos;s Preferences</div>
-                      <div className="text-2xl font-semibold text-green-600">{formatPercent(compatibilityPercentage1)}</div>
+                      <div className="text-2xl font-semibold text-[#672DB7]">{formatPercent(compatibilityPercentage1)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Based on {p2Name}&apos;s Preferences</div>
-                      <div className="text-2xl font-semibold text-blue-600">{formatPercent(compatibilityPercentage2)}</div>
+                      <div className="text-2xl font-semibold text-[#672DB7]">{formatPercent(compatibilityPercentage2)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Mutual Questions</div>
-                      <div className="text-2xl font-semibold text-gray-900">{calculationResults1.length}</div>
+                      <div className="text-2xl font-semibold text-[#672DB7]">{calculationResults1.length}</div>
                     </div>
                   </div>
                 </>
@@ -1066,20 +1057,20 @@ export default function CalculationPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Based on {p1Name}&apos;s Preferences</div>
-                      <div className="text-2xl font-semibold text-green-600">{formatPercent(activeResult.percentage1)}</div>
+                      <div className="text-2xl font-semibold text-[#672DB7]">{formatPercent(activeResult.percentage1)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Based on {p2Name}&apos;s Preferences</div>
-                      <div className="text-2xl font-semibold text-blue-600">{formatPercent(activeResult.percentage2)}</div>
+                      <div className="text-2xl font-semibold text-[#672DB7]">{formatPercent(activeResult.percentage2)}</div>
                     </div>
                     <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Mutual Questions</div>
-                      <div className="text-2xl font-semibold text-gray-900">{activeResult.mutualCount}</div>
+                      <div className="text-2xl font-semibold text-[#672DB7]">{activeResult.mutualCount}</div>
                     </div>
                     <div className={`p-3 rounded border ${completenessCardClass}`}>
                       <div className="text-sm text-gray-600">Completeness</div>
-                      <div className="text-2xl font-semibold text-[#672DB7]">
-                        {formatPercent(activeCompleteness * 100)}
+                      <div className={`text-2xl font-semibold ${completenessTextClass}`}>
+                        {Math.round(activeCompleteness * 100)}%
                       </div>
                     </div>
                   </div>
@@ -1096,31 +1087,25 @@ export default function CalculationPage() {
       {showResults && (
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Question Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {showRequired ? (
-              <>
-                {renderMissingQuestionList(
-                  `${p1Name}'s required questions not answered by ${p2Name}`,
-                  p1RequiredMissingByP2
-                )}
-                {renderMissingQuestionList(
-                  `${p2Name}'s required questions not answered by ${p1Name}`,
-                  p2RequiredMissingByP1
-                )}
-              </>
-            ) : (
-              <>
-                {renderMissingQuestionList(
-                  `${p1Name} answered, not answered by ${p2Name}`,
-                  p1AnsweredMissingByP2
-                )}
-                {renderMissingQuestionList(
-                  `${p2Name} answered, not answered by ${p1Name}`,
-                  p2AnsweredMissingByP1
-                )}
-              </>
-            )}
-          </div>
+          {showRequired ? (
+            <div className="grid grid-cols-1 gap-6">
+              {renderMissingQuestionList(
+                `${scopeRequiredOwner}'s required questions`,
+                scopeAllRequired
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {renderMissingQuestionList(
+                `${p1Name}'s answered questions`,
+                p1AllAnswered
+              )}
+              {renderMissingQuestionList(
+                `${p2Name}'s answered questions`,
+                p2AllAnswered
+              )}
+            </div>
+          )}
         </div>
       )}
 
