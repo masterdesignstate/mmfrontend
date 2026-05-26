@@ -2831,7 +2831,7 @@ export default function UserProfilePage() {
                     return (
                       <div
                         key={t.label}
-                        className={`relative rounded-xl px-4 py-3 ring-1 transition-all duration-200 bg-purple-50/60 ring-purple-300 ${
+                        className={`relative rounded-xl px-4 py-3 ring-1 transition-all duration-200 bg-white ring-purple-300 ${
                           t.isActive ? 'shadow-sm' : ''
                         }`}
                       >
