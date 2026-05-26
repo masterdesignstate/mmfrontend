@@ -697,7 +697,7 @@ export default function CalculationPage() {
                 Delta
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                A-Delta
+                Adjust
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 IMP(1)
@@ -1067,7 +1067,7 @@ export default function CalculationPage() {
                       <div className="text-sm text-gray-600">Mutual Questions</div>
                       <div className="text-2xl font-semibold text-[#672DB7]">{activeResult.mutualCount}</div>
                     </div>
-                    <div className={`p-3 rounded border ${completenessCardClass}`}>
+                    <div className="p-3 rounded border border-gray-200">
                       <div className="text-sm text-gray-600">Completeness</div>
                       <div className={`text-2xl font-semibold ${completenessTextClass}`}>
                         {Math.round(activeCompleteness * 100)}%
