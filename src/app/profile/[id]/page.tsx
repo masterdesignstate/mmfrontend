@@ -2825,39 +2825,35 @@ export default function UserProfilePage() {
                   ];
                   return tiles.map((t) => {
                     const isComplete = t.pct === 100;
-                    const tileAccent = isComplete ? 'text-[#2563EB]' : 'text-[#EA580C]';
-                    const tileRing = isComplete ? 'ring-blue-300' : 'ring-orange-300';
-                    const tileBg = isComplete ? 'bg-blue-50/60' : 'bg-orange-50/70';
-                    const tileIconBg = isComplete
-                      ? 'bg-gradient-to-br from-blue-600 to-blue-900 shadow-[0_2px_6px_-1px_rgba(37,99,235,0.5)]'
-                      : 'bg-gradient-to-br from-orange-400 to-orange-600 shadow-[0_2px_6px_-1px_rgba(234,88,12,0.45)]';
+                    // Card / label / icon always use purple; only the % number reflects status (blue when 100%, orange otherwise)
+                    const numberAccent = isComplete ? 'text-[#2563EB]' : 'text-[#EA580C]';
 
                     return (
                       <div
                         key={t.label}
-                        className={`relative rounded-xl px-4 py-3 ring-1 transition-all duration-200 ${tileBg} ${tileRing} ${
+                        className={`relative rounded-xl px-4 py-3 ring-1 transition-all duration-200 bg-purple-50/60 ring-purple-300 ${
                           t.isActive ? 'shadow-sm' : ''
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${tileIconBg}`}>
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full text-white transition-all bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </span>
-                          <span className={`text-sm font-semibold ${tileAccent}`}>
+                          <span className="text-sm font-semibold text-[#672DB7]">
                             {t.label}
                           </span>
                         </div>
                         <div className="flex items-baseline justify-between">
                           <div className="flex items-baseline">
-                            <span className={`text-3xl font-black ${tileAccent}`}>
+                            <span className={`text-3xl font-black ${numberAccent}`}>
                               {t.pct !== null ? t.pct : 'N/A'}
                             </span>
                             {t.pct !== null && (
                               <>
-                                <span className={`text-lg font-bold ml-0.5 ${tileAccent}`}>%</span>
-                                <span className={`text-sm font-semibold ml-1 ${tileAccent}`}>Complete</span>
+                                <span className={`text-lg font-bold ml-0.5 ${numberAccent}`}>%</span>
+                                <span className={`text-sm font-semibold ml-1 ${numberAccent}`}>Complete</span>
                               </>
                             )}
                           </div>
