@@ -496,15 +496,16 @@ export default function CalculationPage() {
 
       // Required compatibility: P1's required questions
       if (freshP1RequiredIds.size > 0) {
-        const p1ReqMutual = mutualQuestions.filter(q => freshP1RequiredIds.has(q.id.toLowerCase()));
+        const p1RequiredQuestions = questions.filter(q => freshP1RequiredIds.has(q.id.toLowerCase()));
+        const p1ReqMutual = p1RequiredQuestions.filter(q => person1AnswerMap.has(q.id) && person2AnswerMap.has(q.id));
         const scores = computeSubsetScores(p1ReqMutual, person1AnswerMap, person2AnswerMap);
-        // Completeness: of P1's required (answered by P1), what % did P2 answer?
-        const p1ReqAnsweredByP1 = questions.filter(q => freshP1RequiredIds.has(q.id.toLowerCase()) && person1AnswerMap.has(q.id));
-        const p2AnsweredP1Req = p1ReqAnsweredByP1.filter(q => person2AnswerMap.has(q.id));
-        const p2Completeness = p1ReqAnsweredByP1.length > 0 ? p2AnsweredP1Req.length / p1ReqAnsweredByP1.length : 1.0;
-        const p1Completeness = 1.0;
-        // Missing: P1's required questions that P2 hasn't answered (but P1 has)
-        const p2MissingP1Req = p1ReqAnsweredByP1
+        // Completeness: of P1's required set, what % did P2 answer?
+        const p1ReqAnsweredByP1 = p1RequiredQuestions.filter(q => person1AnswerMap.has(q.id));
+        const p2AnsweredP1Req = p1RequiredQuestions.filter(q => person2AnswerMap.has(q.id));
+        const p2Completeness = p1RequiredQuestions.length > 0 ? p2AnsweredP1Req.length / p1RequiredQuestions.length : 1.0;
+        const p1Completeness = p1RequiredQuestions.length > 0 ? p1ReqAnsweredByP1.length / p1RequiredQuestions.length : 1.0;
+        // Missing: P1's required questions that P2 hasn't answered.
+        const p2MissingP1Req = p1RequiredQuestions
           .filter(q => !person2AnswerMap.has(q.id))
           .map(q => ({ id: q.id, questionNumber: q.question_number ?? 0, text: q.text, missingUser: p2Name }));
         setP1RequiredResult({
@@ -523,15 +524,16 @@ export default function CalculationPage() {
 
       // Required compatibility: P2's required questions
       if (freshP2RequiredIds.size > 0) {
-        const p2ReqMutual = mutualQuestions.filter(q => freshP2RequiredIds.has(q.id.toLowerCase()));
+        const p2RequiredQuestions = questions.filter(q => freshP2RequiredIds.has(q.id.toLowerCase()));
+        const p2ReqMutual = p2RequiredQuestions.filter(q => person1AnswerMap.has(q.id) && person2AnswerMap.has(q.id));
         const scores = computeSubsetScores(p2ReqMutual, person1AnswerMap, person2AnswerMap);
-        // Completeness: of P2's required (answered by P2), what % did P1 answer?
-        const p2ReqAnsweredByP2 = questions.filter(q => freshP2RequiredIds.has(q.id.toLowerCase()) && person2AnswerMap.has(q.id));
-        const p1AnsweredP2Req = p2ReqAnsweredByP2.filter(q => person1AnswerMap.has(q.id));
-        const p1Completeness = p2ReqAnsweredByP2.length > 0 ? p1AnsweredP2Req.length / p2ReqAnsweredByP2.length : 1.0;
-        const p2Completeness = 1.0;
-        // Missing: P2's required questions that P1 hasn't answered (but P2 has)
-        const p1MissingP2Req = p2ReqAnsweredByP2
+        // Completeness: of P2's required set, what % did P1 answer?
+        const p2ReqAnsweredByP2 = p2RequiredQuestions.filter(q => person2AnswerMap.has(q.id));
+        const p1AnsweredP2Req = p2RequiredQuestions.filter(q => person1AnswerMap.has(q.id));
+        const p1Completeness = p2RequiredQuestions.length > 0 ? p1AnsweredP2Req.length / p2RequiredQuestions.length : 1.0;
+        const p2Completeness = p2RequiredQuestions.length > 0 ? p2ReqAnsweredByP2.length / p2RequiredQuestions.length : 1.0;
+        // Missing: P2's required questions that P1 hasn't answered.
+        const p1MissingP2Req = p2RequiredQuestions
           .filter(q => !person1AnswerMap.has(q.id))
           .map(q => ({ id: q.id, questionNumber: q.question_number ?? 0, text: q.text, missingUser: p1Name }));
         setP2RequiredResult({
@@ -591,12 +593,26 @@ export default function CalculationPage() {
     return value;
   };
 
-  const renderMissingQuestionList = (title: string, questionsToShow: MissingQuestion[]) => (
+  const renderMissingQuestionList = (
+    title: string,
+    questionsToShow: MissingQuestion[],
+    primaryMetric: { label: string; value: number },
+    missingMetric: { label: string; value: number },
+  ) => (
     <div className="border border-gray-200 rounded-lg p-4">
       <h4 className="text-sm font-semibold text-gray-900 mb-3">
         {title}
-        <span className="ml-2 text-xs font-normal text-gray-500">({questionsToShow.length})</span>
       </h4>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="rounded border border-gray-100 bg-gray-50 p-3">
+          <div className="text-xs text-gray-500">{primaryMetric.label}</div>
+          <div className="text-xl font-semibold text-gray-900">{primaryMetric.value}</div>
+        </div>
+        <div className="rounded border border-gray-100 bg-gray-50 p-3">
+          <div className="text-xs text-gray-500">{missingMetric.label}</div>
+          <div className="text-xl font-semibold text-[#672DB7]">{missingMetric.value}</div>
+        </div>
+      </div>
       {questionsToShow.length > 0 ? (
         <ul className="space-y-2">
           {questionsToShow.map(question => (
@@ -607,7 +623,7 @@ export default function CalculationPage() {
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-gray-500">No questions to show.</p>
+        <p className="text-sm text-gray-500">No missing questions to show.</p>
       )}
     </div>
   );
@@ -631,6 +647,7 @@ export default function CalculationPage() {
     results: DirectionalResult[],
     perspectiveName: string,
     perspectiveUserId: string,
+    answerLabels: { preference: string; counterpart: string; importance: string },
     totalScore: number,
     totalMax: number,
     requiredIds: Set<string>,
@@ -688,10 +705,10 @@ export default function CalculationPage() {
                 Question
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200">
-                Them (1)
+                {answerLabels.preference}
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Me (2)
+                {answerLabels.counterpart}
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Delta
@@ -700,7 +717,7 @@ export default function CalculationPage() {
                 Adjust
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                IMP(1)
+                {answerLabels.importance}
               </th>
               <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Factor
@@ -746,7 +763,7 @@ export default function CalculationPage() {
                     {formatDelta(result.delta)}
                   </td>
                   <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                    {result.delta === null ? '—' : formatScore(controls.adjust - result.delta)}
+                    {formatScore(result.delta === null ? 0 : controls.adjust - result.delta)}
                   </td>
                   <td className="px-2 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                     {result.importance}
@@ -790,27 +807,69 @@ export default function CalculationPage() {
 
   const p1Name = person1 ? `(1) ${getPersonName(person1)}` : '(1) P1';
   const p2Name = person2 ? `(2) ${getPersonName(person2)}` : '(2) P2';
-  const p1AnsweredQuestionIds = new Set((person1 ? userAnswers[person1] ?? [] : []).map(answer => answer.question.id));
-  const p2AnsweredQuestionIds = new Set((person2 ? userAnswers[person2] ?? [] : []).map(answer => answer.question.id));
-  const buildQuestionList = (predicate: (q: Question) => boolean): MissingQuestion[] => (
-    questions.flatMap((question, index) => (
-      predicate(question)
+  const p1AnswerList = person1 ? userAnswers[person1] ?? [] : [];
+  const p2AnswerList = person2 ? userAnswers[person2] ?? [] : [];
+  const normalizeQuestionId = (id: string) => id.toLowerCase();
+  const p1AnsweredQuestionIds = new Set(p1AnswerList.map(answer => normalizeQuestionId(answer.question.id)));
+  const p2AnsweredQuestionIds = new Set(p2AnswerList.map(answer => normalizeQuestionId(answer.question.id)));
+
+  const sortQuestionSummary = (items: MissingQuestion[]) => (
+    [...items].sort((a, b) => a.questionNumber - b.questionNumber || a.text.localeCompare(b.text))
+  );
+
+  const buildMissingAnsweredQuestions = (
+    answers: UserAnswer[],
+    otherAnsweredQuestionIds: Set<string>,
+    missingUser: string,
+  ): MissingQuestion[] => {
+    const seen = new Set<string>();
+    return sortQuestionSummary(answers.flatMap((answer, index) => {
+      const id = normalizeQuestionId(answer.question.id);
+      if (seen.has(id) || otherAnsweredQuestionIds.has(id)) return [];
+      seen.add(id);
+      return [{
+        id: answer.question.id,
+        questionNumber: resolveQuestionNumber(answer.question, index),
+        text: answer.question.text,
+        missingUser,
+      }];
+    }));
+  };
+
+  const buildMissingRequiredQuestions = (
+    requiredIds: Set<string>,
+    otherAnsweredQuestionIds: Set<string>,
+    missingUser: string,
+  ): MissingQuestion[] => (
+    sortQuestionSummary(questions.flatMap((question, index) => (
+      requiredIds.has(normalizeQuestionId(question.id)) && !otherAnsweredQuestionIds.has(normalizeQuestionId(question.id))
         ? [{
             id: question.id,
             questionNumber: resolveQuestionNumber(question, index),
             text: question.text,
-            missingUser: '',
+            missingUser,
           }]
         : []
-    ))
+    )))
   );
 
-  const p1AllAnswered = buildQuestionList(q => p1AnsweredQuestionIds.has(q.id));
-  const p2AllAnswered = buildQuestionList(q => p2AnsweredQuestionIds.has(q.id));
-  const scopeAllRequired = requiredScope === 'p1'
-    ? buildQuestionList(q => p1RequiredIds.has(q.id.toLowerCase()))
-    : buildQuestionList(q => p2RequiredIds.has(q.id.toLowerCase()));
-  const scopeRequiredOwner = requiredScope === 'p1' ? p1Name : p2Name;
+  const p1AnsweredMissingByP2 = buildMissingAnsweredQuestions(p1AnswerList, p2AnsweredQuestionIds, p2Name);
+  const p2AnsweredMissingByP1 = buildMissingAnsweredQuestions(p2AnswerList, p1AnsweredQuestionIds, p1Name);
+  const p1RequiredMissingByP2 = buildMissingRequiredQuestions(p1RequiredIds, p2AnsweredQuestionIds, p2Name);
+  const p2RequiredMissingByP1 = buildMissingRequiredQuestions(p2RequiredIds, p1AnsweredQuestionIds, p1Name);
+  const activeRequiredSummary = requiredScope === 'p1'
+    ? {
+        title: `${p1Name}'s required questions`,
+        missingQuestions: p1RequiredMissingByP2,
+        requiredCount: p1RequiredIds.size,
+        missingLabel: `Not answered by ${p2Name}`,
+      }
+    : {
+        title: `${p2Name}'s required questions`,
+        missingQuestions: p2RequiredMissingByP1,
+        requiredCount: p2RequiredIds.size,
+        missingLabel: `Not answered by ${p1Name}`,
+      };
 
   return (
     <div className="space-y-6">
@@ -994,7 +1053,7 @@ export default function CalculationPage() {
                   {showRequired ? 'Required Compatibility' : 'Overall Compatibility'}
                 </h3>
                 <label className="inline-flex items-center cursor-pointer">
-                  <span className="text-sm text-gray-600 mr-2">Required Only</span>
+                  <span className="text-sm text-gray-600 mr-2">Required</span>
                   <div className="relative">
                     <input
                       type="checkbox"
@@ -1088,21 +1147,27 @@ export default function CalculationPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Question Summary</h3>
           {showRequired ? (
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {renderMissingQuestionList(
-                `${scopeRequiredOwner}'s required questions`,
-                scopeAllRequired
+                activeRequiredSummary.title,
+                activeRequiredSummary.missingQuestions,
+                { label: 'Required questions', value: activeRequiredSummary.requiredCount },
+                { label: activeRequiredSummary.missingLabel, value: activeRequiredSummary.missingQuestions.length }
               )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {renderMissingQuestionList(
                 `${p1Name}'s answered questions`,
-                p1AllAnswered
+                p1AnsweredMissingByP2,
+                { label: 'Answered questions', value: p1AnsweredQuestionIds.size },
+                { label: `Not answered by ${p2Name}`, value: p1AnsweredMissingByP2.length }
               )}
               {renderMissingQuestionList(
                 `${p2Name}'s answered questions`,
-                p2AllAnswered
+                p2AnsweredMissingByP1,
+                { label: 'Answered questions', value: p2AnsweredQuestionIds.size },
+                { label: `Not answered by ${p1Name}`, value: p2AnsweredMissingByP1.length }
               )}
             </div>
           )}
@@ -1147,11 +1212,15 @@ export default function CalculationPage() {
         return (
           <>
             {renderResultTable(
-              displayResults1, p1Name, person1, dScore1, dMax1,
+              displayResults1, p1Name, person1,
+              { preference: 'Them (1)', counterpart: 'Me (2)', importance: 'IMP(1)' },
+              dScore1, dMax1,
               p1RequiredIds
             )}
             {renderResultTable(
-              displayResults2, p2Name, person2, dScore2, dMax2,
+              displayResults2, p2Name, person2,
+              { preference: 'Them (2)', counterpart: 'Me (1)', importance: 'IMP(2)' },
+              dScore2, dMax2,
               p2RequiredIds
             )}
           </>
