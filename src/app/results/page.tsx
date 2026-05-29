@@ -49,6 +49,13 @@ const REQUIRED_TAG_LABELS: Record<string, string> = {
   'Their Pending': 'Their Pending'
 };
 
+const FILTER_TAG_LABELS: Record<string, string> = {
+  Hide: 'Hidden',
+  Hidden: 'Hidden'
+};
+
+const getFilterTagLabel = (tag: string) => REQUIRED_TAG_LABELS[tag] ?? FILTER_TAG_LABELS[tag] ?? tag;
+
 const EXCLUSIVE_REQUIRED_TAGS: Record<string, string[]> = {
   Required: ['Pending'],
   Pending: ['Required'],
@@ -1872,7 +1879,7 @@ function ResultsPageContent() {
                   </svg>
                 </span>
                 <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
-                  {(filters.requiredScope ?? 'my') === 'their' ? 'Their Required Questions' : 'My Required Questions'}
+                  {(filters.requiredScope ?? 'my') === 'their' ? 'Their Required' : 'My Required'}
                 </span>
               </button>
             )}
@@ -1946,7 +1953,7 @@ function ResultsPageContent() {
                   </svg>
                 </span>
                 <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
-                  {REQUIRED_TAG_LABELS[tag] ?? tag}
+                  {getFilterTagLabel(tag)}
                 </span>
               </button>
             ))}
@@ -2062,7 +2069,6 @@ function ResultsPageContent() {
                     overall_compatibility: theirScore,
                     compatible_with_me: theirScore,
                     im_compatible_with: theirScore,
-                    mutual_questions_count: profile.compatibility.required_mutual_questions_count ?? 0,
                   };
                 } else if (profile.compatibility?.required_overall_compatibility !== undefined &&
                     profile.compatibility?.required_overall_compatibility !== null) {
@@ -2071,7 +2077,6 @@ function ResultsPageContent() {
                     overall_compatibility: profile.compatibility.required_overall_compatibility || 0,
                     compatible_with_me: profile.compatibility.required_compatible_with_me ?? 0,
                     im_compatible_with: profile.compatibility.required_im_compatible_with ?? 0,
-                    mutual_questions_count: profile.compatibility.required_mutual_questions_count ?? 0,
                   };
                 }
               }
@@ -2270,22 +2275,18 @@ function ResultsPageContent() {
               <div className="w-full max-w-2xl">
                 {/* Compatibility Type Picker */}
                 <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </span>
-                        <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Compatibility Type</h3>
-                      </div>
-                    </div>
+                  <div className="mb-3 flex items-center gap-2.5">
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </span>
+                    <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Compatibility Type</h3>
                     <div className="relative group">
                       <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
                         <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                       </div>
-                      <div className="absolute right-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                      <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                         <div className="space-y-2">
                           <div>
                             <span className="font-semibold">My Preferences:</span> How well they match what you&apos;re looking for
@@ -2297,7 +2298,7 @@ function ResultsPageContent() {
                             <span className="font-semibold">Overall:</span> The combined score of both compatibilities
                           </div>
                         </div>
-                        <div className="absolute -top-1 right-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
                       </div>
                     </div>
                   </div>
@@ -2430,7 +2431,7 @@ function ResultsPageContent() {
                               </svg>
                             </span>
                             <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
-                              {REQUIRED_TAG_LABELS[tag] ?? tag}
+                              {getFilterTagLabel(tag)}
                             </span>
                           </button>
                         );
@@ -2475,8 +2476,8 @@ function ResultsPageContent() {
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Tags</h3>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    'Approved', 'Approved Me', 'Hot', 'Maybe', 'Liked',
-                    'Liked Me', 'Matched', 'Saved', 'Not Approved', 'Hide'
+                    'Approved', 'Approved Me', 'Not Approved', 'Liked', 'Liked Me',
+                    'Matched', 'Hot', 'Maybe', 'Saved', 'Hide'
                   ].map((tag) => {
                     const active = pendingFilters.tags.includes(tag);
                     return (
@@ -2500,7 +2501,7 @@ function ResultsPageContent() {
                           </svg>
                         </span>
                         <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
-                          {tag}
+                          {getFilterTagLabel(tag)}
                         </span>
                       </button>
                     );

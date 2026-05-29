@@ -1590,6 +1590,20 @@ export default function UserProfilePage() {
     return pending;
   }, [profileUserRequiredQuestionIds, currentUserAnsweredQuestionIds]);
 
+  const totalMutualQuestionsAnswered = useMemo(() => {
+    const profileAnsweredIds = new Set(
+      userAnswers
+        .map(answer => String(answer.question?.id || '').toLowerCase())
+        .filter(Boolean)
+    );
+
+    if (profileAnsweredIds.size === 0 || currentUserAnsweredQuestionIds.size === 0) {
+      return compatibility?.mutual_questions_count || 0;
+    }
+
+    return [...profileAnsweredIds].filter(qId => currentUserAnsweredQuestionIds.has(qId)).length;
+  }, [userAnswers, currentUserAnsweredQuestionIds, compatibility?.mutual_questions_count]);
+
   // Build pending question groups from allQuestions for display in the modal
   const pendingQuestionGroups = useMemo(() => {
     const groups: [string, {
@@ -2665,20 +2679,8 @@ export default function UserProfilePage() {
         {/* Section 3 — Compatibility cards + Required */}
         {compatibility && (
           <div className="w-full max-w-xl mx-auto mb-4">
-            {/* Mutual Questions Answered, Total Questions Answered */}
+            {/* Total Questions Answered, Mutual Questions Answered */}
             <div className="flex gap-3 mb-3">
-              {/* Mutual Questions Answered */}
-              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
-                  Mutual Questions Answered
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-3xl font-black text-[#672DB7]">
-                    {compatibility.mutual_questions_count || 0}
-                  </span>
-                </div>
-              </div>
-
               {/* Total Questions Answered */}
               <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                 <div className="text-sm font-normal text-black capitalize mb-2">
@@ -2687,6 +2689,18 @@ export default function UserProfilePage() {
                 <div className="flex items-baseline">
                   <span className="text-3xl font-black text-[#672DB7]">
                     {userAnswers.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Mutual Questions Answered */}
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
+                <div className="text-sm font-normal text-black capitalize mb-2">
+                  Mutual Questions Answered
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {totalMutualQuestionsAnswered}
                   </span>
                 </div>
               </div>
@@ -2757,7 +2771,16 @@ export default function UserProfilePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </span>
-                  <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required</h4>
+                  <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
+                  <div className="relative group">
+                    <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
+                      <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
+                    </div>
+                    <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                      When enabled, this shows required compatibility and completeness based on required questions.
+                      <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"

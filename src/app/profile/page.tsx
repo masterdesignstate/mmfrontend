@@ -10,6 +10,7 @@ import { apiService } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import ActivityStatus from '@/components/ActivityStatus';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUserAnswers } from '@/hooks/useUserAnswers';
 import { useGroupedQuestions } from '@/hooks/useGroupedQuestions';
@@ -28,6 +29,8 @@ interface UserProfile {
   live?: string;
   from_location?: string;
   tagline?: string;
+  is_online?: boolean;
+  last_active?: string | null;
 }
 
 interface UserAnswer {
@@ -699,125 +702,113 @@ export default function ProfilePage() {
         <HamburgerMenu />
       </div>
 
-      <div className="flex">
-        {/* Desktop Sidebar */}
-        <div className="hidden lg:block w-80 bg-white border-r border-gray-200 min-h-screen">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-8">Profile</h1>
-            
-            <nav className="space-y-4">
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
-                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                  <Image
-                    src={user.profile_photo || '/assets/usxr.png'}
-                    alt={displayName}
-                    width={32}
-                    height={32}
-                    className="object-cover w-full h-full"
-                  />
-                </div>
-                <span className="font-medium text-gray-900">About me</span>
-              </div>
-
-              <div
-                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
-                onClick={() => router.push('/profile/edit')}
-              >
-                <Image
-                  src="/assets/edit-profile.png"
-                  alt="Edit Profile"
-                  width={32}
-                  height={32}
-                />
-                <span className="text-gray-700">Edit Profile</span>
-              </div>
-
-              <div
-                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
-                onClick={() => router.push('/settings')}
-              >
-                <i className="fas fa-cog text-2xl text-gray-600 w-8 text-center"></i>
-                <span className="text-gray-700">Settings</span>
-              </div>
-
-            </nav>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 lg:max-w-4xl lg:mx-auto px-6 lg:px-12 xl:px-20 py-4">
-          {/* Profile Photos (swipeable gallery) and Name */}
-          <div className="relative mb-6">
+      {/* Main Content */}
+      <div className="flex-1 max-w-4xl mx-auto px-6 lg:px-12 xl:px-20 py-4">
+          {/* Profile Photos (swipeable gallery), Name, and action sleeve */}
+          <div className="relative mb-6 w-full sm:w-95 mx-auto">
             {(() => {
               const gallery = user.pictures && user.pictures.length > 0
                 ? [...user.pictures].sort((a, b) => a.order - b.order).map(p => p.image_url)
                 : [user.profile_photo || '/assets/usxr.png'];
               const showDots = gallery.length > 1;
               return (
-                <div className="w-full sm:w-95 mx-auto">
-                  <div className="relative">
-                    <div
-                      className="flex w-full overflow-x-auto snap-x snap-mandatory scroll-smooth aspect-[4/3] sm:aspect-[4/4] rounded-2xl bg-gradient-to-b from-orange-400 to-orange-600 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                    >
+                <>
+                  <div className="w-full aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative z-10">
+                    <div className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                       {gallery.map((src, i) => (
                         <div key={i} className="relative shrink-0 w-full h-full snap-center">
-                          <Image
-                            src={src}
-                            alt={`${displayName} photo ${i + 1}`}
-                            fill
-                            className="object-cover"
-                          />
-                          {i === 0 && (
-                            <div className="absolute bottom-4 left-4">
-                              <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
-                                {displayName}{user.age ? `, ${user.age}` : ''}
-                              </h1>
-                            </div>
-                          )}
+                          <Image src={src} alt={`${displayName} photo ${i + 1}`} fill className="object-cover" />
                         </div>
                       ))}
                     </div>
                     {showDots && (
-                      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-1.5 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm">
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex gap-1.5 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm pointer-events-none">
                         {gallery.map((_, i) => (
                           <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/80" />
                         ))}
                       </div>
                     )}
+                    <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
+                      <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
+                        {displayName}{user.age ? `, ${user.age}` : ''}
+                      </h1>
+                    </div>
                   </div>
 
-                  {/* Tagline below the profile photo */}
-                  {user.tagline && (
-                    <div className="mt-2 text-center">
-                      <p className="text-gray-700 text-lg">{user.tagline}</p>
+                  <div className="rounded-2xl -mt-6 pt-7 pb-3.5 px-5 relative z-0 bg-gradient-to-br from-purple-500 via-purple-700 to-[#672DB7]">
+                    {user.tagline && (
+                      <p className="text-center text-white text-sm font-semibold mb-1.5 px-2 truncate">
+                        {user.tagline}
+                      </p>
+                    )}
+                    <div className="flex justify-between gap-3">
+                      <button
+                        onClick={() => router.push('/profile/edit')}
+                        className="flex-1 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer text-center"
+                      >
+                        Edit Profile
+                      </button>
+                      <button
+                        onClick={() => router.push('/settings')}
+                        className="flex-1 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer text-center"
+                      >
+                        Settings
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                </>
               );
             })()}
           </div>
 
-          {/* Profile Icons - horizontal layout with containers */}
+          {/* Section 1 — Identity row (From / Live / Height / Activity) */}
+          <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm">
+            <div className="grid grid-cols-4 gap-3">
+              <div className="text-center">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</h3>
+                <p className="mt-1 text-sm font-medium text-gray-900">{user.from_location || 'Austin'}</p>
+              </div>
+              <div className="text-center">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live</h3>
+                <p className="mt-1 text-sm font-medium text-gray-900">{user.live || 'Austin'}</p>
+              </div>
+              <div className="text-center">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Height</h3>
+                <p className="mt-1 text-sm font-medium text-gray-900">{formatHeight(user.height)}</p>
+              </div>
+              <div className="text-center">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activity</h3>
+                <div className="mt-1 flex items-center justify-center">
+                  <ActivityStatus
+                    isOnline={user.is_online || false}
+                    lastActive={user.last_active}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2 — Profile icons */}
           {profileIcons.length > 0 && (
-            <div className="mb-6">
-              <div className="flex justify-start flex-wrap gap-3">
+            <div className="w-full max-w-xl mx-auto mb-4">
+              <div className="flex flex-wrap gap-2 justify-center">
                 {profileIcons.map((icon, index) => (
                   <div
                     key={index}
-                    className={`flex items-center bg-[#F3F3F3] rounded-full px-4 py-1 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
+                    className={`flex items-center bg-white ring-1 ring-gray-200 shadow-sm rounded-full pl-2 pr-3 py-1.5 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
                     onClick={() => icon.options.length > 0 && setExpandedIconIndex(expandedIconIndex === index ? null : index)}
                   >
-                    <div className="w-7 h-7 mr-1 relative">
+                    <div className="w-5 h-5 mr-1.5 relative">
                       <Image
                         src={icon.image}
                         alt={icon.label}
-                        width={icon.image.includes('drink.png') ? 25 : 28}
-                        height={icon.image.includes('drink.png') ? 25 : 28}
+                        width={icon.image.includes('drink.png') ? 16 : 18}
+                        height={icon.image.includes('drink.png') ? 16 : 18}
                         className="object-contain"
-                        style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-4px' } : {}}
+                        style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-2px' } : {}}
                       />
                     </div>
-                    <span className="text-base text-black font-medium">{icon.label}</span>
+                    <span className="text-sm font-medium text-gray-900">{icon.label}</span>
                     {expandedIconIndex === index && icon.options.length > 0 && (
                       <svg
                         className="w-4 h-4 ml-1 text-gray-500 rotate-180"
@@ -832,7 +823,7 @@ export default function ProfilePage() {
 
               {/* Expanded dropdown for selected icon */}
               {expandedIconIndex !== null && (profileIcons[expandedIconIndex]?.options?.length ?? 0) > 0 && (
-                <div className="mt-3 bg-[#F3F3F3] rounded-xl p-4">
+                <div className="mt-3 bg-white ring-1 ring-gray-200 shadow-sm rounded-2xl p-4">
                   <div className="space-y-2">
                     {profileIcons[expandedIconIndex].options.map((option, optIndex) => (
                       <div key={optIndex} className="flex items-center gap-3 py-1">
@@ -854,13 +845,12 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Required Questions and Total Questions Answered Section */}
+          {/* Section 3 — Question counts */}
           {requiredQuestionsCount !== undefined && (
-            <div className="mb-8">
-              {/* Second Row: Total Questions Answered, Required Questions - Smaller Cards */}
+            <div className="w-full max-w-xl mx-auto mb-4">
               <div className="flex gap-3">
                 {/* Total Questions Answered */}
-                <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                   <div className="text-sm font-normal text-black capitalize mb-2">
                     Total Questions Answered
                   </div>
@@ -872,7 +862,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Required Questions */}
-                <div className="bg-[#F3F3F3] rounded-xl px-3 py-2 flex-1">
+                <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                   <div className="text-sm font-normal text-black capitalize mb-2">
                     Required Questions
                   </div>
@@ -886,143 +876,87 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* User Info - responsive layout */}
-          <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:space-x-16 mb-6">
-            <div>
-              <h3 className="font-semibold text-gray-900">Username</h3>
-              <p className="text-gray-600">{user.username}</p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">From</h3>
-              <p className="text-gray-600">{user.from_location || 'Austin'}</p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Live</h3>
-              <p className="text-gray-600">{user.live || 'Austin'}</p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Height</h3>
-              <p className="text-gray-600">{formatHeight(user.height)}</p>
-            </div>
+          {/* Section 4 — Bio */}
+          <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm min-h-[44px] flex items-center justify-center">
+            <p className="text-base text-gray-700 text-center">
+              {user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}
+            </p>
           </div>
 
-          {/* Bio */}
-          <div className="mb-8">
-            <h3 className="font-semibold text-gray-900 mb-4">Bio</h3>
-            <p className="text-gray-600 text-sm">{user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}</p>
-          </div>
-
-          {/* My Gender Section - left aligned content block */}
-          <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4">Gender</h3>
-            
-            {/* Me Section */}
+          {/* Section 5 — Sliders */}
+          <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white p-4 shadow-sm">
+            {/* My Gender */}
             <div className="mb-6">
-              <div className="max-w-md">
-                {/* Me label aligned with middle of slider */}
-                <div className="mb-2 flex" style={{ paddingLeft: '5rem' }}>
-                  <div className="flex-1 relative">
-                    <div className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                      <h4 className="font-semibold text-lg">Me</h4>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* LESS, MORE labels above sliders - aligned with slider start */}
-                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
-                  <span>LESS</span>
-                  <span>MORE</span>
-                </div>
-                
-                <div className="space-y-3">
-                  {/* FEMALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 2) || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 2) === 6}
-                      />
-                    </div>
-                  </div>
-
-                  {/* MALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 1) || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 1) === 6}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="flex items-center mb-2 ml-24">
+                <span className="text-xs text-gray-500">LESS</span>
+                <h4 className="flex-1 text-center text-base font-semibold text-black">My Gender</h4>
+                <span className="text-xs text-gray-500">MORE</span>
               </div>
-            </div>
-
-            {/* Interested In Section */}
-            <div className="mb-6">
-              <div className="max-w-md">
-                {/* Interested In label aligned with middle of slider */}
-                <div className="mb-2 flex" style={{ paddingLeft: '5rem' }}>
-                  <div className="flex-1 relative">
-                    <div className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                      <h4 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Interested In</h4>
-                    </div>
-                  </div>
-                </div>
-                {/* LESS, MORE labels above sliders - aligned with slider start */}
-                <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
-                  <span>LESS</span>
-                  <span>MORE</span>
-                </div>
-                
-                <div className="space-y-3">
-                  {/* FEMALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">FEMALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
-                      />
-                    </div>
-                  </div>
-
-                  {/* MALE Slider Row */}
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-semibold text-gray-400 w-16">MALE</div>
-                    <div className="flex-1">
-                      <SliderComponent
-                        value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
-                        onChange={() => {}}
-                        isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* I'm Looking For Section */}
-          <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4">I&apos;m Looking For</h3>
-            
-            <div className="max-w-md">
-              {/* LESS, MORE labels above sliders - aligned with slider start (matching Gender section) */}
-              <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-20">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
-              
               <div className="space-y-3">
-                {/* FRIEND Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">FRIEND</div>
+                  <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 2) || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 2) === 6}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 1) || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 1) === 6}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Interested In */}
+            <div className="mb-6">
+              <div className="flex items-center mb-2 ml-24">
+                <span className="text-xs text-gray-500">LESS</span>
+                <h4 className="flex-1 text-center text-base font-semibold text-black">Interested In</h4>
+                <span className="text-xs text-gray-500">MORE</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
+                  <div className="flex-1">
+                    <SliderComponent
+                      value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
+                      onChange={() => {}}
+                      isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Looking For */}
+            <div className={getRankedIdeologyQuestions().length > 0 ? 'mb-6' : ''}>
+              <div className="flex items-center mb-2 ml-24">
+                <span className="text-xs text-gray-500">LESS</span>
+                <h4 className="flex-1 text-center text-base font-semibold text-black">Looking For</h4>
+                <span className="text-xs text-gray-500">MORE</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="text-xs font-semibold text-gray-400 w-20">FRIEND</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 1, 'me_answer') || 3}
@@ -1031,10 +965,8 @@ export default function ProfilePage() {
                     />
                   </div>
                 </div>
-
-                {/* HOOK UP Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">HOOK UP</div>
+                  <div className="text-xs font-semibold text-gray-400 w-20">HOOK UP</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 2, 'me_answer') || 3}
@@ -1043,10 +975,8 @@ export default function ProfilePage() {
                     />
                   </div>
                 </div>
-
-                {/* DATE Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">DATE</div>
+                  <div className="text-xs font-semibold text-gray-400 w-20">DATE</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 3, 'me_answer') || 3}
@@ -1055,10 +985,8 @@ export default function ProfilePage() {
                     />
                   </div>
                 </div>
-
-                {/* LIFE PARTNER Slider Row */}
                 <div className="flex items-center gap-4">
-                  <div className="text-xs font-semibold text-gray-400 w-16">PARTNER</div>
+                  <div className="text-xs font-semibold text-gray-400 w-20">PARTNER</div>
                   <div className="flex-1">
                     <SliderComponent
                       value={getAnswerValue(1, 4, 'me_answer') || 3}
@@ -1069,22 +997,18 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Ideology Section */}
-          {getRankedIdeologyQuestions().length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xl font-bold mb-4">Ideology</h3>
-
-              <div className="max-w-md">
-                <div className="relative text-xs text-gray-500 mb-2 ml-20 sm:ml-24" style={{ height: '14px' }}>
+            {/* Ideology */}
+            {getRankedIdeologyQuestions().length > 0 && (
+              <div>
+                <h4 className="text-base font-semibold text-black text-center mb-3">Ideology</h4>
+                <div className="relative text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
                   <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
                   <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
                   <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
                 </div>
-
                 <div className="space-y-3">
                   {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {
                     const questionName = ideologyAnswer.question.question_name || 'Unknown';
@@ -1108,11 +1032,10 @@ export default function ProfilePage() {
                   })}
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
     </ProtectedPageGate>
   );
 }
