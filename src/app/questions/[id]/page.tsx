@@ -1818,8 +1818,9 @@ function QuestionEditPageContent() {
 
     // Grouped questions (question_type === 'grouped') - Card selection UI like ethnicity
     if (questions.length > 0 && questions[0].question_type === 'grouped') {
-      const visibleQuestions = showAllGroupedOptions ? questions : questions.slice(0, 6);
-      const hasMoreQuestions = questions.length > 6;
+      const initialVisibleQuestionCount = questionNumber === 3 ? 7 : 6;
+      const visibleQuestions = showAllGroupedOptions ? questions : questions.slice(0, initialVisibleQuestionCount);
+      const hasMoreQuestions = questions.length > initialVisibleQuestionCount;
 
       return (
         <div className="max-w-2xl mx-auto">

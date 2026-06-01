@@ -4,13 +4,17 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { apiService } from '@/services/api';
+import { apiService, type Post, type PostComment, type UserProfilePrompt } from '@/services/api';
+import FeedPostCard, { DEFAULT_AVATAR, formatRelative } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
 import ActivityStatus from '@/components/ActivityStatus';
+import ProfilePromptCards from '@/components/ProfilePromptCards';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
+import { renderWithHashtags } from '@/utils/hashtags';
 import posthog from 'posthog-js';
 
 // Types for user profile and answers
@@ -30,7 +34,9 @@ interface UserProfile {
   last_active?: string | null;
   questions_answered_count?: number;
   require_answers_for_likes?: boolean;
+  share_answers?: boolean;
   pictures?: { id: string; image_url: string; order: number }[];
+  profile_prompts?: UserProfilePrompt[];
 }
 
 interface UserAnswer {
@@ -47,14 +53,59 @@ interface UserAnswer {
   };
   me_answer: number;
   looking_for_answer: number;
+  me_open_to_all?: boolean;
+  looking_for_open_to_all?: boolean;
+  me_importance?: number;
+  looking_for_importance?: number;
+  me_share?: boolean;
+  looking_for_share?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface ProfileIcon {
   image: string;
   label: string;
   show: boolean;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; image?: string }>;
 }
+
+type ProfileContentTab = 'profile' | 'posts' | 'comments';
+
+const getDietIcon = (dietName: string): string => {
+  switch (dietName.trim().toLowerCase()) {
+    case 'omnivore':
+      return '/assets/carnivore.png';
+    case 'pescatarian':
+      return '/assets/fish.png';
+    case 'vegan':
+      return '/assets/wheat.png';
+    case 'vegetarian':
+    default:
+      return '/assets/leaf.png';
+  }
+};
+
+const HeartGlyph = ({
+  filled,
+  className,
+}: {
+  filled: boolean;
+  className: string;
+}) => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    className={className}
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth={filled ? 0 : 2.25}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 21.2l-1.45-1.31C5.42 15.25 2 12.16 2 8.38 2 5.29 4.42 3 7.5 3c1.73 0 3.4.81 4.5 2.08C13.1 3.81 14.77 3 16.5 3 19.58 3 22 5.29 22 8.38c0 3.78-3.42 6.87-8.55 11.51L12 21.2z" />
+  </svg>
+);
 
 // Interactive editable slider component (for answering pending questions inline)
 const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = false, labels = [] }: {
@@ -175,6 +226,17 @@ export default function UserProfilePage() {
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [profilePrompts, setProfilePrompts] = useState<UserProfilePrompt[]>([]);
+  const [currentViewerId, setCurrentViewerId] = useState('');
+  const [activeProfileTab, setActiveProfileTab] = useState<ProfileContentTab>('profile');
+  const [profilePosts, setProfilePosts] = useState<Post[]>([]);
+  const [profilePostsLoading, setProfilePostsLoading] = useState(false);
+  const [profilePostsError, setProfilePostsError] = useState('');
+  const [profilePostsPage, setProfilePostsPage] = useState(1);
+  const [profilePostsHasNext, setProfilePostsHasNext] = useState(false);
+  const [profileComments, setProfileComments] = useState<PostComment[]>([]);
+  const [profileCommentsLoading, setProfileCommentsLoading] = useState(false);
+  const [profileCommentsError, setProfileCommentsError] = useState('');
   const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
   const [showQuestionsModal, setShowQuestionsModal] = useState(false);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
@@ -291,6 +353,92 @@ export default function UserProfilePage() {
 
   // Fetch all questions for grouped categories (ethnicity=3, education=4, diet=5, faith=11)
   useEffect(() => {
+    const viewerId = localStorage.getItem('user_id') || '';
+    setCurrentViewerId(viewerId);
+  }, []);
+
+  useEffect(() => {
+    setActiveProfileTab('profile');
+    setProfilePosts([]);
+    setProfilePostsPage(1);
+    setProfilePostsHasNext(false);
+    setProfilePostsError('');
+    setProfileComments([]);
+    setProfileCommentsError('');
+  }, [userId]);
+
+  useEffect(() => {
+    const fetchProfilePrompts = async () => {
+      if (!userId) return;
+      const viewerId = localStorage.getItem('user_id') || '';
+      setCurrentViewerId(viewerId);
+      try {
+        const prompts = await apiService.getUserProfilePrompts(userId, {
+          viewerId: viewerId || undefined,
+          includeVotes: viewerId === userId,
+        });
+        setProfilePrompts(prompts);
+      } catch (error) {
+        console.error('Error fetching profile prompts:', error);
+        setProfilePrompts([]);
+      }
+    };
+
+    fetchProfilePrompts();
+  }, [userId]);
+
+  useEffect(() => {
+    if (activeProfileTab !== 'posts' || !userId || !currentViewerId) return;
+    let cancelled = false;
+    setProfilePostsLoading(true);
+    setProfilePostsError('');
+    setProfilePosts([]);
+    setProfilePostsPage(1);
+    setProfilePostsHasNext(false);
+    apiService.getProfilePosts(userId, currentViewerId, 1)
+      .then((data) => {
+        if (cancelled) return;
+        setProfilePosts((data.results || []).filter(item => item.kind === 'post' && item.post).map(item => item.post as Post));
+        setProfilePostsPage(1);
+        setProfilePostsHasNext(data.has_next);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setProfilePosts([]);
+        setProfilePostsError(error instanceof Error ? error.message : 'Could not load posts.');
+      })
+      .finally(() => {
+        if (!cancelled) setProfilePostsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProfileTab, userId, currentViewerId]);
+
+  useEffect(() => {
+    if (activeProfileTab !== 'comments' || !userId || !currentViewerId) return;
+    let cancelled = false;
+    setProfileCommentsLoading(true);
+    setProfileCommentsError('');
+    setProfileComments([]);
+    apiService.getProfileComments(userId, currentViewerId)
+      .then((comments) => {
+        if (!cancelled) setProfileComments(comments);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setProfileComments([]);
+        setProfileCommentsError(error instanceof Error ? error.message : 'Could not load comments.');
+      })
+      .finally(() => {
+        if (!cancelled) setProfileCommentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProfileTab, userId, currentViewerId]);
+
+  useEffect(() => {
     const fetchGroupedQuestions = async () => {
       try {
         const questionNumbers = [3, 4, 5, 11];
@@ -365,7 +513,7 @@ export default function UserProfilePage() {
         if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
           console.log('Using cached profile data');
           const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
-          setUser(cachedUser);
+          setUser({ ...cachedUser, share_answers: false });
           setUserAnswers(cachedAnswers);
           // Still fetch required question IDs (not cached) + questions + current user's data for pending filters
           const currentUserId = localStorage.getItem('user_id');
@@ -450,6 +598,20 @@ export default function UserProfilePage() {
             }
           } catch (_) {
             setProfileUserRequiredQuestionIds(new Set());
+          }
+          try {
+            const freshUserResponse = await fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, {
+              headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store'
+            });
+            if (freshUserResponse.ok) {
+              const freshUser = await freshUserResponse.json();
+              setUser(freshUser);
+              sessionStorage.setItem(cacheKey, JSON.stringify({ user: freshUser, answers: cachedAnswers }));
+              sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
+            }
+          } catch (refreshError) {
+            console.error('Error refreshing cached profile user:', refreshError);
           }
           setLoading(false);
           useCache = true;
@@ -942,23 +1104,33 @@ export default function UserProfilePage() {
 
     // Diet icon (question_number === 5) - check all diet answers
     const dietAnswers = userAnswers.filter(a => a.question.question_number === 5);
-    if (dietAnswers.length > 0 && !(dietAnswers.length === 1 && dietAnswers[0].me_answer === 1)) {
+    if (dietAnswers.length > 0) {
       // Get the answer with the highest value (most strongly identified with)
       const highestDietAnswer = dietAnswers.reduce((prev, curr) =>
         curr.me_answer > prev.me_answer ? curr : prev
       );
 
-      const dietLabel = highestDietAnswer.question.question_name || '';
-      const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
+      if (highestDietAnswer.me_answer > 1) {
+        const dietLabel = highestDietAnswer.question.question_name || '';
+        const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
 
-      icons.push({
-        image: '/assets/leaf.png',
-        label: dietLabel,
-        show: true,
-        options: allDietQuestions.length > 0
-          ? allDietQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : dietAnswers.map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
-      });
+        icons.push({
+          image: getDietIcon(dietLabel),
+          label: dietLabel,
+          show: true,
+          options: allDietQuestions.length > 0
+            ? allDietQuestions.map(q => ({
+                value: q.id,
+                label: q.question_name || '',
+                image: getDietIcon(q.question_name || '')
+              }))
+            : dietAnswers.map(a => ({
+                value: String(a.me_answer),
+                label: a.question.question_name || '',
+                image: getDietIcon(a.question.question_name || '')
+              }))
+        });
+      }
     }
 
     // Smoking icon (question_number === 7, group_number === 2)
@@ -1669,15 +1841,22 @@ export default function UserProfilePage() {
 
   // Filter and sort grouped questions for modal
   const filteredAndSortedQuestions = useMemo(() => {
-    // Start with answered questions, always include "my pending" groups (required by profile user but unanswered by current user)
-    // Always include pending question groups so required-but-unanswered questions are visible
-    let allGroups = [...groupedQuestionsForModal, ...pendingQuestionGroups];
-
-    let filtered = allGroups;
-
     // Apply filters: question-type filters use AND (must match every selected filter); tags use OR (must have at least one selected tag)
     const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
     const hasTagFilters = Object.values(filters.tags).some(filter => filter);
+    const pendingFiltersActive = filters.questions.myPending || filters.questions.theirPending;
+    const answeredQuestionNumbers = new Set(
+      groupedQuestionsForModal.map(([, group]) => group.questionNumber)
+    );
+
+    const visiblePendingGroups = pendingFiltersActive
+      ? pendingQuestionGroups
+      : pendingQuestionGroups.filter(([, group]) => !answeredQuestionNumbers.has(group.questionNumber));
+
+    // Start with answered questions and only add pending groups that won't duplicate a visible answered group.
+    let allGroups = [...groupedQuestionsForModal, ...visiblePendingGroups];
+
+    let filtered = allGroups;
 
     if (hasQuestionFilters || hasTagFilters) {
       filtered = filtered.filter(([key, group]) => {
@@ -2199,22 +2378,9 @@ export default function UserProfilePage() {
   // Helper function to get the hide button icon based on tag state
   const getHideButtonIcon = () => {
     if (selectedTags.includes('hide')) {
-      return '/assets/eye.png';
+      return '/assets/noslashy.png';
     } else {
-      return '/assets/pslash.png';
-    }
-  };
-
-  // Helper function to get the current action button icon based on tag state
-  const getActionButtonIcon = () => {
-    if (hasMatch) {
-      return '/assets/purpleheart.png';
-    } else if (selectedTags.includes('like')) {
-      return '/assets/redheart.png';
-    } else if (selectedTags.includes('approve')) {
-      return '/assets/strokeheart.png';
-    } else {
-      return '/assets/approve.png';
+      return '/assets/slashy.png';
     }
   };
 
@@ -2463,25 +2629,190 @@ export default function UserProfilePage() {
     }
   };
 
+  const handlePromptPollVoted = async () => {
+    const viewerId = localStorage.getItem('user_id') || '';
+    setCurrentViewerId(viewerId);
+
+    if (viewerId && viewerId !== userId) {
+      const nextTags = selectedTags.includes('like')
+        ? selectedTags
+        : [...selectedTags.filter(tag => tag !== 'hide'), 'like'];
+      setSelectedTags(nextTags);
+      await checkForMatch(nextTags);
+    }
+
+    try {
+      const prompts = await apiService.getUserProfilePrompts(userId, {
+        viewerId: viewerId || undefined,
+        includeVotes: viewerId === userId,
+      });
+      setProfilePrompts(prompts);
+    } catch (error) {
+      console.error('Error refreshing profile prompts:', error);
+    }
+  };
+
+  const loadMoreProfilePosts = async () => {
+    if (!userId || !currentViewerId || profilePostsLoading) return;
+    const nextPage = profilePostsPage + 1;
+    setProfilePostsLoading(true);
+    setProfilePostsError('');
+    try {
+      const data = await apiService.getProfilePosts(userId, currentViewerId, nextPage);
+      const nextPosts = (data.results || []).filter(item => item.kind === 'post' && item.post).map(item => item.post as Post);
+      setProfilePosts(prev => [...prev, ...nextPosts]);
+      setProfilePostsPage(nextPage);
+      setProfilePostsHasNext(data.has_next);
+    } catch (error) {
+      setProfilePostsError(error instanceof Error ? error.message : 'Could not load more posts.');
+    } finally {
+      setProfilePostsLoading(false);
+    }
+  };
+
+  const handleProfilePostUpdated = (post: Post) => {
+    setProfilePosts(prev => prev.map(item => item.id === post.id ? post : item));
+  };
+
+  const handleProfilePostDeleted = (postId: string) => {
+    setProfilePosts(prev => prev.filter(post => post.id !== postId));
+  };
+
+  const renderProfilePostsTab = () => (
+    <div className="w-full max-w-xl mx-auto mb-4">
+      {profilePostsError && <div className="mb-3 text-sm text-red-600">{profilePostsError}</div>}
+      {profilePostsLoading && profilePosts.length === 0 ? (
+        <div className="text-center text-gray-500 py-10">Loading posts...</div>
+      ) : profilePosts.length === 0 ? (
+        <div className="rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500 shadow-sm">
+          No visible posts yet.
+        </div>
+      ) : (
+        <>
+          {profilePosts.map((post) => (
+            <FeedPostCard
+              key={post.id}
+              post={post}
+              viewerId={currentViewerId}
+              onUpdated={handleProfilePostUpdated}
+              onDeleted={handleProfilePostDeleted}
+            />
+          ))}
+          {profilePostsHasNext && (
+            <div className="flex justify-center mt-4">
+              <button
+                type="button"
+                onClick={loadMoreProfilePosts}
+                disabled={profilePostsLoading}
+                className="px-5 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium disabled:opacity-60"
+              >
+                {profilePostsLoading ? 'Loading...' : 'Show more'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  const renderProfileCommentsTab = () => (
+    <div className="w-full max-w-xl mx-auto mb-4 space-y-3">
+      {profileCommentsError && <div className="text-sm text-red-600">{profileCommentsError}</div>}
+      {profileCommentsLoading ? (
+        <div className="text-center text-gray-500 py-10">Loading comments...</div>
+      ) : profileComments.length === 0 ? (
+        <div className="rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500 shadow-sm">
+          No visible comments yet.
+        </div>
+      ) : (
+        profileComments.map((comment) => {
+          const preview = comment.post_preview;
+          return (
+            <article key={comment.id} className="rounded-2xl ring-1 ring-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <Image
+                  src={comment.author.profile_photo || DEFAULT_AVATAR}
+                  alt={comment.author.username}
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 rounded-full object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-gray-500">
+                    <span className="font-semibold text-gray-900">{comment.author.first_name || comment.author.username}</span>
+                    <span className="ml-2">{formatRelative(comment.created_at)}</span>
+                  </div>
+                  <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{renderWithHashtags(comment.body)}</div>
+                  {preview && (
+                    <div className="mt-3 rounded-xl bg-gray-50 ring-1 ring-gray-100 px-3 py-2">
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Image
+                          src={preview.author.profile_photo || DEFAULT_AVATAR}
+                          alt={preview.author.username}
+                          width={20}
+                          height={20}
+                          className="h-5 w-5 rounded-full object-cover"
+                        />
+                        <span>
+                          On{' '}
+                          <Link href={`/profile/${preview.author.id}`} className="font-semibold text-gray-800 hover:underline">
+                            {preview.author.first_name || preview.author.username}
+                          </Link>
+                          {' '}post
+                        </span>
+                      </div>
+                      {preview.body && (
+                        <div className="mt-2 max-h-14 overflow-hidden text-xs text-gray-600 whitespace-pre-wrap">
+                          {renderWithHashtags(preview.body)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })
+      )}
+    </div>
+  );
+
 
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center p-4 border-b border-gray-200">
-        <div className="flex-1">
+      <div className="flex items-center gap-2 p-3 border-b border-gray-200">
+        <div className="w-9 shrink-0">
           <button onClick={() => router.back()} className="flex items-center">
             <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
         </div>
-        <Image
-          src="/assets/mmlogox.png"
-          alt="Logo"
-          width={32}
-          height={32}
-        />
-        <div className="flex-1 flex justify-end">
+        <div className="flex min-w-0 flex-1 items-center justify-center">
+          <div className="flex min-w-0 items-center rounded-full bg-gray-100 p-1">
+            {([
+              ['profile', 'Profile'],
+              ['posts', 'Posts'],
+              ['comments', 'Comments'],
+            ] as const).map(([tab, label]) => {
+              const active = activeProfileTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveProfileTab(tab)}
+                  className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition-colors sm:px-4 ${
+                    active ? 'bg-white text-[#672DB7] shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="w-9 shrink-0 flex justify-end">
           <HamburgerMenu />
         </div>
       </div>
@@ -2516,47 +2847,10 @@ export default function UserProfilePage() {
                 </>
               );
             })()}
-            <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
-              <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
+            <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none">
+              <h1 className="truncate text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
                 {displayName}{user.age ? `, ${user.age}` : ''}
               </h1>
-            </div>
-
-            {/* Action Icons - Bottom Right */}
-            <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-4">
-              <button
-                onClick={() => handleTagToggle('Hide')}
-                className="hover:scale-105 transition-transform cursor-pointer"
-              >
-                <Image
-                  key={selectedTags.includes('hide') ? 'eye' : 'pslash'}
-                  src={getHideButtonIcon()}
-                  alt={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
-                  width={48}
-                  height={48}
-                />
-              </button>
-              {(() => {
-                const myCompleteness = compatibility?.user1_required_completeness ?? 1;
-                const likeGated = !!user?.require_answers_for_likes && myCompleteness < 1;
-                const inApprovedState = !hasMatch && !selectedTags.includes('like') && selectedTags.includes('approve');
-                const actionDisabled = likeGated && inApprovedState;
-                return (
-                  <button
-                    onClick={() => { if (!actionDisabled) handleActionButtonClick(); }}
-                    disabled={actionDisabled}
-                    title={actionDisabled ? "Answer their required questions to like" : undefined}
-                    className={`transition-transform ${actionDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 cursor-pointer'}`}
-                  >
-                    <Image
-                      src={getActionButtonIcon()}
-                      alt={getActionButtonAlt()}
-                      width={48}
-                      height={48}
-                    />
-                  </button>
-                );
-              })()}
             </div>
           </div>
 
@@ -2567,7 +2861,66 @@ export default function UserProfilePage() {
                 {user.tagline}
               </p>
             )}
-            <div className="flex justify-between gap-3">
+            <div className="grid grid-cols-2 gap-3 mb-[10px]">
+              <button
+                onClick={() => handleTagToggle('Hide')}
+                title={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
+                aria-label={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
+                className="w-full h-[36px] rounded-full bg-white px-4 py-0 font-medium text-sm transition-colors text-center flex items-center justify-center hover:bg-gray-100 cursor-pointer"
+              >
+                <Image
+                  key={selectedTags.includes('hide') ? 'noslashy' : 'slashy'}
+                  src={getHideButtonIcon()}
+                  alt={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
+                  width={24}
+                  height={24}
+                  className="h-6 w-auto"
+                />
+              </button>
+              {(() => {
+                const myCompleteness = compatibility?.user1_required_completeness ?? 1;
+                const likeGated = !!user?.require_answers_for_likes && myCompleteness < 1;
+                const inApprovedState = !hasMatch && !selectedTags.includes('like') && selectedTags.includes('approve');
+                const actionDisabled = likeGated && inApprovedState;
+                const actionLabel = getActionButtonAlt();
+                const actionIcon = (() => {
+                  if (hasMatch) {
+                    return <HeartGlyph filled className="h-6 w-6 text-[#672DB7] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
+                  }
+                  if (selectedTags.includes('like')) {
+                    return <HeartGlyph filled className="h-6 w-6 text-[#EF4444] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
+                  }
+                  if (selectedTags.includes('approve')) {
+                    return <HeartGlyph filled={false} className="h-6 w-6 text-[#EF4444] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
+                  }
+                  return (
+                    <Image
+                      src="/assets/purplecheck.png"
+                      alt={actionLabel}
+                      width={27}
+                      height={24}
+                      className="h-6 w-auto drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]"
+                    />
+                  );
+                })();
+                return (
+                  <button
+                    onClick={() => { if (!actionDisabled) handleActionButtonClick(); }}
+                    disabled={actionDisabled}
+                    title={actionDisabled ? "Answer their required questions to like" : undefined}
+                    aria-label={actionLabel}
+                    className={`w-full h-[36px] rounded-full px-4 py-0 font-medium text-sm transition-colors text-center flex items-center justify-center ${
+                      actionDisabled
+                        ? 'bg-gray-200 text-gray-500 opacity-70 cursor-not-allowed'
+                        : 'bg-white hover:bg-gray-100 cursor-pointer'
+                    }`}
+                  >
+                    {actionIcon}
+                  </button>
+                );
+              })()}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={handleChatClick}
                 disabled={!hasMatch}
@@ -2660,7 +3013,7 @@ export default function UserProfilePage() {
                     <div key={optIndex} className="flex items-center gap-3 py-1">
                       <div className="w-6 h-6 relative flex-shrink-0">
                         <Image
-                          src={profileIcons[expandedIconIndex].image}
+                          src={option.image || profileIcons[expandedIconIndex].image}
                           alt={option.label}
                           width={24}
                           height={24}
@@ -2676,6 +3029,10 @@ export default function UserProfilePage() {
           </div>
         )}
 
+        {activeProfileTab === 'posts' && renderProfilePostsTab()}
+        {activeProfileTab === 'comments' && renderProfileCommentsTab()}
+        {activeProfileTab === 'profile' && (
+          <>
         {/* Section 3 — Compatibility cards + Required */}
         {compatibility && (
           <div className="w-full max-w-xl mx-auto mb-4">
@@ -2899,10 +3256,20 @@ export default function UserProfilePage() {
 
         {/* Section 4 — Bio (no heading, min-height card) */}
         <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm min-h-[44px] flex items-center justify-center">
-          <p className="text-base text-gray-700 text-center">
+          <p className="text-sm font-normal text-black text-center">
             {user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}
           </p>
         </div>
+
+        <ProfilePromptCards
+          prompts={profilePrompts}
+          ownerId={user.id}
+          viewerId={currentViewerId || undefined}
+          isOwner={currentViewerId === user.id}
+          likeDisabled={!!user?.require_answers_for_likes && (!compatibility || (compatibility.user1_required_completeness ?? 0) < 1)}
+          likeDisabledLabel="Answer required questions"
+          onVoted={handlePromptPollVoted}
+        />
 
         {/* Section 5 — Sliders (My Gender / Interested In / Looking For [/ Ideology]) */}
         <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white p-4 shadow-sm">
@@ -3023,12 +3390,12 @@ export default function UserProfilePage() {
           {getRankedIdeologyQuestions().length > 0 && (
             <div>
               <h4 className="text-base font-semibold text-black text-center mb-3">Ideology</h4>
-              <div className="relative text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
-                <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+              <div className="relative text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
+                <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
               </div>
               <div className="space-y-3">
                 {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {
@@ -3096,6 +3463,8 @@ export default function UserProfilePage() {
             })}
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* Questions Modal Overlay */}
@@ -3569,6 +3938,7 @@ export default function UserProfilePage() {
                 {(() => {
                   const questionType = selectedQuestionData[0]?.question_type || 'basic';
                   const questionNumber = selectedQuestionNumber;
+                  const shareThemAnswers = user?.share_answers === true;
 
                   // Find user answers for this question
                   const answersForQuestion = userAnswers.filter(answer => {
@@ -3750,13 +4120,11 @@ export default function UserProfilePage() {
                             // If me_answer is 6, it means "Open to All" is enabled
                             // Check both number 6 and string "6", and also check the me_open_to_all flag
                             const rawMeAnswer = answer?.me_answer;
-                            const isOpenToAll = rawMeAnswer === 6 || 
-                                               rawMeAnswer === '6' || 
-                                               Number(rawMeAnswer) === 6 ||
+                            const isOpenToAll = Number(rawMeAnswer) === 6 ||
                                                answer?.me_open_to_all === true;
                             // When Open to All is enabled, use value 3 for display (but slider will be full purple)
                             // When disabled, use the actual answer value (1-5)
-                            const meValue = isOpenToAll ? 3 : (rawMeAnswer && rawMeAnswer !== 6 ? rawMeAnswer : 3);
+                            const meValue = isOpenToAll ? 3 : (rawMeAnswer ? Number(rawMeAnswer) : 3);
                             const meOpenToAll = isOpenToAll;
 
                             return (
@@ -3854,23 +4222,19 @@ export default function UserProfilePage() {
                         
                         // Only consider Open to All if answer exists and value is explicitly 6
                         const isOpenToAllMe = answer && (
-                          rawMeAnswer === 6 || 
-                          rawMeAnswer === '6' || 
                           Number(rawMeAnswer) === 6 ||
                           answer.me_open_to_all === true
                         ) || false;
                         
                         const isOpenToAllLooking = answer && (
-                          rawLookingAnswer === 6 || 
-                          rawLookingAnswer === '6' || 
                           Number(rawLookingAnswer) === 6 ||
                           answer.looking_for_open_to_all === true
                         ) || false;
                         
                         // When Open to All is enabled, use value 3 for display (but slider will be full purple)
                         // When disabled, use the actual answer value (1-5), or default to 3 if no answer
-                        const meValue = isOpenToAllMe ? 3 : (answer && rawMeAnswer !== 6 && rawMeAnswer !== '6' && rawMeAnswer !== undefined ? rawMeAnswer : 3);
-                        const lookingValue = isOpenToAllLooking ? 3 : (answer && rawLookingAnswer !== 6 && rawLookingAnswer !== '6' && rawLookingAnswer !== undefined ? rawLookingAnswer : 3);
+                        const meValue = isOpenToAllMe ? 3 : (answer && rawMeAnswer !== undefined ? Number(rawMeAnswer) : 3);
+                        const lookingValue = isOpenToAllLooking ? 3 : (answer && rawLookingAnswer !== undefined ? Number(rawLookingAnswer) : 3);
 
                         const isEducationQuestion = questionNumber === 4;
                         const isDietQuestion = questionNumber === 5;
@@ -3973,63 +4337,65 @@ export default function UserProfilePage() {
                             </div>
 
                             {/* Them Section */}
-                            <div className="mb-6">
-                              <h4 className="text-xl font-bold text-center mb-4" style={{ color: '#672DB7' }}>Them</h4>
+                            {shareThemAnswers && isShared && (
+                              <div className="mb-6">
+                                <h4 className="text-xl font-bold text-center mb-4" style={{ color: '#672DB7' }}>Them</h4>
 
-                              {/* Labels above slider */}
-                              <div className="mx-auto mb-2" style={{ width: '500px' }}>
-                                <div className="flex justify-between text-xs text-gray-500">
-                                  {isEducationQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                    </div>
-                                  )}
-                                  {isDietQuestion && (
-                                    <div className="flex justify-between text-xs text-gray-500 w-full">
-                                      <span>NO</span>
-                                      <span>YES</span>
-                                    </div>
-                                  )}
-                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                    </div>
-                                  )}
-                                  {isPoliticsQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
-                                    </div>
-                                  )}
-                                  {questionNumber === 3 && (
-                                    <>
-                                      <span>LESS</span>
-                                      <span>MORE</span>
-                                    </>
-                                  )}
-                                  {/* For non-mandatory questions (> 10), show value 1 and value 5 labels */}
-                                  {questionNumber > 10 && selectedQuestion.answers && selectedQuestion.answers.length > 0 && (
-                                    <>
-                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
-                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
-                                    </>
-                                  )}
+                                {/* Labels above slider */}
+                                <div className="mx-auto mb-2" style={{ width: '500px' }}>
+                                  <div className="flex justify-between text-xs text-gray-500">
+                                    {isEducationQuestion && (
+                                      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                        <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
+                                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
+                                        <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
+                                      </div>
+                                    )}
+                                    {isDietQuestion && (
+                                      <div className="flex justify-between text-xs text-gray-500 w-full">
+                                        <span>NO</span>
+                                        <span>YES</span>
+                                      </div>
+                                    )}
+                                    {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
+                                      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                        <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
+                                        <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
+                                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
+                                        <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
+                                        <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
+                                      </div>
+                                    )}
+                                    {isPoliticsQuestion && (
+                                      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
+                                        <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                                        <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                                        <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                                        <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                                      </div>
+                                    )}
+                                    {questionNumber === 3 && (
+                                      <>
+                                        <span>LESS</span>
+                                        <span>MORE</span>
+                                      </>
+                                    )}
+                                    {/* For non-mandatory questions (> 10), show value 1 and value 5 labels */}
+                                    {questionNumber > 10 && selectedQuestion.answers && selectedQuestion.answers.length > 0 && (
+                                      <>
+                                        <span>{selectedQuestion.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
+                                        <span>{selectedQuestion.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="mx-auto" style={{ width: '500px' }}>
+                                  <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={selectedQuestion.answers} />
                                 </div>
                               </div>
-
-                              <div className="mx-auto" style={{ width: '500px' }}>
-                                <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={selectedQuestion.answers} />
-                              </div>
-                            </div>
+                            )}
 
                           </div>
                         );
@@ -4168,13 +4534,15 @@ export default function UserProfilePage() {
                       </div>
                     );
 
+                    const canShowOtaColumn = !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion;
+
                     // Helper: compute hasAnyOTA for Me
                     const meHasAnyOTA = displayQuestionData.some((question) => {
                       const answer = answersForQuestion.find((a: any) => {
                         const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                         return questionId === question.id;
                       });
-                      return answer && (answer.me_answer === 6 || answer.me_answer === '6' || Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
+                      return answer && (Number(answer.me_answer) === 6 || answer.me_open_to_all === true);
                     });
 
                     // Helper: compute hasAnyOTA for Them
@@ -4183,22 +4551,24 @@ export default function UserProfilePage() {
                         const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                         return questionId === question.id;
                       });
-                      return answer && (answer.looking_for_answer === 6 || answer.looking_for_answer === '6' || Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
+                      return answer && (Number(answer.looking_for_answer) === 6 || answer.looking_for_open_to_all === true);
                     });
+                    const showMeOtaColumn = canShowOtaColumn && meHasAnyOTA;
+                    const showThemOtaColumn = canShowOtaColumn && themHasAnyOTA;
 
                     // Me sliders section
                     const renderMeSliders = () => (
                       <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
                         <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-                        {renderSectionLabels('me', meHasAnyOTA)}
-                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: meHasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                        {renderSectionLabels('me', showMeOtaColumn)}
+                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: showMeOtaColumn ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
                           {displayQuestionData.map((question) => {
                             const answer = answersForQuestion.find((a: any) => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                               return questionId === question.id;
                             });
-                            const isOpenToAllMe = answer?.me_answer === 6 || answer?.me_open_to_all || false;
-                            const meValue = isOpenToAllMe ? 3 : (answer?.me_answer || 3);
+                            const isOpenToAllMe = Number(answer?.me_answer) === 6 || answer?.me_open_to_all || false;
+                            const meValue = isOpenToAllMe ? 3 : (answer?.me_answer !== undefined ? Number(answer.me_answer) : 3);
                             const meOpenToAll = isOpenToAllMe;
 
                             return (
@@ -4207,9 +4577,9 @@ export default function UserProfilePage() {
                                   {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
                                   <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
                                 </div>
-                                {meHasAnyOTA && (
+                                {showMeOtaColumn && (
                                   <div>
-                                    {!isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && question.open_to_all_me && meOpenToAll ? (
+                                    {question.open_to_all_me && meOpenToAll ? (
                                       <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
                                         <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
                                       </div>
@@ -4229,15 +4599,15 @@ export default function UserProfilePage() {
                     const renderThemSliders = () => (
                       <div className="mb-6">
                         <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-                        {renderSectionLabels('them', themHasAnyOTA)}
-                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: themHasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                        {renderSectionLabels('them', showThemOtaColumn)}
+                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: showThemOtaColumn ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
                           {displayQuestionData.map((question) => {
                             const answer = answersForQuestion.find((a: any) => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                               return questionId === question.id;
                             });
-                            const isOpenToAllLooking = answer?.looking_for_answer === 6 || answer?.looking_for_open_to_all || false;
-                            const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer || 3);
+                            const isOpenToAllLooking = Number(answer?.looking_for_answer) === 6 || answer?.looking_for_open_to_all || false;
+                            const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer !== undefined ? Number(answer.looking_for_answer) : 3);
                             const lookingOpenToAll = isOpenToAllLooking;
 
                             return (
@@ -4246,7 +4616,7 @@ export default function UserProfilePage() {
                                   {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
                                   <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
                                 </div>
-                                {themHasAnyOTA && (
+                                {showThemOtaColumn && (
                                   <div className="w-11 h-6"></div>
                                 )}
                               </React.Fragment>
@@ -4265,8 +4635,8 @@ export default function UserProfilePage() {
                           </>
                         ) : (
                           <>
-                            {/* Q2+ (Gender, etc.): Them first, then Me */}
-                            {renderThemSliders()}
+                            {/* Q2+ (Gender, etc.): Them first, then Me when enabled */}
+                            {shareThemAnswers && isShared && renderThemSliders()}
                             {renderMeSliders()}
                           </>
                         )}

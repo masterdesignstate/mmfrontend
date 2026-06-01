@@ -132,6 +132,10 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         return notification.note 
           ? `${senderName} sent a note: ${notification.note}`
           : `${senderName} sent a note`;
+      case 'prompt_poll':
+        return notification.note
+          ? `${senderName} voted on your poll: ${notification.note}`
+          : `${senderName} voted on your poll`;
       default:
         return `${senderName} interacted with you`;
     }

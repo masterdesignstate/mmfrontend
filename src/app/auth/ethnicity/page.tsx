@@ -48,7 +48,8 @@ export default function EthnicityPage() {
     { value: 'Hawaiian', label: 'Native Hawaiian or Other Pacific Islander', icon: '/assets/ethn.png' },
     { value: 'Native', label: 'Native American', icon: '/assets/ethn.png' },
     { value: 'Hispanic', label: 'Hispanic/Latino', icon: '/assets/ethn.png' },
-    { value: 'Asian', label: 'Asian', icon: '/assets/ethn.png' }
+    { value: 'Asian', label: 'Asian', icon: '/assets/ethn.png' },
+    { value: 'Other', label: 'Other', icon: '/assets/ethn.png' }
   ];
 
   useEffect(() => {
@@ -121,12 +122,11 @@ export default function EthnicityPage() {
         console.log('🚀 Starting to fetch ethnicity questions from backend...');
         setLoadingQuestions(true);
         try {
-          // No need to fetch ethnicity questions - we're using hardcoded data
-          // const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3`;
-          // console.log('🌐 Fetching from URL:', apiUrl);
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3`;
+          console.log('🌐 Fetching from URL:', apiUrl);
           
-          // const response = await fetch(apiUrl);
-          console.log('�� Response status:', response.status);
+          const response = await fetch(apiUrl);
+          console.log('📡 Response status:', response.status);
           
           if (response.ok) {
             const data = await response.json();
@@ -166,9 +166,8 @@ export default function EthnicityPage() {
     // Fetch education questions in the background
     if (userId && educationQuestions.length === 0) {
       try {
-        // No need to fetch education questions in background
-        // const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=4`;
-        // const response = await fetch(apiUrl);
+        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=4`;
+        const response = await fetch(apiUrl);
         
         if (response.ok) {
           const data = await response.json();

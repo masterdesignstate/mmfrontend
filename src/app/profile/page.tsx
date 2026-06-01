@@ -6,11 +6,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { apiService } from '@/services/api';
+import { apiService, type UserProfilePrompt } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import ActivityStatus from '@/components/ActivityStatus';
+import ProfilePromptCards from '@/components/ProfilePromptCards';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUserAnswers } from '@/hooks/useUserAnswers';
 import { useGroupedQuestions } from '@/hooks/useGroupedQuestions';
@@ -31,6 +32,7 @@ interface UserProfile {
   tagline?: string;
   is_online?: boolean;
   last_active?: string | null;
+  profile_prompts?: UserProfilePrompt[];
 }
 
 interface UserAnswer {
@@ -50,8 +52,22 @@ interface ProfileIcon {
   image: string;
   label: string;
   show: boolean;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; image?: string }>;
 }
+
+const getDietIcon = (dietName: string): string => {
+  switch (dietName.trim().toLowerCase()) {
+    case 'omnivore':
+      return '/assets/carnivore.png';
+    case 'pescatarian':
+      return '/assets/fish.png';
+    case 'vegan':
+      return '/assets/wheat.png';
+    case 'vegetarian':
+    default:
+      return '/assets/leaf.png';
+  }
+};
 
 const LOADING_MESSAGES = [
   'Analyzing your preferences',
@@ -96,6 +112,11 @@ export default function ProfilePage() {
   const { user, userError, userLoading } = useUserProfile(userId);
   const { answers: userAnswers, answersLoading } = useUserAnswers<UserAnswer>(userId);
   const { groupedQuestions } = useGroupedQuestions();
+  const { data: profilePrompts = [], mutate: mutateProfilePrompts } = useSWR<UserProfilePrompt[]>(
+    userId ? `profile-prompts-owner-${userId}` : null,
+    async () => userId ? apiService.getUserProfilePrompts(userId, { viewerId: userId, includeVotes: true }) : [],
+    { dedupingInterval: 60000 }
+  );
 
   // Required questions count is per-user, not the global admin-required question flag.
   const { data: requiredQuestionsCount } = useSWR<number>(
@@ -286,17 +307,27 @@ export default function ProfilePage() {
         curr.me_answer > prev.me_answer ? curr : prev
       );
 
-      const dietLabel = highestDietAnswer.question.question_name || '';
-      const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
+      if (highestDietAnswer.me_answer > 1) {
+        const dietLabel = highestDietAnswer.question.question_name || '';
+        const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
 
-      icons.push({
-        image: '/assets/leaf.png',
-        label: dietLabel,
-        show: true,
-        options: allDietQuestions.length > 0
-          ? allDietQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : dietAnswers.map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
-      });
+        icons.push({
+          image: getDietIcon(dietLabel),
+          label: dietLabel,
+          show: true,
+          options: allDietQuestions.length > 0
+            ? allDietQuestions.map(q => ({
+                value: q.id,
+                label: q.question_name || '',
+                image: getDietIcon(q.question_name || '')
+              }))
+            : dietAnswers.map(a => ({
+                value: String(a.me_answer),
+                label: a.question.question_name || '',
+                image: getDietIcon(a.question.question_name || '')
+              }))
+        });
+      }
     }
 
     // Smoking icon (question_number === 7, group_number === 2)
@@ -829,7 +860,7 @@ export default function ProfilePage() {
                       <div key={optIndex} className="flex items-center gap-3 py-1">
                         <div className="w-6 h-6 relative flex-shrink-0">
                           <Image
-                            src={profileIcons[expandedIconIndex].image}
+                            src={option.image || profileIcons[expandedIconIndex].image}
                             alt={option.label}
                             width={24}
                             height={24}
@@ -878,10 +909,18 @@ export default function ProfilePage() {
 
           {/* Section 4 — Bio */}
           <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm min-h-[44px] flex items-center justify-center">
-            <p className="text-base text-gray-700 text-center">
+            <p className="text-sm font-normal text-black text-center">
               {user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}
             </p>
           </div>
+
+          <ProfilePromptCards
+            prompts={profilePrompts}
+            ownerId={user.id}
+            viewerId={userId || undefined}
+            isOwner
+            onVoted={() => mutateProfilePrompts()}
+          />
 
           {/* Section 5 — Sliders */}
           <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white p-4 shadow-sm">
@@ -1002,12 +1041,12 @@ export default function ProfilePage() {
             {getRankedIdeologyQuestions().length > 0 && (
               <div>
                 <h4 className="text-base font-semibold text-black text-center mb-3">Ideology</h4>
-                <div className="relative text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                <div className="relative text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
+                  <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
                 </div>
                 <div className="space-y-3">
                   {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {

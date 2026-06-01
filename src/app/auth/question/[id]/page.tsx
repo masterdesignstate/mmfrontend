@@ -256,7 +256,8 @@ export default function QuestionPage() {
         Hawaiian: '2ef95f1a-3b2f-48f5-adb6-1c31d89ed904',     // Group 3: Hawaiian
         Native: '473dd873-c249-4426-a1f0-7368d5604888',       // Group 4: Native
         Hispanic: 'ee1136e8-d7fa-4d5f-905b-09d3e85f38a7',    // Group 5: Hispanic
-        Asian: 'a135b6e5-7b85-4122-9218-d0093881646c'         // Group 6: Asian
+        Asian: 'a135b6e5-7b85-4122-9218-d0093881646c',        // Group 6: Asian
+        Other: '14f4f27b-0e50-4b4a-8172-5d9e6a6eb39d'         // Group 7: Other
       };
 
       // Get ethnicity display name
@@ -267,7 +268,8 @@ export default function QuestionPage() {
           Hawaiian: 'Native Hawaiian or Other Pacific Islander',
           Native: 'Native American',
           Hispanic: 'Hispanic/Latino',
-          Asian: 'Asian'
+          Asian: 'Asian',
+          Other: 'Other'
         };
         return displayNames[ethnicity as keyof typeof displayNames] || ethnicity;
       };
@@ -951,7 +953,8 @@ export default function QuestionPage() {
       'pacific_islander': 'PACIFIC ISLANDER',
       'native_american': 'NATIVE AMERICAN',
       'hispanic_latino': 'HISPANIC/LATINO',
-      'asian': 'ASIAN'
+      'asian': 'ASIAN',
+      'other': 'OTHER'
     };
     
     return labels[ethnicity] || ethnicity.toUpperCase();

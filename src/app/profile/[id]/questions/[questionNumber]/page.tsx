@@ -28,6 +28,7 @@ interface UserAnswer {
   looking_for_importance?: number;
   me_open_to_all?: boolean;
   looking_for_open_to_all?: boolean;
+  me_share?: boolean;
 }
 
 const IMPORTANCE_LABELS = [
@@ -68,6 +69,7 @@ export default function ReadOnlyQuestionViewPage() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
+  const [shareAnswers, setShareAnswers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
@@ -76,11 +78,12 @@ export default function ReadOnlyQuestionViewPage() {
       try {
         setLoading(true);
 
-        // Fetch questions for this question number
-        const questionsResponse = await fetch(
-          `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}&page_size=100`
-        );
+        const [questionsResponse, profileResponse] = await Promise.all([
+          fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}&page_size=100`),
+          fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, { cache: 'no-store' }),
+        ]);
         const questionsData = await questionsResponse.json();
+        const profileData = profileResponse.ok ? await profileResponse.json() : null;
         const questionsList = questionsData.results || [];
         
         // Sort by group_number
@@ -102,6 +105,7 @@ export default function ReadOnlyQuestionViewPage() {
 
         setQuestions(questionsList);
         setUserAnswers(filteredAnswers);
+        setShareAnswers(profileData?.share_answers === true);
       } catch (err) {
         console.error('Error fetching question data:', err);
         setError('Failed to load question data');
@@ -167,6 +171,16 @@ export default function ReadOnlyQuestionViewPage() {
     if (!questions || questions.length === 0) return null;
 
     const questionType = questions[0]?.question_type || 'basic';
+    const canShowThem = shareAnswers;
+    const allQuestionAnswersShared = userAnswers.length > 0 && userAnswers.every(answer => answer.me_share !== false);
+
+    if (!allQuestionAnswersShared) {
+      return (
+        <div className="text-center text-gray-500 py-12">
+          <p>This answer is not shared.</p>
+        </div>
+      );
+    }
 
     // Special handling for Relationship question (question_number === 1) - ONLY Me section
     if (questionNumber === 1) {
@@ -262,87 +276,89 @@ export default function ReadOnlyQuestionViewPage() {
       return (
         <div>
           {/* Them Section */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+          {canShowThem && (
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
+              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                <div></div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>LESS</span>
+                  <span>MORE</span>
+                </div>
+                <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
+                  {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
+                </div>
               </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
-              </div>
-            </div>
 
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              {genderQuestions.map((question) => {
-                const answer = userAnswers.find(a => {
-                  const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                  return questionId === question.id;
-                });
-                const lookingValue = answer?.looking_for_answer || 3;
-                const lookingOpenToAll = answer?.looking_for_open_to_all || false;
+              <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                {genderQuestions.map((question) => {
+                  const answer = userAnswers.find(a => {
+                    const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                    return questionId === question.id;
+                  });
+                  const lookingValue = answer?.looking_for_answer || 3;
+                  const lookingOpenToAll = answer?.looking_for_open_to_all || false;
 
-                return (
-                  <React.Fragment key={`looking-${question.id}`}>
-                    <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                    <div className="relative">
-                      <ReadOnlySliderComponent
-                        value={lookingValue}
-                        isOpenToAll={lookingOpenToAll}
-                        labels={question.answers}
-                      />
-                    </div>
-                    <div>
-                      {question.open_to_all_looking_for ? (
-                        <div className="flex items-center">
-                          <div className={`block w-11 h-6 rounded-full ${lookingOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${lookingOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                  return (
+                    <React.Fragment key={`looking-${question.id}`}>
+                      <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
+                      <div className="relative">
+                        <ReadOnlySliderComponent
+                          value={lookingValue}
+                          isOpenToAll={lookingOpenToAll}
+                          labels={question.answers}
+                        />
+                      </div>
+                      <div>
+                        {question.open_to_all_looking_for ? (
+                          <div className="flex items-center">
+                            <div className={`block w-11 h-6 rounded-full ${lookingOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
+                              <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${lookingOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
+                        ) : (
+                          <div className="w-11 h-6"></div>
+                        )}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
 
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <ReadOnlySliderComponent
-                  value={userAnswers[0]?.looking_for_importance || 3}
-                  isOpenToAll={false}
-                  isImportance={true}
-                  labels={IMPORTANCE_LABELS}
-                />
+                {/* IMPORTANCE Slider Row */}
+                <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
+                <div className="relative">
+                  <ReadOnlySliderComponent
+                    value={userAnswers[0]?.looking_for_importance || 3}
+                    isOpenToAll={false}
+                    isImportance={true}
+                    labels={IMPORTANCE_LABELS}
+                  />
+                </div>
+                <div className="w-11 h-6"></div>
               </div>
-              <div className="w-11 h-6"></div>
-            </div>
 
-            {/* Importance labels */}
-            <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                {(() => {
-                  const importance = userAnswers[0]?.looking_for_importance || 3;
-                  const positions: Record<number, { left: string; label: string }> = {
-                    1: { left: '14px', label: 'TRIVIAL' },
-                    2: { left: '25%', label: 'MINOR' },
-                    3: { left: '50%', label: 'AVERAGE' },
-                    4: { left: '75%', label: 'SIGNIFICANT' },
-                    5: { left: 'calc(100% - 14px)', label: 'ESSENTIAL' }
-                  };
-                  const pos = positions[importance];
-                  return pos ? <span className="absolute" style={{ left: pos.left, transform: 'translateX(-50%)' }}>{pos.label}</span> : null;
-                })()}
+              {/* Importance labels */}
+              <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                <div></div>
+                <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                  {(() => {
+                    const importance = userAnswers[0]?.looking_for_importance || 3;
+                    const positions: Record<number, { left: string; label: string }> = {
+                      1: { left: '14px', label: 'TRIVIAL' },
+                      2: { left: '25%', label: 'MINOR' },
+                      3: { left: '50%', label: 'AVERAGE' },
+                      4: { left: '75%', label: 'SIGNIFICANT' },
+                      5: { left: 'calc(100% - 14px)', label: 'ESSENTIAL' }
+                    };
+                    const pos = positions[importance];
+                    return pos ? <span className="absolute" style={{ left: pos.left, transform: 'translateX(-50%)' }}>{pos.label}</span> : null;
+                  })()}
+                </div>
+                <div></div>
               </div>
-              <div></div>
             </div>
-          </div>
+          )}
 
           {/* Me Section */}
           <div className="mb-6">
@@ -458,6 +474,7 @@ export default function ReadOnlyQuestionViewPage() {
       return (
         <div>
           {/* Them Section */}
+          {canShowThem && (
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
@@ -556,6 +573,7 @@ export default function ReadOnlyQuestionViewPage() {
               <div></div>
             </div>
           </div>
+          )}
 
           {/* Me Section - NO importance slider */}
           <div className="mb-6 pt-8">
@@ -734,6 +752,7 @@ export default function ReadOnlyQuestionViewPage() {
         </div>
 
         {/* Them Section */}
+        {canShowThem && (
         <div className="mb-6">
           <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
@@ -783,6 +802,7 @@ export default function ReadOnlyQuestionViewPage() {
             })}
           </div>
         </div>
+        )}
       </div>
     );
   };

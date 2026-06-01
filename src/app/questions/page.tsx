@@ -31,6 +31,38 @@ interface Question {
   is_submitted_by_me?: boolean;  // Computed by backend
 }
 
+const createDefaultFilters = () => ({
+  questions: {
+    mandatory: false,
+    answered: false,
+    unanswered: false,
+    required: false,
+    submitted: false
+  },
+  tags: {
+    value: false,
+    lifestyle: false,
+    look: false,
+    trait: false,
+    hobby: false,
+    interest: false
+  }
+});
+
+type QuestionsPageFilters = ReturnType<typeof createDefaultFilters>;
+type QuestionSortOption = 'randomized' | 'popular' | 'new' | 'number';
+
+const shuffleQuestionNumbers = (questionNumbers: number[]) => {
+  const shuffled = [...questionNumbers];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+};
+
 function QuestionsPageContent() {
   // --- Timing diagnostics ---
   const mountTime = useRef(performance.now());
@@ -85,7 +117,8 @@ function QuestionsPageContent() {
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [allQuestionNumbers, setAllQuestionNumbers] = useState<number[]>([]);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [sortOption, setSortOption] = useState<'randomized' | 'popular' | 'new' | 'number'>('number');
+  const [sortOption, setSortOption] = useState<QuestionSortOption>('number');
+  const [randomizedSortNonce, setRandomizedSortNonce] = useState(0);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filterAppliedFromUrl = useRef<boolean>(false);
@@ -94,43 +127,40 @@ function QuestionsPageContent() {
   // metadataRefreshInProgress no longer needed — SWR handles dedup and revalidation
   const lastFetchedQuestionNumbersRef = useRef<string>('');
   const ROWS_PER_PAGE = 10;
+  const filterParam = searchParams.get('filter');
   // Filter state - load from sessionStorage on mount
-  const [filters, setFilters] = useState(() => {
+  const [filters, setFilters] = useState<QuestionsPageFilters>(() => {
     if (typeof window !== 'undefined') {
       const savedFilters = sessionStorage.getItem('questions_page_filters');
       if (savedFilters) {
         try {
-          return JSON.parse(savedFilters);
+          return JSON.parse(savedFilters) as QuestionsPageFilters;
         } catch (e) {
           console.error('Error parsing saved filters:', e);
         }
       }
     }
-    return {
-      questions: {
-        mandatory: false,
-        answered: false,
-        unanswered: false,
-        required: false,
-        submitted: false
-      },
-      tags: {
-        value: false,
-        lifestyle: false,
-        look: false,
-        trait: false,
-        hobby: false,
-        interest: false
-      }
-    };
+    return createDefaultFilters();
   });
-  const [pendingFilters, setPendingFilters] = useState<typeof filters>(filters);
+  const [pendingFilters, setPendingFilters] = useState<QuestionsPageFilters>(filters);
+
+  const menuFilters = React.useMemo<QuestionsPageFilters | null>(() => {
+    if (filterParam !== 'answered') {
+      return null;
+    }
+
+    const answeredFilters = createDefaultFilters();
+    answeredFilters.questions.answered = true;
+    return answeredFilters;
+  }, [filterParam]);
+
+  const activeFilters = menuFilters ?? filters;
 
   // SWR hook — lightweight answered-question-numbers fetch (must be before filterPending)
   const { answeredQuestionNumbers, answeredLoading } = useAnsweredQuestions(userId || null);
 
   // Compute whether filter is active and data isn't ready (checked during render)
-  const filterActive = filters.questions.answered || filters.questions.unanswered;
+  const filterActive = activeFilters.questions.answered || activeFilters.questions.unanswered;
   const filterPending = filterActive && (answeredLoading || !filterFetchDone.current);
 
   // Show loader when per-page questions haven't been fetched yet even though
@@ -246,7 +276,17 @@ function QuestionsPageContent() {
 
   // Stable serialized key to prevent infinite re-render loops.
   const metadataKey = JSON.stringify(swrQuestionNumbers);
-  const filterParam = searchParams.get('filter');
+  const allQuestionNumbersKey = allQuestionNumbers.join(',');
+  const randomizedQuestionNumbers = React.useMemo(() => {
+    if (sortOption !== 'randomized' || allQuestionNumbers.length === 0) {
+      return [];
+    }
+
+    return shuffleQuestionNumbers(allQuestionNumbers);
+  }, [sortOption, allQuestionNumbersKey, randomizedSortNonce]);
+  const randomizedQuestionRank = React.useMemo(() => {
+    return new Map(randomizedQuestionNumbers.map((questionNumber, index) => [questionNumber, index]));
+  }, [randomizedQuestionNumbers]);
 
   // Sync SWR metadata into existing state variables (bridges SWR → existing logic)
   useEffect(() => {
@@ -296,7 +336,7 @@ function QuestionsPageContent() {
     };
   }, [showSortDropdown]);
 
-  // Check for filter parameter and apply answered filter (for "My Questions")
+  // Check for menu-driven filter parameter and reset fetch state.
   // useLayoutEffect blocks paint — user never sees the stale empty content
   useLayoutEffect(() => {
     if (filterParam === 'answered' && !filterAppliedFromUrl.current) {
@@ -306,16 +346,13 @@ function QuestionsPageContent() {
       restoredPageNumberRef.current = 1;
       sessionStorage.setItem('questions_current_page', '1');
       setCurrentPage(1);
-      setFilters(prev => ({
-        ...prev,
-        questions: {
-          ...prev.questions,
-          answered: true,
-          unanswered: false
-        }
-      }));
       filterAppliedFromUrl.current = true;
     } else if (filterParam !== 'answered') {
+      if (filterAppliedFromUrl.current) {
+        filterFetchDone.current = false;
+        isFetchingFilteredQuestions.current = false;
+        lastFilterState.current = '';
+      }
       filterAppliedFromUrl.current = false;
     }
   }, [filterParam, setCurrentPage]);
@@ -334,7 +371,10 @@ function QuestionsPageContent() {
     let sorted;
     switch (sortOption) {
       case 'randomized':
-        sorted = [...questionNumbersWithMetadata].sort(() => Math.random() - 0.5);
+        sorted = randomizedQuestionNumbers.map(questionNumber => ({
+          questionNumber,
+          answerCount: answerCounts[questionNumber] || 0
+        }));
         break;
       case 'popular':
         sorted = [...questionNumbersWithMetadata].sort((a, b) => b.answerCount - a.answerCount);
@@ -416,8 +456,8 @@ function QuestionsPageContent() {
       lastFetchedQuestionNumbersRef.current = pageKey;
       // Only set filteredQuestions if no filters are active
       // Otherwise, let the filter effects handle filteredQuestions
-      const hasAnyFilters = Object.values(filters.questions).some(filter => filter) ||
-                           Object.values(filters.tags).some(filter => filter);
+      const hasAnyFilters = Object.values(activeFilters.questions).some(filter => filter) ||
+                           Object.values(activeFilters.tags).some(filter => filter);
       if (!hasAnyFilters) {
         setFilteredQuestions(pageQuestions);
       }
@@ -430,17 +470,17 @@ function QuestionsPageContent() {
       console.error('Error fetching questions for page:', error);
       setError('Failed to load questions');
     }
-  }, [allQuestionNumbers, currentPage, sortOption, answerCounts, timingLog]);
+  }, [allQuestionNumbers, currentPage, sortOption, answerCounts, activeFilters, randomizedQuestionNumbers, timingLog]);
 
   // Effect to handle page changes (skip if using client-side filters since we do client-side pagination)
   useEffect(() => {
     if (!pageRestoredRef.current) return;
-    const hasAnsweredUnansweredFilter = filters.questions.answered || filters.questions.unanswered;
+    const hasAnsweredUnansweredFilter = activeFilters.questions.answered || activeFilters.questions.unanswered;
     if (hasAnsweredUnansweredFilter) return;
     if (allQuestionNumbers.length > 0) {
       fetchQuestionsForCurrentPage();
     }
-  }, [fetchQuestionsForCurrentPage, filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, questions.length, currentPage]);
+  }, [fetchQuestionsForCurrentPage, activeFilters.questions.answered, activeFilters.questions.unanswered, allQuestionNumbers.length, questions.length, currentPage]);
 
   // Search questions by text (backend search)
   useEffect(() => {
@@ -471,7 +511,7 @@ function QuestionsPageContent() {
         setIsSearching(true);
 
         // 1) Server-side search first
-        let serverResults: Question[] = [];
+        const serverResults: Question[] = [];
         try {
           let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?search=${encodeURIComponent(activeTerm)}&page_size=500&include_unapproved=true&skip_user_answers=true`;
           let page = 0;
@@ -591,7 +631,7 @@ function QuestionsPageContent() {
         if (!cancelled) {
           applyResults(matches);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (controller.signal.aborted || cancelled) return;
         console.error('Error searching questions:', err);
       } finally {
@@ -668,14 +708,14 @@ function QuestionsPageContent() {
     
     // If filtering by answered/unanswered, we should check ALL question numbers, not just loaded ones
     // Otherwise, we can only filter the loaded questions
-    const questionNumbersToCheck = (filters.questions.answered || filters.questions.unanswered) 
+    const questionNumbersToCheck = (activeFilters.questions.answered || activeFilters.questions.unanswered)
       ? allQuestionNumbers 
       : questionNumbers;
     
     const filtered = questionNumbersToCheck.filter(questionNumber => {
       // Apply question type filters
-      const questionFilters = filters.questions;
-      const tagFilters = filters.tags;
+      const questionFilters = activeFilters.questions;
+      const tagFilters = activeFilters.tags;
       
       // Check if any question filters are active
       const hasQuestionFilters = Object.values(questionFilters).some(filter => filter);
@@ -751,7 +791,7 @@ function QuestionsPageContent() {
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
-    }, [filters, questions, answeredQuestionNumbers, allQuestionNumbers]);
+    }, [activeFilters, questions, answeredQuestionNumbers, allQuestionNumbers]);
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
@@ -761,7 +801,7 @@ function QuestionsPageContent() {
 
     const fetchFilteredQuestions = async () => {
       // Only fetch if filtering by answered/unanswered
-      if (!filters.questions.answered && !filters.questions.unanswered) {
+      if (!activeFilters.questions.answered && !activeFilters.questions.unanswered) {
         // Clear filtered questions if filter is turned off
         if (filteredQuestions.length > 0) {
           setFilteredQuestions([]);
@@ -789,7 +829,7 @@ function QuestionsPageContent() {
       }
 
       // Create a stable key for the current filter state to prevent duplicate fetches
-      const filterKey = `${filters.questions.answered}-${filters.questions.unanswered}-${allQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
+      const filterKey = `${activeFilters.questions.answered}-${activeFilters.questions.unanswered}-${allQuestionNumbers.length}-${answeredQuestionNumbers.length}`;
 
       if (isFetchingFilteredQuestions.current) {
         return;
@@ -803,7 +843,7 @@ function QuestionsPageContent() {
       isFetchingFilteredQuestions.current = true;
       lastFilterState.current = filterKey;
 
-      if (filters.questions.answered && answeredQuestionNumbers.length === 0) {
+      if (activeFilters.questions.answered && answeredQuestionNumbers.length === 0) {
         setFilteredQuestions([]);
         filterFetchDone.current = true;
         isFetchingFilteredQuestions.current = false;
@@ -814,11 +854,11 @@ function QuestionsPageContent() {
       const answeredSet = new Set(answeredQuestionNumbers);
 
       let matchingQuestionNumbers: number[];
-      if (filters.questions.answered) {
+      if (activeFilters.questions.answered) {
         matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
           answeredSet.has(qNum)
         );
-      } else if (filters.questions.unanswered) {
+      } else if (activeFilters.questions.unanswered) {
         matchingQuestionNumbers = allQuestionNumbers.filter(qNum =>
           !answeredSet.has(qNum)
         );
@@ -888,12 +928,12 @@ function QuestionsPageContent() {
     };
 
     fetchFilteredQuestions();
-  }, [filters.questions.answered, filters.questions.unanswered, allQuestionNumbers.length, answeredQuestionNumbers.length, answeredLoading, searchTerm, loading]);
+  }, [activeFilters.questions.answered, activeFilters.questions.unanswered, allQuestionNumbers.length, answeredQuestionNumbers.length, answeredLoading, searchTerm, loading]);
 
   // Apply filters when questions are loaded or filter state changes (for non-answered/unanswered filters)
   useEffect(() => {
     // Skip if filtering by answered/unanswered (handled by separate effect above)
-    if (filters.questions.answered || filters.questions.unanswered) {
+    if (activeFilters.questions.answered || activeFilters.questions.unanswered) {
       return;
     }
 
@@ -914,8 +954,8 @@ function QuestionsPageContent() {
     }
 
     // Check if any filters are active
-    const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
-    const hasTagFilters = Object.values(filters.tags).some(filter => filter);
+    const hasQuestionFilters = Object.values(activeFilters.questions).some(filter => filter);
+    const hasTagFilters = Object.values(activeFilters.tags).some(filter => filter);
 
     // If filters are active but questions haven't been loaded yet, trigger fetch
     // But only if page restoration is complete
@@ -933,10 +973,26 @@ function QuestionsPageContent() {
         applyFilters();
       }
     }
-  }, [questions, filters, applyFilters, allQuestionNumbers.length, searchTerm, searchResults, currentPage]);
+  }, [questions, activeFilters, applyFilters, allQuestionNumbers.length, searchTerm, searchResults, currentPage]);
 
   // Sort handler
-  const handleSortOptionSelect = (option: typeof sortOption) => {
+  const handleSortOptionSelect = (option: QuestionSortOption) => {
+    lastFetchedQuestionNumbersRef.current = '';
+    restoredPageNumberRef.current = 1;
+    const hasClientSideFilters = searchTerm.trim().length > 0 ||
+      activeFilters.questions.answered || activeFilters.questions.unanswered ||
+      activeFilters.questions.required || activeFilters.questions.mandatory ||
+      activeFilters.questions.submitted || Object.values(activeFilters.tags).some(Boolean);
+    if (option === 'randomized' && !hasClientSideFilters) {
+      setQuestions([]);
+      setFilteredQuestions([]);
+    }
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    if (option === 'randomized') {
+      setRandomizedSortNonce(prev => prev + 1);
+    }
     setSortOption(option);
     setShowSortDropdown(false);
   };
@@ -1010,8 +1066,16 @@ function QuestionsPageContent() {
     let sorted;
     switch (sortOption) {
       case 'randomized':
-        // Randomize order
-        sorted = entries.sort(() => Math.random() - 0.5);
+        sorted = entries.sort((a, b) => {
+          const aRank = randomizedQuestionRank.get(a[1].questionNumber) ?? Number.MAX_SAFE_INTEGER;
+          const bRank = randomizedQuestionRank.get(b[1].questionNumber) ?? Number.MAX_SAFE_INTEGER;
+
+          if (aRank !== bRank) {
+            return aRank - bRank;
+          }
+
+          return a[1].questionNumber - b[1].questionNumber;
+        });
         break;
       case 'popular':
         // Sort by answer count (most answers first)
@@ -1049,13 +1113,13 @@ function QuestionsPageContent() {
     }
 
     return sorted;
-  }, [groupedQuestions, sortOption]);
+  }, [groupedQuestions, sortOption, randomizedQuestionRank]);
 
   // Calculate pagination for filtered results (when using client-side filters)
   const isClientSideFiltered = searchTerm.trim().length > 0 ||
-                               filters.questions.answered || filters.questions.unanswered ||
-                                filters.questions.required || filters.questions.mandatory ||
-                                filters.questions.submitted || Object.values(filters.tags).some(Boolean);
+                               activeFilters.questions.answered || activeFilters.questions.unanswered ||
+                                activeFilters.questions.required || activeFilters.questions.mandatory ||
+                                activeFilters.questions.submitted || Object.values(activeFilters.tags).some(Boolean);
   const filteredTotalPages = isClientSideFiltered
     ? Math.ceil(sortedGroupedQuestions.length / ROWS_PER_PAGE)
     : totalPages;
@@ -1112,6 +1176,17 @@ function QuestionsPageContent() {
     }));
   };
 
+  const clearMenuFilterFromUrl = useCallback(() => {
+    if (typeof window === 'undefined' || filterParam !== 'answered') {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('filter');
+    filterAppliedFromUrl.current = false;
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+  }, [filterParam, router]);
+
   const updateQuestionFilter = (filterType: keyof typeof filters.questions, value: boolean) => {
     setFilters(prev => ({
       ...prev,
@@ -1122,12 +1197,8 @@ function QuestionsPageContent() {
     }));
     
     // If toggling off the "answered" filter and URL has filter=answered, remove it from URL
-    if (filterType === 'answered' && !value && searchParams.get('filter') === 'answered') {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('filter');
-      window.history.replaceState({}, '', url.toString());
-      // Reset the flag so URL changes don't re-apply the filter
-      filterAppliedFromUrl.current = false;
+    if (filterType === 'answered' && !value && filterParam === 'answered') {
+      clearMenuFilterFromUrl();
     }
   };
 
@@ -1166,13 +1237,14 @@ function QuestionsPageContent() {
   const applyFiltersAndClose = async () => {
     // Check if the new filters require fetching data (answered/unanswered filters)
     const requiresFetching = 
-      (pendingFilters.questions.answered && !filters.questions.answered) ||
-      (pendingFilters.questions.unanswered && !filters.questions.unanswered) ||
-      (filters.questions.answered && !pendingFilters.questions.answered) ||
-      (filters.questions.unanswered && !pendingFilters.questions.unanswered);
+      (pendingFilters.questions.answered && !activeFilters.questions.answered) ||
+      (pendingFilters.questions.unanswered && !activeFilters.questions.unanswered) ||
+      (activeFilters.questions.answered && !pendingFilters.questions.answered) ||
+      (activeFilters.questions.unanswered && !pendingFilters.questions.unanswered);
     
     // Update filters state first
     setFilters(pendingFilters);
+    clearMenuFilterFromUrl();
     
     // Close modal immediately if no fetching needed
     if (!requiresFetching) {
@@ -1310,7 +1382,7 @@ function QuestionsPageContent() {
         </div>
         {/* Search + Filter + Sort — search bar WIDTH limited on small/medium screens */}
         <div className="flex items-center gap-1.5 sm:gap-2 w-full max-w-2xl mx-auto min-w-0">
-          <div className="relative w-[240px] min-[400px]:w-[300px] sm:w-[360px] md:w-[440px] lg:flex-1 lg:min-w-0 shrink-0">
+          <div className="relative w-[128px] min-[360px]:w-[168px] min-[400px]:w-[220px] sm:w-[320px] md:w-[360px] lg:flex-1 lg:min-w-0 shrink-0">
             <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
               <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1405,7 +1477,7 @@ function QuestionsPageContent() {
             )}
           </div>
         </div>
-        <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2">
+        <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-[100]">
           <HamburgerMenu />
         </div>
       </div>
@@ -1431,9 +1503,9 @@ function QuestionsPageContent() {
         {/* Questions List */}
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-x-2 gap-y-2 flex-wrap overflow-visible py-1">
               {/* Question Type Filters */}
-              {filters.questions.mandatory && (
+              {activeFilters.questions.mandatory && (
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(prev => !prev)}
@@ -1442,7 +1514,7 @@ function QuestionsPageContent() {
                   <Image src="/assets/asterisk.png" alt="Mandatory" width={24} height={24} />
                 </button>
               )}
-              {filters.questions.answered && (
+              {activeFilters.questions.answered && (
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(prev => !prev)}
@@ -1451,7 +1523,7 @@ function QuestionsPageContent() {
                   <Image src="/assets/answered.png" alt="Answered" width={24} height={24} />
                 </button>
               )}
-              {filters.questions.unanswered && (
+              {activeFilters.questions.unanswered && (
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(prev => !prev)}
@@ -1460,7 +1532,7 @@ function QuestionsPageContent() {
                   <Image src="/assets/un.png" alt="Unanswered" width={24} height={24} />
                 </button>
               )}
-              {filters.questions.required && (
+              {activeFilters.questions.required && (
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(prev => !prev)}
@@ -1469,7 +1541,7 @@ function QuestionsPageContent() {
                   <Image src="/assets/req.png" alt="Required" width={24} height={24} />
                 </button>
               )}
-              {filters.questions.submitted && (
+              {activeFilters.questions.submitted && (
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(prev => !prev)}
@@ -1480,7 +1552,7 @@ function QuestionsPageContent() {
               )}
 
               {/* Tag Filters */}
-              {Object.entries(filters.tags).map(([tagKey, isActive]) => {
+              {Object.entries(activeFilters.tags).map(([tagKey, isActive]) => {
                 if (!isActive) return null;
                 const tagName = tagKey.charAt(0).toUpperCase() + tagKey.slice(1);
                 return (
@@ -1488,7 +1560,7 @@ function QuestionsPageContent() {
                     type="button"
                     key={tagKey}
                     onClick={() => setShowFilterModal(prev => !prev)}
-                    className="relative px-4 py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium cursor-pointer hover:border-gray-600"
+                    className="relative inline-flex min-h-8 items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium leading-none cursor-pointer hover:border-gray-600"
                   >
                     <div className="absolute inset-0 bg-black opacity-3" style={{ borderRadius: '24px' }}></div>
                     <span className="relative z-10">{tagName}</span>
@@ -1726,7 +1798,7 @@ function QuestionsPageContent() {
               {/* Tags Section */}
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">Tags</h3>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap items-start content-start gap-x-2 gap-y-2 overflow-visible py-1">
                   {['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'].map((tag) => {
                     const tagKey = tag.toLowerCase() as keyof typeof pendingFilters.tags;
                     const isSelected = pendingFilters.tags[tagKey];
@@ -1735,7 +1807,7 @@ function QuestionsPageContent() {
                       <button
                         key={tag}
                         onClick={() => handleFilterToggle('tags', tagKey)}
-                        className={`relative px-4 py-2 rounded-full border text-sm font-medium transition-colors cursor-pointer ${
+                        className={`relative inline-flex min-h-9 items-center px-3 sm:px-4 py-2 rounded-full border text-sm font-medium leading-none transition-colors cursor-pointer ${
                           isSelected
                             ? 'border-black text-gray-700 border-2'
                             : 'border-gray-300 text-gray-700 hover:border-gray-400'
@@ -1953,7 +2025,7 @@ function QuestionsPageContent() {
               {/* Tags Section — max 1 tag */}
               <div className="mb-6">
                 <h3 className="text-base font-semibold mb-3">Select Tag</h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-start content-start gap-x-2 gap-y-2 overflow-visible py-1">
                   {['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'].map((tag) => {
                     const isSelected = selectedTags.includes(tag);
                     return (
@@ -1966,7 +2038,7 @@ function QuestionsPageContent() {
                             setSelectedTags([tag]);
                           }
                         }}
-                        className={`relative px-4 py-2 border text-sm font-medium transition-colors cursor-pointer ${
+                        className={`relative inline-flex min-h-9 items-center px-3 sm:px-4 py-2 border text-sm font-medium leading-none transition-colors cursor-pointer ${
                           isSelected
                             ? 'border-black text-gray-700 border-2'
                             : 'border-gray-300 text-gray-700 hover:border-gray-400'

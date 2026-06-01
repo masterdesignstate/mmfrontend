@@ -9,6 +9,68 @@ export interface UserPicture {
 }
 
 export const MAX_USER_PICTURES = 5;
+export const MAX_PROFILE_PROMPTS = 6;
+export const MAX_WRITTEN_PROFILE_PROMPTS = 3;
+export const MAX_VOICE_PROFILE_PROMPTS = 1;
+export const MAX_VIDEO_PROFILE_PROMPTS = 1;
+export const MAX_POLL_PROFILE_PROMPTS = 1;
+export const MAX_WRITTEN_PROMPT_CHARS = 150;
+export const MAX_PROMPT_MEDIA_SECONDS = 30;
+export const MAX_POLL_COMMENT_CHARS = 200;
+
+export type ProfilePromptType = 'written' | 'voice' | 'video' | 'poll';
+
+export interface PromptTemplate {
+  id: string;
+  text: string;
+  category: string;
+  is_active: boolean;
+  order: number;
+  created_at?: string;
+}
+
+export interface PromptPollVote {
+  id: string;
+  prompt: string;
+  voter: {
+    id: string;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+    profile_photo?: string | null;
+  };
+  selected_option_index: number;
+  selected_option_text: string;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProfilePrompt {
+  id: string;
+  user: string;
+  template: PromptTemplate;
+  prompt_type: ProfilePromptType;
+  order: number;
+  written_answer: string;
+  media_url: string;
+  media_duration_seconds?: string | number | null;
+  poll_options: string[];
+  is_active: boolean;
+  viewer_vote?: PromptPollVote | null;
+  poll_votes?: PromptPollVote[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProfilePromptPayload {
+  template_id: string;
+  prompt_type: ProfilePromptType;
+  written_answer?: string;
+  media_url?: string;
+  media_duration_seconds?: number | null;
+  poll_options?: string[];
+}
 
 // ----- Feed -----
 export const MAX_POST_IMAGES = 5;
@@ -64,6 +126,12 @@ export interface PostComment {
   created_at: string;
   updated_at: string;
   is_deleted?: boolean;
+  post_preview?: {
+    id: string;
+    body: string;
+    created_at: string;
+    author: FeedAuthor;
+  };
 }
 
 export interface PostRevision {
@@ -122,10 +190,12 @@ export interface ApiUser {
   last_active?: string | null;
   mandatory_questions_complete?: boolean;
   require_answers_for_likes?: boolean;
+  share_answers?: boolean;
   feed_visibility_bio?: FeedVisibility;
   feed_visibility_photo?: FeedVisibility;
   feed_visibility_question?: FeedVisibility;
   pictures?: UserPicture[];
+  profile_prompts?: UserProfilePrompt[];
   question_answers?: {
     male?: number;
     female?: number;
@@ -216,11 +286,12 @@ export interface Notification {
   id: string;
   recipient: ApiUser;
   sender: ApiUser;
-  notification_type: 'approve' | 'like' | 'match' | 'note';
+  notification_type: 'approve' | 'like' | 'match' | 'note' | 'prompt_poll';
   note?: string;
   is_read: boolean;
   created_at: string;
   related_user_result?: string;
+  related_prompt_poll_vote?: PromptPollVote;
 }
 
 export interface Message {
@@ -464,6 +535,54 @@ class ApiService {
 
   async reorderUserPictures(userId: string, orderedIds: string[]): Promise<UserPicture[]> {
     return this.request(`/users/${userId}/pictures/reorder/`, 'POST', { order: orderedIds }) as Promise<UserPicture[]>;
+  }
+
+  // ----- Profile prompts -----
+  async getPromptTemplates(): Promise<PromptTemplate[]> {
+    return this.fetchAllPages<PromptTemplate>('/prompt-templates/');
+  }
+
+  async getUserProfilePrompts(
+    userId: string,
+    options?: { viewerId?: string; includeVotes?: boolean }
+  ): Promise<UserProfilePrompt[]> {
+    const params = new URLSearchParams({ user_id: userId });
+    if (options?.viewerId) params.set('viewer_id', options.viewerId);
+    if (options?.includeVotes) {
+      params.set('include_votes', 'true');
+      params.set('owner_id', userId);
+    }
+    return this.fetchAllPages<UserProfilePrompt>(`/profile-prompts/?${params.toString()}`);
+  }
+
+  async replaceUserProfilePrompts(userId: string, prompts: ProfilePromptPayload[]): Promise<UserProfilePrompt[]> {
+    return this.request('/profile-prompts/replace-set/', 'POST', { user_id: userId, editor_id: userId, prompts }) as Promise<UserProfilePrompt[]>;
+  }
+
+  async voteOnPromptPoll(
+    promptId: string,
+    data: { voter_id: string; selected_option_index: number; comment?: string }
+  ): Promise<PromptPollVote> {
+    const response = await fetch(`${API_BASE_URL}/profile-prompts/${promptId}/vote/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      let payload: { error?: string; message?: string } | null = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+      const error = new Error(payload?.message || payload?.error || `API request failed: ${response.status} ${response.statusText}`);
+      (error as Error & { status?: number; code?: string }).status = response.status;
+      (error as Error & { status?: number; code?: string }).code = payload?.error;
+      throw error;
+    }
+
+    return response.json() as Promise<PromptPollVote>;
   }
 
   async getCompatibleUsers(params: {
@@ -952,13 +1071,19 @@ class ApiService {
     viewerId?: string;
     q?: string;
     hashtag?: string;
+    authorId?: string;
   } = {}): Promise<FeedResponse> {
-    const { audience = 'all', page = 1, pageSize = 20, viewerId, q, hashtag } = opts;
+    const { audience = 'all', page = 1, pageSize = 20, viewerId, q, hashtag, authorId } = opts;
     const qs = new URLSearchParams({ audience, page: String(page), page_size: String(pageSize) });
     if (viewerId) qs.set('user_id', viewerId);
     if (q && q.trim()) qs.set('q', q.trim());
     if (hashtag && hashtag.trim()) qs.set('hashtag', hashtag.trim().toLowerCase().replace(/^#/, ''));
+    if (authorId) qs.set('author_id', authorId);
     return this.request(`/feed/?${qs.toString()}`, 'GET') as Promise<FeedResponse>;
+  }
+
+  async getProfilePosts(profileUserId: string, viewerId: string, page = 1, pageSize = 20): Promise<FeedResponse> {
+    return this.getFeed({ authorId: profileUserId, viewerId, page, pageSize });
   }
 
   async getFeedHashtags(viewerId?: string, limit = 20): Promise<HashtagCategory[]> {
@@ -997,6 +1122,10 @@ class ApiService {
 
   async getPostComments(postId: string): Promise<PostComment[]> {
     return this.request(`/comments/?post=${postId}`, 'GET') as Promise<PostComment[]>;
+  }
+
+  async getProfileComments(profileUserId: string, viewerId: string): Promise<PostComment[]> {
+    return this.request(`/comments/?author_id=${profileUserId}&user_id=${viewerId}`, 'GET') as Promise<PostComment[]>;
   }
 
   async createComment(postId: string, body: string, viewerId?: string): Promise<PostComment> {

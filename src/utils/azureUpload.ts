@@ -149,4 +149,77 @@ export const uploadToAzureBlob = async (
   }
 };
 
+export const validatePromptMediaFile = (
+  file: File,
+  kind: 'voice' | 'video'
+): { isValid: boolean; error?: string } => {
+  const expectedPrefix = kind === 'voice' ? 'audio/' : 'video/';
+  if (!file.type.startsWith(expectedPrefix)) {
+    return { isValid: false, error: kind === 'voice' ? 'Please select an audio file' : 'Please select a video file' };
+  }
 
+  const maxSize = kind === 'voice' ? 25 * 1024 * 1024 : 100 * 1024 * 1024;
+  if (file.size > maxSize) {
+    return { isValid: false, error: kind === 'voice' ? 'Audio must be less than 25MB' : 'Video must be less than 100MB' };
+  }
+
+  return { isValid: true };
+};
+
+export const getMediaDurationSeconds = (file: File): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const media = document.createElement(file.type.startsWith('video/') ? 'video' : 'audio');
+    media.preload = 'metadata';
+    media.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(Number.isFinite(media.duration) ? media.duration : 0);
+    };
+    media.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read media duration'));
+    };
+    media.src = url;
+  });
+};
+
+export const uploadPromptMediaToAzure = async (
+  file: File,
+  userId: string,
+  kind: 'voice' | 'video',
+  onProgress?: (progress: number) => void
+): Promise<string> => {
+  const validation = validatePromptMediaFile(file, kind);
+  if (!validation.isValid) {
+    throw new Error(validation.error);
+  }
+
+  const duration = await getMediaDurationSeconds(file);
+  if (duration <= 0 || duration > 30.25) {
+    throw new Error('Prompt media must be 30 seconds or shorter');
+  }
+
+  const fileExtension = file.name.split('.').pop() || (kind === 'voice' ? 'webm' : 'mp4');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const blobName = `profile-prompts/user-${userId}/${kind}-${timestamp}.${fileExtension}`;
+  const { BlobServiceClient } = await import('@azure/storage-blob');
+  const blobServiceClient = new BlobServiceClient(AZURE_CONFIG.BLOB_SERVICE_URL);
+  const containerClient = blobServiceClient.getContainerClient(AZURE_CONFIG.CONTAINER_NAME);
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+  await blockBlobClient.uploadData(file, {
+    blobHTTPHeaders: {
+      blobContentType: file.type,
+      blobContentDisposition: `inline; filename="${file.name}"`,
+    },
+    onProgress: (progress) => {
+      if (onProgress && progress.loadedBytes) {
+        const percentage = Math.round((progress.loadedBytes / file.size) * 100);
+        onProgress(Math.min(99, Math.max(0, percentage)));
+      }
+    },
+  });
+
+  if (onProgress) onProgress(100);
+  return blockBlobClient.url;
+};

@@ -67,7 +67,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
   }, [userId]);
 
   return (
-    <div className={`flex items-center gap-1.5 md:gap-3 ${className}`}>
+    <div className={`relative z-[100] flex items-center gap-1.5 md:gap-3 ${className}`}>
       {/* Chat and Notification Bells — hidden on very small screens (moved into menu) */}
       {userId && !isNarrow && (
         <>
@@ -77,7 +77,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
       )}
 
       {/* Hamburger Menu Button — smaller on medium and below */}
-      <div className="relative">
+      <div className="relative z-[100]">
         <button
           className="p-1.5 md:p-2 cursor-pointer"
           onClick={() => setShowMenu(!showMenu)}
@@ -89,7 +89,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
 
       {/* Dropdown Menu */}
       {showMenu && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-[110] border border-gray-200">
           {/* On very small screens: Chats and Notifications first (bells are hidden) */}
           {isNarrow && userId && (
             <>
