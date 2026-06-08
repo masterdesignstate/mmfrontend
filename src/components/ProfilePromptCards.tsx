@@ -15,11 +15,8 @@ type ProfilePromptCardsProps = {
 
 export default function ProfilePromptCards({
   prompts = [],
-  ownerId,
   viewerId,
   isOwner = false,
-  likeDisabled = false,
-  likeDisabledLabel = 'Answer required questions',
   onVoted,
 }: ProfilePromptCardsProps) {
   const sortedPrompts = useMemo(
@@ -37,11 +34,7 @@ export default function ProfilePromptCards({
   }
 
   const submitVote = async (prompt: UserProfilePrompt) => {
-    if (!viewerId || viewerId === ownerId) return;
-    if (likeDisabled) {
-      setErrorByPrompt(prev => ({ ...prev, [prompt.id]: likeDisabledLabel }));
-      return;
-    }
+    if (!viewerId) return;
     const selected = selectedOptions[prompt.id];
     if (selected === undefined) {
       setErrorByPrompt(prev => ({ ...prev, [prompt.id]: 'Choose an option first.' }));
@@ -108,20 +101,20 @@ export default function ProfilePromptCards({
                     <button
                       key={`${prompt.id}-${option}-${index}`}
                       type="button"
-                      disabled={isOwner || !!viewerVote || isSubmitting}
+                      disabled={isSubmitting}
                       onClick={() => setSelectedOptions(prev => ({ ...prev, [prompt.id]: index }))}
                       className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
                         isSelected
                           ? 'border-[#672DB7] bg-purple-50 text-[#672DB7]'
                           : 'border-gray-200 text-gray-800 hover:border-gray-300'
-                      } ${isOwner || viewerVote ? 'cursor-default' : 'cursor-pointer'}`}
+                      } ${isSubmitting ? 'cursor-wait opacity-70' : 'cursor-pointer'}`}
                     >
                       {option}
                     </button>
                   );
                 })}
 
-                {!isOwner && !viewerVote && viewerId && (
+                {viewerId && (
                   <>
                     <textarea
                       value={comments[prompt.id] || ''}
@@ -134,11 +127,10 @@ export default function ProfilePromptCards({
                     <button
                       type="button"
                       onClick={() => submitVote(prompt)}
-                      disabled={isSubmitting || likeDisabled}
-                      title={likeDisabled ? likeDisabledLabel : undefined}
+                      disabled={isSubmitting}
                       className="w-full rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isSubmitting ? 'Sending...' : likeDisabled ? likeDisabledLabel : 'Vote & Like'}
+                      {isSubmitting ? 'Sending...' : viewerVote ? 'Update vote' : 'Vote'}
                     </button>
                   </>
                 )}

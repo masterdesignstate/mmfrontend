@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import ExclusionControl from '@/components/ExclusionControl';
 import posthog from 'posthog-js';
 
 
@@ -42,6 +43,16 @@ export default function QuestionPage() {
     meOpen: initialEa?.mo || false,
     lookingForOpen: initialEa?.lo || false
   });
+  const normalizeExcludedValues = (values: unknown): number[] => {
+    if (!Array.isArray(values)) return [];
+    const normalized = values
+      .map(value => Number(value))
+      .filter(value => Number.isInteger(value) && value >= 1 && value <= 5);
+    return Array.from(new Set(normalized)).sort((a, b) => a - b);
+  };
+  const [excludedAnswerValues, setExcludedAnswerValues] = useState<number[]>(
+    normalizeExcludedValues(initialEa?.exc)
+  );
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
 
@@ -212,6 +223,29 @@ export default function QuestionPage() {
     </label>
   );
 
+  const OtaExcHeader = ({ showOta, showExc = true }: { showOta: boolean; showExc?: boolean }) => (
+    <div className="flex justify-center gap-2 text-xs text-gray-500 min-w-0">
+      <span className="w-11 text-center">{showOta ? 'OTA' : ''}</span>
+      {showExc && <span className="w-7 text-center">EXC</span>}
+    </div>
+  );
+
+  const OtaExcControls = ({ showOta, checked, onToggle, showExc = true }: { showOta: boolean; checked: boolean; onToggle: () => void; showExc?: boolean }) => (
+    <div className="flex items-center justify-center gap-2">
+      {showOta ? (
+        <ToggleControl checked={checked} onChange={onToggle} />
+      ) : (
+        <div className="w-11 h-6" aria-hidden></div>
+      )}
+      {showExc && (
+        <ExclusionControl
+          values={excludedAnswerValues}
+          onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values))}
+        />
+      )}
+    </div>
+  );
+
   
   // For habits page (question 7) - 3 questions + importance
   const [habitsQuestions, setHabitsQuestions] = useState<Array<{
@@ -253,11 +287,10 @@ export default function QuestionPage() {
       const questionIds = {
         White: 'ee193abd-92ab-4808-8d18-40eef117142c',        // Group 1: White
         Black: '99b0deb7-8d11-4e89-8b08-e48bb7cffa9a',        // Group 2: Black
-        Hawaiian: '2ef95f1a-3b2f-48f5-adb6-1c31d89ed904',     // Group 3: Hawaiian
-        Native: '473dd873-c249-4426-a1f0-7368d5604888',       // Group 4: Native
-        Hispanic: 'ee1136e8-d7fa-4d5f-905b-09d3e85f38a7',    // Group 5: Hispanic
-        Asian: 'a135b6e5-7b85-4122-9218-d0093881646c',        // Group 6: Asian
-        Other: '14f4f27b-0e50-4b4a-8172-5d9e6a6eb39d'         // Group 7: Other
+        Native: '473dd873-c249-4426-a1f0-7368d5604888',       // Group 3: Native
+        Hispanic: 'ee1136e8-d7fa-4d5f-905b-09d3e85f38a7',    // Group 4: Hispanic
+        Asian: 'a135b6e5-7b85-4122-9218-d0093881646c',        // Group 5: Asian
+        Other: '2ef95f1a-3b2f-48f5-adb6-1c31d89ed904'         // Group 6: Other
       };
 
       // Get ethnicity display name
@@ -265,7 +298,6 @@ export default function QuestionPage() {
         const displayNames = {
           White: 'White',
           Black: 'Black or African Descent',
-          Hawaiian: 'Native Hawaiian or Other Pacific Islander',
           Native: 'Native American',
           Hispanic: 'Hispanic/Latino',
           Asian: 'Asian',
@@ -464,6 +496,7 @@ export default function QuestionPage() {
               meOpen: existing.me_open_to_all || false,
               lookingForOpen: existing.looking_for_open_to_all || false,
             });
+            setExcludedAnswerValues(normalizeExcludedValues(existing.excluded_answer_values));
             setMeShare(existing.me_share !== false);
           } else if (!initialEa && currentFetchId === answerFetchIdRef.current) {
             setOpenToAll(prev => ({
@@ -471,6 +504,7 @@ export default function QuestionPage() {
               meOpen: false,
               lookingForOpen: question.open_to_all_looking_for || false,
             }));
+            setExcludedAnswerValues([]);
           }
         }
 
@@ -735,6 +769,7 @@ export default function QuestionPage() {
         looking_for_open_to_all: openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
+        excluded_answer_values: question.question_number === 1 ? [] : excludedAnswerValues,
         is_required_for_me: meRequired
       };
       // For ethnicity questions, save in background without blocking UI
@@ -1236,18 +1271,16 @@ export default function QuestionPage() {
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* LESS/MORE and OTA labels — same 3-col grid on all sizes */}
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
                 {renderTopLabels()}
               </div>
-              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
-                {question?.open_to_all_looking_for ? 'OTA' : ''}
-              </div>
+              <OtaExcHeader showOta={!!question?.open_to_all_looking_for} />
             </div>
             
             {/* Grid: label | slider | OTA — same 3 columns so importance row aligns and gets same slider width */}
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
@@ -1265,16 +1298,11 @@ export default function QuestionPage() {
                   isImportance={false}
                 />
               </div>
-              <div className="flex justify-center shrink-0 w-11">
-                {question.open_to_all_looking_for ? (
-                  <ToggleControl
-                    checked={openToAll.lookingForOpen}
-                    onChange={() => handleOpenToAllToggle('lookingForOpen')}
-                  />
-                ) : (
-                  <div className="w-11 h-6" aria-hidden></div>
-                )}
-              </div>
+              <OtaExcControls
+                showOta={!!question.open_to_all_looking_for}
+                checked={openToAll.lookingForOpen}
+                onToggle={() => handleOpenToAllToggle('lookingForOpen')}
+              />
 
               {/* IMPORTANCE row — same column widths so slider is full width like BLACK row */}
               <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
@@ -1288,11 +1316,11 @@ export default function QuestionPage() {
                   isImportance={true}
                 />
               </div>
-              <div className="shrink-0 w-11 h-6" aria-hidden></div>
+              <div className="shrink-0 w-[88px] h-6" aria-hidden></div>
             </div>
 
             {/* Importance labels below Looking For section */}
-            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importance.lookingFor === 1 && (
@@ -1311,7 +1339,7 @@ export default function QuestionPage() {
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
                 )}
               </div>
-              <div className="min-w-0 shrink-0 w-11" aria-hidden></div>
+              <div className="min-w-0 shrink-0 w-[88px]" aria-hidden></div>
             </div>
           </div>
 
@@ -1320,18 +1348,16 @@ export default function QuestionPage() {
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* LESS/MORE and OTA labels — same 3-col grid */}
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
                 {renderTopLabels()}
               </div>
-              <div className="text-xs text-gray-500 text-center min-w-0 shrink-0 w-11 lg:ml-[-15px]">
-                {question?.open_to_all_me ? 'OTA' : ''}
-              </div>
+              <OtaExcHeader showOta={!!question?.open_to_all_me} showExc={false} />
             </div>
             
             {/* Grid — same 3 columns as Them section */}
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
@@ -1349,16 +1375,12 @@ export default function QuestionPage() {
                   isImportance={false}
                 />
               </div>
-              <div className="flex justify-center shrink-0 w-11">
-                {question.open_to_all_me ? (
-                  <ToggleControl
-                    checked={openToAll.meOpen}
-                    onChange={() => handleOpenToAllToggle('meOpen')}
-                  />
-                ) : (
-                  <div className="w-11 h-6" aria-hidden></div>
-                )}
-              </div>
+              <OtaExcControls
+                showOta={!!question.open_to_all_me}
+                checked={openToAll.meOpen}
+                onToggle={() => handleOpenToAllToggle('meOpen')}
+                showExc={false}
+              />
             </div>
           </div>
         </div>

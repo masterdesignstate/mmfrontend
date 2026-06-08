@@ -7,14 +7,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { apiService, type Post, type PostComment, type UserProfilePrompt } from '@/services/api';
+import { apiService, type FeedVisibility, type Post, type PostComment, type UserProfilePrompt } from '@/services/api';
 import FeedPostCard, { DEFAULT_AVATAR, formatRelative } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
 import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
+import ExclusionControl from '@/components/ExclusionControl';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
+import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
 
 // Types for user profile and answers
@@ -34,7 +36,7 @@ interface UserProfile {
   last_active?: string | null;
   questions_answered_count?: number;
   require_answers_for_likes?: boolean;
-  share_answers?: boolean;
+  share_answers?: FeedVisibility;
   pictures?: { id: string; image_url: string; order: number }[];
   profile_prompts?: UserProfilePrompt[];
 }
@@ -59,6 +61,7 @@ interface UserAnswer {
   looking_for_importance?: number;
   me_share?: boolean;
   looking_for_share?: boolean;
+  excluded_answer_values?: number[];
   created_at?: string;
   updated_at?: string;
 }
@@ -71,6 +74,14 @@ interface ProfileIcon {
 }
 
 type ProfileContentTab = 'profile' | 'posts' | 'comments';
+
+const normalizeExcludedValues = (values: unknown): number[] => {
+  if (!Array.isArray(values)) return [];
+  const normalized = values
+    .map(value => Number(value))
+    .filter(value => Number.isInteger(value) && value >= 1 && value <= 5);
+  return Array.from(new Set(normalized)).sort((a, b) => a - b);
+};
 
 const getDietIcon = (dietName: string): string => {
   switch (dietName.trim().toLowerCase()) {
@@ -226,6 +237,7 @@ export default function UserProfilePage() {
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
   const [error, setError] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagsFromProfileUser, setTagsFromProfileUser] = useState<string[]>([]);
   const [profilePrompts, setProfilePrompts] = useState<UserProfilePrompt[]>([]);
   const [currentViewerId, setCurrentViewerId] = useState('');
   const [activeProfileTab, setActiveProfileTab] = useState<ProfileContentTab>('profile');
@@ -308,6 +320,26 @@ export default function UserProfilePage() {
           theirPreferences: compatibility.my_required_im_compatible_with ?? compatibility.im_compatible_with,
         }
     : null;
+  const answerVisibility = useMemo<FeedVisibility>(() => {
+    if (user?.share_answers === 'all' || user?.share_answers === 'approved' || user?.share_answers === 'liked' || user?.share_answers === 'matched') {
+      return user.share_answers;
+    }
+    if ((user?.share_answers as unknown) === true) {
+      return 'all';
+    }
+    return 'none';
+  }, [user?.share_answers]);
+  const canViewThemAnswers = useMemo(() => {
+    if (!user) return false;
+    if (currentViewerId && currentViewerId === user.id) return true;
+    if (answerVisibility === 'all') return true;
+    if (answerVisibility === 'approved') return tagsFromProfileUser.includes('approve');
+    if (answerVisibility === 'liked') return tagsFromProfileUser.includes('like');
+    if (answerVisibility === 'matched') {
+      return selectedTags.includes('like') && tagsFromProfileUser.includes('like');
+    }
+    return false;
+  }, [answerVisibility, currentViewerId, selectedTags, tagsFromProfileUser, user]);
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -341,6 +373,7 @@ export default function UserProfilePage() {
   // Inline answer editing state (for "My Pending" questions)
   const [editSliderAnswers, setEditSliderAnswers] = useState<Record<string, number>>({});
   const [editOpenToAllStates, setEditOpenToAllStates] = useState<Record<string, boolean>>({});
+  const [editExcludedAnswerValues, setEditExcludedAnswerValues] = useState<Record<string, number[]>>({});
   const [editImportanceValues, setEditImportanceValues] = useState({ me: 3, lookingFor: 3 });
   const [editSaving, setEditSaving] = useState(false);
   const [editMeShare, setEditMeShare] = useState(true);
@@ -455,7 +488,7 @@ export default function UserProfilePage() {
             }
           }
         }
-        setGroupedQuestions(allQuestions);
+        setGroupedQuestions(normalizeEthnicityQuestions(allQuestions));
       } catch (err) {
         console.error('Failed to fetch grouped questions:', err);
       }
@@ -513,8 +546,9 @@ export default function UserProfilePage() {
         if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 120000) { // 2 min cache
           console.log('Using cached profile data');
           const { user: cachedUser, answers: cachedAnswers } = JSON.parse(cachedData);
-          setUser({ ...cachedUser, share_answers: false });
-          setUserAnswers(cachedAnswers);
+          const normalizedCachedAnswers = normalizeEthnicityAnswers(cachedAnswers as UserAnswer[]);
+          setUser(cachedUser);
+          setUserAnswers(normalizedCachedAnswers);
           // Still fetch required question IDs (not cached) + questions + current user's data for pending filters
           const currentUserId = localStorage.getItem('user_id');
           const isOtherProfile = currentUserId && currentUserId !== userId;
@@ -558,7 +592,7 @@ export default function UserProfilePage() {
             // All questions (for pending question display names)
             if (responses[1]?.ok) {
               const questionsData = await responses[1].json();
-              setAllQuestions(questionsData.results || []);
+              setAllQuestions(normalizeEthnicityQuestions((questionsData.results || []) as any[]));
             }
 
             if (isOtherProfile) {
@@ -593,7 +627,7 @@ export default function UserProfilePage() {
                   }
                 }
                 setCurrentUserAnsweredQuestionIds(new Set(allCurAnswers.map((a: any) => String(a.question?.id || a.question_id || '').toLowerCase()).filter(Boolean)));
-                setCurrentUserAnswers(allCurAnswers);
+                setCurrentUserAnswers(normalizeEthnicityAnswers(allCurAnswers as any[]));
               }
             }
           } catch (_) {
@@ -607,7 +641,7 @@ export default function UserProfilePage() {
             if (freshUserResponse.ok) {
               const freshUser = await freshUserResponse.json();
               setUser(freshUser);
-              sessionStorage.setItem(cacheKey, JSON.stringify({ user: freshUser, answers: cachedAnswers }));
+              sessionStorage.setItem(cacheKey, JSON.stringify({ user: freshUser, answers: normalizedCachedAnswers }));
               sessionStorage.setItem(`${cacheKey}_timestamp`, now.toString());
             }
           } catch (refreshError) {
@@ -674,7 +708,7 @@ export default function UserProfilePage() {
           const curUserReqData = fetchCompat ? parsedResults[5] : null;
           const curUserAnswersP1Data = fetchCompat ? parsedResults[6] : null;
 
-          const questions = questionsData.results || [];
+          const questions = normalizeEthnicityQuestions((questionsData.results || []) as any[]);
           let allAnswers: any[] = answersP1Data.results || [];
 
           // ── Wave 2: Fetch remaining answer pages in parallel ──
@@ -699,7 +733,7 @@ export default function UserProfilePage() {
             }
           }
 
-          const answers = allAnswers;
+          const answers = normalizeEthnicityAnswers(allAnswers as UserAnswer[]);
 
           // Process required question IDs
           let requiredIds = new Set<string>();
@@ -734,7 +768,7 @@ export default function UserProfilePage() {
               }
             }
             setCurrentUserAnsweredQuestionIds(new Set(allCurAnswers.map((a: any) => String(a.question?.id || a.question_id || '').toLowerCase()).filter(Boolean)));
-            setCurrentUserAnswers(allCurAnswers);
+            setCurrentUserAnswers(normalizeEthnicityAnswers(allCurAnswers as any[]));
           }
 
           // Process compatibility data
@@ -914,47 +948,42 @@ export default function UserProfilePage() {
       if (!currentUserId || !userId) return;
 
       try {
-        // Fetch tags I've assigned to this user
-        const myTagsResponse = await fetch(
-          `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
-          {
+        const [myTagsResponse, theirTagsResponse] = await Promise.all([
+          fetch(
+            `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`,
+            { headers: { 'Content-Type': 'application/json' } }
+          ),
+          fetch(
+            `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
+            { headers: { 'Content-Type': 'application/json' } }
+          ),
+        ]);
 
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-
+        let normalizedTags: string[] = [];
+        let theirNormalizedTags: string[] = [];
         if (myTagsResponse.ok) {
           const data = await myTagsResponse.json();
           // Normalize tags to lowercase for consistent comparison
-          const normalizedTags = (data.tags || []).map((tag: string) => tag.toLowerCase());
+          normalizedTags = (data.tags || []).map((tag: string) => tag.toLowerCase());
           setSelectedTags(normalizedTags);
-          
-          // Check for matches on page load
-          checkForMatchesOnLoad();
-          
-          // Check if I've liked this user
-          const iLikedThem = normalizedTags.includes('like');
-          
-          // Check if they've liked me (reverse check)
-          if (iLikedThem) {
-            const theirTagsResponse = await fetch(
-              `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`,
-              {
- 
-                headers: { 'Content-Type': 'application/json' },
-              }
-            );
-            
-            if (theirTagsResponse.ok) {
-              const theirData = await theirTagsResponse.json();
-              const theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
-              const theyLikedMe = theirNormalizedTags.includes('like');
-              setHasMatch(iLikedThem && theyLikedMe);
-            }
-          } else {
-            setHasMatch(false);
-          }
+        } else {
+          setSelectedTags([]);
         }
+
+        if (theirTagsResponse.ok) {
+          const theirData = await theirTagsResponse.json();
+          theirNormalizedTags = (theirData.tags || []).map((tag: string) => tag.toLowerCase());
+          setTagsFromProfileUser(theirNormalizedTags);
+        } else {
+          setTagsFromProfileUser([]);
+        }
+
+        // Check for matches on page load
+        checkForMatchesOnLoad();
+
+        const iLikedThem = normalizedTags.includes('like');
+        const theyLikedMe = theirNormalizedTags.includes('like');
+        setHasMatch(iLikedThem && theyLikedMe);
       } catch (error) {
         console.error('Error fetching tags:', error);
       }
@@ -1214,7 +1243,7 @@ export default function UserProfilePage() {
         curr.me_answer > prev.me_answer ? curr : prev
       );
 
-      const ethnicityLabel = highestEthnicityAnswer.question.question_name || '';
+      const ethnicityLabel = normalizeEthnicityQuestionName(highestEthnicityAnswer.question.question_name) || '';
 
       icons.push({
         image: '/assets/globex.png',
@@ -1776,6 +1805,24 @@ export default function UserProfilePage() {
     return [...profileAnsweredIds].filter(qId => currentUserAnsweredQuestionIds.has(qId)).length;
   }, [userAnswers, currentUserAnsweredQuestionIds, compatibility?.mutual_questions_count]);
 
+  const isViewingOwnProfile = Boolean(currentViewerId && user?.id && currentViewerId === user.id);
+  const canReadProfileAnswer = (answer?: UserAnswer | null) => (
+    Boolean(answer) && (isViewingOwnProfile || answer?.me_share !== false)
+  );
+  const currentUserAnsweredQuestion = (questionId?: string | null) => (
+    Boolean(questionId && currentUserAnsweredQuestionIds.has(String(questionId).toLowerCase()))
+  );
+  const currentUserAnsweredQuestionNumber = (questionNumber: number) => (
+    allQuestions.some((question) => {
+      const questionInfo = question as { question_number?: number; id?: string };
+      return questionInfo.question_number === questionNumber &&
+        currentUserAnsweredQuestion(questionInfo.id);
+    })
+  );
+  const AnsweredBadge = () => (
+    <span className="text-sm text-[#672DB7]">✓ Answered</span>
+  );
+
   // Build pending question groups from allQuestions for display in the modal
   const pendingQuestionGroups = useMemo(() => {
     const groups: [string, {
@@ -2027,7 +2074,7 @@ export default function UserProfilePage() {
       
       if (response.ok) {
         const data = await response.json();
-        let questionsForNumber = data.results || [];
+        let questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
         
         // Sort by group_number if available
         questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
@@ -2046,7 +2093,7 @@ export default function UserProfilePage() {
     } catch (error) {
       console.error('Error fetching questions for question number:', questionNumber, error);
       // Fallback to using questions from allQuestions if fetch fails
-      const questionsForNumber = allQuestions.filter(q => q.question_number === questionNumber);
+      const questionsForNumber = normalizeEthnicityQuestions(allQuestions.filter(q => q.question_number === questionNumber) as any[], questionNumber);
       if (questionsForNumber.length > 0) {
         questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
         setSelectedQuestionNumber(questionNumber);
@@ -2076,6 +2123,7 @@ export default function UserProfilePage() {
 
     const sliders: Record<string, number> = {};
     const openToAll: Record<string, boolean> = {};
+    const exclusions: Record<string, number[]> = {};
     questionsForNumber.forEach((q: any) => {
       const key = `q${q.group_number || q.id}`;
       const existing = existingAnswers.find((a: any) => {
@@ -2086,10 +2134,12 @@ export default function UserProfilePage() {
       sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
       openToAll[`${key}_me`] = existing?.me_open_to_all || false;
       openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
+      exclusions[key] = normalizeExcludedValues(existing?.excluded_answer_values);
     });
 
     setEditSliderAnswers(sliders);
     setEditOpenToAllStates(openToAll);
+    setEditExcludedAnswerValues(exclusions);
     const firstExisting = existingAnswers[0];
     setEditImportanceValues({
       me: firstExisting?.me_importance || 3,
@@ -2115,7 +2165,7 @@ export default function UserProfilePage() {
 
       if (response.ok) {
         const data = await response.json();
-        let questionsForNumber = data.results || [];
+        let questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
         questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
 
         setSelectedQuestionNumber(questionNumber);
@@ -2128,6 +2178,7 @@ export default function UserProfilePage() {
           // Slider state will be initialized when user picks a sub-question
           setEditSliderAnswers({});
           setEditOpenToAllStates({});
+          setEditExcludedAnswerValues({});
           setEditImportanceValues({ me: 3, lookingFor: 3 });
           setEditMeShare(true);
           setEditMeRequired(false);
@@ -2137,15 +2188,18 @@ export default function UserProfilePage() {
         // Initialize default slider values using same key pattern as questions page
         const sliders: Record<string, number> = {};
         const openToAll: Record<string, boolean> = {};
+        const exclusions: Record<string, number[]> = {};
         questionsForNumber.forEach((q: any) => {
           const key = `q${q.group_number || q.id}`;
           sliders[`${key}_me`] = 3;
           sliders[`${key}_looking`] = 3;
           openToAll[`${key}_me`] = false;
           openToAll[`${key}_looking`] = false;
+          exclusions[key] = [];
         });
         setEditSliderAnswers(sliders);
         setEditOpenToAllStates(openToAll);
+        setEditExcludedAnswerValues(exclusions);
         setEditImportanceValues({ me: 3, lookingFor: 3 });
         setEditMeShare(true);
         setEditMeRequired(false);
@@ -2190,6 +2244,7 @@ export default function UserProfilePage() {
         looking_for_open_to_all: editOpenToAllStates[`${key}_looking`] || false,
         looking_for_importance: editImportanceValues.lookingFor,
         looking_for_share: true,
+        excluded_answer_values: questionNumber === 1 ? [] : editExcludedAnswerValues[key] || [],
         is_required_for_me: isNonGrouped ? editMeRequired : false
       });
     }
@@ -2258,6 +2313,46 @@ export default function UserProfilePage() {
       setEditError('Failed to save answers');
     });
   };
+
+  const setEditExcludedValuesForKey = (key: string, values: number[]) => {
+    setEditExcludedAnswerValues(prev => ({
+      ...prev,
+      [key]: normalizeExcludedValues(values),
+    }));
+  };
+
+  const renderEditOtaExcHeader = (showOta: boolean, showExc = true) => (
+    <div className="flex justify-center gap-2 text-xs text-gray-500 min-w-0">
+      <span className="w-11 text-center">{showOta ? 'OTA' : ''}</span>
+      {showExc && <span className="w-7 text-center">EXC</span>}
+    </div>
+  );
+
+  const renderEditOtaSwitch = (checked: boolean, onChange: () => void, enabled: boolean) => (
+    enabled ? (
+      <label className="flex items-center cursor-pointer">
+        <div className="relative">
+          <input type="checkbox" checked={checked} onChange={onChange} className="sr-only" />
+          <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+          <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition bg-white ${checked ? 'transform translate-x-5' : ''}`}></div>
+        </div>
+      </label>
+    ) : (
+      <div className="w-11 h-6" aria-hidden></div>
+    )
+  );
+
+  const renderEditOtaExcControls = (key: string, checked: boolean, onToggle: () => void, otaEnabled: boolean, showExc = true) => (
+    <div className="flex items-center justify-center gap-2">
+      {renderEditOtaSwitch(checked, onToggle, otaEnabled)}
+      {showExc && (
+        <ExclusionControl
+          values={editExcludedAnswerValues[key] || []}
+          onChange={(values) => setEditExcludedValuesForKey(key, values)}
+        />
+      )}
+    </div>
+  );
 
   if (loading) {
     const loadingTexts = ['Loading profile...', 'Fetching details...', 'Almost there...'];
@@ -2862,21 +2957,6 @@ export default function UserProfilePage() {
               </p>
             )}
             <div className="grid grid-cols-2 gap-3 mb-[10px]">
-              <button
-                onClick={() => handleTagToggle('Hide')}
-                title={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
-                aria-label={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
-                className="w-full h-[36px] rounded-full bg-white px-4 py-0 font-medium text-sm transition-colors text-center flex items-center justify-center hover:bg-gray-100 cursor-pointer"
-              >
-                <Image
-                  key={selectedTags.includes('hide') ? 'noslashy' : 'slashy'}
-                  src={getHideButtonIcon()}
-                  alt={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
-                  width={24}
-                  height={24}
-                  className="h-6 w-auto"
-                />
-              </button>
               {(() => {
                 const myCompleteness = compatibility?.user1_required_completeness ?? 1;
                 const likeGated = !!user?.require_answers_for_likes && myCompleteness < 1;
@@ -2919,6 +2999,21 @@ export default function UserProfilePage() {
                   </button>
                 );
               })()}
+              <button
+                onClick={() => handleTagToggle('Hide')}
+                title={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
+                aria-label={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
+                className="w-full h-[36px] rounded-full bg-white px-4 py-0 font-medium text-sm transition-colors text-center flex items-center justify-center hover:bg-gray-100 cursor-pointer"
+              >
+                <Image
+                  key={selectedTags.includes('hide') ? 'noslashy' : 'slashy'}
+                  src={getHideButtonIcon()}
+                  alt={selectedTags.includes('hide') ? 'Unhide' : 'Hide'}
+                  width={24}
+                  height={24}
+                  className="h-6 w-auto"
+                />
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -3389,13 +3484,19 @@ export default function UserProfilePage() {
           {/* Ideology (optional) */}
           {getRankedIdeologyQuestions().length > 0 && (
             <div>
-              <h4 className="text-base font-semibold text-black text-center mb-3">Ideology</h4>
-              <div className="relative text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
-                <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+              <div className="flex items-center gap-4 mb-3">
+                <div className="w-20 shrink-0" />
+                <h4 className="flex-1 text-base font-semibold text-black text-center">Ideology</h4>
+              </div>
+              <div className="flex items-center gap-4 mb-2">
+                <div className="w-20 shrink-0" />
+                <div className="relative flex-1 text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500" style={{ height: '14px' }}>
+                  <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                  <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                </div>
               </div>
               <div className="space-y-3">
                 {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {
@@ -3651,17 +3752,17 @@ export default function UserProfilePage() {
                                 <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
                                 {/* LESS/MORE + OTA header row */}
-                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                                   <div></div>
                                   <div className="flex justify-between text-xs text-gray-500 min-w-0">
                                     <span>LESS</span>
                                     <span>MORE</span>
                                   </div>
-                                  <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">OTA</div>
+                                  {renderEditOtaExcHeader(true)}
                                 </div>
 
                                 {/* Slider grid */}
-                                <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                                   <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
                                   <div className="relative min-w-0">
                                     <EditableSlider
@@ -3670,16 +3771,12 @@ export default function UserProfilePage() {
                                       isOpenToAll={editOpenToAllStates[`${subKey}_looking`] || false}
                                     />
                                   </div>
-                                  <div>
-                                    <label className="flex items-center cursor-pointer">
-                                      <div className="relative">
-                                        <input type="checkbox" className="sr-only" checked={editOpenToAllStates[`${subKey}_looking`] || false}
-                                          onChange={() => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_looking`]: !prev[`${subKey}_looking`] }))} />
-                                        <div className={`block w-11 h-6 rounded-full ${editOpenToAllStates[`${subKey}_looking`] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                                        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${editOpenToAllStates[`${subKey}_looking`] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                                      </div>
-                                    </label>
-                                  </div>
+                                  {renderEditOtaExcControls(
+                                    subKey,
+                                    editOpenToAllStates[`${subKey}_looking`] || false,
+                                    () => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_looking`]: !prev[`${subKey}_looking`] })),
+                                    true,
+                                  )}
 
                                   {/* IMPORTANCE row */}
                                   <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
@@ -3691,11 +3788,11 @@ export default function UserProfilePage() {
                                       labels={IMPORTANCE_LABELS_EDIT}
                                     />
                                   </div>
-                                  <div className="w-11 h-6"></div>
+                                  <div className="w-[88px] h-6"></div>
                                 </div>
 
                                 {/* Importance label below */}
-                                <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                                   <div></div>
                                   <div className="relative text-xs text-gray-500 w-full min-w-0">
                                     {editImportanceValues.lookingFor === 1 && <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>}
@@ -3713,17 +3810,17 @@ export default function UserProfilePage() {
                                 <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
                                 {/* LESS/MORE header row */}
-                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                                   <div></div>
                                   <div className="flex justify-between text-xs text-gray-500 min-w-0">
                                     <span>LESS</span>
                                     <span>MORE</span>
                                   </div>
-                                  <div className="text-xs text-gray-500 text-center lg:ml-[-15px]"></div>
+                                  {renderEditOtaExcHeader(false, false)}
                                 </div>
 
                                 {/* Slider grid */}
-                                <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                                   <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
                                   <div className="relative min-w-0">
                                     <EditableSlider
@@ -3732,7 +3829,13 @@ export default function UserProfilePage() {
                                       isOpenToAll={editOpenToAllStates[`${subKey}_me`] || false}
                                     />
                                   </div>
-                                  <div className="w-11 h-6"></div>
+                                  {renderEditOtaExcControls(
+                                    subKey,
+                                    editOpenToAllStates[`${subKey}_me`] || false,
+                                    () => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_me`]: !prev[`${subKey}_me`] })),
+                                    false,
+                                    false,
+                                  )}
                                 </div>
                               </div>
 
@@ -3765,26 +3868,34 @@ export default function UserProfilePage() {
                                       [`${subKey}_me`]: prev[`${subKey}_me`] || false,
                                       [`${subKey}_looking`]: prev[`${subKey}_looking`] || false,
                                     }));
+                                    const existing = currentUserAnswers.find((answer: UserAnswer) => {
+                                      const qId = typeof answer.question === 'object' ? answer.question.id : answer.question;
+                                      return qId === question.id;
+                                    });
+                                    setEditExcludedAnswerValues(prev => ({
+                                      ...prev,
+                                      [subKey]: prev[subKey] || normalizeExcludedValues(existing?.excluded_answer_values),
+                                    }));
                                     setSelectedGroupedQuestionId(question.id);
                                   }}
-                                  className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
-                                    !alreadyAnswered
-                                      ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
-                                      : 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
-                                  }`}
-                                >
+	                                  className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
+	                                    !alreadyAnswered
+	                                      ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
+	                                      : 'border-[#672DB7] bg-purple-50 cursor-not-allowed opacity-60'
+	                                  }`}
+	                                >
                                   <div className="flex items-center space-x-3">
                                     <Image
                                       src={editOptionIcons[questionNumber] || '/assets/ethn.png'}
                                       alt="Question icon"
                                       width={24}
                                       height={24}
-                                      className={`w-6 h-6 ${alreadyAnswered ? 'opacity-50' : ''}`}
-                                    />
-                                    <span className={`font-medium ${!alreadyAnswered ? 'text-black' : 'text-gray-400'}`}>{question.question_name}</span>
-                                    {!alreadyAnswered && (
-                                      <span className="text-sm text-[#672DB7]">Not Answered</span>
-                                    )}
+	                                      className={`w-6 h-6 ${alreadyAnswered ? 'opacity-60' : ''}`}
+	                                    />
+	                                    <span className={`font-medium ${!alreadyAnswered ? 'text-black' : 'text-gray-500'}`}>{question.question_name}</span>
+	                                    {alreadyAnswered ? <AnsweredBadge /> : (
+	                                      <span className="text-sm text-[#672DB7]">Not Answered</span>
+	                                    )}
                                   </div>
                                   {!alreadyAnswered && (
                                     <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3833,13 +3944,13 @@ export default function UserProfilePage() {
                           <div className="mb-6">
                             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-                            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                              <div className="flex justify-center text-xs text-gray-500">{displayQuestionData.some((q) => q.open_to_all_looking_for) ? 'OTA' : ''}</div>
+                              {renderEditOtaExcHeader(displayQuestionData.some((q) => q.open_to_all_looking_for))}
                             </div>
 
-                            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                               {displayQuestionData.map((question) => {
                                 const key = `q${question.group_number || question.id}`;
                                 const lookingKey = `${key}_looking`;
@@ -3850,11 +3961,12 @@ export default function UserProfilePage() {
                                     <div className="relative min-w-0">
                                       <EditableSlider value={editSliderAnswers[lookingKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))} isOpenToAll={editOpenToAllStates[lookingKey] || false} labels={question.answers || []} />
                                     </div>
-                                    <div>
-                                      {question.open_to_all_looking_for ? (
-                                        <label className="flex items-center cursor-pointer"><div className="relative"><input type="checkbox" checked={editOpenToAllStates[lookingKey] || false} onChange={() => setEditOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] }))} className="sr-only" /><div className={`block w-11 h-6 rounded-full ${editOpenToAllStates[lookingKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div><div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition bg-white ${editOpenToAllStates[lookingKey] ? 'transform translate-x-5' : ''}`}></div></div></label>
-                                      ) : (<div className="w-11 h-6"></div>)}
-                                    </div>
+                                    {renderEditOtaExcControls(
+                                      key,
+                                      editOpenToAllStates[lookingKey] || false,
+                                      () => setEditOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
+                                      question.open_to_all_looking_for,
+                                    )}
                                   </React.Fragment>
                                 );
                               })}
@@ -3863,11 +3975,11 @@ export default function UserProfilePage() {
                               <div className="relative min-w-0">
                                 <EditableSlider value={editImportanceValues.lookingFor} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} />
                               </div>
-                              <div className="w-11 h-6"></div>
+                              <div className="w-[88px] h-6"></div>
                             </div>
 
                             {/* Importance label */}
-                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="relative text-xs text-gray-500 w-full min-w-0">
                                 {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.lookingFor !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
@@ -3881,13 +3993,13 @@ export default function UserProfilePage() {
                         <div className={`mb-6 ${!isRelationship ? 'pt-8' : ''}`}>
                           <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-                          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                            <div className="flex justify-center text-xs text-gray-500">{displayQuestionData.some((q) => q.open_to_all_me) ? 'OTA' : ''}</div>
+                            {renderEditOtaExcHeader(displayQuestionData.some((q) => q.open_to_all_me), false)}
                           </div>
 
-                          <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                          <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                             {displayQuestionData.map((question) => {
                               const key = `q${question.group_number || question.id}`;
                               const meKey = `${key}_me`;
@@ -3898,11 +4010,13 @@ export default function UserProfilePage() {
                                   <div className="relative min-w-0">
                                     <EditableSlider value={editSliderAnswers[meKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [meKey]: value }))} isOpenToAll={editOpenToAllStates[meKey] || false} labels={question.answers || []} />
                                   </div>
-                                  <div>
-                                    {question.open_to_all_me ? (
-                                      <label className="flex items-center cursor-pointer"><div className="relative"><input type="checkbox" checked={editOpenToAllStates[meKey] || false} onChange={() => setEditOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] }))} className="sr-only" /><div className={`block w-11 h-6 rounded-full ${editOpenToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div><div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition bg-white ${editOpenToAllStates[meKey] ? 'transform translate-x-5' : ''}`}></div></div></label>
-                                    ) : (<div className="w-11 h-6"></div>)}
-                                  </div>
+                                  {renderEditOtaExcControls(
+                                    key,
+                                    editOpenToAllStates[meKey] || false,
+                                    () => setEditOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
+                                    question.open_to_all_me,
+                                    false,
+                                  )}
                                 </React.Fragment>
                               );
                             })}
@@ -3911,14 +4025,14 @@ export default function UserProfilePage() {
                               <>
                                 <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
                                 <div className="relative min-w-0"><EditableSlider value={editImportanceValues.me} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, me: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} /></div>
-                                <div className="w-11 h-6"></div>
+                                <div className="w-[88px] h-6"></div>
                               </>
                             )}
                           </div>
 
                           {/* Importance label for Q1 */}
                           {isRelationship && (
-                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="relative text-xs text-gray-500 w-full min-w-0">
                                 {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.me !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
@@ -3938,7 +4052,7 @@ export default function UserProfilePage() {
                 {(() => {
                   const questionType = selectedQuestionData[0]?.question_type || 'basic';
                   const questionNumber = selectedQuestionNumber;
-                  const shareThemAnswers = user?.share_answers === true;
+                  const shareThemAnswers = canViewThemAnswers;
 
                   // Find user answers for this question
                   const answersForQuestion = userAnswers.filter(answer => {
@@ -4244,8 +4358,16 @@ export default function UserProfilePage() {
                         const isPoliticsQuestion = questionNumber === 9;
                         
                         // Check if answer is shared
-                        const isShared = answer?.me_share !== false; // Default to true if not set
+                        const isShared = canReadProfileAnswer(answer);
                         const isDisabled = !isShared;
+
+                        if (!isShared) {
+                          return (
+                            <div className="mx-auto max-w-md rounded-lg border border-gray-300 bg-gray-100 p-6 text-center opacity-70">
+                              <p className="text-sm font-medium text-gray-500">This answer is not shared.</p>
+                            </div>
+                          );
+                        }
 
                         return (
                           <div className={isDisabled ? 'opacity-50' : ''}>
@@ -4412,8 +4534,9 @@ export default function UserProfilePage() {
                               return questionId === question.id;
                             });
                             const hasAnswer = !!answer;
-                            const isShared = answer?.me_share !== false; // Default to true if not set
+                            const isShared = canReadProfileAnswer(answer);
                             const isDisabled = !hasAnswer || !isShared;
+                            const answeredByMe = currentUserAnsweredQuestion(question.id);
 
                             return (
                               <div
@@ -4423,9 +4546,15 @@ export default function UserProfilePage() {
                                   setSelectedGroupedQuestionId(question.id);
                                 }}
                                 className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
+                                  answeredByMe
+                                    ? 'border-[#672DB7] bg-purple-50'
+                                    : !isDisabled
+                                      ? 'border-black bg-gray-50'
+                                      : 'border-gray-300 bg-gray-100'
+                                } ${
                                   !isDisabled
-                                    ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
-                                    : 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
+                                    ? 'cursor-pointer hover:bg-gray-100'
+                                    : 'cursor-not-allowed opacity-50'
                                 }`}
                               >
                                 <div className="flex items-center space-x-3">
@@ -4439,9 +4568,7 @@ export default function UserProfilePage() {
                                   <span className={`font-medium ${!isDisabled ? 'text-black' : 'text-gray-400'}`}>
                                     {question.question_name}
                                   </span>
-                                  {hasAnswer && (
-                                    <span className={`text-sm ${isShared ? 'text-[#672DB7]' : 'text-gray-400'}`}>✓ Answered</span>
-                                  )}
+                                  {answeredByMe && <AnsweredBadge />}
                                 </div>
                                 {!isDisabled && (
                                   <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4472,9 +4599,17 @@ export default function UserProfilePage() {
                     
                     // Check if all answers are shared (for non-grouped questions, check each answer)
                     // Default to true if me_share is not set (undefined/null)
-                    const isShared = answersForQuestion.length > 0 && 
-                                     answersForQuestion.every(answer => answer?.me_share !== false);
+                    const isShared = answersForQuestion.length > 0 &&
+                                     answersForQuestion.every(answer => canReadProfileAnswer(answer));
                     const isDisabled = !isShared;
+
+                    if (!isShared) {
+                      return (
+                        <div className="mx-auto max-w-md rounded-lg border border-gray-300 bg-gray-100 p-6 text-center opacity-70">
+                          <p className="text-sm font-medium text-gray-500">This answer is not shared.</p>
+                        </div>
+                      );
+                    }
 
                     // Helper to render labels row for a section
                     const renderSectionLabels = (sectionType: 'me' | 'them', hasAnyOTA: boolean) => (
@@ -4656,6 +4791,7 @@ export default function UserProfilePage() {
 
                         // Render pending question cards with distinct styling
                         if (groupAny.isPending) {
+                          const answeredByMe = currentUserAnsweredQuestionNumber(group.questionNumber);
                           return (
                             <div
                               key={key}
@@ -4666,9 +4802,15 @@ export default function UserProfilePage() {
                                 }
                               }}
                               className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                                answeredByMe
+                                  ? 'border-[#672DB7] bg-purple-50'
+                                  : groupAny.pendingType === 'my'
+                                    ? 'border-dashed border-purple-300 bg-purple-50/50'
+                                    : 'border-dashed border-gray-300 bg-gray-50'
+                              } ${
                                 groupAny.pendingType === 'my'
-                                  ? 'border-dashed border-purple-300 bg-purple-50/50 cursor-pointer hover:bg-purple-50'
-                                  : 'border-dashed border-gray-300 bg-gray-50 cursor-default'
+                                  ? 'cursor-pointer hover:bg-purple-50'
+                                  : 'cursor-default'
                               }`}
                             >
                               <div className="flex-1">
@@ -4676,6 +4818,7 @@ export default function UserProfilePage() {
                                   <span className="text-sm text-gray-400 mr-3">{group.questionNumber}.</span>
                                   <div className="flex-1">
                                     <span className="text-gray-500">{group.displayName}</span>
+                                    {answeredByMe && <span className="ml-3"><AnsweredBadge /></span>}
                                   </div>
                                 </div>
                               </div>
@@ -4692,12 +4835,11 @@ export default function UserProfilePage() {
                         const firstQuestion = group.questions[0]?.question;
                         const questionType = firstQuestion?.question_type || 'basic';
 
-                        // For basic questions, check if answer is shared
-                        // For grouped questions, always allow navigation (user can still see cards)
-                        const firstAnswer = group.questions[0];
-                        const isBasicQuestion = questionType === 'basic';
-                        const isNotShared = firstAnswer?.me_share === false;
-                        const isDisabled = isBasicQuestion && isNotShared;
+                        const hasReadableAnswer = group.questions.some((answer) => canReadProfileAnswer(answer));
+                        const isDisabled = !hasReadableAnswer;
+                        const answeredByMe = group.questions.some((answer) => (
+                          currentUserAnsweredQuestion(answer.question?.id)
+                        ));
 
                         return (
                           <div
@@ -4706,16 +4848,23 @@ export default function UserProfilePage() {
                               if (isDisabled) return;
                               handleQuestionClick(group.questionNumber, questionType);
                             }}
-                            className={`flex items-center justify-between p-4 bg-white border rounded-lg transition-colors ${
+                            className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                              answeredByMe
+                                ? 'border-[#672DB7] bg-purple-50'
+                                : isDisabled
+                                  ? 'border-gray-300 bg-gray-100'
+                                  : 'border-gray-200 bg-white'
+                            } ${
                               isDisabled
-                                ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
-                                : 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer hover:bg-gray-50'
                             }`}
                           >
                             <div className="flex-1">
                               <div className="flex items-start">
                                 <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
                                 <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{group.displayName}</span>
+                                {answeredByMe && <span className="ml-3"><AnsweredBadge /></span>}
                               </div>
                             </div>
                             {!isDisabled && (
@@ -4758,11 +4907,11 @@ export default function UserProfilePage() {
                           const questionText = firstAnswer.question.text;
                           const questionType = firstAnswer.question.question_type || 'basic';
                           
-                          // For basic questions, check if answer is shared
-                          // For grouped questions, always allow navigation
-                          const isBasicQuestion = questionType === 'basic';
-                          const isNotShared = firstAnswer?.me_share === false;
-                          const isDisabled = isBasicQuestion && isNotShared;
+                          const hasReadableAnswer = answers.some((answer) => canReadProfileAnswer(answer));
+                          const isDisabled = !hasReadableAnswer;
+                          const answeredByMe = answers.some((answer) => (
+                            currentUserAnsweredQuestion(answer.question?.id)
+                          ));
                           
                           return (
                             <div
@@ -4771,16 +4920,23 @@ export default function UserProfilePage() {
                                 if (isDisabled) return;
                                 handleQuestionClick(qNum);
                               }}
-                              className={`flex items-center justify-between p-4 bg-white border rounded-lg transition-colors ${
+                              className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                                answeredByMe
+                                  ? 'border-[#672DB7] bg-purple-50'
+                                  : isDisabled
+                                    ? 'border-gray-300 bg-gray-100'
+                                    : 'border-gray-200 bg-white'
+                              } ${
                                 isDisabled
-                                  ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
-                                  : 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+                                  ? 'cursor-not-allowed opacity-50'
+                                  : 'cursor-pointer hover:bg-gray-50'
                               }`}
                             >
                               <div className="flex-1">
                                 <div className="flex items-start">
                                   <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
                                   <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{questionText}</span>
+                                  {answeredByMe && <span className="ml-3"><AnsweredBadge /></span>}
                                 </div>
                               </div>
                               {!isDisabled && (

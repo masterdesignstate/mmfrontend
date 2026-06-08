@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiService, ApiUser } from '@/services/api';
+import { useParams, useRouter } from 'next/navigation';
+import { apiService, ApiUser, UserRestrictionHistory } from '@/services/api';
+import { ReasonChip } from '@/components/ReasonChip';
 import Image from 'next/image';
 
-export default function ProfileDetailsPage({ params }: { params: { id: string } }) {
+export default function ProfileDetailsPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const userId = params.id;
   const [user, setUser] = useState<ApiUser | null>(null);
   const [totalQuestionsAnswered, setTotalQuestionsAnswered] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,8 +21,8 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
         setLoading(true);
         setError(null);
         const [userData, answers] = await Promise.all([
-          apiService.getUser(params.id),
-          apiService.getUserAnswers(params.id),
+          apiService.getUser(userId),
+          apiService.getUserAnswers(userId),
         ]);
         setUser(userData);
         setTotalQuestionsAnswered(answers.length);
@@ -32,7 +35,7 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
     };
 
     fetchProfile();
-  }, [params.id]);
+  }, [userId]);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
@@ -42,6 +45,42 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
     const day = String(d.getDate()).padStart(2, '0');
     const year = d.getFullYear();
     return `${month}/${day}/${year}`;
+  };
+
+  const formatDateTime = (dateStr?: string | null) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const formatDuration = (history: Pick<UserRestrictionHistory, 'restriction_type' | 'duration_days'>) => {
+    if (history.restriction_type === 'permanent') return 'Permanent';
+    if (!history.duration_days) return 'N/A';
+    return `${history.duration_days} day${history.duration_days === 1 ? '' : 's'}`;
+  };
+
+  const formatHistoryStatus = (history: UserRestrictionHistory) => {
+    if (!history.ended_at && history.end_reason === 'active') return 'Active';
+    if (history.end_reason === 'expired') return 'Expired';
+    if (history.end_reason === 'removed') return 'Removed';
+    if (history.end_reason === 'replaced') return 'Replaced';
+    return history.end_reason || 'Ended';
+  };
+
+  const historyStatusClass = (history: UserRestrictionHistory) => {
+    const status = formatHistoryStatus(history);
+    if (status === 'Active') return 'bg-orange-100 text-orange-800';
+    if (status === 'Expired') return 'bg-blue-100 text-blue-800';
+    if (status === 'Removed') return 'bg-gray-100 text-gray-800';
+    if (status === 'Replaced') return 'bg-purple-100 text-purple-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   if (loading) {
@@ -91,6 +130,22 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
 
   const displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username;
   const questionAnswers = user.question_answers || {};
+  const restrictionHistory = user.restriction_history || [];
+  const activeRestriction = restrictionHistory.find((history) => !history.ended_at && history.end_reason === 'active');
+  const currentRestrictionSummary = activeRestriction || (
+    user.is_banned
+      ? {
+          restriction_type: user.restriction_type || 'temporary',
+          duration_days: user.restriction_duration ?? null,
+          reason: user.restriction_reason || '',
+          reason_detail: user.restriction_reason_detail || '',
+          restricted_at: user.restriction_date || '',
+          expires_at: user.restriction_type === 'temporary' && user.restriction_date && user.restriction_duration
+            ? new Date(new Date(user.restriction_date).getTime() + user.restriction_duration * 24 * 60 * 60 * 1000).toISOString()
+            : null,
+        }
+      : null
+  );
 
   return (
     <div className="space-y-6">
@@ -204,6 +259,104 @@ export default function ProfileDetailsPage({ params }: { params: { id: string } 
             </div>
             {Object.keys(questionAnswers).length === 0 && (
               <p className="text-gray-500 text-center py-4">No question answers available</p>
+            )}
+          </div>
+
+          {/* Restriction History Card */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <i className="fas fa-history mr-2"></i>
+              Restriction History
+            </h3>
+
+            {currentRestrictionSummary && (
+              <div className="mb-5 rounded-lg border border-orange-200 bg-orange-50 p-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                        currentRestrictionSummary.restriction_type === 'permanent'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {currentRestrictionSummary.restriction_type === 'permanent' ? 'Banned' : 'Restricted'}
+                      </span>
+                      {currentRestrictionSummary.reason && (
+                        <ReasonChip
+                          reason={currentRestrictionSummary.reason}
+                          description={currentRestrictionSummary.reason_detail}
+                        />
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-700">
+                      Started {formatDateTime(currentRestrictionSummary.restricted_at)}
+                    </p>
+                    {currentRestrictionSummary.reason_detail && (
+                      <p className="text-sm text-gray-600 mt-2">{currentRestrictionSummary.reason_detail}</p>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-700 md:text-right">
+                    <div className="font-medium">{formatDuration(currentRestrictionSummary)}</div>
+                    <div>
+                      {currentRestrictionSummary.restriction_type === 'permanent'
+                        ? 'No automatic expiry'
+                        : `Ends ${formatDateTime(currentRestrictionSummary.expires_at)}`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {restrictionHistory.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {restrictionHistory.map((history) => (
+                      <tr key={history.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                          <div>{formatDateTime(history.restricted_at)}</div>
+                          {history.ended_at && (
+                            <div className="text-xs text-gray-500">Ended {formatDateTime(history.ended_at)}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                          <div>{formatDuration(history)}</div>
+                          {history.expires_at && (
+                            <div className="text-xs text-gray-500">Expires {formatDateTime(history.expires_at)}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${historyStatusClass(history)}`}>
+                            {formatHistoryStatus(history)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {history.reason ? (
+                            <div className="space-y-2">
+                              <ReasonChip reason={history.reason} description={history.reason_detail} />
+                              {history.moderator_notes && (
+                                <div className="text-xs text-gray-500">{history.moderator_notes}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4">No restriction history recorded</p>
             )}
           </div>
         </div>

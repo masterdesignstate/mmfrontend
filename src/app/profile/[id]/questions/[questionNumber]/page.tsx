@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { normalizeEthnicityAnswers, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 
 interface Question {
   id: string;
@@ -30,6 +31,35 @@ interface UserAnswer {
   looking_for_open_to_all?: boolean;
   me_share?: boolean;
 }
+
+type AnswerVisibility = 'none' | 'all' | 'approved' | 'liked' | 'matched';
+
+const normalizeAnswerVisibility = (value: unknown): AnswerVisibility => {
+  if (value === 'all' || value === 'approved' || value === 'liked' || value === 'matched') {
+    return value;
+  }
+  if (value === true) {
+    return 'all';
+  }
+  return 'none';
+};
+
+const canViewThemAnswersForAudience = (
+  visibility: AnswerVisibility,
+  viewerId: string | null,
+  profileUserId: string,
+  viewerTagsForProfile: string[],
+  profileTagsForViewer: string[],
+) => {
+  if (viewerId && viewerId === profileUserId) return true;
+  if (visibility === 'all') return true;
+  if (visibility === 'approved') return profileTagsForViewer.includes('approve');
+  if (visibility === 'liked') return profileTagsForViewer.includes('like');
+  if (visibility === 'matched') {
+    return viewerTagsForProfile.includes('like') && profileTagsForViewer.includes('like');
+  }
+  return false;
+};
 
 const IMPORTANCE_LABELS = [
   { value: "1", answer_text: "TRIVIAL" },
@@ -69,7 +99,7 @@ export default function ReadOnlyQuestionViewPage() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
-  const [shareAnswers, setShareAnswers] = useState(false);
+  const [canShowThemAnswers, setCanShowThemAnswers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
@@ -78,13 +108,28 @@ export default function ReadOnlyQuestionViewPage() {
       try {
         setLoading(true);
 
-        const [questionsResponse, profileResponse] = await Promise.all([
+        const currentUserId = localStorage.getItem('user_id');
+        const relationshipFetches = currentUserId && currentUserId !== userId
+          ? [
+              fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${currentUserId}&result_user_id=${userId}`),
+              fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${userId}&result_user_id=${currentUserId}`),
+            ]
+          : [];
+
+        const [questionsResponse, profileResponse, myTagsResponse, theirTagsResponse] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}&page_size=100`),
           fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, { cache: 'no-store' }),
+          ...relationshipFetches,
         ]);
         const questionsData = await questionsResponse.json();
         const profileData = profileResponse.ok ? await profileResponse.json() : null;
-        const questionsList = questionsData.results || [];
+        const viewerTagsForProfile = myTagsResponse && myTagsResponse.ok
+          ? ((await myTagsResponse.json()).tags || []).map((tag: string) => tag.toLowerCase())
+          : [];
+        const profileTagsForViewer = theirTagsResponse && theirTagsResponse.ok
+          ? ((await theirTagsResponse.json()).tags || []).map((tag: string) => tag.toLowerCase())
+          : [];
+        const questionsList = normalizeEthnicityQuestions((questionsData.results || []) as Question[], questionNumber);
         
         // Sort by group_number
         questionsList.sort((a: Question, b: Question) => 
@@ -99,13 +144,19 @@ export default function ReadOnlyQuestionViewPage() {
         const answersList = answersData.results || [];
         
         // Filter to only answers for this question number
-        const filteredAnswers = answersList.filter((answer: UserAnswer) => 
+        const filteredAnswers = normalizeEthnicityAnswers(answersList.filter((answer: UserAnswer) => 
           answer.question.question_number === questionNumber
-        );
+        ) as UserAnswer[]);
 
         setQuestions(questionsList);
         setUserAnswers(filteredAnswers);
-        setShareAnswers(profileData?.share_answers === true);
+        setCanShowThemAnswers(canViewThemAnswersForAudience(
+          normalizeAnswerVisibility(profileData?.share_answers),
+          currentUserId,
+          userId,
+          viewerTagsForProfile,
+          profileTagsForViewer,
+        ));
       } catch (err) {
         console.error('Error fetching question data:', err);
         setError('Failed to load question data');
@@ -170,8 +221,8 @@ export default function ReadOnlyQuestionViewPage() {
   const renderQuestionContent = () => {
     if (!questions || questions.length === 0) return null;
 
-    const questionType = questions[0]?.question_type || 'basic';
-    const canShowThem = shareAnswers;
+    const questionType: Question['question_type'] = questions[0]?.question_type || 'basic';
+    const canShowThem = canShowThemAnswers;
     const allQuestionAnswersShared = userAnswers.length > 0 && userAnswers.every(answer => answer.me_share !== false);
 
     if (!allQuestionAnswersShared) {
@@ -415,7 +466,7 @@ export default function ReadOnlyQuestionViewPage() {
     }
 
     // Grouped questions - show cards
-    if (questionType === 'grouped') {
+    if ((questions[0]?.question_type as Question['question_type']) === 'grouped') {
       const optionIcons: Record<number, string> = {
         3: '/assets/ethn.png',
         4: '/assets/cpx.png',
@@ -647,7 +698,7 @@ export default function ReadOnlyQuestionViewPage() {
     }
 
     // Grouped questions - show cards
-    if (questionType === 'grouped') {
+    if ((questions[0]?.question_type as Question['question_type']) === 'grouped') {
       const optionIcons: Record<number, string> = {
         3: '/assets/ethn.png',
         4: '/assets/cpx.png',

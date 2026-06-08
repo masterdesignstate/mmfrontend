@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
 
 export default function EthnicityPage() {
@@ -45,7 +46,6 @@ export default function EthnicityPage() {
   const ethnicityOptions = [
     { value: 'White', label: 'White', icon: '/assets/ethn.png' },
     { value: 'Black', label: 'Black or African Descent', icon: '/assets/ethn.png' },
-    { value: 'Hawaiian', label: 'Native Hawaiian or Other Pacific Islander', icon: '/assets/ethn.png' },
     { value: 'Native', label: 'Native American', icon: '/assets/ethn.png' },
     { value: 'Hispanic', label: 'Hispanic/Latino', icon: '/assets/ethn.png' },
     { value: 'Asian', label: 'Asian', icon: '/assets/ethn.png' },
@@ -104,7 +104,10 @@ export default function EthnicityPage() {
     if (answeredEthnicitiesData) {
       try {
         const parsed = JSON.parse(answeredEthnicitiesData);
-        setAnsweredEthnicities(new Set(parsed));
+        const normalized = Array.isArray(parsed)
+          ? parsed.map((ethnicity) => normalizeEthnicityQuestionName(ethnicity))
+          : [];
+        setAnsweredEthnicities(new Set(normalized));
         console.log('📋 Loaded answered ethnicities from localStorage:', parsed);
       } catch (error) {
         console.error('❌ Error parsing answered ethnicities:', error);
@@ -133,7 +136,8 @@ export default function EthnicityPage() {
             console.log('📋 Raw API response:', data);
             
             // Sort questions by group_number
-            const sortedQuestions = (data.results || []).sort((a: typeof questions[0], b: typeof questions[0]) => {
+            const rawQuestions = (data.results || []) as typeof questions;
+            const sortedQuestions = normalizeEthnicityQuestions(rawQuestions, 3).sort((a: typeof questions[0], b: typeof questions[0]) => {
               const groupA = a.group_number || 0;
               const groupB = b.group_number || 0;
               return groupA - groupB;

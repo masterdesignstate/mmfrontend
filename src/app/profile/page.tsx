@@ -15,6 +15,7 @@ import ProfilePromptCards from '@/components/ProfilePromptCards';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUserAnswers } from '@/hooks/useUserAnswers';
 import { useGroupedQuestions } from '@/hooks/useGroupedQuestions';
+import { normalizeEthnicityQuestionName } from '@/utils/ethnicityQuestions';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -411,7 +412,7 @@ export default function ProfilePage() {
         curr.me_answer > prev.me_answer ? curr : prev
       );
 
-      const ethnicityLabel = highestEthnicityAnswer.question.question_name || '';
+      const ethnicityLabel = normalizeEthnicityQuestionName(highestEthnicityAnswer.question.question_name) || '';
 
       icons.push({
         image: '/assets/globex.png',
@@ -470,12 +471,12 @@ export default function ProfilePage() {
     isOpenToAll?: boolean;
   }) => {
     return (
-      <div className="w-full h-4 relative flex items-center select-none">
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
+      <div className="w-full h-5 relative flex items-center select-none">
+          {!isOpenToAll && <span className="absolute left-2.5 text-xs text-gray-500 pointer-events-none z-10">1</span>}
           
-          {/* Custom Slider Track - smaller version */}
+          {/* Custom Slider Track */}
           <div 
-            className="w-full h-4 rounded-[16px] relative cursor-pointer transition-all duration-200 border"
+            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
             style={{
               width: '100%',
               backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
@@ -483,20 +484,20 @@ export default function ProfilePage() {
             }}
           />
           
-          {/* Slider Thumb - smaller version */}
+          {/* Slider Thumb */}
           {!isOpenToAll && (
             <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm z-30"
+              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30"
               style={{
                 backgroundColor: '#672DB7',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 24px)' : `calc(${((value - 1) / 4) * 100}% - 12px)`
+                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
               }}
             >
               <span className="text-white">{value}</span>
             </div>
           )}
           
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
+          {!isOpenToAll && <span className="absolute right-2.5 text-xs text-gray-500 pointer-events-none z-10">5</span>}
       </div>
     );
   };
@@ -1040,13 +1041,19 @@ export default function ProfilePage() {
             {/* Ideology */}
             {getRankedIdeologyQuestions().length > 0 && (
               <div>
-                <h4 className="text-base font-semibold text-black text-center mb-3">Ideology</h4>
-                <div className="relative text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500 mb-2 ml-20" style={{ height: '14px' }}>
-                  <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="w-20 shrink-0" />
+                  <h4 className="flex-1 text-base font-semibold text-black text-center">Ideology</h4>
+                </div>
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-20 shrink-0" />
+                  <div className="relative flex-1 text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500" style={{ height: '14px' }}>
+                    <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
+                    <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
+                    <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
+                    <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
+                    <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {getRankedIdeologyQuestions().map((ideologyAnswer, index) => {

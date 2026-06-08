@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import useSWR from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 
 interface GroupedQuestion {
   id: string;
@@ -15,7 +16,8 @@ const groupedQuestionsFetcher = async (url: string): Promise<GroupedQuestion[]> 
   });
   if (!res.ok) throw new Error('Failed to fetch grouped questions');
   const data = await res.json();
-  return (data.results || []).map((q: GroupedQuestion) => ({
+  const results = (data.results || []) as GroupedQuestion[];
+  return normalizeEthnicityQuestions(results).map((q: GroupedQuestion) => ({
     id: q.id,
     question_name: q.question_name,
     question_number: q.question_number,

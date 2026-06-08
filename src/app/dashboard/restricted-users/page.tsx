@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiService, ApiUser } from '@/services/api';
 import { ReasonChip } from '@/components/ReasonChip';
 import { REPORT_REASONS } from '@/config/reportReasons';
@@ -26,21 +27,18 @@ interface RestrictedUser {
 
 
 export default function RestrictedUsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<RestrictedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestrictionType, setSelectedRestrictionType] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedSeverity, setSelectedSeverity] = useState('All');
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [sortField, setSortField] = useState('');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortField, setSortField] = useState('restriction_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedUserForAction, setSelectedUserForAction] = useState<RestrictedUser | null>(null);
@@ -48,8 +46,18 @@ export default function RestrictedUsersPage() {
   const [modifyDuration, setModifyDuration] = useState(30);
   const [dismissDescription, setDismissDescription] = useState('');
 
+  const isActiveRestriction = useCallback((user: RestrictedUser) => {
+    if (user.restriction_type === 'permanent') return true;
+    if (user.restriction_type !== 'temporary') return false;
+    if (!user.restriction_date || !user.restriction_duration) return true;
+    const restrictedAt = new Date(user.restriction_date);
+    if (isNaN(restrictedAt.getTime())) return true;
+    const expiresAt = restrictedAt.getTime() + user.restriction_duration * 24 * 60 * 60 * 1000;
+    return Date.now() < expiresAt;
+  }, []);
+
   // Fetch restricted users from API
-  const fetchRestrictedUsers = async () => {
+  const fetchRestrictedUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -73,7 +81,8 @@ export default function RestrictedUsersPage() {
           last_seen: user.last_active || undefined,
           live: user.live,
           age: user.age
-        }));
+        }))
+        .filter(isActiveRestriction);
 
       setUsers(restrictedUsers);
     } catch (err) {
@@ -82,14 +91,16 @@ export default function RestrictedUsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isActiveRestriction]);
 
   useEffect(() => {
     fetchRestrictedUsers();
-  }, []);
+  }, [fetchRestrictedUsers]);
 
   // Filter users
   const filteredUsers = users.filter(user => {
+    if (!isActiveRestriction(user)) return false;
+
     const matchesSearch = searchTerm === '' ||
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -108,21 +119,37 @@ export default function RestrictedUsersPage() {
   });
 
   // Sort users
+  const isMissingSortValue = (value: unknown) => (
+    value === null ||
+    value === undefined ||
+    value === '' ||
+    (typeof value === 'number' && Number.isNaN(value))
+  );
+
+  const getSortValue = (user: RestrictedUser, field: string) => {
+    const value = user[field as keyof RestrictedUser];
+    if (field === 'restriction_date' || field === 'last_seen') {
+      return typeof value === 'string' ? new Date(value).getTime() : null;
+    }
+    return typeof value === 'string' ? value.toLowerCase() : value;
+  };
+
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     if (!sortField) return 0;
 
-    const aValue = a[sortField as keyof typeof a];
-    const bValue = b[sortField as keyof typeof b];
+    const aValue = getSortValue(a, sortField);
+    const bValue = getSortValue(b, sortField);
 
-    if (aValue === undefined && bValue === undefined) return 0;
-    if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
-    if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+    const aMissing = isMissingSortValue(aValue);
+    const bMissing = isMissingSortValue(bValue);
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
 
-    if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
+    const comparison = typeof aValue === 'number' && typeof bValue === 'number'
+      ? aValue - bValue
+      : String(aValue).localeCompare(String(bValue));
+    return sortDirection === 'asc' ? comparison : -comparison;
   });
 
   // Pagination
@@ -136,22 +163,18 @@ export default function RestrictedUsersPage() {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection(field === 'restriction_date' ? 'desc' : 'asc');
     }
   };
 
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedRestrictionType('All');
-    setSelectedStatus('All');
     setSelectedSeverity('All');
     setStartDate('');
-    setEndDate('');
-    setSortField('');
-    setSortDirection('asc');
+    setSortField('restriction_date');
+    setSortDirection('desc');
     setCurrentPage(1);
-    setSelectedUsers([]);
-    setShowBulkActions(false);
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -206,6 +229,7 @@ export default function RestrictedUsersPage() {
           restriction_type: 'temporary',
           duration: modifyDuration,
           reason: selectedUserForAction.restriction_reason || '',
+          reason_detail: selectedUserForAction.restriction_reason_detail || '',
         });
         setUsers(prev => prev.map(u =>
           u.id === selectedUserForAction.id
@@ -217,9 +241,13 @@ export default function RestrictedUsersPage() {
           restriction_type: 'permanent',
           duration: 0,
           reason: selectedUserForAction.restriction_reason || '',
+          reason_detail: selectedUserForAction.restriction_reason_detail || '',
         });
-        // Remove from list - permanently banned users don't belong on restricted page
-        setUsers(prev => prev.filter(u => u.id !== selectedUserForAction.id));
+        setUsers(prev => prev.map(u =>
+          u.id === selectedUserForAction.id
+            ? { ...u, restriction_type: 'permanent', restriction_duration: 0, restriction_date: new Date().toISOString() }
+            : u
+        ));
       }
       setShowActionModal(false);
       setSelectedAction('');
@@ -371,7 +399,17 @@ export default function RestrictedUsersPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr
+                  key={user.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.tagName === 'BUTTON' || target.tagName === 'I') {
+                      return;
+                    }
+                    router.push(`/dashboard/profiles/${user.id}`);
+                  }}
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {user.username}
                   </td>

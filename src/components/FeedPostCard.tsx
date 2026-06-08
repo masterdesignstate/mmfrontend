@@ -36,6 +36,7 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     apiService.getPostComments(post.id).then((c) => { setComments(c); setLoading(false); }).catch(() => setLoading(false));
@@ -45,12 +46,14 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
     const trimmed = body.trim();
     if (!trimmed) return;
     setSubmitting(true);
+    setError('');
     try {
       const c = await apiService.createComment(post.id, trimmed, viewerId);
       setComments((prev) => [...prev, c]);
       setBody('');
     } catch (err) {
       console.error(err);
+      setError(err instanceof Error ? err.message : 'Could not post comment.');
     } finally {
       setSubmitting(false);
     }
@@ -112,6 +115,7 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
           Send
         </button>
       </div>
+      {error && <div className="mt-2 text-xs font-medium text-red-600">{error}</div>}
     </div>
   );
 }
@@ -162,6 +166,7 @@ export default function FeedPostCard({
   const [editBody, setEditBody] = useState(post.body);
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [postError, setPostError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -184,23 +189,27 @@ export default function FeedPostCard({
 
   const saveEdit = async () => {
     setSavingEdit(true);
+    setPostError('');
     try {
       const updated = await apiService.updatePost(post.id, { body: editBody.trim() }, viewerId);
       onUpdated(updated);
       setEditing(false);
     } catch (err) {
       console.error(err);
+      setPostError(err instanceof Error ? err.message : 'Could not update post.');
     } finally {
       setSavingEdit(false);
     }
   };
 
   const changeVisibility = async (v: PostVisibility) => {
+    setPostError('');
     try {
       const updated = await apiService.updatePost(post.id, { visibility: v }, viewerId);
       onUpdated(updated);
     } catch (err) {
       console.error(err);
+      setPostError(err instanceof Error ? err.message : 'Could not update post.');
     }
   };
 
@@ -252,7 +261,7 @@ export default function FeedPostCard({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 mt-1 bg-white shadow-lg ring-1 ring-gray-200 rounded-lg py-1 w-44 z-10">
-                  <button onClick={() => { setEditing(true); setMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit text</button>
+                  <button onClick={() => { setEditing(true); setMenuOpen(false); setPostError(''); }} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit text</button>
                   <div className="border-t border-gray-100 my-1" />
                   <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Visibility</div>
                   {VISIBILITY_OPTIONS.map(opt => (
@@ -282,15 +291,19 @@ export default function FeedPostCard({
         <div>
           <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={3} maxLength={2000}
             className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          {postError && <div className="mt-2 text-xs font-medium text-red-600">{postError}</div>}
           <div className="flex justify-end gap-2 mt-2">
-            <button onClick={() => { setEditing(false); setEditBody(post.body); }} className="px-3 py-1.5 text-sm rounded-lg ring-1 ring-gray-200 hover:bg-gray-50">Cancel</button>
+            <button onClick={() => { setEditing(false); setEditBody(post.body); setPostError(''); }} className="px-3 py-1.5 text-sm rounded-lg ring-1 ring-gray-200 hover:bg-gray-50">Cancel</button>
             <button onClick={saveEdit} disabled={savingEdit || !editBody.trim()} className="px-3 py-1.5 text-sm rounded-lg bg-purple-600 text-white disabled:opacity-50">
               {savingEdit ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
       ) : (
-        <div className="text-gray-900 text-base whitespace-pre-wrap mb-3">{renderWithHashtags(post.body)}</div>
+        <>
+          <div className="text-gray-900 text-base whitespace-pre-wrap mb-3">{renderWithHashtags(post.body)}</div>
+          {postError && <div className="mb-3 text-xs font-medium text-red-600">{postError}</div>}
+        </>
       )}
 
       {post.images.length > 0 && (

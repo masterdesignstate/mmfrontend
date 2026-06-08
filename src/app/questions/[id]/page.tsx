@@ -7,6 +7,8 @@ import { mutate as globalMutate } from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import ExclusionControl from '@/components/ExclusionControl';
+import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
 
 interface Question {
@@ -35,6 +37,7 @@ interface UserAnswer {
   looking_for_importance: number;
   me_open_to_all: boolean;
   looking_for_open_to_all: boolean;
+  excluded_answer_values?: number[];
 }
 
 const FREQUENCY_SCALE_LABELS = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
@@ -70,6 +73,14 @@ const ScaleLabels = ({ labels }: { labels: string[] }) => (
     ))}
   </div>
 );
+
+const normalizeExcludedValues = (values: unknown): number[] => {
+  if (!Array.isArray(values)) return [];
+  const normalized = values
+    .map(value => Number(value))
+    .filter(value => Number.isInteger(value) && value >= 1 && value <= 5);
+  return Array.from(new Set(normalized)).sort((a, b) => a - b);
+};
 
 // Template Components
 const CardSelectionTemplate = ({
@@ -596,6 +607,7 @@ function QuestionEditPageContent() {
   // State for different question types
   const [sliderAnswers, setSliderAnswers] = useState<Record<string, number>>({});
   const [openToAllStates, setOpenToAllStates] = useState<Record<string, boolean>>({});
+  const [excludedAnswerValues, setExcludedAnswerValues] = useState<Record<string, number[]>>({});
   const [importanceValues, setImportanceValues] = useState({ me: 3, lookingFor: 3 });
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -664,9 +676,10 @@ function QuestionEditPageContent() {
           // Demo mode: only fetch questions, no answers or required
           const questionsRes = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`, { headers });
           const questionsData = await questionsRes.json();
-          const questionsList: Question[] = (questionsData.results || []).sort(
+          const rawQuestions = (questionsData.results || []) as Question[];
+          const questionsList: Question[] = normalizeEthnicityQuestions(rawQuestions.sort(
             (a: Question, b: Question) => (a.group_number || 0) - (b.group_number || 0)
-          );
+          ), questionNumber);
           setQuestions(questionsList);
           initializeAnswerState(questionsList, []);
         } else {
@@ -679,9 +692,10 @@ function QuestionEditPageContent() {
 
         // Process questions
         const questionsData = await questionsRes.json();
-        const questionsList: Question[] = (questionsData.results || []).sort(
+        const rawQuestions = (questionsData.results || []) as Question[];
+        const questionsList: Question[] = normalizeEthnicityQuestions(rawQuestions.sort(
           (a: Question, b: Question) => (a.group_number || 0) - (b.group_number || 0)
-        );
+        ), questionNumber);
         setQuestions(questionsList);
 
         // Process answers — already filtered by question_number on the server
@@ -723,6 +737,7 @@ function QuestionEditPageContent() {
   const initializeAnswerState = (questions: Question[], answers: any[]) => {
     const sliders: Record<string, number> = {};
     const openToAll: Record<string, boolean> = {};
+    const exclusions: Record<string, number[]> = {};
     
     questions.forEach(question => {
       // Handle both cases: answer.question as object or as string
@@ -737,6 +752,7 @@ function QuestionEditPageContent() {
         sliders[`${key}_looking`] = answer.looking_for_answer;
         openToAll[`${key}_me`] = answer.me_open_to_all;
         openToAll[`${key}_looking`] = answer.looking_for_open_to_all;
+        exclusions[key] = normalizeExcludedValues(answer.excluded_answer_values);
         
         setImportanceValues({
           me: answer.me_importance || 3,
@@ -753,11 +769,13 @@ function QuestionEditPageContent() {
         sliders[`${key}_looking`] = 3;
         openToAll[`${key}_me`] = false;
         openToAll[`${key}_looking`] = questionAllowsLookingOta(question);
+        exclusions[key] = [];
       }
     });
     
     setSliderAnswers(sliders);
     setOpenToAllStates(openToAll);
+    setExcludedAnswerValues(exclusions);
     
     // For single-choice questions (3, 4, 5)
     if ([3, 4, 5].includes(questionNumber) && answers.length > 0) {
@@ -795,6 +813,7 @@ function QuestionEditPageContent() {
         li: existingAnswer.looking_for_importance,
         mo: existingAnswer.me_open_to_all,
         lo: existingAnswer.looking_for_open_to_all,
+        exc: normalizeExcludedValues(existingAnswer.excluded_answer_values),
       }));
     }
 
@@ -907,6 +926,7 @@ function QuestionEditPageContent() {
             looking_for_open_to_all: openToAllStates[`${key}_looking`] || false,
             looking_for_importance: importanceValues.lookingFor,
             looking_for_share: true,
+            excluded_answer_values: questionNumber === 1 ? [] : excludedAnswerValues[key] || [],
             is_required_for_me: isNonGroupedQuestionOver10 ? meRequired : false
           };
 
@@ -961,6 +981,7 @@ function QuestionEditPageContent() {
             looking_for_open_to_all: false,
             looking_for_importance: 3,
             looking_for_share: true,
+            excluded_answer_values: excludedAnswerValues[`q${question.group_number || question.id}`] || normalizeExcludedValues(existingAnswer?.excluded_answer_values),
             is_required_for_me: false
           };
 
@@ -1015,6 +1036,7 @@ function QuestionEditPageContent() {
             looking_for_open_to_all: false,
             looking_for_importance: 3,
             looking_for_share: true,
+            excluded_answer_values: excludedAnswerValues[`q${question.group_number || question.id}`] || normalizeExcludedValues(existingAnswer?.excluded_answer_values),
             is_required_for_me: false
           };
 
@@ -1249,13 +1271,13 @@ function QuestionEditPageContent() {
               
               {!isOpenToAll && (
                 <div
-                  className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 border border-gray-300 rounded-full flex items-center justify-center text-xs font-semibold z-30 cursor-pointer"
+                  className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
                   style={{
                     backgroundColor: isImportance ? 'white' : '#672DB7',
                     boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
                     left: isBinary
-                      ? (value === 1 ? '0px' : 'calc(100% - 24px)')
-                      : (value === minValue ? '0px' : value === maxValue ? 'calc(100% - 24px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 12px)`)
+                      ? (value === 1 ? '0px' : 'calc(100% - 28px)')
+                      : (value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`)
                   }}
                 >
                   <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
@@ -1324,15 +1346,68 @@ function QuestionEditPageContent() {
     return { minLabel, maxLabel };
   };
 
+  const setExcludedValuesForKey = (key: string, values: number[]) => {
+    setExcludedAnswerValues(prev => ({
+      ...prev,
+      [key]: normalizeExcludedValues(values),
+    }));
+  };
+
+  const renderOtaExcHeader = (showOta: boolean, showExc = true) => (
+    <div className="flex justify-center gap-2 text-xs text-gray-500 min-w-0">
+      <span className="w-11 text-center">{showOta ? 'OTA' : ''}</span>
+      {showExc && <span className="w-7 text-center">EXC</span>}
+    </div>
+  );
+
+  const renderOtaSwitch = (
+    checked: boolean,
+    onChange: () => void,
+    enabled: boolean,
+  ) => (
+    enabled ? (
+      <label className="flex items-center cursor-pointer">
+        <div className="relative">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onChange}
+            className="sr-only"
+          />
+          <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+          <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${checked ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+        </div>
+      </label>
+    ) : (
+      <div className="w-11 h-6" aria-hidden></div>
+    )
+  );
+
+  const renderOtaExcControls = (
+    key: string,
+    checked: boolean,
+    onToggle: () => void,
+    otaEnabled: boolean,
+    showExc = true,
+  ) => (
+    <div className="flex items-center justify-center gap-2">
+      {renderOtaSwitch(checked, onToggle, otaEnabled)}
+      {showExc && (
+        <ExclusionControl
+          values={excludedAnswerValues[key] || []}
+          onChange={(values) => setExcludedValuesForKey(key, values)}
+        />
+      )}
+    </div>
+  );
+
   const renderQuestionTemplate = () => {
     if (!questions || questions.length === 0) return null;
 
     // Special handling for Relationship question (question_number === 1) - ONLY Me section, no "Looking For"
     if (questionNumber === 1) {
       const relationshipHasOta = questions.some(q => q.open_to_all_me);
-      const relationshipGridClass = relationshipHasOta
-        ? 'grid items-center justify-center grid-cols-[114px_260px_42px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3'
-        : 'grid items-center justify-center grid-cols-[120px_290px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px] lg:gap-x-5 lg:gap-y-3';
+      const relationshipGridClass = 'grid items-center justify-center grid-cols-[114px_260px_88px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3';
 
       return (
         <div className="mb-0 w-full">
@@ -1347,9 +1422,7 @@ function QuestionEditPageContent() {
               <span>LESS</span>
               <span>MORE</span>
             </div>
-            {relationshipHasOta && (
-              <div className="text-xs text-gray-500 text-center leading-none lg:ml-[-15px]">OTA</div>
-            )}
+            {renderOtaExcHeader(relationshipHasOta, false)}
           </div>
 
           {/* Grid container for perfect alignment — responsive */}
@@ -1373,28 +1446,12 @@ function QuestionEditPageContent() {
                       labels={question.answers}
                     />
                   </div>
-                  {relationshipHasOta && (
-                    <div>
-                      {question.open_to_all_me ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAllStates[meKey] || false}
-                              onChange={() => setOpenToAllStates(prev => ({
-                                ...prev,
-                                [meKey]: !prev[meKey]
-                              }))}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
+                  {renderOtaExcControls(
+                    questionKey,
+                    openToAllStates[meKey] || false,
+                    () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
+                    question.open_to_all_me,
+                    false,
                   )}
                 </React.Fragment>
               );
@@ -1411,7 +1468,7 @@ function QuestionEditPageContent() {
                 labels={IMPORTANCE_LABELS}
               />
             </div>
-            {relationshipHasOta && <div className="w-11 h-6"></div>}
+            <div className="w-[88px] h-6"></div>
           </div>
 
           {/* Importance labels below Me section — responsive */}
@@ -1434,7 +1491,7 @@ function QuestionEditPageContent() {
                 <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
               )}
             </div>
-            {relationshipHasOta && <div></div>}
+            <div></div>
           </div>
           </div>
         </div>
@@ -1460,18 +1517,16 @@ function QuestionEditPageContent() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {anyQuestionAllowsLookingOta(questions) ? 'OTA' : ''}
-              </div>
+              {renderOtaExcHeader(anyQuestionAllowsLookingOta(questions))}
             </div>
 
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               {genderQuestions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
@@ -1487,27 +1542,12 @@ function QuestionEditPageContent() {
                         labels={question.answers}
                       />
                     </div>
-                    <div>
-                      {questionAllowsLookingOta(question) ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAllStates[lookingKey] || false}
-                              onChange={() => setOpenToAllStates(prev => ({
-                                ...prev,
-                                [lookingKey]: !prev[lookingKey]
-                              }))}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAllStates[lookingKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[lookingKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
+                    {renderOtaExcControls(
+                      key,
+                      openToAllStates[lookingKey] || false,
+                      () => setOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
+                      questionAllowsLookingOta(question),
+                    )}
                   </React.Fragment>
                 );
               })}
@@ -1523,11 +1563,11 @@ function QuestionEditPageContent() {
                   labels={IMPORTANCE_LABELS}
                 />
               </div>
-              <div className="w-11 h-6"></div>
+              <div className="w-[88px] h-6"></div>
             </div>
 
             {/* Importance labels below Them section — responsive */}
-            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
@@ -1554,18 +1594,16 @@ function QuestionEditPageContent() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
-              </div>
+              {renderOtaExcHeader(questions.some(q => q.open_to_all_me), false)}
             </div>
 
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               {genderQuestions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
@@ -1581,27 +1619,13 @@ function QuestionEditPageContent() {
                         labels={question.answers}
                       />
                     </div>
-                    <div>
-                      {question.open_to_all_me ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAllStates[meKey] || false}
-                              onChange={() => setOpenToAllStates(prev => ({
-                                ...prev,
-                                [meKey]: !prev[meKey]
-                              }))}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
+                    {renderOtaExcControls(
+                      key,
+                      openToAllStates[meKey] || false,
+                      () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
+                      question.open_to_all_me,
+                      false,
+                    )}
                   </React.Fragment>
                 );
               })}
@@ -1631,18 +1655,16 @@ function QuestionEditPageContent() {
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
             {!hasRowScaleLabels && (
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {anyQuestionAllowsLookingOta(questions) ? 'OTA' : ''}
-              </div>
+              {renderOtaExcHeader(anyQuestionAllowsLookingOta(questions))}
             </div>
             )}
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question, index) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
@@ -1671,28 +1693,13 @@ function QuestionEditPageContent() {
                     </div>
                     <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
                       {hasRowScaleLabels && (
-                        <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && anyQuestionAllowsLookingOta(questions) ? '' : 'invisible'}`}>
-                          OTA
-                        </div>
+                        <div className={index === 0 ? '' : 'invisible'}>{renderOtaExcHeader(anyQuestionAllowsLookingOta(questions))}</div>
                       )}
-                      {questionAllowsLookingOta(question) ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAllStates[lookingKey] || false}
-                              onChange={() => setOpenToAllStates(prev => ({
-                                ...prev,
-                                [lookingKey]: !prev[lookingKey]
-                              }))}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAllStates[lookingKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[lookingKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
+                      {renderOtaExcControls(
+                        key,
+                        openToAllStates[lookingKey] || false,
+                        () => setOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
+                        questionAllowsLookingOta(question),
                       )}
                     </div>
                   </React.Fragment>
@@ -1710,11 +1717,11 @@ function QuestionEditPageContent() {
                   labels={IMPORTANCE_LABELS}
                 />
               </div>
-              <div className="w-11 h-6"></div>
+              <div className="w-[88px] h-6"></div>
             </div>
 
             {/* Importance labels below Them section — responsive */}
-            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
@@ -1742,18 +1749,16 @@ function QuestionEditPageContent() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
             {!hasRowScaleLabels && (
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
                 <span>MORE</span>
               </div>
-              <div className="text-xs text-gray-500 text-center lg:ml-[-15px]">
-                {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
-              </div>
+              {renderOtaExcHeader(questions.some(q => q.open_to_all_me), false)}
             </div>
             )}
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_44px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question, index) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
@@ -1782,28 +1787,14 @@ function QuestionEditPageContent() {
                     </div>
                     <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
                       {hasRowScaleLabels && (
-                        <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && questions.some(q => q.open_to_all_me) ? '' : 'invisible'}`}>
-                          OTA
-                        </div>
+                        <div className={index === 0 ? '' : 'invisible'}>{renderOtaExcHeader(questions.some(q => q.open_to_all_me), false)}</div>
                       )}
-                      {question.open_to_all_me ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAllStates[meKey] || false}
-                              onChange={() => setOpenToAllStates(prev => ({
-                                ...prev,
-                                [meKey]: !prev[meKey]
-                              }))}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
+                      {renderOtaExcControls(
+                        key,
+                        openToAllStates[meKey] || false,
+                        () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
+                        question.open_to_all_me,
+                        false,
                       )}
                     </div>
                   </React.Fragment>
@@ -1818,7 +1809,7 @@ function QuestionEditPageContent() {
 
     // Grouped questions (question_type === 'grouped') - Card selection UI like ethnicity
     if (questions.length > 0 && questions[0].question_type === 'grouped') {
-      const initialVisibleQuestionCount = questionNumber === 3 ? 7 : 6;
+      const initialVisibleQuestionCount = 6;
       const visibleQuestions = showAllGroupedOptions ? questions : questions.slice(0, initialVisibleQuestionCount);
       const hasMoreQuestions = questions.length > initialVisibleQuestionCount;
 
@@ -1971,18 +1962,16 @@ function QuestionEditPageContent() {
           <div className="mb-4 sm:mb-6">
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>{lessLabel}</span>
                 <span>{moreLabel}</span>
               </div>
-              <div className="flex justify-center text-xs text-gray-500 min-w-0 shrink-0 w-11">
-                {questionAllowsLookingOta(question) ? 'OTA' : ''}
-              </div>
+              {renderOtaExcHeader(questionAllowsLookingOta(question))}
             </div>
 
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative min-w-0">
                 <SliderComponent
@@ -1992,27 +1981,12 @@ function QuestionEditPageContent() {
                   labels={question.answers}
                 />
               </div>
-              <div className="flex justify-center shrink-0 w-11">
-                {questionAllowsLookingOta(question) ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAllStates[lookingKey] || false}
-                        onChange={() => setOpenToAllStates(prev => ({
-                          ...prev,
-                          [lookingKey]: !prev[lookingKey]
-                        }))}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAllStates[lookingKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[lookingKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6" aria-hidden></div>
-                )}
-              </div>
+              {renderOtaExcControls(
+                key,
+                openToAllStates[lookingKey] || false,
+                () => setOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
+                questionAllowsLookingOta(question),
+              )}
 
               {/* Importance row — same column widths so slider is full width */}
               <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
@@ -2027,11 +2001,11 @@ function QuestionEditPageContent() {
                   labels={IMPORTANCE_LABELS}
                 />
               </div>
-              <div className="shrink-0 w-11 h-6" aria-hidden></div>
+              <div className="shrink-0 w-[88px] h-6" aria-hidden></div>
             </div>
 
             {/* Importance labels below Them section */}
-            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
@@ -2050,7 +2024,7 @@ function QuestionEditPageContent() {
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
                 )}
               </div>
-              <div className="min-w-0 shrink-0 w-11" aria-hidden></div>
+              <div className="min-w-0 shrink-0 w-[88px]" aria-hidden></div>
             </div>
           </div>
 
@@ -2058,18 +2032,16 @@ function QuestionEditPageContent() {
           <div className="mb-4 sm:mb-6 pt-4 sm:pt-8">
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>{lessLabel}</span>
                 <span>{moreLabel}</span>
               </div>
-              <div className="flex justify-center text-xs text-gray-500 min-w-0 shrink-0 w-11">
-                {question.open_to_all_me ? 'OTA' : ''}
-              </div>
+              {renderOtaExcHeader(question.open_to_all_me, false)}
             </div>
 
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_44px] sm:grid-cols-[80px_1fr_44px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_44px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative min-w-0">
                 <SliderComponent
@@ -2079,27 +2051,13 @@ function QuestionEditPageContent() {
                   labels={question.answers}
                 />
               </div>
-              <div className="flex justify-center shrink-0 w-11">
-                {question.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAllStates[meKey] || false}
-                        onChange={() => setOpenToAllStates(prev => ({
-                          ...prev,
-                          [meKey]: !prev[meKey]
-                        }))}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAllStates[meKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAllStates[meKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6" aria-hidden></div>
-                )}
-              </div>
+              {renderOtaExcControls(
+                key,
+                openToAllStates[meKey] || false,
+                () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
+                question.open_to_all_me,
+                false,
+              )}
             </div>
           </div>
           </div>

@@ -166,6 +166,19 @@ export interface FeedResponse {
 
 export type FeedVisibility = 'none' | 'all' | 'approved' | 'liked' | 'matched';
 
+export interface UserRestrictionHistory {
+  id: string;
+  restriction_type: string;
+  duration_days?: number | null;
+  reason?: string;
+  reason_detail?: string;
+  restricted_at: string;
+  expires_at?: string | null;
+  ended_at?: string | null;
+  end_reason?: 'active' | 'expired' | 'removed' | 'replaced' | string;
+  moderator_notes?: string;
+}
+
 export interface ApiUser {
   id: string;
   username: string;
@@ -188,21 +201,23 @@ export interface ApiUser {
   is_online?: boolean;
   is_admin?: boolean;
   last_active?: string | null;
+  has_pending_reports?: boolean;
   mandatory_questions_complete?: boolean;
   require_answers_for_likes?: boolean;
-  share_answers?: boolean;
+  share_answers?: FeedVisibility;
   feed_visibility_bio?: FeedVisibility;
   feed_visibility_photo?: FeedVisibility;
   feed_visibility_question?: FeedVisibility;
   pictures?: UserPicture[];
   profile_prompts?: UserProfilePrompt[];
+  restriction_history?: UserRestrictionHistory[];
   question_answers?: {
-    male?: number;
-    female?: number;
-    friend?: number;
-    hookup?: number;
-    date?: number;
-    partner?: number;
+    male?: number | null;
+    female?: number | null;
+    friend?: number | null;
+    hookup?: number | null;
+    date?: number | null;
+    partner?: number | null;
   };
 }
 
@@ -218,6 +233,7 @@ export interface UserAnswer {
   looking_for_open_to_all?: boolean;
   looking_for_importance: number;
   looking_for_share?: boolean;
+  excluded_answer_values?: number[];
   // Legacy: is_required_for_me is no longer on UserAnswer; use UserRequiredQuestion / getRequiredQuestionIds
   me_multiplier?: number;
   looking_for_multiplier?: number;
@@ -338,6 +354,54 @@ interface PaginatedResponse<T> {
 
 const API_BASE_URL = CONFIG_API_BASE_URL;
 
+type ApiErrorPayload = {
+  error?: unknown;
+  message?: unknown;
+  detail?: unknown;
+  non_field_errors?: unknown;
+};
+
+function stringifyApiErrorValue(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => stringifyApiErrorValue(item))
+      .filter((item): item is string => Boolean(item));
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  if (typeof value === 'object') {
+    const parts = Object.values(value)
+      .map((item) => stringifyApiErrorValue(item))
+      .filter((item): item is string => Boolean(item));
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  return String(value);
+}
+
+async function getApiErrorMessage(response: Response): Promise<string> {
+  const fallback = `API request failed: ${response.status} ${response.statusText}`;
+  const contentType = response.headers.get('content-type') || '';
+
+  try {
+    if (contentType.includes('application/json')) {
+      const payload = await response.json() as ApiErrorPayload;
+      return (
+        stringifyApiErrorValue(payload.message) ||
+        stringifyApiErrorValue(payload.error) ||
+        stringifyApiErrorValue(payload.detail) ||
+        stringifyApiErrorValue(payload.non_field_errors) ||
+        fallback
+      );
+    }
+
+    const text = await response.text();
+    return text.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 
 class ApiService {
   private async request(endpoint: string, method: string, data?: Record<string, unknown>): Promise<unknown> {
@@ -360,7 +424,9 @@ class ApiService {
     const response = await fetch(url, options);
     
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      const error = new Error(await getApiErrorMessage(response));
+      (error as Error & { status?: number }).status = response.status;
+      throw error;
     }
 
     // Handle 204 No Content responses (no body)
@@ -797,7 +863,8 @@ class ApiService {
   }): Promise<Question> {
     // Remove answers from the data sent to backend since Question model doesn't have answers field
     // Backend expects value_label_1 and value_label_5 instead
-    const { answers, ...questionPayload } = questionData;
+    const { answers: omittedAnswers, ...questionPayload } = questionData;
+    void omittedAnswers;
     return this.request('/questions/', 'POST', questionPayload) as Promise<Question>;
   }
 

@@ -417,13 +417,13 @@ function FeedPageContent() {
         {viewerId && <PostComposer viewerId={viewerId} onPosted={onPosted} />}
 
         {/* Mobile categories — horizontal scroll, hidden on lg+ */}
-        <div className="lg:hidden mb-4 -mx-4 px-4 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <div className="inline-flex items-center gap-2">
+        <div className="lg:hidden mb-3 -mx-4 -my-2 px-4 py-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="inline-flex items-center gap-2 min-h-9">
             {activeHashtag && (
               <button
                 type="button"
                 onClick={() => setActiveHashtag('')}
-                className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full bg-[#672DB7] text-white whitespace-nowrap"
+                className="inline-flex min-h-8 items-center gap-1.5 text-sm leading-none font-semibold px-3 py-1.5 rounded-full bg-[#672DB7] text-white whitespace-nowrap"
               >
                 <span>#{activeHashtag}</span>
                 <span aria-hidden="true">×</span>
@@ -443,7 +443,7 @@ function FeedPageContent() {
                     key={c.tag}
                     type="button"
                     onClick={() => setActiveHashtag(c.tag)}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full bg-white ring-1 ring-gray-200 hover:ring-purple-300 text-gray-700 whitespace-nowrap"
+                    className="inline-flex min-h-8 items-center gap-1.5 text-sm leading-none font-medium px-3 py-1.5 rounded-full bg-white ring-1 ring-gray-200 hover:ring-purple-300 text-gray-700 whitespace-nowrap"
                   >
                     <span className="text-[#672DB7] font-semibold">#{c.tag}</span>
                     {c.count > 0 && <span className="text-xs text-gray-400 tabular-nums">{c.count}</span>}

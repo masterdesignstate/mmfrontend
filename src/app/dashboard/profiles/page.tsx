@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiService, ApiUser } from '@/services/api';
 import { ReasonChip } from '@/components/ReasonChip';
@@ -9,13 +9,14 @@ import { REPORT_REASONS } from '@/config/reportReasons';
 interface ProfileData {
   id: string;
   creationDate: string;
+  createdAt: string | null;
   name: string;
   username: string;
-  age: number;
+  age: number | null;
   live: string;
   answers: number;
-  male: number;
-  female: number;
+  male: number | null;
+  female: number | null;
   restrictionType: string;
   restrictionReason?: string;
   restrictionReasonDetail?: string;
@@ -45,7 +46,9 @@ export default function ProfilesPage() {
   const [restrictReason, setRestrictReason] = useState('admin_restriction');
   const [restrictReasonDetail, setRestrictReasonDetail] = useState('');
 
-  const formatDate = (dateStr: string) => {
+  const formatAnswerValue = (value: number | null) => value ?? '-';
+
+  const formatDate = useCallback((dateStr: string) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -53,9 +56,13 @@ export default function ProfilesPage() {
     const day = String(d.getDate()).padStart(2, '0');
     const year = d.getFullYear();
     return `${month}/${day}/${year}`;
-  };
+  }, []);
 
-  const fetchProfiles = async () => {
+  const normalizeAnswer = useCallback((value: number | null | undefined) => (
+    typeof value === 'number' && Number.isFinite(value) ? value : null
+  ), []);
+
+  const fetchProfiles = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -69,17 +76,18 @@ export default function ProfilesPage() {
         return {
           id: user.id,
           creationDate: formatDate(user.date_joined || ''),
+          createdAt: user.date_joined || null,
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username,
           username: user.username,
-          age: user.age || 0,
+          age: user.age ?? null,
           live: user.live || '',
           answers: user.questions_answered_count || 0,
-          male: questionAnswers['male'] ?? 0,
-          female: questionAnswers['female'] ?? 0,
+          male: normalizeAnswer(questionAnswers['male']),
+          female: normalizeAnswer(questionAnswers['female']),
           restrictionType: user.restriction_type === 'permanent' ? 'Banned'
             : user.restriction_type === 'temporary' ? 'Restricted'
             : user.is_banned ? 'Banned'
-            : (user as ApiUser & { has_pending_reports?: boolean }).has_pending_reports ? 'Pending'
+            : user.has_pending_reports ? 'Pending'
             : 'None',
           restrictionReason: user.restriction_reason || undefined,
           restrictionReasonDetail: user.restriction_reason_detail || undefined
@@ -93,11 +101,11 @@ export default function ProfilesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [formatDate, normalizeAnswer]);
 
   useEffect(() => {
     fetchProfiles();
-  }, []);
+  }, [fetchProfiles]);
 
   const [impostorLoading, setImpostorLoading] = useState(false);
 
@@ -189,8 +197,8 @@ export default function ProfilesPage() {
 
     const matchesStatus = statusFilter === 'All' || statusFilter === profile.restrictionType;
 
-    const matchesMinAge = minAge === '' || profile.age >= parseInt(minAge);
-    const matchesMaxAge = maxAge === '' || profile.age <= parseInt(maxAge);
+    const matchesMinAge = minAge === '' || (profile.age !== null && profile.age >= parseInt(minAge));
+    const matchesMaxAge = maxAge === '' || (profile.age !== null && profile.age <= parseInt(maxAge));
 
     const matchesLocation = locationFilter === '' ||
       profile.live.toLowerCase().includes(locationFilter.toLowerCase());
@@ -201,22 +209,37 @@ export default function ProfilesPage() {
   });
 
   // Sort profiles
+  const isMissingSortValue = (value: unknown) => (
+    value === null ||
+    value === undefined ||
+    value === '' ||
+    (typeof value === 'number' && Number.isNaN(value))
+  );
+
+  const getSortValue = (profile: ProfileData, field: string) => {
+    if (field === 'creationDate') {
+      return profile.createdAt ? new Date(profile.createdAt).getTime() : null;
+    }
+    const value = profile[field as keyof ProfileData];
+    return typeof value === 'string' ? value.toLowerCase() : value;
+  };
+
   const sortedProfiles = [...filteredProfiles].sort((a, b) => {
     if (!sortField) return 0;
 
-    const aValue = a[sortField as keyof typeof a];
-    const bValue = b[sortField as keyof typeof b];
+    const aValue = getSortValue(a, sortField);
+    const bValue = getSortValue(b, sortField);
 
-    // Handle null values
-    if (aValue === null && bValue === null) return 0;
-    if (aValue === null) return sortDirection === 'asc' ? 1 : -1;
-    if (bValue === null) return sortDirection === 'asc' ? -1 : 1;
+    const aMissing = isMissingSortValue(aValue);
+    const bMissing = isMissingSortValue(bValue);
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
 
-    if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
+    const comparison = typeof aValue === 'number' && typeof bValue === 'number'
+      ? aValue - bValue
+      : String(aValue).localeCompare(String(bValue));
+    return sortDirection === 'asc' ? comparison : -comparison;
   });
 
   // Pagination
@@ -482,7 +505,7 @@ export default function ProfilesPage() {
                     {profile.username}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.age || '-'}
+                    {profile.age ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {profile.live || '-'}
@@ -491,10 +514,10 @@ export default function ProfilesPage() {
                     {profile.answers}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.male}
+                    {formatAnswerValue(profile.male)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {profile.female}
+                    {formatAnswerValue(profile.female)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${

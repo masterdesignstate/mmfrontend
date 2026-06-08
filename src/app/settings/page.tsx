@@ -18,7 +18,7 @@ function SettingsPageContent() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [requireAnswersForLikes, setRequireAnswersForLikes] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
-  const [shareAnswers, setShareAnswers] = useState(false);
+  const [answerVis, setAnswerVis] = useState<FeedVisibility>('none');
   const [savingShareAnswers, setSavingShareAnswers] = useState(false);
   const [bioVis, setBioVis] = useState<FeedVisibility>('all');
   const [photoVis, setPhotoVis] = useState<FeedVisibility>('all');
@@ -58,7 +58,7 @@ function SettingsPageContent() {
     if (userId) {
       apiService.getUser(userId).then(user => {
         setRequireAnswersForLikes(!!user.require_answers_for_likes);
-        setShareAnswers(!!user.share_answers);
+        setAnswerVis((user.share_answers ?? 'none') as FeedVisibility);
         setBioVis((user.feed_visibility_bio ?? 'all') as FeedVisibility);
         setPhotoVis((user.feed_visibility_photo ?? 'all') as FeedVisibility);
         setQuestionVis((user.feed_visibility_question ?? 'all') as FeedVisibility);
@@ -86,18 +86,18 @@ function SettingsPageContent() {
     }
   };
 
-  const handleToggleShareAnswers = async () => {
+  const handleChangeShareAnswersVisibility = async (next: FeedVisibility) => {
     const userId = localStorage.getItem('user_id');
-    if (!userId || savingShareAnswers) return;
-    const next = !shareAnswers;
-    setShareAnswers(next);
+    if (!userId || savingShareAnswers || next === answerVis) return;
+    const prev = answerVis;
+    setAnswerVis(next);
     setSavingShareAnswers(true);
     try {
       await apiService.updateUser(userId, { share_answers: next });
-      posthog.capture('privacy_share_answers_toggled', { value: next });
+      posthog.capture('privacy_share_answers_visibility_changed', { value: next });
     } catch (error) {
       console.error('Error updating answer sharing setting:', error);
-      setShareAnswers(!next);
+      setAnswerVis(prev);
       setMessage({ type: 'error', text: 'Could not update answer sharing. Please try again.' });
     } finally {
       setSavingShareAnswers(false);
@@ -378,25 +378,23 @@ function SettingsPageContent() {
             <h2 className="text-base font-semibold text-gray-900">Answer Privacy</h2>
           </div>
           <div className="px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-gray-900">Share Answers</h3>
-                <p className="text-sm text-gray-600 mt-1">Show Them answers on question details you share.</p>
+                <h3 className="text-sm font-medium text-gray-900">Show Them on answers you share.</h3>
               </div>
-              <button
-                type="button"
-                onClick={handleToggleShareAnswers}
+              <select
+                value={answerVis}
+                onChange={(e) => handleChangeShareAnswersVisibility(e.target.value as FeedVisibility)}
                 disabled={savingShareAnswers}
-                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0 mt-0.5"
-                style={{ backgroundColor: shareAnswers ? '#672DB7' : '#ADADAD' }}
-                aria-pressed={shareAnswers}
-                aria-label="Share Them answers"
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:ring-[#672DB7] focus:border-[#672DB7] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                aria-label="Who can see Them on answers you share"
               >
-                <span
-                  className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow"
-                  style={{ transform: shareAnswers ? 'translateX(20px)' : 'translateX(2px)' }}
-                />
-              </button>
+                <option value="none">None</option>
+                <option value="all">Everyone</option>
+                <option value="approved">Approved</option>
+                <option value="liked">Liked</option>
+                <option value="matched">Matched</option>
+              </select>
             </div>
           </div>
         </div>

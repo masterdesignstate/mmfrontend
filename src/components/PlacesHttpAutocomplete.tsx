@@ -38,7 +38,9 @@ export default function PlacesHttpAutocomplete({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasUserTyped, setHasUserTyped] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const inputValueRef = useRef(value);
 
   // Debug logging for API key
   useEffect(() => {
@@ -56,7 +58,19 @@ export default function PlacesHttpAutocomplete({
   const sessionTokenRef = useRef<string>(createSessionToken());
 
   useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
+
+  useEffect(() => {
+    if (value === inputValueRef.current) return;
+
+    inputValueRef.current = value;
     setInputValue(value);
+    setHasUserTyped(false);
+    setSuggestions([]);
+    setOpen(false);
+    setLoading(false);
+    abortController.current?.abort();
   }, [value]);
 
   useEffect(() => {
@@ -75,8 +89,8 @@ export default function PlacesHttpAutocomplete({
   const debouncedValue = useDebounce(inputValue, 250);
 
   useEffect(() => {
-    // If no API key or disabled, just work as a regular input (no autocomplete)
-    if (!apiKey || disabled) {
+    // If no API key, disabled, or value was populated externally, just work as a regular input.
+    if (!apiKey || disabled || !hasUserTyped) {
       setSuggestions([]);
       setOpen(false);
       setLoading(false);
@@ -180,11 +194,13 @@ export default function PlacesHttpAutocomplete({
     return () => {
       controller.abort();
     };
-  }, [apiKey, debouncedValue, disabled, minLength]);
+  }, [apiKey, debouncedValue, disabled, hasUserTyped, minLength]);
 
   const handleSelect = (suggestion: PlaceSuggestion) => {
+    inputValueRef.current = suggestion.text;
     onChange(suggestion.text);
     setInputValue(suggestion.text);
+    setHasUserTyped(false);
     setOpen(false);
     setSuggestions([]);
     sessionTokenRef.current = createSessionToken();
@@ -192,9 +208,12 @@ export default function PlacesHttpAutocomplete({
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value;
+    inputValueRef.current = nextValue;
     setInputValue(nextValue);
+    setHasUserTyped(true);
     onChange(nextValue);
-    setOpen(true);
+    setSuggestions([]);
+    setOpen(false);
   };
 
   return (
@@ -212,11 +231,6 @@ export default function PlacesHttpAutocomplete({
           .join(' ')}
         disabled={disabled}
         autoComplete="off"
-        onFocus={() => {
-          if (suggestions.length > 0) {
-            setOpen(true);
-          }
-        }}
       />
 
       {error && (

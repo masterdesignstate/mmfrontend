@@ -1824,8 +1824,8 @@ function ResultsPageContent() {
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
             <p className="text-base text-gray-500">
-              Showing {Math.min(sortedProfiles.length, visibleCount)} of {showFiltersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many')} people
-              {searchTerm.trim() && ` (searching for "${searchTerm}")`}
+              Showing {Math.min(sortedProfiles.length, visibleCount)} of {searchTerm.trim() && !loading ? totalCount : (showFiltersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many'))} people
+              {searchTerm.trim() && ` (matching "${searchTerm}")`}
             </p>
           </div>
 
@@ -2010,11 +2010,11 @@ function ResultsPageContent() {
           <div className="flex justify-center items-center py-12">
             <div className="text-red-500">{error}</div>
           </div>
-        ) : sortedProfiles.length === 0 && searchTerm.trim() && !loading && !hasNextPage && profiles.length > 0 ? (
+        ) : sortedProfiles.length === 0 && searchTerm.trim() && !loading ? (
           <div className="flex justify-center items-center py-12">
             <div className="text-gray-500">No users found matching &quot;{searchTerm}&quot;</div>
           </div>
-        ) : sortedProfiles.length === 0 && searchTerm.trim() && (loading || hasNextPage || profiles.length === 0) ? (
+        ) : sortedProfiles.length === 0 && searchTerm.trim() && loading ? (
           <div className="flex justify-center items-center py-12">
             <div className="text-gray-500">Searching...</div>
           </div>

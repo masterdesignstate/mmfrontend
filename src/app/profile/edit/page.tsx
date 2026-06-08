@@ -142,7 +142,6 @@ const buildFormState = (data: User): FormState => {
 export default function EditProfilePage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [initialFormState, setInitialFormState] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,8 +219,6 @@ export default function EditProfilePage() {
         }
 
         if (!data) throw new Error('Failed to load user');
-        setUser(data);
-
         const prefilled = buildFormState(data);
         setForm(prefilled);
         setInitialFormState(prefilled);
@@ -601,7 +598,6 @@ export default function EditProfilePage() {
         if (refreshedRes.ok) {
           const refreshed = await refreshedRes.json();
           const refreshedForm = buildFormState(refreshed);
-          setUser(refreshed);
           setForm(refreshedForm);
           setInitialFormState(refreshedForm);
           mutate(profileUrl, refreshed, false);
@@ -890,49 +886,28 @@ export default function EditProfilePage() {
         </div>
       )}
 
-      {/* Header - match profile header (no title text) */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <div className="flex items-center">
-          <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} className="mr-2" />
+      {/* Header - centered logo with profile back navigation */}
+      <div className="relative flex items-center justify-center p-4 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => router.push('/profile')}
+          className="absolute left-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-900 hover:bg-gray-50 cursor-pointer"
+          aria-label="Back to profile"
+          title="Back"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} />
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+          <HamburgerMenu />
         </div>
-        <HamburgerMenu />
       </div>
 
-      <div className="flex">
-        {/* Sidebar (desktop) */}
-        <div className="hidden lg:block w-80 bg-white border-r border-gray-200 min-h-screen">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-8">Profile</h1>
-
-            <nav className="space-y-4">
-              {/* About me */}
-              <div
-                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
-                onClick={() => router.push('/profile')}
-              >
-                <div className="w-8 h-8 rounded-full overflow-hidden">
-                  {user?.profile_photo ? (
-                    <Image src={user.profile_photo} alt={user.username} width={32} height={32} className="object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-b from-orange-400 to-orange-600 flex items-center justify-center text-white text-sm font-bold">
-                      {user?.username?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <span className="text-gray-700">About me</span>
-              </div>
-
-              {/* Edit Profile - active */}
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
-                <Image src="/assets/edit-profile.png" alt="Edit Profile" width={32} height={32} />
-                <span className="text-gray-900 font-medium">Edit Profile</span>
-              </div>
-            </nav>
-          </div>
-        </div>
-
+      <div>
         {/* Main Content */}
-        <div className="flex-1 px-6 py-6">
+        <div className="px-4 sm:px-6 py-6">
           {/* Profile Photos Gallery (up to MAX_USER_PICTURES) */}
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm max-w-4xl mx-auto mb-6">
             <div className="flex items-baseline justify-between mb-4">

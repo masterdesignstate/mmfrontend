@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import useSWR from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { normalizeEthnicityAnswers } from '@/utils/ethnicityQuestions';
 
-const answersFetcher = async (url: string) => {
+const answersFetcher = async (url: string): Promise<unknown[]> => {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
   });
@@ -12,7 +13,7 @@ const answersFetcher = async (url: string) => {
     throw error;
   }
   const data = await res.json();
-  return data.results || [];
+  return normalizeEthnicityAnswers(data.results || []) as unknown[];
 };
 
 const EMPTY_ANSWERS: never[] = [];
@@ -21,7 +22,7 @@ const EMPTY_ANSWERS: never[] = [];
 export function useUserAnswers<T = any>(userId: string | null) {
   const { data, error, isLoading, mutate } = useSWR<T[]>(
     userId ? `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=1000` : null,
-    answersFetcher,
+    answersFetcher as (url: string) => Promise<T[]>,
     { dedupingInterval: 60000 }
   );
   const answers = useMemo(() => (data || EMPTY_ANSWERS) as T[], [data]);
