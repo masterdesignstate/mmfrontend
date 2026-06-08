@@ -1390,7 +1390,7 @@ function QuestionEditPageContent() {
     otaEnabled: boolean,
     showExc = true,
   ) => (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex min-h-8 items-center justify-center gap-2 overflow-visible">
       {renderOtaSwitch(checked, onToggle, otaEnabled)}
       {showExc && (
         <ExclusionControl
@@ -1648,7 +1648,7 @@ function QuestionEditPageContent() {
 
       // Show "Them" first, then "Me" (like onboarding) — responsive container and grids for small/medium devices
       return (
-        <div className="w-full overflow-x-hidden">
+        <div className="w-full overflow-visible">
           <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
           {/* Them Section */}
           <div className="mb-6">
@@ -1956,7 +1956,7 @@ function QuestionEditPageContent() {
       const moreLabel = question.answers?.find((a: { value: string | number }) => String(a.value) === '5')?.answer_text?.toUpperCase() || 'MORE';
 
       return (
-        <div className="w-full overflow-x-hidden">
+        <div className="w-full overflow-visible">
           <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
           {/* Them Section — same 3-col responsive grid as grouped/auth */}
           <div className="mb-4 sm:mb-6">
