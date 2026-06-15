@@ -9,6 +9,8 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import ExclusionControl from '@/components/ExclusionControl';
 import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
+import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
 interface Question {
@@ -55,7 +57,7 @@ const getScaleLabelsForQuestion = (questionNumber: number, question?: Pick<Quest
 };
 
 const questionAllowsLookingOta = (question: Pick<Question, 'question_number' | 'open_to_all_looking_for'>) => (
-  question.open_to_all_looking_for || [2, 3, 4, 5, 6, 7, 8, 9, 10].includes(question.question_number)
+  question.open_to_all_looking_for || [2, 3, 4, 5, 6, 7, 8, 9, 10, 13].includes(question.question_number)
 );
 
 const anyQuestionAllowsLookingOta = (questions: Array<Pick<Question, 'question_number' | 'open_to_all_looking_for'>>) => (
@@ -73,14 +75,6 @@ const ScaleLabels = ({ labels }: { labels: string[] }) => (
     ))}
   </div>
 );
-
-const normalizeExcludedValues = (values: unknown): number[] => {
-  if (!Array.isArray(values)) return [];
-  const normalized = values
-    .map(value => Number(value))
-    .filter(value => Number.isInteger(value) && value >= 1 && value <= 5);
-  return Array.from(new Set(normalized)).sort((a, b) => a - b);
-};
 
 // Template Components
 const CardSelectionTemplate = ({
@@ -752,7 +746,10 @@ function QuestionEditPageContent() {
         sliders[`${key}_looking`] = answer.looking_for_answer;
         openToAll[`${key}_me`] = answer.me_open_to_all;
         openToAll[`${key}_looking`] = answer.looking_for_open_to_all;
-        exclusions[key] = normalizeExcludedValues(answer.excluded_answer_values);
+        exclusions[key] = normalizeExcludedValues(
+          answer.excluded_answer_values,
+          getAllowedExclusionValues(question)
+        );
         
         setImportanceValues({
           me: answer.me_importance || 3,
@@ -813,7 +810,10 @@ function QuestionEditPageContent() {
         li: existingAnswer.looking_for_importance,
         mo: existingAnswer.me_open_to_all,
         lo: existingAnswer.looking_for_open_to_all,
-        exc: normalizeExcludedValues(existingAnswer.excluded_answer_values),
+        exc: normalizeExcludedValues(
+          existingAnswer.excluded_answer_values,
+          getAllowedExclusionValues(question)
+        ),
       }));
     }
 
@@ -926,7 +926,10 @@ function QuestionEditPageContent() {
             looking_for_open_to_all: openToAllStates[`${key}_looking`] || false,
             looking_for_importance: importanceValues.lookingFor,
             looking_for_share: true,
-            excluded_answer_values: questionNumber === 1 ? [] : excludedAnswerValues[key] || [],
+            excluded_answer_values: normalizeExcludedValues(
+              excludedAnswerValues[key] || [],
+              getAllowedExclusionValues(question)
+            ),
             is_required_for_me: isNonGroupedQuestionOver10 ? meRequired : false
           };
 
@@ -981,7 +984,10 @@ function QuestionEditPageContent() {
             looking_for_open_to_all: false,
             looking_for_importance: 3,
             looking_for_share: true,
-            excluded_answer_values: excludedAnswerValues[`q${question.group_number || question.id}`] || normalizeExcludedValues(existingAnswer?.excluded_answer_values),
+            excluded_answer_values: normalizeExcludedValues(
+              excludedAnswerValues[`q${question.group_number || question.id}`] || existingAnswer?.excluded_answer_values,
+              getAllowedExclusionValues(question)
+            ),
             is_required_for_me: false
           };
 
@@ -1036,7 +1042,10 @@ function QuestionEditPageContent() {
             looking_for_open_to_all: false,
             looking_for_importance: 3,
             looking_for_share: true,
-            excluded_answer_values: excludedAnswerValues[`q${question.group_number || question.id}`] || normalizeExcludedValues(existingAnswer?.excluded_answer_values),
+            excluded_answer_values: normalizeExcludedValues(
+              excludedAnswerValues[`q${question.group_number || question.id}`] || existingAnswer?.excluded_answer_values,
+              getAllowedExclusionValues(question)
+            ),
             is_required_for_me: false
           };
 
@@ -1175,18 +1184,10 @@ function QuestionEditPageContent() {
       const clickX = clientX - rect.left;
       const percentage = clickX / rect.width;
 
-      if (isBinary) {
-        onChange(percentage < 0.5 ? 1 : 5);
-        return;
-      }
-
-      // Get min and max values from labels, fallback to 1 and 5
-      const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
-      const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
-      const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
-
-      const newValue = Math.round(percentage * (maxValue - minValue)) + minValue;
-      onChange(Math.max(minValue, Math.min(maxValue, newValue)));
+      const valueLabels = isBinary
+        ? [{ value: '1', answer_text: '1' }, { value: '5', answer_text: '5' }]
+        : labels;
+      onChange(getAnswerValueFromPercentage(percentage, valueLabels));
     };
 
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1238,9 +1239,14 @@ function QuestionEditPageContent() {
       >
         {(() => {
           // Get min and max values from labels, fallback to 1 and 5
-          const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
-          const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
-          const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+          const valueLabels = isBinary
+            ? [{ value: '1', answer_text: '1' }, { value: '5', answer_text: '5' }]
+            : labels;
+          const answerValues = getAnswerValues(valueLabels);
+          const minValue = answerValues[0];
+          const maxValue = answerValues[answerValues.length - 1];
+          const displayValue = getNearestAnswerValue(value, valueLabels);
+          const displayPosition = getAnswerValuePosition(value, valueLabels);
           
           
           return (
@@ -1275,12 +1281,10 @@ function QuestionEditPageContent() {
                   style={{
                     backgroundColor: isImportance ? 'white' : '#672DB7',
                     boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                    left: isBinary
-                      ? (value === 1 ? '0px' : 'calc(100% - 28px)')
-                      : (value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`)
+                    left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
                   }}
                 >
-                  <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+                  <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
                 </div>
               )}
 
@@ -1346,17 +1350,17 @@ function QuestionEditPageContent() {
     return { minLabel, maxLabel };
   };
 
-  const setExcludedValuesForKey = (key: string, values: number[]) => {
+  const setExcludedValuesForKey = (key: string, values: number[], question?: Question) => {
     setExcludedAnswerValues(prev => ({
       ...prev,
-      [key]: normalizeExcludedValues(values),
+      [key]: normalizeExcludedValues(values, getAllowedExclusionValues(question)),
     }));
   };
 
   const renderOtaExcHeader = (showOta: boolean, showExc = true) => (
-    <div className="flex justify-center gap-2 text-xs text-gray-500 min-w-0">
-      <span className="w-11 text-center">{showOta ? 'OTA' : ''}</span>
-      {showExc && <span className="w-7 text-center">EXC</span>}
+    <div className={`flex gap-2 text-xs text-gray-500 min-w-0 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
+      {showOta && <span className="w-11 text-center">OTA</span>}
+      {showExc && <span className="w-7 sm:w-[88px]" aria-hidden />}
     </div>
   );
 
@@ -1389,13 +1393,15 @@ function QuestionEditPageContent() {
     onToggle: () => void,
     otaEnabled: boolean,
     showExc = true,
+    question?: Question,
   ) => (
-    <div className="flex min-h-8 items-center justify-center gap-2 overflow-visible">
-      {renderOtaSwitch(checked, onToggle, otaEnabled)}
+    <div className={`flex min-h-8 items-center gap-2 overflow-visible ${otaEnabled || !showExc ? 'justify-center' : 'justify-start'}`}>
+      {otaEnabled && renderOtaSwitch(checked, onToggle, otaEnabled)}
       {showExc && (
         <ExclusionControl
           values={excludedAnswerValues[key] || []}
-          onChange={(values) => setExcludedValuesForKey(key, values)}
+          allowedValues={getAllowedExclusionValues(question)}
+          onChange={(values) => setExcludedValuesForKey(key, values, question)}
         />
       )}
     </div>
@@ -1407,14 +1413,14 @@ function QuestionEditPageContent() {
     // Special handling for Relationship question (question_number === 1) - ONLY Me section, no "Looking For"
     if (questionNumber === 1) {
       const relationshipHasOta = questions.some(q => q.open_to_all_me);
-      const relationshipGridClass = 'grid items-center justify-center grid-cols-[114px_260px_88px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3';
+      const relationshipGridClass = 'grid items-center justify-center grid-cols-[114px_260px_144px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3';
 
       return (
         <div className="mb-0 w-full">
           <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
           {/* Relationship uses a compact fixed-width grid: matches medium-device sizing across all breakpoints below lg. */}
-          <div className="w-full max-w-[454px] lg:max-w-[692px] mx-auto">
+          <div className="w-full max-w-[454px] lg:max-w-[792px] mx-auto">
           {/* LESS, MORE, and OTA labels — responsive grid */}
           <div className={`${relationshipGridClass} mb-2`}>
             <div></div>
@@ -1422,7 +1428,7 @@ function QuestionEditPageContent() {
               <span>LESS</span>
               <span>MORE</span>
             </div>
-            {renderOtaExcHeader(relationshipHasOta, false)}
+            {renderOtaExcHeader(relationshipHasOta)}
           </div>
 
           {/* Grid container for perfect alignment — responsive */}
@@ -1451,7 +1457,8 @@ function QuestionEditPageContent() {
                     openToAllStates[meKey] || false,
                     () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
                     question.open_to_all_me,
-                    false,
+                    true,
+                    question,
                   )}
                 </React.Fragment>
               );
@@ -1468,7 +1475,7 @@ function QuestionEditPageContent() {
                 labels={IMPORTANCE_LABELS}
               />
             </div>
-            <div className="w-[88px] h-6"></div>
+            <div className="w-[144px] h-6"></div>
           </div>
 
           {/* Importance labels below Me section — responsive */}
@@ -1512,12 +1519,12 @@ function QuestionEditPageContent() {
       return (
         <div className="w-full overflow-x-hidden">
           {/* Responsive slider block — same as question 1 */}
-          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
           {/* Them Section */}
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_minmax(0,1fr)_80px] sm:grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
@@ -1526,7 +1533,7 @@ function QuestionEditPageContent() {
               {renderOtaExcHeader(anyQuestionAllowsLookingOta(questions))}
             </div>
 
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_minmax(0,1fr)_80px] sm:grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               {genderQuestions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
@@ -1547,6 +1554,8 @@ function QuestionEditPageContent() {
                       openToAllStates[lookingKey] || false,
                       () => setOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
                       questionAllowsLookingOta(question),
+                      true,
+                      question,
                     )}
                   </React.Fragment>
                 );
@@ -1563,11 +1572,11 @@ function QuestionEditPageContent() {
                   labels={IMPORTANCE_LABELS}
                 />
               </div>
-              <div className="w-[88px] h-6"></div>
+              <div className="w-20 sm:w-[144px] h-6"></div>
             </div>
 
             {/* Importance labels below Them section — responsive */}
-            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mt-2 grid-cols-[80px_minmax(0,1fr)_80px] sm:grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
@@ -1594,7 +1603,7 @@ function QuestionEditPageContent() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_minmax(0,1fr)_80px] sm:grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
@@ -1603,7 +1612,7 @@ function QuestionEditPageContent() {
               {renderOtaExcHeader(questions.some(q => q.open_to_all_me), false)}
             </div>
 
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_minmax(0,1fr)_80px] sm:grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               {genderQuestions.map((question) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
@@ -1625,6 +1634,7 @@ function QuestionEditPageContent() {
                       () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
                       question.open_to_all_me,
                       false,
+                      question,
                     )}
                   </React.Fragment>
                 );
@@ -1649,13 +1659,13 @@ function QuestionEditPageContent() {
       // Show "Them" first, then "Me" (like onboarding) — responsive container and grids for small/medium devices
       return (
         <div className="w-full overflow-visible">
-          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
           {/* Them Section */}
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
             {!hasRowScaleLabels && (
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
@@ -1664,7 +1674,7 @@ function QuestionEditPageContent() {
               {renderOtaExcHeader(anyQuestionAllowsLookingOta(questions))}
             </div>
             )}
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question, index) => {
                 const key = `q${question.group_number || question.id}`;
                 const lookingKey = `${key}_looking`;
@@ -1700,6 +1710,8 @@ function QuestionEditPageContent() {
                         openToAllStates[lookingKey] || false,
                         () => setOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
                         questionAllowsLookingOta(question),
+                        true,
+                        question,
                       )}
                     </div>
                   </React.Fragment>
@@ -1717,11 +1729,11 @@ function QuestionEditPageContent() {
                   labels={IMPORTANCE_LABELS}
                 />
               </div>
-              <div className="w-[88px] h-6"></div>
+              <div className="w-[144px] h-6"></div>
             </div>
 
             {/* Importance labels below Them section — responsive */}
-            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
@@ -1749,7 +1761,7 @@ function QuestionEditPageContent() {
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
             {!hasRowScaleLabels && (
-            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>LESS</span>
@@ -1758,7 +1770,7 @@ function QuestionEditPageContent() {
               {renderOtaExcHeader(questions.some(q => q.open_to_all_me), false)}
             </div>
             )}
-            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               {questions.map((question, index) => {
                 const key = `q${question.group_number || question.id}`;
                 const meKey = `${key}_me`;
@@ -1795,6 +1807,7 @@ function QuestionEditPageContent() {
                         () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
                         question.open_to_all_me,
                         false,
+                        question,
                       )}
                     </div>
                   </React.Fragment>
@@ -1957,12 +1970,12 @@ function QuestionEditPageContent() {
 
       return (
         <div className="w-full overflow-visible">
-          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+          <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
           {/* Them Section — same 3-col responsive grid as grouped/auth */}
           <div className="mb-4 sm:mb-6">
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>{lessLabel}</span>
@@ -1971,7 +1984,7 @@ function QuestionEditPageContent() {
               {renderOtaExcHeader(questionAllowsLookingOta(question))}
             </div>
 
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative min-w-0">
                 <SliderComponent
@@ -1986,6 +1999,8 @@ function QuestionEditPageContent() {
                 openToAllStates[lookingKey] || false,
                 () => setOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
                 questionAllowsLookingOta(question),
+                true,
+                question,
               )}
 
               {/* Importance row — same column widths so slider is full width */}
@@ -2001,11 +2016,11 @@ function QuestionEditPageContent() {
                   labels={IMPORTANCE_LABELS}
                 />
               </div>
-              <div className="shrink-0 w-[88px] h-6" aria-hidden></div>
+              <div className="shrink-0 w-[144px] h-6" aria-hidden></div>
             </div>
 
             {/* Importance labels below Them section */}
-            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
+            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importanceValues.lookingFor === 1 && (
@@ -2024,7 +2039,7 @@ function QuestionEditPageContent() {
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
                 )}
               </div>
-              <div className="min-w-0 shrink-0 w-[88px]" aria-hidden></div>
+              <div className="min-w-0 shrink-0 w-[144px]" aria-hidden></div>
             </div>
           </div>
 
@@ -2032,7 +2047,7 @@ function QuestionEditPageContent() {
           <div className="mb-4 sm:mb-6 pt-4 sm:pt-8">
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
 
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="flex justify-between text-xs text-gray-500 min-w-0">
                 <span>{lessLabel}</span>
@@ -2041,7 +2056,7 @@ function QuestionEditPageContent() {
               {renderOtaExcHeader(question.open_to_all_me, false)}
             </div>
 
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative min-w-0">
                 <SliderComponent
@@ -2057,6 +2072,7 @@ function QuestionEditPageContent() {
                 () => setOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
                 question.open_to_all_me,
                 false,
+                question,
               )}
             </div>
           </div>
@@ -2183,9 +2199,9 @@ function QuestionEditPageContent() {
       <main className={`flex-1 flex flex-col items-center justify-center ${questionNumber === 1 ? 'px-2 sm:px-6 py-1.5' : 'px-4 sm:px-6 py-4'}`}>
         <div className={`w-full min-w-0 mx-auto ${
           questionNumber === 1
-            ? 'max-w-[calc(100vw-1rem)] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]'
+            ? 'max-w-[calc(100vw-1rem)] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]'
             : [2, 6, 7, 8, 9, 10].includes(questionNumber) || questionNumber > 10
-              ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px]'
+              ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]'
               : 'max-w-4xl'
         }`}>
           {/* Title — responsive typography for small/medium/large */}

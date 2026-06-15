@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 
 interface Question {
@@ -183,10 +184,11 @@ export default function ReadOnlyQuestionViewPage() {
     labels?: Array<{ value: string; answer_text: string }>;
   }) => {
     const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
-    const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
-    const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
-
-    const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
+    const answerValues = getAnswerValues(sortedLabels);
+    const minValue = answerValues[0];
+    const maxValue = answerValues[answerValues.length - 1];
+    const displayValue = getNearestAnswerValue(value, sortedLabels);
+    const displayPosition = getAnswerValuePosition(value, sortedLabels);
 
     return (
       <div className="w-full h-5 relative flex items-center select-none">
@@ -206,10 +208,10 @@ export default function ReadOnlyQuestionViewPage() {
             style={{
               backgroundColor: isImportance ? 'white' : '#672DB7',
               boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-              left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${percentage}% - 14px)`
+              left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
             }}
           >
-            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
           </div>
         )}
 

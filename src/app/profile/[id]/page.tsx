@@ -16,6 +16,8 @@ import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ExclusionControl from '@/components/ExclusionControl';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
+import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAllowedExclusionValues, normalizeExcludedValues, type ExclusionQuestion } from '@/utils/exclusionValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
 
@@ -52,6 +54,7 @@ interface UserAnswer {
     group_name_text?: string;
     question_type?: 'basic' | 'four' | 'grouped' | 'double' | 'triple';
     text: string;
+    answers?: Array<{ value: string | number; answer_text?: string }>;
   };
   me_answer: number;
   looking_for_answer: number;
@@ -75,13 +78,9 @@ interface ProfileIcon {
 
 type ProfileContentTab = 'profile' | 'posts' | 'comments';
 
-const normalizeExcludedValues = (values: unknown): number[] => {
-  if (!Array.isArray(values)) return [];
-  const normalized = values
-    .map(value => Number(value))
-    .filter(value => Number.isInteger(value) && value >= 1 && value <= 5);
-  return Array.from(new Set(normalized)).sort((a, b) => a - b);
-};
+const questionAllowsLookingOta = (question: Pick<ExclusionQuestion, 'question_number' | 'open_to_all_looking_for'>) => (
+  question.open_to_all_looking_for || [13].includes(Number(question.question_number))
+);
 
 const getDietIcon = (dietName: string): string => {
   switch (dietName.trim().toLowerCase()) {
@@ -154,13 +153,10 @@ const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = f
   const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isOpenToAll) return;
     const sortedLabels = [...labels].sort((a, b) => parseInt(a.value) - parseInt(b.value));
-    const minVal = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
-    const maxVal = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
-    const newValue = Math.round(percentage * (maxVal - minVal)) + minVal;
-    onChange(Math.max(minVal, Math.min(maxVal, newValue)));
+    onChange(getAnswerValueFromPercentage(percentage, sortedLabels));
   };
 
   const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -168,8 +164,11 @@ const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = f
   };
 
   const sortedLabels = [...labels].sort((a, b) => parseInt(a.value) - parseInt(b.value));
-  const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
-  const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
+  const answerValues = getAnswerValues(sortedLabels);
+  const minValue = answerValues[0];
+  const maxValue = answerValues[answerValues.length - 1];
+  const displayValue = getNearestAnswerValue(value, sortedLabels);
+  const displayPosition = getAnswerValuePosition(value, sortedLabels);
 
   return (
     <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
@@ -204,10 +203,10 @@ const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = f
           style={{
             backgroundColor: isImportance ? 'white' : '#672DB7',
             boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-            left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${((value - minValue) / (maxValue - minValue)) * 100}% - 14px)`
+            left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
           }}
         >
-          <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+          <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
         </div>
       )}
       <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
@@ -1809,15 +1808,21 @@ export default function UserProfilePage() {
   const canReadProfileAnswer = (answer?: UserAnswer | null) => (
     Boolean(answer) && (isViewingOwnProfile || answer?.me_share !== false)
   );
-  const currentUserAnsweredQuestion = (questionId?: string | null) => (
-    Boolean(questionId && currentUserAnsweredQuestionIds.has(String(questionId).toLowerCase()))
+  const profileUserAnsweredQuestionIds = useMemo(() => new Set(
+    userAnswers
+      .map(answer => String(answer.question?.id || '').toLowerCase())
+      .filter(Boolean)
+  ), [userAnswers]);
+  const profileUserAnsweredQuestionNumbers = useMemo(() => new Set(
+    userAnswers
+      .map(answer => Number(answer.question?.question_number))
+      .filter(Number.isFinite)
+  ), [userAnswers]);
+  const profileUserAnsweredQuestion = (questionId?: string | null) => (
+    Boolean(questionId && profileUserAnsweredQuestionIds.has(String(questionId).toLowerCase()))
   );
-  const currentUserAnsweredQuestionNumber = (questionNumber: number) => (
-    allQuestions.some((question) => {
-      const questionInfo = question as { question_number?: number; id?: string };
-      return questionInfo.question_number === questionNumber &&
-        currentUserAnsweredQuestion(questionInfo.id);
-    })
+  const profileUserAnsweredQuestionNumber = (questionNumber: number) => (
+    profileUserAnsweredQuestionNumbers.has(questionNumber)
   );
   const AnsweredBadge = () => (
     <span className="text-sm text-[#672DB7]">✓ Answered</span>
@@ -2134,7 +2139,10 @@ export default function UserProfilePage() {
       sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
       openToAll[`${key}_me`] = existing?.me_open_to_all || false;
       openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
-      exclusions[key] = normalizeExcludedValues(existing?.excluded_answer_values);
+      exclusions[key] = normalizeExcludedValues(
+        existing?.excluded_answer_values,
+        getAllowedExclusionValues(q)
+      );
     });
 
     setEditSliderAnswers(sliders);
@@ -2244,7 +2252,10 @@ export default function UserProfilePage() {
         looking_for_open_to_all: editOpenToAllStates[`${key}_looking`] || false,
         looking_for_importance: editImportanceValues.lookingFor,
         looking_for_share: true,
-        excluded_answer_values: questionNumber === 1 ? [] : editExcludedAnswerValues[key] || [],
+        excluded_answer_values: normalizeExcludedValues(
+          editExcludedAnswerValues[key] || [],
+          getAllowedExclusionValues(question)
+        ),
         is_required_for_me: isNonGrouped ? editMeRequired : false
       });
     }
@@ -2314,17 +2325,17 @@ export default function UserProfilePage() {
     });
   };
 
-  const setEditExcludedValuesForKey = (key: string, values: number[]) => {
+  const setEditExcludedValuesForKey = (key: string, values: number[], question?: ExclusionQuestion) => {
     setEditExcludedAnswerValues(prev => ({
       ...prev,
-      [key]: normalizeExcludedValues(values),
+      [key]: normalizeExcludedValues(values, getAllowedExclusionValues(question)),
     }));
   };
 
   const renderEditOtaExcHeader = (showOta: boolean, showExc = true) => (
-    <div className="flex justify-center gap-2 text-xs text-gray-500 min-w-0">
-      <span className="w-11 text-center">{showOta ? 'OTA' : ''}</span>
-      {showExc && <span className="w-7 text-center">EXC</span>}
+    <div className={`flex gap-2 text-xs text-gray-500 min-w-0 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
+      {showOta && <span className="w-11 text-center">OTA</span>}
+      {showExc && <span className="w-7 sm:w-[88px]" aria-hidden />}
     </div>
   );
 
@@ -2342,13 +2353,14 @@ export default function UserProfilePage() {
     )
   );
 
-  const renderEditOtaExcControls = (key: string, checked: boolean, onToggle: () => void, otaEnabled: boolean, showExc = true) => (
-    <div className="flex items-center justify-center gap-2">
-      {renderEditOtaSwitch(checked, onToggle, otaEnabled)}
+  const renderEditOtaExcControls = (key: string, checked: boolean, onToggle: () => void, otaEnabled: boolean, showExc = true, question?: ExclusionQuestion) => (
+    <div className={`flex items-center gap-2 ${otaEnabled || !showExc ? 'justify-center' : 'justify-start'}`}>
+      {otaEnabled && renderEditOtaSwitch(checked, onToggle, otaEnabled)}
       {showExc && (
         <ExclusionControl
           values={editExcludedAnswerValues[key] || []}
-          onChange={(values) => setEditExcludedValuesForKey(key, values)}
+          allowedValues={getAllowedExclusionValues(question)}
+          onChange={(values) => setEditExcludedValuesForKey(key, values, question)}
         />
       )}
     </div>
@@ -3727,7 +3739,7 @@ export default function UserProfilePage() {
                           // Render using the same responsive grid as the questions page
                           return (
                             <div className="w-full overflow-x-hidden">
-                              <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+                              <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
 
                               {/* Share/Required toggles for non-mandatory grouped questions > 10 */}
                               {questionNumber > 10 && (
@@ -3752,7 +3764,7 @@ export default function UserProfilePage() {
                                 <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
                                 {/* LESS/MORE + OTA header row */}
-                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                                   <div></div>
                                   <div className="flex justify-between text-xs text-gray-500 min-w-0">
                                     <span>LESS</span>
@@ -3762,7 +3774,7 @@ export default function UserProfilePage() {
                                 </div>
 
                                 {/* Slider grid */}
-                                <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                                   <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
                                   <div className="relative min-w-0">
                                     <EditableSlider
@@ -3776,6 +3788,8 @@ export default function UserProfilePage() {
                                     editOpenToAllStates[`${subKey}_looking`] || false,
                                     () => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_looking`]: !prev[`${subKey}_looking`] })),
                                     true,
+                                    true,
+                                    selectedSubQ,
                                   )}
 
                                   {/* IMPORTANCE row */}
@@ -3788,11 +3802,11 @@ export default function UserProfilePage() {
                                       labels={IMPORTANCE_LABELS_EDIT}
                                     />
                                   </div>
-                                  <div className="w-[88px] h-6"></div>
+                                  <div className="w-[144px] h-6"></div>
                                 </div>
 
                                 {/* Importance label below */}
-                                <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                                   <div></div>
                                   <div className="relative text-xs text-gray-500 w-full min-w-0">
                                     {editImportanceValues.lookingFor === 1 && <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>}
@@ -3810,7 +3824,7 @@ export default function UserProfilePage() {
                                 <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
                                 {/* LESS/MORE header row */}
-                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                                   <div></div>
                                   <div className="flex justify-between text-xs text-gray-500 min-w-0">
                                     <span>LESS</span>
@@ -3820,7 +3834,7 @@ export default function UserProfilePage() {
                                 </div>
 
                                 {/* Slider grid */}
-                                <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                                <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                                   <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
                                   <div className="relative min-w-0">
                                     <EditableSlider
@@ -3835,6 +3849,7 @@ export default function UserProfilePage() {
                                     () => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_me`]: !prev[`${subKey}_me`] })),
                                     false,
                                     false,
+                                    selectedSubQ,
                                   )}
                                 </div>
                               </div>
@@ -3874,7 +3889,10 @@ export default function UserProfilePage() {
                                     });
                                     setEditExcludedAnswerValues(prev => ({
                                       ...prev,
-                                      [subKey]: prev[subKey] || normalizeExcludedValues(existing?.excluded_answer_values),
+                                      [subKey]: prev[subKey] || normalizeExcludedValues(
+                                        existing?.excluded_answer_values,
+                                        getAllowedExclusionValues(question)
+                                      ),
                                     }));
                                     setSelectedGroupedQuestionId(question.id);
                                   }}
@@ -3920,7 +3938,7 @@ export default function UserProfilePage() {
 
                     return (
                       <div className="w-full overflow-x-hidden">
-                        <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] mx-auto">
+                        <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
                         {/* Share/Required toggles for non-mandatory questions > 10 */}
                         {questionNumber > 10 && displayQuestionData[0]?.question_type !== 'grouped' && (
                           <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
@@ -3944,13 +3962,13 @@ export default function UserProfilePage() {
                           <div className="mb-6">
                             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
 
-                            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                              {renderEditOtaExcHeader(displayQuestionData.some((q) => q.open_to_all_looking_for))}
+                              {renderEditOtaExcHeader(displayQuestionData.some(questionAllowsLookingOta))}
                             </div>
 
-                            <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                               {displayQuestionData.map((question) => {
                                 const key = `q${question.group_number || question.id}`;
                                 const lookingKey = `${key}_looking`;
@@ -3965,7 +3983,9 @@ export default function UserProfilePage() {
                                       key,
                                       editOpenToAllStates[lookingKey] || false,
                                       () => setEditOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
-                                      question.open_to_all_looking_for,
+                                      questionAllowsLookingOta(question),
+                                      true,
+                                      question,
                                     )}
                                   </React.Fragment>
                                 );
@@ -3975,11 +3995,11 @@ export default function UserProfilePage() {
                               <div className="relative min-w-0">
                                 <EditableSlider value={editImportanceValues.lookingFor} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} />
                               </div>
-                              <div className="w-[88px] h-6"></div>
+                              <div className="w-[144px] h-6"></div>
                             </div>
 
                             {/* Importance label */}
-                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="relative text-xs text-gray-500 w-full min-w-0">
                                 {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.lookingFor !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
@@ -3993,13 +4013,13 @@ export default function UserProfilePage() {
                         <div className={`mb-6 ${!isRelationship ? 'pt-8' : ''}`}>
                           <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-                          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                             <div></div>
                             <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                            {renderEditOtaExcHeader(displayQuestionData.some((q) => q.open_to_all_me), false)}
+                            {renderEditOtaExcHeader(displayQuestionData.some((q) => q.open_to_all_me), isRelationship)}
                           </div>
 
-                          <div className="grid items-center justify-center grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                          <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                             {displayQuestionData.map((question) => {
                               const key = `q${question.group_number || question.id}`;
                               const meKey = `${key}_me`;
@@ -4015,7 +4035,8 @@ export default function UserProfilePage() {
                                     editOpenToAllStates[meKey] || false,
                                     () => setEditOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
                                     question.open_to_all_me,
-                                    false,
+                                    isRelationship,
+                                    question,
                                   )}
                                 </React.Fragment>
                               );
@@ -4025,14 +4046,14 @@ export default function UserProfilePage() {
                               <>
                                 <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
                                 <div className="relative min-w-0"><EditableSlider value={editImportanceValues.me} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, me: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} /></div>
-                                <div className="w-[88px] h-6"></div>
+                                <div className="w-[144px] h-6"></div>
                               </>
                             )}
                           </div>
 
                           {/* Importance label for Q1 */}
                           {isRelationship && (
-                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_88px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
                               <div></div>
                               <div className="relative text-xs text-gray-500 w-full min-w-0">
                                 {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.me !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
@@ -4068,9 +4089,11 @@ export default function UserProfilePage() {
                     labels?: Array<{ value: string; answer_text: string }>;
                   }) => {
                     const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
-                    const minValue = sortedLabels.length > 0 ? parseInt(sortedLabels[0].value) : 1;
-                    const maxValue = sortedLabels.length > 0 ? parseInt(sortedLabels[sortedLabels.length - 1].value) : 5;
-                    const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
+                    const answerValues = getAnswerValues(sortedLabels);
+                    const minValue = answerValues[0];
+                    const maxValue = answerValues[answerValues.length - 1];
+                    const displayValue = getNearestAnswerValue(value, sortedLabels);
+                    const displayPosition = getAnswerValuePosition(value, sortedLabels);
                     
                     return (
                       <div className="w-full h-5 relative flex items-center select-none">
@@ -4096,10 +4119,10 @@ export default function UserProfilePage() {
                             style={{
                               backgroundColor: isImportance ? 'white' : '#672DB7',
                               boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                              left: value === minValue ? '0px' : value === maxValue ? 'calc(100% - 28px)' : `calc(${percentage}% - 14px)`
+                              left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
                             }}
                           >
-                            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+                            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
                           </div>
                         )}
                         <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
@@ -4536,7 +4559,7 @@ export default function UserProfilePage() {
                             const hasAnswer = !!answer;
                             const isShared = canReadProfileAnswer(answer);
                             const isDisabled = !hasAnswer || !isShared;
-                            const answeredByMe = currentUserAnsweredQuestion(question.id);
+                            const answeredByProfile = profileUserAnsweredQuestion(question.id);
 
                             return (
                               <div
@@ -4546,7 +4569,7 @@ export default function UserProfilePage() {
                                   setSelectedGroupedQuestionId(question.id);
                                 }}
                                 className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
-                                  answeredByMe
+                                  answeredByProfile
                                     ? 'border-[#672DB7] bg-purple-50'
                                     : !isDisabled
                                       ? 'border-black bg-gray-50'
@@ -4568,7 +4591,7 @@ export default function UserProfilePage() {
                                   <span className={`font-medium ${!isDisabled ? 'text-black' : 'text-gray-400'}`}>
                                     {question.question_name}
                                   </span>
-                                  {answeredByMe && <AnsweredBadge />}
+                                  {answeredByProfile && <AnsweredBadge />}
                                 </div>
                                 {!isDisabled && (
                                   <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4791,7 +4814,7 @@ export default function UserProfilePage() {
 
                         // Render pending question cards with distinct styling
                         if (groupAny.isPending) {
-                          const answeredByMe = currentUserAnsweredQuestionNumber(group.questionNumber);
+                          const answeredByProfile = profileUserAnsweredQuestionNumber(group.questionNumber);
                           return (
                             <div
                               key={key}
@@ -4802,7 +4825,7 @@ export default function UserProfilePage() {
                                 }
                               }}
                               className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
-                                answeredByMe
+                                answeredByProfile
                                   ? 'border-[#672DB7] bg-purple-50'
                                   : groupAny.pendingType === 'my'
                                     ? 'border-dashed border-purple-300 bg-purple-50/50'
@@ -4818,7 +4841,7 @@ export default function UserProfilePage() {
                                   <span className="text-sm text-gray-400 mr-3">{group.questionNumber}.</span>
                                   <div className="flex-1">
                                     <span className="text-gray-500">{group.displayName}</span>
-                                    {answeredByMe && <span className="ml-3"><AnsweredBadge /></span>}
+                                    {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
                                   </div>
                                 </div>
                               </div>
@@ -4837,8 +4860,8 @@ export default function UserProfilePage() {
 
                         const hasReadableAnswer = group.questions.some((answer) => canReadProfileAnswer(answer));
                         const isDisabled = !hasReadableAnswer;
-                        const answeredByMe = group.questions.some((answer) => (
-                          currentUserAnsweredQuestion(answer.question?.id)
+                        const answeredByProfile = group.questions.some((answer) => (
+                          profileUserAnsweredQuestion(answer.question?.id)
                         ));
 
                         return (
@@ -4849,7 +4872,7 @@ export default function UserProfilePage() {
                               handleQuestionClick(group.questionNumber, questionType);
                             }}
                             className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
-                              answeredByMe
+                              answeredByProfile
                                 ? 'border-[#672DB7] bg-purple-50'
                                 : isDisabled
                                   ? 'border-gray-300 bg-gray-100'
@@ -4864,7 +4887,7 @@ export default function UserProfilePage() {
                               <div className="flex items-start">
                                 <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
                                 <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{group.displayName}</span>
-                                {answeredByMe && <span className="ml-3"><AnsweredBadge /></span>}
+                                {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
                               </div>
                             </div>
                             {!isDisabled && (
@@ -4909,8 +4932,8 @@ export default function UserProfilePage() {
                           
                           const hasReadableAnswer = answers.some((answer) => canReadProfileAnswer(answer));
                           const isDisabled = !hasReadableAnswer;
-                          const answeredByMe = answers.some((answer) => (
-                            currentUserAnsweredQuestion(answer.question?.id)
+                          const answeredByProfile = answers.some((answer) => (
+                            profileUserAnsweredQuestion(answer.question?.id)
                           ));
                           
                           return (
@@ -4921,7 +4944,7 @@ export default function UserProfilePage() {
                                 handleQuestionClick(qNum);
                               }}
                               className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
-                                answeredByMe
+                                answeredByProfile
                                   ? 'border-[#672DB7] bg-purple-50'
                                   : isDisabled
                                     ? 'border-gray-300 bg-gray-100'
@@ -4936,7 +4959,7 @@ export default function UserProfilePage() {
                                 <div className="flex items-start">
                                   <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
                                   <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{questionText}</span>
-                                  {answeredByMe && <span className="ml-3"><AnsweredBadge /></span>}
+                                  {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
                                 </div>
                               </div>
                               {!isDisabled && (

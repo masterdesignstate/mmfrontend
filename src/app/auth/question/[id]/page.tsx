@@ -5,8 +5,15 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import ExclusionControl from '@/components/ExclusionControl';
+import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
+const questionAllowsLookingOta = (
+  question?: { question_number?: number; open_to_all_looking_for?: boolean } | null
+) => (
+  Boolean(question && (question.open_to_all_looking_for || Number(question.question_number) === 13))
+);
 
 export default function QuestionPage() {
   const router = useRouter();
@@ -43,15 +50,12 @@ export default function QuestionPage() {
     meOpen: initialEa?.mo || false,
     lookingForOpen: initialEa?.lo || false
   });
-  const normalizeExcludedValues = (values: unknown): number[] => {
-    if (!Array.isArray(values)) return [];
-    const normalized = values
-      .map(value => Number(value))
-      .filter(value => Number.isInteger(value) && value >= 1 && value <= 5);
-    return Array.from(new Set(normalized)).sort((a, b) => a - b);
-  };
   const [excludedAnswerValues, setExcludedAnswerValues] = useState<number[]>(
     normalizeExcludedValues(initialEa?.exc)
+  );
+  const allowedExclusionValues = useMemo(
+    () => getAllowedExclusionValues(question),
+    [question]
   );
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
@@ -224,23 +228,20 @@ export default function QuestionPage() {
   );
 
   const OtaExcHeader = ({ showOta, showExc = true }: { showOta: boolean; showExc?: boolean }) => (
-    <div className="flex justify-center gap-2 text-xs text-gray-500 min-w-0">
-      <span className="w-11 text-center">{showOta ? 'OTA' : ''}</span>
-      {showExc && <span className="w-7 text-center">EXC</span>}
+    <div className={`flex gap-2 text-xs text-gray-500 min-w-0 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
+      {showOta && <span className="w-11 text-center">OTA</span>}
+      {showExc && <span className="w-7 sm:w-[88px]" aria-hidden />}
     </div>
   );
 
   const OtaExcControls = ({ showOta, checked, onToggle, showExc = true }: { showOta: boolean; checked: boolean; onToggle: () => void; showExc?: boolean }) => (
-    <div className="flex items-center justify-center gap-2">
-      {showOta ? (
-        <ToggleControl checked={checked} onChange={onToggle} />
-      ) : (
-        <div className="w-11 h-6" aria-hidden></div>
-      )}
+    <div className={`flex items-center gap-2 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
+      {showOta && <ToggleControl checked={checked} onChange={onToggle} />}
       {showExc && (
         <ExclusionControl
           values={excludedAnswerValues}
-          onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values))}
+          allowedValues={allowedExclusionValues}
+          onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues))}
         />
       )}
     </div>
@@ -314,7 +315,7 @@ export default function QuestionPage() {
         group_number: Object.keys(questionIds).indexOf(ethnicityParam) + 1,
         group_name: 'Ethnicity',
         text: `How strongly do you identify as ${getEthnicityDisplayName(ethnicityParam).toLowerCase()}?`,
-        answers: [{ value: '1', answer_text: '1' }, { value: '2', answer_text: '2' }, { value: '3', answer_text: '3' }, { value: '4', answer_text: '4' }, { value: '5', answer_text: '5' }],
+        answers: [{ value: '1', answer_text: 'Less' }, { value: '2', answer_text: '' }, { value: '3', answer_text: '' }, { value: '4', answer_text: '' }, { value: '5', answer_text: 'More' }],
         open_to_all_me: false,
         open_to_all_looking_for: true
       };
@@ -329,9 +330,7 @@ export default function QuestionPage() {
         text: `How much of ${getEducationDisplayName(educationParam)} degree have you completed?`,
         answers: [
           { value: '1', answer_text: 'LESS' },
-          { value: '2', answer_text: '2' },
           { value: '3', answer_text: 'SOME' },
-          { value: '4', answer_text: '4' },
           { value: '5', answer_text: 'MORE' }
         ],
         open_to_all_me: false,
@@ -348,9 +347,9 @@ export default function QuestionPage() {
         text: `Do you identify as a ${getDietDisplayName(dietParam).toLowerCase()}?`,
         answers: [
           { value: '1', answer_text: 'NO' },
-          { value: '2', answer_text: '2' },
-          { value: '3', answer_text: '3' },
-          { value: '4', answer_text: '4' },
+          { value: '2', answer_text: '' },
+          { value: '3', answer_text: '' },
+          { value: '4', answer_text: '' },
           { value: '5', answer_text: 'YES' }
         ],
         open_to_all_me: false,
@@ -447,6 +446,10 @@ export default function QuestionPage() {
     }
   }, [params.id, searchParams]);
 
+  useEffect(() => {
+    setExcludedAnswerValues(prev => normalizeExcludedValues(prev, allowedExclusionValues));
+  }, [allowedExclusionValues]);
+
   // Fetch habits questions in background when userId is available
   useEffect(() => {
     if (userId) {
@@ -496,13 +499,13 @@ export default function QuestionPage() {
               meOpen: existing.me_open_to_all || false,
               lookingForOpen: existing.looking_for_open_to_all || false,
             });
-            setExcludedAnswerValues(normalizeExcludedValues(existing.excluded_answer_values));
+            setExcludedAnswerValues(normalizeExcludedValues(existing.excluded_answer_values, allowedExclusionValues));
             setMeShare(existing.me_share !== false);
           } else if (!initialEa && currentFetchId === answerFetchIdRef.current) {
             setOpenToAll(prev => ({
               ...prev,
               meOpen: false,
-              lookingForOpen: question.open_to_all_looking_for || false,
+              lookingForOpen: questionAllowsLookingOta(question),
             }));
             setExcludedAnswerValues([]);
           }
@@ -519,7 +522,7 @@ export default function QuestionPage() {
       }
     })();
     // No cleanup — staleness is detected via the ref counter
-  }, [userId, question?.id, question?.open_to_all_looking_for, initialEa]);
+  }, [userId, question?.id, question?.open_to_all_looking_for, question?.question_number, initialEa]);
 
   const fetchQuestion = async (questionId: string) => {
     setLoadingQuestion(true);
@@ -769,7 +772,7 @@ export default function QuestionPage() {
         looking_for_open_to_all: openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
-        excluded_answer_values: question.question_number === 1 ? [] : excludedAnswerValues,
+        excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues),
         is_required_for_me: meRequired
       };
       // For ethnicity questions, save in background without blocking UI
@@ -1043,6 +1046,12 @@ export default function QuestionPage() {
     isOpenToAll?: boolean;
     isImportance?: boolean;
   }) => {
+    const sliderLabels = isImportance
+      ? []
+      : params.id === 'diet'
+      ? [{ value: '1', answer_text: 'NO' }, { value: '5', answer_text: 'YES' }]
+      : question?.answers || [];
+
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
       const rect = e.currentTarget.getBoundingClientRect();
@@ -1056,15 +1065,9 @@ export default function QuestionPage() {
         onChange(Math.max(1, Math.min(5, newValue)));
       } else if (params.id === 'diet') {
         // For diet questions, only allow positions 1, 5
-        if (percentage < 0.5) {
-          onChange(1);
-        } else {
-          onChange(5);
-        }
+        onChange(getAnswerValueFromPercentage(percentage, sliderLabels));
       } else {
-        // Default behavior for other question types
-        const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-        onChange(Math.max(1, Math.min(5, newValue)));
+        onChange(getAnswerValueFromPercentage(percentage, sliderLabels));
       }
     };
 
@@ -1091,6 +1094,12 @@ export default function QuestionPage() {
       e.preventDefault();
     };
 
+    const answerValues = getAnswerValues(sliderLabels);
+    const minValue = answerValues[0];
+    const maxValue = answerValues[answerValues.length - 1];
+    const displayValue = getNearestAnswerValue(value, sliderLabels);
+    const displayPosition = getAnswerValuePosition(value, sliderLabels);
+
     return (
       <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
         style={{ userSelect: 'none' }}
@@ -1099,7 +1108,7 @@ export default function QuestionPage() {
         onMouseLeave={handleMouseLeave}
         onDragStart={handleDragStart}
       >
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
+          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
           
           {/* Custom Slider Track */}
         <div 
@@ -1122,21 +1131,17 @@ export default function QuestionPage() {
               style={{
                 backgroundColor: isImportance ? 'white' : '#672DB7',
                 boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                left: isImportance
-                  ? (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
-                  : params.id === 'diet'
-                  ? (value === 1 ? '0px' : 'calc(100% - 28px)')
-                  : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
+                left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
               }}
               onDragStart={handleDragStart}
             >
-              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
+              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
             </div>
           )}
           
           {!isOpenToAll && (
             <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">
-              {params.id === 'education' ? '5' : '5'}
+              {maxValue}
             </span>
           )}
       </div>
@@ -1199,7 +1204,7 @@ export default function QuestionPage() {
 
       {/* Main Content */}
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
-        <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[692px] min-w-0 mx-auto">
+        <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] min-w-0 mx-auto">
           {/* Title — responsive typography for small devices */}
           <div className="text-center mb-4 sm:mb-6 lg:mb-8">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2">
@@ -1271,16 +1276,16 @@ export default function QuestionPage() {
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
             {/* LESS/MORE and OTA labels — same 3-col grid on all sizes */}
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
                 {renderTopLabels()}
               </div>
-              <OtaExcHeader showOta={!!question?.open_to_all_looking_for} />
+              <OtaExcHeader showOta={questionAllowsLookingOta(question)} />
             </div>
             
             {/* Grid: label | slider | OTA — same 3 columns so importance row aligns and gets same slider width */}
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
@@ -1299,7 +1304,7 @@ export default function QuestionPage() {
                 />
               </div>
               <OtaExcControls
-                showOta={!!question.open_to_all_looking_for}
+                showOta={questionAllowsLookingOta(question)}
                 checked={openToAll.lookingForOpen}
                 onToggle={() => handleOpenToAllToggle('lookingForOpen')}
               />
@@ -1316,11 +1321,11 @@ export default function QuestionPage() {
                   isImportance={true}
                 />
               </div>
-              <div className="shrink-0 w-[88px] h-6" aria-hidden></div>
+              <div className="shrink-0 w-[144px] h-6" aria-hidden></div>
             </div>
 
             {/* Importance labels below Looking For section */}
-            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
+            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="relative text-xs text-gray-500 w-full min-w-0">
                 {importance.lookingFor === 1 && (
@@ -1339,7 +1344,7 @@ export default function QuestionPage() {
                   <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
                 )}
               </div>
-              <div className="min-w-0 shrink-0 w-[88px]" aria-hidden></div>
+              <div className="min-w-0 shrink-0 w-[144px]" aria-hidden></div>
             </div>
           </div>
 
@@ -1348,7 +1353,7 @@ export default function QuestionPage() {
             <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
             
             {/* LESS/MORE and OTA labels — same 3-col grid */}
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5">
+            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
               <div className="min-w-0" aria-hidden></div>
               <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
                 {renderTopLabels()}
@@ -1357,7 +1362,7 @@ export default function QuestionPage() {
             </div>
             
             {/* Grid — same 3 columns as Them section */}
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_88px] sm:grid-cols-[80px_1fr_88px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_88px] lg:gap-x-5 lg:gap-y-3">
+            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
               {/* Question Slider Row */}
               <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
                 {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 

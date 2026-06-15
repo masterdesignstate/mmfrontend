@@ -1,31 +1,41 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-
-const EXCLUSION_VALUES = [1, 2, 3, 4, 5];
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 
 interface ExclusionControlProps {
   values: number[];
   onChange: (values: number[]) => void;
+  allowedValues?: number[];
   className?: string;
 }
 
-export default function ExclusionControl({ values, onChange, className = '' }: ExclusionControlProps) {
+export default function ExclusionControl({
+  values,
+  onChange,
+  allowedValues = DEFAULT_EXCLUSION_VALUES,
+  className = '',
+}: ExclusionControlProps) {
   const [open, setOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [legendPinned, setLegendPinned] = useState(false);
   const [draftValues, setDraftValues] = useState<number[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<number[]>([]);
-  const selected = values.filter(value => EXCLUSION_VALUES.includes(value));
+  const allowedValuesKey = allowedValues.join(',');
+  const exclusionValues = useMemo(
+    () => normalizeExcludedValues(allowedValuesKey.split(',').map(Number)),
+    [allowedValuesKey]
+  );
+  const selected = normalizeExcludedValues(values, exclusionValues);
   const activeValues = open ? draftValues : selected;
 
   const commitAndClose = useCallback(() => {
-    onChange(draftRef.current);
+    onChange(normalizeExcludedValues(draftRef.current, exclusionValues));
     setOpen(false);
     setLegendOpen(false);
     setLegendPinned(false);
-  }, [onChange]);
+  }, [exclusionValues, onChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,6 +51,11 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
   useEffect(() => {
     draftRef.current = draftValues;
   }, [draftValues]);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftValues(prev => normalizeExcludedValues(prev, exclusionValues));
+  }, [exclusionValues, open]);
 
   const toggleValue = (value: number) => {
     setDraftValues(prev => (
@@ -61,6 +76,10 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
     setOpen(true);
   };
 
+  if (exclusionValues.length === 0) {
+    return <div className={`h-7 w-7 sm:w-[88px] ${className}`} aria-hidden />;
+  }
+
   return (
     <div ref={rootRef} className={`relative flex justify-center ${className}`}>
       <button
@@ -68,25 +87,36 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
         aria-label="Exclude answer values"
         title="Exclude answer values"
         onClick={toggleOpen}
-        className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border transition-colors ${
+        className={`inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-0 text-xs font-semibold transition-colors sm:w-auto sm:min-w-[88px] sm:px-2.5 ${
           selected.length > 0
-            ? 'border-[#672DB7] bg-[#672DB7] text-white'
-            : 'border-[#ADADAD] bg-white text-gray-600 hover:border-[#672DB7] hover:text-[#672DB7]'
+            ? 'border-[#672DB7] bg-[#672DB7] text-white shadow-sm'
+            : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:bg-purple-50 hover:text-[#672DB7]'
         }`}
       >
-        <span className="relative h-4 w-4 rounded-full border-2 border-current">
-          <span className="absolute left-1/2 top-1/2 h-0.5 w-4 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-full bg-current" />
-        </span>
+        <svg
+          aria-hidden="true"
+          className="h-3.5 w-3.5 shrink-0"
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path
+            d="M3 4.5h10M5 8h6M7 11.5h2"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+        <span className="hidden sm:inline">Exclude</span>
       </button>
 
       {open && (
         <div
-          className="absolute right-0 top-9 z-50 w-60 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg"
+          className="absolute right-0 top-9 z-50 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg"
           onPointerDownCapture={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
               <span className="text-sm font-semibold text-black">Exclude</span>
               <span className="relative">
                 <button
@@ -105,7 +135,7 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
                   onBlur={() => {
                     if (!legendPinned) setLegendOpen(false);
                   }}
-                  className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500"
+                  className="mt-0.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500"
                 >
                   ?
                 </button>
@@ -114,6 +144,9 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
                     Hide people from your results when their answer to this question is one of these values.
                   </span>
                 )}
+              </span>
+              <span className="sr-only">
+                Hide people from your results when their answer to this question is one of these values.
               </span>
             </div>
             <button
@@ -125,7 +158,7 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
             </button>
           </div>
           <div className="mb-3 flex gap-2">
-            {EXCLUSION_VALUES.map(value => {
+            {exclusionValues.map(value => {
               const isSelected = activeValues.includes(value);
               return (
                 <button
@@ -143,14 +176,19 @@ export default function ExclusionControl({ values, onChange, className = '' }: E
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={() => setDraftValues([])}
-            disabled={activeValues.length === 0}
-            className="cursor-pointer text-xs font-medium text-gray-500 disabled:cursor-default disabled:text-gray-300"
-          >
-            Clear
-          </button>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              {activeValues.length > 0 ? `${activeValues.length} selected` : 'None selected'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDraftValues([])}
+              disabled={activeValues.length === 0}
+              className="cursor-pointer text-xs font-medium text-gray-500 disabled:cursor-default disabled:text-gray-300"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       )}
     </div>
