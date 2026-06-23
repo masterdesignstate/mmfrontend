@@ -8,6 +8,11 @@ interface ExclusionControlProps {
   onChange: (values: number[]) => void;
   allowedValues?: number[];
   className?: string;
+  buttonLabel?: string;
+  title?: string;
+  ariaLabel?: string;
+  helpText?: string;
+  disabled?: boolean;
 }
 
 export default function ExclusionControl({
@@ -15,6 +20,11 @@ export default function ExclusionControl({
   onChange,
   allowedValues = DEFAULT_EXCLUSION_VALUES,
   className = '',
+  buttonLabel = 'Exclude',
+  title = 'Exclude',
+  ariaLabel = 'Exclude answer values',
+  helpText = 'Hide people from your results when their answer to this question is one of these values.',
+  disabled = false,
 }: ExclusionControlProps) {
   const [open, setOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -66,6 +76,7 @@ export default function ExclusionControl({
   };
 
   const toggleOpen = () => {
+    if (disabled) return;
     if (open) {
       commitAndClose();
       return;
@@ -84,10 +95,11 @@ export default function ExclusionControl({
     <div ref={rootRef} className={`relative flex justify-center ${className}`}>
       <button
         type="button"
-        aria-label="Exclude answer values"
-        title="Exclude answer values"
+        aria-label={ariaLabel}
+        title={ariaLabel}
         onClick={toggleOpen}
-        className={`inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-0 text-xs font-semibold transition-colors sm:w-auto sm:min-w-[88px] sm:px-2.5 ${
+        disabled={disabled}
+        className={`inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-0 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:px-2.5 ${
           selected.length > 0
             ? 'border-[#672DB7] bg-[#672DB7] text-white shadow-sm'
             : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:bg-purple-50 hover:text-[#672DB7]'
@@ -106,7 +118,7 @@ export default function ExclusionControl({
             strokeLinecap="round"
           />
         </svg>
-        <span className="hidden sm:inline">Exclude</span>
+        <span className="hidden sm:inline">{buttonLabel}</span>
       </button>
 
       {open && (
@@ -117,11 +129,11 @@ export default function ExclusionControl({
         >
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
-              <span className="text-sm font-semibold text-black">Exclude</span>
+              <span className="text-sm font-semibold text-black">{title}</span>
               <span className="relative">
                 <button
                   type="button"
-                  aria-label="What does exclude mean?"
+                  aria-label={`What does ${title.toLowerCase()} mean?`}
                   aria-expanded={legendOpen}
                   onClick={() => {
                     setLegendPinned(prev => !prev);
@@ -141,12 +153,12 @@ export default function ExclusionControl({
                 </button>
                 {legendOpen && (
                   <span className="absolute left-1/2 top-6 z-[60] w-52 -translate-x-1/2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs leading-snug text-gray-600 shadow-lg">
-                    Hide people from your results when their answer to this question is one of these values.
+                    {helpText}
                   </span>
                 )}
               </span>
               <span className="sr-only">
-                Hide people from your results when their answer to this question is one of these values.
+                {helpText}
               </span>
             </div>
             <button

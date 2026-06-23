@@ -7,6 +7,8 @@ import { apiService, type ApiUser, type FeedVisibility } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import ExclusionControl from '@/components/ExclusionControl';
+import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
 function SettingsPageContent() {
@@ -24,6 +26,8 @@ function SettingsPageContent() {
   const [photoVis, setPhotoVis] = useState<FeedVisibility>('all');
   const [questionVis, setQuestionVis] = useState<FeedVisibility>('all');
   const [savingFeedVisibility, setSavingFeedVisibility] = useState(false);
+  const [importanceExclusionValues, setImportanceExclusionValues] = useState<number[]>([]);
+  const [savingImportanceExclusion, setSavingImportanceExclusion] = useState(false);
 
   // Email change form state
   const [emailForm, setEmailForm] = useState({
@@ -62,6 +66,7 @@ function SettingsPageContent() {
         setBioVis((user.feed_visibility_bio ?? 'all') as FeedVisibility);
         setPhotoVis((user.feed_visibility_photo ?? 'all') as FeedVisibility);
         setQuestionVis((user.feed_visibility_question ?? 'all') as FeedVisibility);
+        setImportanceExclusionValues(normalizeExcludedValues(user.importance_exclusion_values, DEFAULT_EXCLUSION_VALUES));
       }).catch(err => {
         console.error('Error loading privacy settings:', err);
       });
@@ -124,6 +129,26 @@ function SettingsPageContent() {
       setMessage({ type: 'error', text: 'Could not update feed visibility. Please try again.' });
     } finally {
       setSavingFeedVisibility(false);
+    }
+  };
+
+  const handleChangeImportanceExclusion = async (values: number[]) => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId || savingImportanceExclusion) return;
+
+    const next = normalizeExcludedValues(values, DEFAULT_EXCLUSION_VALUES);
+    const prev = importanceExclusionValues;
+    setImportanceExclusionValues(next);
+    setSavingImportanceExclusion(true);
+    try {
+      await apiService.updateUser(userId, { importance_exclusion_values: next });
+      posthog.capture('importance_exclusion_values_changed', { values: next });
+    } catch (error) {
+      console.error('Error updating importance exclusion:', error);
+      setImportanceExclusionValues(prev);
+      setMessage({ type: 'error', text: 'Could not update importance exclusion. Please try again.' });
+    } finally {
+      setSavingImportanceExclusion(false);
     }
   };
 
@@ -423,6 +448,33 @@ function SettingsPageContent() {
                   style={{ transform: requireAnswersForLikes ? 'translateX(20px)' : 'translateX(2px)' }}
                 />
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Importance Exclusion Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="px-5 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Importance Exclusion</h2>
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900">
+                  For questions where your Them importance is 5, hide people whose Them importance is one of these values.
+                </h3>
+              </div>
+              <ExclusionControl
+                values={importanceExclusionValues}
+                onChange={handleChangeImportanceExclusion}
+                allowedValues={DEFAULT_EXCLUSION_VALUES}
+                buttonLabel="Importance"
+                title="Importance Exclusion"
+                ariaLabel="Exclude importance values"
+                helpText="Hide people from your results when your Them importance is 5 for a question and their Them importance for that same question is one of these values."
+                disabled={savingImportanceExclusion}
+                className="shrink-0"
+              />
             </div>
           </div>
         </div>

@@ -208,6 +208,7 @@ export interface ApiUser {
   feed_visibility_bio?: FeedVisibility;
   feed_visibility_photo?: FeedVisibility;
   feed_visibility_question?: FeedVisibility;
+  importance_exclusion_values?: number[];
   pictures?: UserPicture[];
   profile_prompts?: UserProfilePrompt[];
   restriction_history?: UserRestrictionHistory[];
