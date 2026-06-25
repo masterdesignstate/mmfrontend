@@ -13,6 +13,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
 import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
+import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import ExclusionControl from '@/components/ExclusionControl';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
@@ -2934,23 +2935,9 @@ export default function UserProfilePage() {
               const gallery = user.pictures && user.pictures.length > 0
                 ? [...user.pictures].sort((a, b) => a.order - b.order).map(p => p.image_url)
                 : [user.profile_photo || '/assets/usxr.png'];
-              const showDots = gallery.length > 1;
               return (
                 <>
-                  <div className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    {gallery.map((src, i) => (
-                      <div key={i} className="relative shrink-0 w-full h-full snap-center">
-                        <Image src={src} alt={`${displayName} photo ${i + 1}`} fill className="object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                  {showDots && (
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex gap-1.5 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm pointer-events-none">
-                      {gallery.map((_, i) => (
-                        <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/80" />
-                      ))}
-                    </div>
-                  )}
+                  <ProfilePhotoGallery photos={gallery} displayName={displayName} />
                 </>
               );
             })()}

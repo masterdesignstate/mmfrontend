@@ -12,6 +12,7 @@ import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
+import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUserAnswers } from '@/hooks/useUserAnswers';
 import { useGroupedQuestions } from '@/hooks/useGroupedQuestions';
@@ -742,24 +743,10 @@ export default function ProfilePage() {
               const gallery = user.pictures && user.pictures.length > 0
                 ? [...user.pictures].sort((a, b) => a.order - b.order).map(p => p.image_url)
                 : [user.profile_photo || '/assets/usxr.png'];
-              const showDots = gallery.length > 1;
               return (
                 <>
                   <div className="w-full aspect-[4/3] sm:aspect-[4/4] bg-gradient-to-b from-orange-400 to-orange-600 rounded-2xl overflow-hidden relative z-10">
-                    <div className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                      {gallery.map((src, i) => (
-                        <div key={i} className="relative shrink-0 w-full h-full snap-center">
-                          <Image src={src} alt={`${displayName} photo ${i + 1}`} fill className="object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                    {showDots && (
-                      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex gap-1.5 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm pointer-events-none">
-                        {gallery.map((_, i) => (
-                          <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/80" />
-                        ))}
-                      </div>
-                    )}
+                    <ProfilePhotoGallery photos={gallery} displayName={displayName} />
                     <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
                       <h1 className="text-3xl font-bold text-white mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}>
                         {displayName}{user.age ? `, ${user.age}` : ''}
