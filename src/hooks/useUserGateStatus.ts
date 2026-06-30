@@ -7,6 +7,9 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 interface UserGateStatus {
   isBanned: boolean;
   restrictionType: string | null;
+  restrictionReason: string | null;
+  emailVerified: boolean;
+  email: string | null;
   isOnboardingComplete: boolean;
   isLoading: boolean;
   userId: string | null;
@@ -34,6 +37,9 @@ export function useUserGateStatus(): UserGateStatus {
   // Derive gate fields from SWR data
   const isBanned = data?.is_banned ?? false;
   const restrictionType: string | null = data?.restriction_type ?? null;
+  const restrictionReason: string | null = data?.restriction_reason ?? null;
+  const emailVerified: boolean = data?.email_verified ?? true;
+  const email: string | null = data?.email ?? null;
 
   // Fall back to localStorage cache while SWR is loading
   const isOnboardingComplete: boolean = data
@@ -48,5 +54,5 @@ export function useUserGateStatus(): UserGateStatus {
     }
   }, [data]);
 
-  return { isBanned, restrictionType, isOnboardingComplete, isLoading, userId };
+  return { isBanned, restrictionType, restrictionReason, emailVerified, email, isOnboardingComplete, isLoading, userId };
 }

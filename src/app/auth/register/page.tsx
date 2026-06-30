@@ -55,6 +55,18 @@ export default function RegisterPage() {
         console.log('✅ Signup successful:', data);
         posthog.identify(data.user_id, { email: email.trim().toLowerCase() });
         posthog.capture('user_signed_up', { email: email.trim().toLowerCase(), user_id: data.user_id });
+
+        if (data.email_verification_required && !data.email_verified) {
+          const params = new URLSearchParams({
+            email: email.trim().toLowerCase()
+          });
+          if (data.verification_url) {
+            params.set('debug_verification_url', data.verification_url);
+          }
+          router.push(`/auth/check-email?${params.toString()}`);
+          return;
+        }
+
         // Redirect to personal details page with user data
         const params = new URLSearchParams({
           user_id: data.user_id,

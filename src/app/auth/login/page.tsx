@@ -122,6 +122,12 @@ export default function LoginPage() {
 
         localStorage.removeItem('is_admin');
 
+        if (data?.email_verification_required && !data?.email_verified) {
+          const params = new URLSearchParams({ email: normalizedEmail });
+          router.push(`/auth/check-email?${params.toString()}`);
+          return;
+        }
+
         // For the specific test user, skip onboarding and go directly to dashboard
         if (normalizedEmail === 'g') {
           console.log('🎯 Test user detected, redirecting directly to dashboard');
@@ -168,6 +174,14 @@ export default function LoginPage() {
           }
         }
       } else {
+        if (response.status === 403 && data.email_verification_required && !data.email_verified) {
+          const params = new URLSearchParams({
+            email: (data.email || email).trim().toLowerCase()
+          });
+          router.push(`/auth/check-email?${params.toString()}`);
+          return;
+        }
+
         setError(data.error || 'Invalid email or password');
         // Clear ALL user-related data on failed login
         localStorage.removeItem('user_id');

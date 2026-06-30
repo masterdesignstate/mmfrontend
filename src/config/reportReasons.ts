@@ -8,9 +8,10 @@ export const REPORT_REASONS: Record<string, { label: string; color: string }> = 
   underage_user: { label: 'Underage User', color: 'bg-red-200 text-red-900' },
   other: { label: 'Other', color: 'bg-gray-100 text-gray-800' },
   admin_restriction: { label: 'Admin Restriction', color: 'bg-gray-100 text-gray-800' },
+  email_verification: { label: 'Email Verification', color: 'bg-purple-100 text-purple-800' },
 };
 
 // User-facing reasons (excludes admin_restriction)
 export const USER_REPORT_REASONS = Object.entries(REPORT_REASONS)
-  .filter(([key]) => key !== 'admin_restriction')
+  .filter(([key]) => key !== 'admin_restriction' && key !== 'email_verification')
   .map(([key, val]) => ({ key, label: val.label }));

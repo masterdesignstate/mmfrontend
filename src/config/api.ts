@@ -10,6 +10,8 @@ const API_CONFIG = {
     SIGNUP: '/auth/signup/',
     PERSONAL_DETAILS: '/auth/personal-details/',
     LOGIN: '/auth/login/',
+    VERIFY_EMAIL: '/auth/verify-email/',
+    RESEND_VERIFICATION_EMAIL: '/auth/resend-verification-email/',
     CHECK_USER: '/auth/check-user/',
     ONBOARDING_STATUS: '/auth/onboarding-status/',
     UPDATE_PROFILE_PHOTO: '/auth/update-profile-photo/',

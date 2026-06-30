@@ -12,7 +12,7 @@ interface ProtectedPageGateProps {
 
 export default function ProtectedPageGate({ children, checkOnboarding = true }: ProtectedPageGateProps) {
   const router = useRouter();
-  const { isBanned, restrictionType, isOnboardingComplete, isLoading, userId } = useUserGateStatus();
+  const { isBanned, restrictionType, restrictionReason, emailVerified, email, isOnboardingComplete, isLoading, userId } = useUserGateStatus();
 
   // Redirect to login if no userId (after loading completes)
   if (!isLoading && !userId) {
@@ -22,6 +22,8 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
 
   // Ban overlay takes priority (wait for data to load so we don't flash onboarding first)
   if (!isLoading && isBanned) {
+    const isEmailVerificationRestriction = restrictionReason === 'email_verification' || !emailVerified;
+
     return (
       <div className="relative min-h-screen">
         {/* Blurred page content as preview */}
@@ -52,13 +54,30 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
 
             {/* Message */}
             <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {restrictionType === 'permanent' ? 'Account Permanently Banned' : 'Account Restricted'}
+              {isEmailVerificationRestriction
+                ? 'Verify your email'
+                : restrictionType === 'permanent' ? 'Account Permanently Banned' : 'Account Restricted'}
             </h2>
             <p className="text-gray-600 mb-6">
-              {restrictionType === 'permanent'
+              {isEmailVerificationRestriction
+                ? 'Your account is limited until you verify your email address. Check your inbox or resend the verification link.'
+                : restrictionType === 'permanent'
                 ? 'Your account has been permanently banned for violating our Terms of Service. This decision is final.'
                 : 'Your account has been temporarily restricted for violating our Terms of Service. Your access will be restored once the restriction period ends.'}
             </p>
+
+            {isEmailVerificationRestriction && (
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (email) params.set('email', email);
+                  router.push(`/auth/check-email?${params.toString()}`);
+                }}
+                className="w-full py-3 bg-[#672DB7] text-white font-semibold rounded-xl hover:bg-[#5624A0] transition-colors cursor-pointer mb-3"
+              >
+                Resend verification email
+              </button>
+            )}
 
             {/* Logout Button */}
             <button
