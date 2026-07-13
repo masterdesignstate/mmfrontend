@@ -1630,6 +1630,19 @@ function QuestionsPageContent() {
               </svg>
             </button>
 
+            {/* Show first page and ellipsis if needed */}
+            {(isClientSideFiltered ? filteredTotalPages : totalPages) > 7 && currentPage > 4 && (
+              <>
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  className="w-8 h-8 text-gray-600 flex items-center justify-center text-sm hover:text-black"
+                >
+                  1
+                </button>
+                <span className="text-gray-400">...</span>
+              </>
+            )}
+
             {/* Page Numbers */}
             {Array.from({ length: Math.min(isClientSideFiltered ? filteredTotalPages : totalPages, 7) }, (_, i) => {
               const displayTotalPages = isClientSideFiltered ? filteredTotalPages : totalPages;

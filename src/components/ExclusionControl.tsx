@@ -7,6 +7,7 @@ interface ExclusionControlProps {
   values: number[];
   onChange: (values: number[]) => void;
   allowedValues?: number[];
+  blockedValues?: number[];
   className?: string;
   buttonLabel?: string;
   title?: string;
@@ -19,6 +20,7 @@ export default function ExclusionControl({
   values,
   onChange,
   allowedValues = DEFAULT_EXCLUSION_VALUES,
+  blockedValues = [],
   className = '',
   buttonLabel = 'Exclude',
   title = 'Exclude',
@@ -33,19 +35,24 @@ export default function ExclusionControl({
   const rootRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<number[]>([]);
   const allowedValuesKey = allowedValues.join(',');
+  const blockedValuesKey = blockedValues.join(',');
   const exclusionValues = useMemo(
     () => normalizeExcludedValues(allowedValuesKey.split(',').map(Number)),
     [allowedValuesKey]
   );
-  const selected = normalizeExcludedValues(values, exclusionValues);
+  const blockedExclusionValues = useMemo(
+    () => normalizeExcludedValues(blockedValuesKey.split(',').map(Number), exclusionValues),
+    [blockedValuesKey, exclusionValues]
+  );
+  const selected = normalizeExcludedValues(values, exclusionValues, blockedExclusionValues);
   const activeValues = open ? draftValues : selected;
 
   const commitAndClose = useCallback(() => {
-    onChange(normalizeExcludedValues(draftRef.current, exclusionValues));
+    onChange(normalizeExcludedValues(draftRef.current, exclusionValues, blockedExclusionValues));
     setOpen(false);
     setLegendOpen(false);
     setLegendPinned(false);
-  }, [exclusionValues, onChange]);
+  }, [blockedExclusionValues, exclusionValues, onChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,10 +71,11 @@ export default function ExclusionControl({
 
   useEffect(() => {
     if (!open) return;
-    setDraftValues(prev => normalizeExcludedValues(prev, exclusionValues));
-  }, [exclusionValues, open]);
+    setDraftValues(prev => normalizeExcludedValues(prev, exclusionValues, blockedExclusionValues));
+  }, [blockedExclusionValues, exclusionValues, open]);
 
   const toggleValue = (value: number) => {
+    if (blockedExclusionValues.includes(value)) return;
     setDraftValues(prev => (
       prev.includes(value)
         ? prev.filter(item => item !== value)
@@ -172,13 +180,18 @@ export default function ExclusionControl({
           <div className="mb-3 flex gap-2">
             {exclusionValues.map(value => {
               const isSelected = activeValues.includes(value);
+              const isBlocked = blockedExclusionValues.includes(value);
               return (
                 <button
                   key={value}
                   type="button"
+                  disabled={isBlocked}
+                  title={isBlocked ? 'This is your answer' : undefined}
                   onClick={() => toggleValue(value)}
                   className={`h-8 w-8 cursor-pointer rounded-full border text-sm font-semibold transition-colors ${
-                    isSelected
+                    isBlocked
+                      ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
+                      : isSelected
                       ? 'border-[#672DB7] bg-[#672DB7] text-white'
                       : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:text-[#672DB7]'
                   }`}

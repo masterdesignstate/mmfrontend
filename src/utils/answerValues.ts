@@ -4,6 +4,7 @@ export interface AnswerValueLabel {
 }
 
 export const DEFAULT_ANSWER_VALUES = [1, 2, 3, 4, 5];
+const FULL_SCALE_QUESTION_NUMBERS = new Set([11]);
 
 const uniqueSortedValues = (values: number[]) =>
   Array.from(new Set(values)).sort((a, b) => a - b);
@@ -16,6 +17,19 @@ export const getAnswerValues = (labels: AnswerValueLabel[] = []): number[] => {
   );
 
   return values.length > 0 ? values : DEFAULT_ANSWER_VALUES;
+};
+
+export const getSliderLabelsForQuestion = <T extends AnswerValueLabel>(
+  questionNumber?: number | null,
+  labels: T[] = []
+): AnswerValueLabel[] => {
+  if (!FULL_SCALE_QUESTION_NUMBERS.has(Number(questionNumber))) return labels;
+
+  const byValue = new Map(labels.map(label => [Number(label.value), label]));
+  return DEFAULT_ANSWER_VALUES.map(value => ({
+    value,
+    answer_text: byValue.get(value)?.answer_text || '',
+  }));
 };
 
 export const getNearestAnswerValue = (value: number, labels: AnswerValueLabel[] = []): number => {

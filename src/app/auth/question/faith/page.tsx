@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import ExclusionControl from '@/components/ExclusionControl';
+import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 
 export default function FaithQuestionPage() {
   const router = useRouter();
@@ -32,6 +34,15 @@ export default function FaithQuestionPage() {
     me: 3,
     lookingFor: 3
   });
+  const [excludedAnswerValues, setExcludedAnswerValues] = useState<number[]>([]);
+  const allowedExclusionValues = useMemo(
+    () => getAllowedExclusionValues(question),
+    [question]
+  );
+  const blockedExclusionValues = useMemo(
+    () => openToAll.answer1MeOpen ? [] : [myAnswer],
+    [myAnswer, openToAll.answer1MeOpen]
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -99,6 +110,10 @@ export default function FaithQuestionPage() {
     setOpenToAll(prev => ({ ...prev, [switchType]: !prev[switchType as keyof typeof prev] }));
   };
 
+  useEffect(() => {
+    setExcludedAnswerValues(prev => normalizeExcludedValues(prev, allowedExclusionValues, blockedExclusionValues));
+  }, [allowedExclusionValues, blockedExclusionValues]);
+
   const handleNext = async () => {
     if (!userId || !question) {
       setError('User ID and question are required');
@@ -120,7 +135,8 @@ export default function FaithQuestionPage() {
         looking_for_answer: openToAll.answer1LookingOpen ? 6 : lookingForAnswer,
         looking_for_open_to_all: openToAll.answer1LookingOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues)
       };
 
       // Save the user answer
@@ -158,7 +174,38 @@ export default function FaithQuestionPage() {
     router.push(`/auth/faith?${params.toString()}`);
   };
 
-  // Slider component - EXACT COPY from politics/religion page
+  const faithGridClass = 'grid items-center mx-auto w-full max-w-[95vw] grid-cols-[80px_minmax(0,1fr)_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5';
+
+  const EndpointLabels = () => (
+    <div className="flex justify-between text-xs text-gray-500">
+      <span>Less</span>
+      <span className="text-right">More</span>
+    </div>
+  );
+
+  const OtaExcludeHeader = ({ showOta }: { showOta: boolean }) => (
+    <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+      {showOta && <span className="w-11 text-center">OTA</span>}
+      <span className="w-7 sm:w-[88px]" aria-hidden />
+    </div>
+  );
+
+  const ToggleControl = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+    <label className="flex items-center cursor-pointer">
+      <div className="relative">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          className="sr-only"
+        />
+        <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
+        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${checked ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
+      </div>
+    </label>
+  );
+
+  // Faith is a strength scale, so expose all five positions.
   const SliderComponent = ({ 
     value, 
     onChange,
@@ -208,8 +255,6 @@ export default function FaithQuestionPage() {
         onMouseLeave={handleMouseLeave}
         onDragStart={handleDragStart}
       >
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-          
           {/* Custom Slider Track */}
           <div 
             className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
@@ -237,14 +282,12 @@ export default function FaithQuestionPage() {
               <span className="text-white">{value}</span>
             </div>
           )}
-          
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
@@ -259,7 +302,7 @@ export default function FaithQuestionPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
+      <main className="flex flex-col items-center justify-center flex-1 px-6 py-6">
         <div className="w-full max-w-4xl">
           {/* Title */}
           <div className="text-center mb-8">
@@ -282,55 +325,44 @@ export default function FaithQuestionPage() {
           <div className="mb-6">
             <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Me header */}
-            <div className="onboarding-label-row items-center mx-auto w-full mb-2">
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="onboarding-track flex justify-between text-xs text-gray-500">
-                <span>Less</span>
-                <span>More</span>
-              </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {question?.open_to_all_me ? 'OTA' : ''}
-              </div>
+            <div className={`${faithGridClass} mb-2`}>
+              <div></div>
+              <EndpointLabels />
+              <OtaExcludeHeader showOta={Boolean(question?.open_to_all_me)} />
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="onboarding-grid items-center mx-auto w-full">
+            <div className={faithGridClass}>
               
               {/* FAITH Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
                 {(question?.question_name || 'FAITH').toUpperCase()}
               </div>
-              <div className="relative onboarding-track">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={myAnswer}
                   onChange={(value) => handleSliderChange('myAnswer', value)}
                   isOpenToAll={openToAll.answer1MeOpen}
                 />
               </div>
-              <div>
-                {/* Only show switch if Faith question has open_to_all_me enabled */}
-                {question?.open_to_all_me ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.answer1MeOpen}
-                        onChange={() => handleOpenToAllToggle('answer1MeOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.answer1MeOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.answer1MeOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
+              <div className="flex items-center justify-center gap-2">
+                {question?.open_to_all_me && (
+                  <ToggleControl
+                    checked={openToAll.answer1MeOpen}
+                    onChange={() => handleOpenToAllToggle('answer1MeOpen')}
+                  />
                 )}
+                <ExclusionControl
+                  values={excludedAnswerValues}
+                  allowedValues={allowedExclusionValues}
+                  blockedValues={blockedExclusionValues}
+                  onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))}
+                />
               </div>
 
               {/* IMPORTANCE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative onboarding-track">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={importance.me}
                   onChange={(value) => handleSliderChange('importance', value)}
@@ -342,9 +374,9 @@ export default function FaithQuestionPage() {
             </div>
 
             {/* Importance labels below Me section - centered and dynamic */}
-            <div className="onboarding-grid items-center mx-auto w-full mt-2">
+            <div className={`${faithGridClass} mt-2`}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500 onboarding-track text-xs text-gray-500">
+              <div className="relative min-w-0 text-xs text-gray-500">
                 {/* Only show the label for the current importance value */}
                 {importance.me === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
@@ -370,47 +402,33 @@ export default function FaithQuestionPage() {
           <div className="mb-6 pt-8">
             <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
             
-            {/* NEVER, VERY OFTEN, and OTA labels below Looking For header */}
-            <div className="onboarding-label-row items-center mx-auto w-full mb-2">
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="onboarding-track flex justify-between text-xs text-gray-500">
-                <span>Less</span>
-                <span>More</span>
-              </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {question?.open_to_all_looking_for ? 'OTA' : ''}
-              </div>
+            <div className={`${faithGridClass} mb-2`}>
+              <div></div>
+              <EndpointLabels />
+              <OtaExcludeHeader showOta={Boolean(question?.open_to_all_looking_for)} />
             </div>
             
             {/* Grid container for perfect alignment */}
-            <div className="onboarding-grid items-center mx-auto w-full">
+            <div className={faithGridClass}>
               
               {/* FAITH Slider Row */}
               <div className="text-xs font-semibold text-gray-400">
                 {(question?.question_name || 'FAITH').toUpperCase()}
               </div>
-              <div className="relative onboarding-track">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={lookingForAnswer}
                   onChange={(value) => handleSliderChange('lookingForAnswer', value)}
                   isOpenToAll={openToAll.answer1LookingOpen}
                 />
               </div>
-              <div>
+              <div className="flex items-center justify-center">
                 {/* Only show switch if Faith question has open_to_all_looking_for enabled */}
                 {question?.open_to_all_looking_for ? (
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={openToAll.answer1LookingOpen}
-                        onChange={() => handleOpenToAllToggle('answer1LookingOpen')}
-                        className="sr-only"
-                      />
-                      <div className={`block w-11 h-6 rounded-full ${openToAll.answer1LookingOpen ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll.answer1LookingOpen ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                    </div>
-                  </label>
+                  <ToggleControl
+                    checked={openToAll.answer1LookingOpen}
+                    onChange={() => handleOpenToAllToggle('answer1LookingOpen')}
+                  />
                 ) : (
                   <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
                 )}
@@ -418,7 +436,7 @@ export default function FaithQuestionPage() {
 
               {/* IMPORTANCE Slider Row */}
               <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative onboarding-track">
+              <div className="relative min-w-0">
                 <SliderComponent
                   value={importance.lookingFor}
                   onChange={handleLookingForImportanceChange}
@@ -430,9 +448,9 @@ export default function FaithQuestionPage() {
             </div>
 
             {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className="onboarding-grid items-center mx-auto w-full mt-2">
+            <div className={`${faithGridClass} mt-2`}>
               <div></div> {/* Empty placeholder for label column */}
-              <div className="relative text-xs text-gray-500 onboarding-track text-xs text-gray-500">
+              <div className="relative min-w-0 text-xs text-gray-500">
                 {/* Only show the label for the current importance value */}
                 {importance.lookingFor === 1 && (
                   <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
@@ -457,7 +475,7 @@ export default function FaithQuestionPage() {
       </main>
 
       {/* Footer with Progress and Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+      <footer className="shrink-0 bg-white border-t border-gray-200">
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200">
           <div className="h-full bg-black" style={{ width: '100%' }}></div>

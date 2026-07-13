@@ -47,14 +47,26 @@ export default function PictureModerationPage() {
   const [selectedItemForRejection, setSelectedItemForRejection] = useState<PictureModerationItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
 
   // Fetch picture moderation queue from API
   const fetchPictureModerationQueue = async () => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) {
+      setError('Admin session not found. Please log in again.');
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
 
-      const queueData = await apiService.getPictureModerationQueue() as PictureModerationItem[];
+      const queueData = await apiService.getPictureModerationQueue(adminUserId) as PictureModerationItem[];
       // Ensure we always have an array, even if API returns null/undefined
       setItems(Array.isArray(queueData) ? queueData : []);
     } catch (err) {
@@ -150,11 +162,17 @@ export default function PictureModerationPage() {
   };
 
   const handleApprove = async (item: PictureModerationItem) => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) {
+      setError('Admin session not found. Please log in again.');
+      return;
+    }
     setActionLoading(true);
     try {
-      await apiService.approvePicture(item.id.toString());
+      await apiService.approvePicture(item.id.toString(), adminUserId);
       setItems(prev => prev.filter(i => i.id !== item.id));
       setSelectedItems(prev => prev.filter(id => id !== item.id));
+      showToast('Picture approved');
     } catch (err) {
       console.error('Error approving picture:', err);
       setError(err instanceof Error ? err.message : 'Failed to approve picture');
@@ -171,15 +189,21 @@ export default function PictureModerationPage() {
 
   const executeRejection = async () => {
     if (!selectedItemForRejection || !rejectionReason.trim()) return;
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) {
+      setError('Admin session not found. Please log in again.');
+      return;
+    }
 
     setActionLoading(true);
     try {
-      await apiService.rejectPicture(selectedItemForRejection.id.toString(), rejectionReason);
+      await apiService.rejectPicture(selectedItemForRejection.id.toString(), adminUserId, rejectionReason);
       setItems(prev => prev.filter(i => i.id !== selectedItemForRejection.id));
       setSelectedItems(prev => prev.filter(id => id !== selectedItemForRejection.id));
       setShowRejectionModal(false);
       setSelectedItemForRejection(null);
       setRejectionReason('');
+      showToast('Picture rejected');
     } catch (err) {
       console.error('Error rejecting picture:', err);
       setError(err instanceof Error ? err.message : 'Failed to reject picture');
@@ -189,14 +213,21 @@ export default function PictureModerationPage() {
   };
 
   const handleBulkApprove = async () => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) {
+      setError('Admin session not found. Please log in again.');
+      return;
+    }
     setActionLoading(true);
     try {
+      const approvedCount = selectedItems.length;
       for (const itemId of selectedItems) {
-        await apiService.approvePicture(itemId.toString());
+        await apiService.approvePicture(itemId.toString(), adminUserId);
       }
       setItems(prev => prev.filter(i => !selectedItems.includes(i.id)));
       setSelectedItems([]);
       setShowBulkActions(false);
+      showToast(`${approvedCount} picture${approvedCount === 1 ? '' : 's'} approved`);
     } catch (err) {
       console.error('Error bulk approving pictures:', err);
       setError(err instanceof Error ? err.message : 'Failed to approve pictures');
@@ -617,6 +648,15 @@ export default function PictureModerationPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action toast */}
+      {toastMessage && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+          <div className="bg-black text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium">
+            {toastMessage}
           </div>
         </div>
       )}

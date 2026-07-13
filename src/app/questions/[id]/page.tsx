@@ -9,7 +9,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import ExclusionControl from '@/components/ExclusionControl';
 import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
-import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
@@ -254,7 +254,7 @@ const MultiSliderTemplate = ({
                           [`me_${question.id}`]: value
                         })}
                         isOpenToAll={openToAllStates[`me_${question.id}_open`] || false}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     {question.open_to_all_me ? (
@@ -295,7 +295,7 @@ const MultiSliderTemplate = ({
                           [`them_${question.id}`]: value
                         })}
                         isOpenToAll={openToAllStates[`them_${question.id}_open`] || false}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     {questionAllowsLookingOta(question) ? (
@@ -476,7 +476,7 @@ const BasicSliderTemplate = ({
                       [`me_${question.id}`]: value
                     })}
                     isOpenToAll={openToAllStates[`me_${question.id}_open`] || false}
-                    labels={question.answers}
+                    labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                   />
                 </div>
                 {question.open_to_all_me ? (
@@ -510,7 +510,7 @@ const BasicSliderTemplate = ({
                       [`them_${question.id}`]: value
                     })}
                     isOpenToAll={openToAllStates[`them_${question.id}_open`] || false}
-                    labels={question.answers}
+                    labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                   />
                 </div>
                 {questionAllowsLookingOta(question) ? (
@@ -748,7 +748,8 @@ function QuestionEditPageContent() {
         openToAll[`${key}_looking`] = answer.looking_for_open_to_all;
         exclusions[key] = normalizeExcludedValues(
           answer.excluded_answer_values,
-          getAllowedExclusionValues(question)
+          getAllowedExclusionValues(question),
+          answer.me_open_to_all ? [] : [answer.me_answer || 3]
         );
         
         setImportanceValues({
@@ -765,7 +766,7 @@ function QuestionEditPageContent() {
         sliders[`${key}_me`] = 3;
         sliders[`${key}_looking`] = 3;
         openToAll[`${key}_me`] = false;
-        openToAll[`${key}_looking`] = questionAllowsLookingOta(question);
+        openToAll[`${key}_looking`] = false;
         exclusions[key] = [];
       }
     });
@@ -812,7 +813,8 @@ function QuestionEditPageContent() {
         lo: existingAnswer.looking_for_open_to_all,
         exc: normalizeExcludedValues(
           existingAnswer.excluded_answer_values,
-          getAllowedExclusionValues(question)
+          getAllowedExclusionValues(question),
+          existingAnswer.me_open_to_all ? [] : [existingAnswer.me_answer || 3]
         ),
       }));
     }
@@ -928,7 +930,8 @@ function QuestionEditPageContent() {
             looking_for_share: true,
             excluded_answer_values: normalizeExcludedValues(
               excludedAnswerValues[key] || [],
-              getAllowedExclusionValues(question)
+              getAllowedExclusionValues(question),
+              openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3]
             ),
             is_required_for_me: isNonGroupedQuestionOver10 ? meRequired : false
           };
@@ -986,7 +989,8 @@ function QuestionEditPageContent() {
             looking_for_share: true,
             excluded_answer_values: normalizeExcludedValues(
               excludedAnswerValues[`q${question.group_number || question.id}`] || existingAnswer?.excluded_answer_values,
-              getAllowedExclusionValues(question)
+              getAllowedExclusionValues(question),
+              [answerValue]
             ),
             is_required_for_me: false
           };
@@ -1044,7 +1048,8 @@ function QuestionEditPageContent() {
             looking_for_share: true,
             excluded_answer_values: normalizeExcludedValues(
               excludedAnswerValues[`q${question.group_number || question.id}`] || existingAnswer?.excluded_answer_values,
-              getAllowedExclusionValues(question)
+              getAllowedExclusionValues(question),
+              [answerValue]
             ),
             is_required_for_me: false
           };
@@ -1350,17 +1355,23 @@ function QuestionEditPageContent() {
     return { minLabel, maxLabel };
   };
 
+  const getBlockedExclusionValuesForKey = (key: string) => (
+    openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3]
+  );
+
   const setExcludedValuesForKey = (key: string, values: number[], question?: Question) => {
     setExcludedAnswerValues(prev => ({
       ...prev,
-      [key]: normalizeExcludedValues(values, getAllowedExclusionValues(question)),
+      [key]: normalizeExcludedValues(values, getAllowedExclusionValues(question), getBlockedExclusionValuesForKey(key)),
     }));
   };
 
   const renderOtaExcHeader = (showOta: boolean, showExc = true) => (
-    <div className={`flex gap-2 text-xs text-gray-500 min-w-0 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
-      {showOta && <span className="w-11 text-center">OTA</span>}
-      {showExc && <span className="w-7 sm:w-[88px]" aria-hidden />}
+    <div className="grid grid-cols-[44px_28px] sm:grid-cols-[44px_88px] gap-2 text-xs text-gray-500 min-w-0">
+      <span className={`w-11 text-center ${showOta ? '' : 'invisible'}`}>
+        OTA
+      </span>
+      <span className={`${showExc ? '' : 'invisible'}`} aria-hidden />
     </div>
   );
 
@@ -1395,15 +1406,22 @@ function QuestionEditPageContent() {
     showExc = true,
     question?: Question,
   ) => (
-    <div className={`flex min-h-8 items-center gap-2 overflow-visible ${otaEnabled || !showExc ? 'justify-center' : 'justify-start'}`}>
-      {otaEnabled && renderOtaSwitch(checked, onToggle, otaEnabled)}
-      {showExc && (
+    <div className="grid min-h-8 grid-cols-[44px_28px] sm:grid-cols-[44px_88px] items-center gap-2 overflow-visible min-w-0">
+      <div className={otaEnabled ? '' : 'invisible'}>
+        {otaEnabled ? renderOtaSwitch(checked, onToggle, otaEnabled) : <div className="w-11 h-6" aria-hidden />}
+      </div>
+      <div className={showExc ? '' : 'invisible'} aria-hidden={!showExc}>
+      {showExc ? (
         <ExclusionControl
           values={excludedAnswerValues[key] || []}
           allowedValues={getAllowedExclusionValues(question)}
+          blockedValues={getBlockedExclusionValuesForKey(key)}
           onChange={(values) => setExcludedValuesForKey(key, values, question)}
         />
+      ) : (
+        <div className="w-7 sm:w-[88px]" aria-hidden />
       )}
+      </div>
     </div>
   );
 
@@ -1449,7 +1467,7 @@ function QuestionEditPageContent() {
                       value={sliderAnswers[meKey] || 3}
                       onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                       isOpenToAll={openToAllStates[meKey] || false}
-                      labels={question.answers}
+                      labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                     />
                   </div>
                   {renderOtaExcControls(
@@ -1546,7 +1564,7 @@ function QuestionEditPageContent() {
                         value={sliderAnswers[lookingKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
                         isOpenToAll={openToAllStates[lookingKey] || false}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     {renderOtaExcControls(
@@ -1625,7 +1643,7 @@ function QuestionEditPageContent() {
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                         isOpenToAll={openToAllStates[meKey] || false}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     {renderOtaExcControls(
@@ -1697,7 +1715,7 @@ function QuestionEditPageContent() {
                         value={sliderAnswers[lookingKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
                         isOpenToAll={openToAllStates[lookingKey] || false}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                         isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
@@ -1793,7 +1811,7 @@ function QuestionEditPageContent() {
                         value={sliderAnswers[meKey] || 3}
                         onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                         isOpenToAll={openToAllStates[meKey] || false}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                         isBinary={isKidsQuestion && question.group_number === 1}
                       />
                     </div>
@@ -1991,7 +2009,7 @@ function QuestionEditPageContent() {
                   value={sliderAnswers[lookingKey] || 3}
                   onChange={(value) => setSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))}
                   isOpenToAll={openToAllStates[lookingKey] || false}
-                  labels={question.answers}
+                  labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                 />
               </div>
               {renderOtaExcControls(
@@ -2063,7 +2081,7 @@ function QuestionEditPageContent() {
                   value={sliderAnswers[meKey] || 3}
                   onChange={(value) => setSliderAnswers(prev => ({ ...prev, [meKey]: value }))}
                   isOpenToAll={openToAllStates[meKey] || false}
-                  labels={question.answers}
+                  labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                 />
               </div>
               {renderOtaExcControls(
@@ -2207,10 +2225,12 @@ function QuestionEditPageContent() {
           {/* Title — responsive typography for small/medium/large */}
           <div className={`text-center ${questionNumber === 1 ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
             <div className="inline-block w-full max-w-full px-0 sm:px-1">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2 break-words">
                 {questionNumber}. {questions && questions.length > 0 ? (
-                  questions[0].group_name ? questions[0].group_name : 
-                  (questions[0].question_name || questionTitles[questionNumber])
+                  questions[0].group_name ? questions[0].group_name :
+                  (questionNumber <= 10
+                    ? (questions[0].question_name || questionTitles[questionNumber])
+                    : questions[0].text)
                 ) : questionTitles[questionNumber]}
             </h1>
               
@@ -2252,7 +2272,10 @@ function QuestionEditPageContent() {
               )}
             </div>
             <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black break-words ${questionNumber === 1 ? 'mb-3 sm:mb-4' : 'mb-6 sm:mb-8 lg:mb-12'}`}>
-              {questions && questions.length > 0 && questions[0].group_name_text ? questions[0].group_name_text : questionTexts[questionNumber]}
+              {questions && questions.length > 0 ? (
+                questions[0].group_name_text ||
+                (questionNumber <= 10 ? questionTexts[questionNumber] : '')
+              ) : questionTexts[questionNumber]}
             </p>
           </div>
 

@@ -461,7 +461,7 @@ function SettingsPageContent() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-gray-900">
-                  For questions where your Them importance is 5, hide people whose Them importance is one of these values.
+                  For questions where your importance is 5, hide people whose importance is one of these values.
                 </h3>
               </div>
               <ExclusionControl
@@ -471,7 +471,7 @@ function SettingsPageContent() {
                 buttonLabel="Importance"
                 title="Importance Exclusion"
                 ariaLabel="Exclude importance values"
-                helpText="Hide people from your results when your Them importance is 5 for a question and their Them importance for that same question is one of these values."
+                helpText="Hide people from your results when your importance is 5 for a question and their importance for that same question is one of these values."
                 disabled={savingImportanceExclusion}
                 className="shrink-0"
               />

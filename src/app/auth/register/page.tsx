@@ -60,8 +60,8 @@ export default function RegisterPage() {
           const params = new URLSearchParams({
             email: email.trim().toLowerCase()
           });
-          if (data.verification_url) {
-            params.set('debug_verification_url', data.verification_url);
+          if (data.verification_code) {
+            params.set('debug_verification_code', data.verification_code);
           }
           router.push(`/auth/check-email?${params.toString()}`);
           return;

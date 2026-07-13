@@ -17,7 +17,7 @@ import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import ExclusionControl from '@/components/ExclusionControl';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
-import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues, type ExclusionQuestion } from '@/utils/exclusionValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
@@ -1898,16 +1898,16 @@ export default function UserProfilePage() {
     const hasQuestionFilters = Object.values(filters.questions).some(filter => filter);
     const hasTagFilters = Object.values(filters.tags).some(filter => filter);
     const pendingFiltersActive = filters.questions.myPending || filters.questions.theirPending;
-    const answeredQuestionNumbers = new Set(
-      groupedQuestionsForModal.map(([, group]) => group.questionNumber)
-    );
 
     const visiblePendingGroups = pendingFiltersActive
       ? pendingQuestionGroups
-      : pendingQuestionGroups.filter(([, group]) => !answeredQuestionNumbers.has(group.questionNumber));
+      : [];
 
     // Start with answered questions and only add pending groups that won't duplicate a visible answered group.
-    let allGroups = [...groupedQuestionsForModal, ...visiblePendingGroups];
+    const allGroups = [...groupedQuestionsForModal, ...visiblePendingGroups].filter(([, group]) => {
+      const groupAny = group as typeof group & { isPending?: boolean };
+      return pendingFiltersActive || !groupAny.isPending;
+    });
 
     let filtered = allGroups;
 
@@ -2142,7 +2142,8 @@ export default function UserProfilePage() {
       openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
       exclusions[key] = normalizeExcludedValues(
         existing?.excluded_answer_values,
-        getAllowedExclusionValues(q)
+        getAllowedExclusionValues(q),
+        existing?.me_open_to_all ? [] : [existing?.me_answer || 3]
       );
     });
 
@@ -2255,7 +2256,8 @@ export default function UserProfilePage() {
         looking_for_share: true,
         excluded_answer_values: normalizeExcludedValues(
           editExcludedAnswerValues[key] || [],
-          getAllowedExclusionValues(question)
+          getAllowedExclusionValues(question),
+          editOpenToAllStates[`${key}_me`] ? [] : [editSliderAnswers[`${key}_me`] || 3]
         ),
         is_required_for_me: isNonGrouped ? editMeRequired : false
       });
@@ -2326,10 +2328,14 @@ export default function UserProfilePage() {
     });
   };
 
+  const getEditBlockedExclusionValuesForKey = (key: string) => (
+    editOpenToAllStates[`${key}_me`] ? [] : [editSliderAnswers[`${key}_me`] || 3]
+  );
+
   const setEditExcludedValuesForKey = (key: string, values: number[], question?: ExclusionQuestion) => {
     setEditExcludedAnswerValues(prev => ({
       ...prev,
-      [key]: normalizeExcludedValues(values, getAllowedExclusionValues(question)),
+      [key]: normalizeExcludedValues(values, getAllowedExclusionValues(question), getEditBlockedExclusionValuesForKey(key)),
     }));
   };
 
@@ -2361,6 +2367,7 @@ export default function UserProfilePage() {
         <ExclusionControl
           values={editExcludedAnswerValues[key] || []}
           allowedValues={getAllowedExclusionValues(question)}
+          blockedValues={getEditBlockedExclusionValuesForKey(key)}
           onChange={(values) => setEditExcludedValuesForKey(key, values, question)}
         />
       )}
@@ -3878,7 +3885,8 @@ export default function UserProfilePage() {
                                       ...prev,
                                       [subKey]: prev[subKey] || normalizeExcludedValues(
                                         existing?.excluded_answer_values,
-                                        getAllowedExclusionValues(question)
+                                        getAllowedExclusionValues(question),
+                                        existing?.me_open_to_all ? [] : [existing?.me_answer || 3]
                                       ),
                                     }));
                                     setSelectedGroupedQuestionId(question.id);
@@ -3964,7 +3972,7 @@ export default function UserProfilePage() {
                                   <React.Fragment key={`looking-${question.id}`}>
                                     {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
                                     <div className="relative min-w-0">
-                                      <EditableSlider value={editSliderAnswers[lookingKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))} isOpenToAll={editOpenToAllStates[lookingKey] || false} labels={question.answers || []} />
+                                      <EditableSlider value={editSliderAnswers[lookingKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))} isOpenToAll={editOpenToAllStates[lookingKey] || false} labels={getSliderLabelsForQuestion(question.question_number, question.answers || [])} />
                                     </div>
                                     {renderEditOtaExcControls(
                                       key,
@@ -4015,7 +4023,7 @@ export default function UserProfilePage() {
                                 <React.Fragment key={question.id}>
                                   {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
                                   <div className="relative min-w-0">
-                                    <EditableSlider value={editSliderAnswers[meKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [meKey]: value }))} isOpenToAll={editOpenToAllStates[meKey] || false} labels={question.answers || []} />
+                                    <EditableSlider value={editSliderAnswers[meKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [meKey]: value }))} isOpenToAll={editOpenToAllStates[meKey] || false} labels={getSliderLabelsForQuestion(question.question_number, question.answers || [])} />
                                   </div>
                                   {renderEditOtaExcControls(
                                     key,
@@ -4255,7 +4263,7 @@ export default function UserProfilePage() {
                               <React.Fragment key={question.id}>
                                 <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
                                 <div className="relative">
-                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
+                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={getSliderLabelsForQuestion(question.question_number, question.answers)} />
                                 </div>
                                 <div>
                                   {question.open_to_all_me ? (
@@ -4463,7 +4471,7 @@ export default function UserProfilePage() {
                               </div>
 
                               <div className="mx-auto" style={{ width: '500px' }}>
-                                <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={selectedQuestion.answers} />
+                                <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
                               </div>
 
                             </div>
@@ -4524,7 +4532,7 @@ export default function UserProfilePage() {
                                 </div>
 
                                 <div className="mx-auto" style={{ width: '500px' }}>
-                                  <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={selectedQuestion.answers} />
+                                  <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
                                 </div>
                               </div>
                             )}
@@ -4720,7 +4728,7 @@ export default function UserProfilePage() {
                               <React.Fragment key={`me-${question.id}`}>
                                 <div className="relative">
                                   {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={question.answers} />
+                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={getSliderLabelsForQuestion(question.question_number, question.answers)} />
                                 </div>
                                 {showMeOtaColumn && (
                                   <div>
@@ -4759,7 +4767,7 @@ export default function UserProfilePage() {
                               <React.Fragment key={`looking-${question.id}`}>
                                 <div className="relative">
                                   {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                  <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={question.answers} />
+                                  <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={getSliderLabelsForQuestion(question.question_number, question.answers)} />
                                 </div>
                                 {showThemOtaColumn && (
                                   <div className="w-11 h-6"></div>

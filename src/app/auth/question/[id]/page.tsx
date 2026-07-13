@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import ExclusionControl from '@/components/ExclusionControl';
-import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
@@ -56,6 +56,10 @@ export default function QuestionPage() {
   const allowedExclusionValues = useMemo(
     () => getAllowedExclusionValues(question),
     [question]
+  );
+  const blockedExclusionValues = useMemo(
+    () => openToAll.meOpen ? [] : [meAnswer],
+    [meAnswer, openToAll.meOpen]
   );
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
@@ -177,34 +181,60 @@ export default function QuestionPage() {
       );
     }
     
-    const sortedAnswers = question.answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedAnswers = getSliderLabelsForQuestion(question.question_number, question.answers)
+      .sort((a, b) => parseInt(String(a.value)) - parseInt(String(b.value)));
     
     return (
       <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-        {sortedAnswers.map((answer, index) => {
+        {sortedAnswers.map((answer) => {
           const value = parseInt(answer.value);
           let leftPosition;
+          const label = answer.answer_text.trim();
+
+          if (!label) {
+            return null;
+          }
+
+          if (value === 1) {
+            return (
+              <span
+                key={value}
+                className="absolute text-xs text-gray-500 whitespace-nowrap text-left"
+                style={{ left: '0' }}
+              >
+                {label.toUpperCase()}
+              </span>
+            );
+          }
+
+          if (value === 5) {
+            return (
+              <span
+                key={value}
+                className="absolute text-xs text-gray-500 whitespace-nowrap text-right"
+                style={{ right: '0' }}
+              >
+                {label.toUpperCase()}
+              </span>
+            );
+          }
           
           // Position labels to center on slider thumb positions
-          if (value === 1) {
-            leftPosition = '14px'; // Left edge of thumb (14px from left)
-          } else if (value === 2) {
+          if (value === 2) {
             leftPosition = '25%';
           } else if (value === 3) {
             leftPosition = '50%';
           } else if (value === 4) {
             leftPosition = '75%';
-          } else if (value === 5) {
-            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
           }
           
           return (
             <span 
               key={value}
-              className="absolute text-xs text-gray-500" 
+              className="absolute text-xs text-gray-500 whitespace-nowrap"
               style={{ left: leftPosition, transform: 'translateX(-50%)' }}
             >
-              {answer.answer_text.toUpperCase()}
+              {label.toUpperCase()}
             </span>
           );
         })}
@@ -228,22 +258,27 @@ export default function QuestionPage() {
   );
 
   const OtaExcHeader = ({ showOta, showExc = true }: { showOta: boolean; showExc?: boolean }) => (
-    <div className={`flex gap-2 text-xs text-gray-500 min-w-0 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
-      {showOta && <span className="w-11 text-center">OTA</span>}
-      {showExc && <span className="w-7 sm:w-[88px]" aria-hidden />}
+    <div className="grid grid-cols-[44px_28px] sm:grid-cols-[44px_88px] gap-2 text-xs text-gray-500 min-w-0">
+      <span className={`w-11 text-center ${showOta ? '' : 'invisible'}`}>
+        OTA
+      </span>
+      <span className={`${showExc ? '' : 'invisible'}`} aria-hidden />
     </div>
   );
 
   const OtaExcControls = ({ showOta, checked, onToggle, showExc = true }: { showOta: boolean; checked: boolean; onToggle: () => void; showExc?: boolean }) => (
-    <div className={`flex items-center gap-2 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
-      {showOta && <ToggleControl checked={checked} onChange={onToggle} />}
-      {showExc && (
+    <div className="grid grid-cols-[44px_28px] sm:grid-cols-[44px_88px] gap-2 items-center min-w-0">
+      <div className={showOta ? '' : 'invisible'}>
+        <ToggleControl checked={checked} onChange={onToggle} />
+      </div>
+      <div className={showExc ? '' : 'invisible'} aria-hidden={!showExc}>
         <ExclusionControl
           values={excludedAnswerValues}
           allowedValues={allowedExclusionValues}
-          onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues))}
+          blockedValues={blockedExclusionValues}
+          onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))}
         />
-      )}
+      </div>
     </div>
   );
 
@@ -447,8 +482,8 @@ export default function QuestionPage() {
   }, [params.id, searchParams]);
 
   useEffect(() => {
-    setExcludedAnswerValues(prev => normalizeExcludedValues(prev, allowedExclusionValues));
-  }, [allowedExclusionValues]);
+    setExcludedAnswerValues(prev => normalizeExcludedValues(prev, allowedExclusionValues, blockedExclusionValues));
+  }, [allowedExclusionValues, blockedExclusionValues]);
 
   // Fetch habits questions in background when userId is available
   useEffect(() => {
@@ -499,13 +534,17 @@ export default function QuestionPage() {
               meOpen: existing.me_open_to_all || false,
               lookingForOpen: existing.looking_for_open_to_all || false,
             });
-            setExcludedAnswerValues(normalizeExcludedValues(existing.excluded_answer_values, allowedExclusionValues));
+            setExcludedAnswerValues(normalizeExcludedValues(
+              existing.excluded_answer_values,
+              allowedExclusionValues,
+              existing.me_open_to_all ? [] : [existing.me_answer || 3]
+            ));
             setMeShare(existing.me_share !== false);
           } else if (!initialEa && currentFetchId === answerFetchIdRef.current) {
             setOpenToAll(prev => ({
               ...prev,
               meOpen: false,
-              lookingForOpen: questionAllowsLookingOta(question),
+              lookingForOpen: false,
             }));
             setExcludedAnswerValues([]);
           }
@@ -522,7 +561,7 @@ export default function QuestionPage() {
       }
     })();
     // No cleanup — staleness is detected via the ref counter
-  }, [userId, question?.id, question?.open_to_all_looking_for, question?.question_number, initialEa]);
+  }, [userId, question?.id, question?.open_to_all_looking_for, question?.question_number, initialEa, allowedExclusionValues]);
 
   const fetchQuestion = async (questionId: string) => {
     setLoadingQuestion(true);
@@ -772,7 +811,7 @@ export default function QuestionPage() {
         looking_for_open_to_all: openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
-        excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues),
+        excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues),
         is_required_for_me: meRequired
       };
       // For ethnicity questions, save in background without blocking UI
@@ -1050,7 +1089,7 @@ export default function QuestionPage() {
       ? []
       : params.id === 'diet'
       ? [{ value: '1', answer_text: 'NO' }, { value: '5', answer_text: 'YES' }]
-      : question?.answers || [];
+      : getSliderLabelsForQuestion(question?.question_number, question?.answers || []);
 
     const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isOpenToAll) return;
@@ -1187,7 +1226,7 @@ export default function QuestionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
 
       {/* Header — compact on small devices */}
       <div className="flex items-center justify-between p-3 sm:p-4">
@@ -1203,7 +1242,7 @@ export default function QuestionPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
+      <main className="flex flex-col items-center justify-center flex-1 px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
         <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] min-w-0 mx-auto">
           {/* Title — responsive typography for small devices */}
           <div className="text-center mb-4 sm:mb-6 lg:mb-8">
@@ -1392,7 +1431,7 @@ export default function QuestionPage() {
       </main>
 
       {/* Footer with Progress and Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+      <footer className="shrink-0 bg-white border-t border-gray-200">
         {/* Progress Bar - Only show in onboarding context, not profile or questions page context */}
         {searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true' && (
           <div className="w-full h-1 bg-gray-200">

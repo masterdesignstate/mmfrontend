@@ -535,17 +535,17 @@ class ApiService {
     return this.request('/auth/impostor-exit/', 'POST', { admin_user_id: adminUserId }) as Promise<Record<string, unknown>>;
   }
 
-  async getPictureModerationQueue(): Promise<unknown[]> {
+  async getPictureModerationQueue(adminUserId: string): Promise<unknown[]> {
     // The /queue/ endpoint returns a plain array, not a paginated response
-    return this.request('/picture-moderation/queue/', 'GET') as Promise<unknown[]>;
+    return this.request(`/picture-moderation/queue/?user_id=${adminUserId}`, 'GET') as Promise<unknown[]>;
   }
 
-  async approvePicture(moderationId: string): Promise<unknown> {
-    return this.request(`/picture-moderation/${moderationId}/approve/`, 'POST');
+  async approvePicture(moderationId: string, adminUserId: string): Promise<unknown> {
+    return this.request(`/picture-moderation/${moderationId}/approve/`, 'POST', { user_id: adminUserId });
   }
 
-  async rejectPicture(moderationId: string, reason?: string): Promise<unknown> {
-    return this.request(`/picture-moderation/${moderationId}/reject/`, 'POST', { reason });
+  async rejectPicture(moderationId: string, adminUserId: string, reason?: string): Promise<unknown> {
+    return this.request(`/picture-moderation/${moderationId}/reject/`, 'POST', { user_id: adminUserId, reason });
   }
 
   async getRestrictedText(): Promise<unknown[]> {

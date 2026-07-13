@@ -30,8 +30,8 @@ export const getAllowedExclusionValues = (question?: ExclusionQuestion | null): 
   const groupNumber = Number(question?.group_number);
   const questionName = (question?.question_name || '').trim().toLowerCase();
 
-  // These mandatory groups are endpoint-style for exclusion purposes.
-  if ([2, 3, 5, 7].includes(questionNumber)) return [1, 5];
+  // Exclusions are scale-based for these questions even when the answer UI is grouped.
+  if ([2, 3, 7, 8, 11].includes(questionNumber)) return DEFAULT_EXCLUSION_VALUES;
 
   if (questionNumber === 4) return [1, 3, 5];
 
@@ -47,14 +47,16 @@ export const getAllowedExclusionValues = (question?: ExclusionQuestion | null): 
 
 export const normalizeExcludedValues = (
   values: unknown,
-  allowedValues: number[] = DEFAULT_EXCLUSION_VALUES
+  allowedValues: number[] = DEFAULT_EXCLUSION_VALUES,
+  blockedValues: number[] = []
 ): number[] => {
   if (!Array.isArray(values)) return [];
 
   const allowed = new Set(allowedValues);
+  const blocked = new Set(blockedValues);
   const normalized = values
     .map(value => Number(value))
-    .filter(value => Number.isInteger(value) && allowed.has(value));
+    .filter(value => Number.isInteger(value) && allowed.has(value) && !blocked.has(value));
 
   return uniqueSortedValues(normalized);
 };

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue } from '@/utils/answerValues';
+import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 
 interface Question {
@@ -268,7 +268,7 @@ export default function ReadOnlyQuestionViewPage() {
                     <ReadOnlySliderComponent
                       value={meValue}
                       isOpenToAll={meOpenToAll}
-                      labels={question.answers}
+                      labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                     />
                   </div>
                   <div>
@@ -360,7 +360,7 @@ export default function ReadOnlyQuestionViewPage() {
                         <ReadOnlySliderComponent
                           value={lookingValue}
                           isOpenToAll={lookingOpenToAll}
-                          labels={question.answers}
+                          labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                         />
                       </div>
                       <div>
@@ -444,7 +444,7 @@ export default function ReadOnlyQuestionViewPage() {
                       <ReadOnlySliderComponent
                         value={meValue}
                         isOpenToAll={meOpenToAll}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     <div>
@@ -570,7 +570,7 @@ export default function ReadOnlyQuestionViewPage() {
                       <ReadOnlySliderComponent
                         value={lookingValue}
                         isOpenToAll={lookingOpenToAll}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
@@ -671,7 +671,7 @@ export default function ReadOnlyQuestionViewPage() {
                       <ReadOnlySliderComponent
                         value={meValue}
                         isOpenToAll={meOpenToAll}
-                        labels={question.answers}
+                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                       />
                     </div>
                     <div className={hasRowScaleLabels ? 'flex flex-col items-center' : ''}>
@@ -784,7 +784,7 @@ export default function ReadOnlyQuestionViewPage() {
                     <ReadOnlySliderComponent
                       value={meValue}
                       isOpenToAll={meOpenToAll}
-                      labels={question.answers}
+                      labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                     />
                   </div>
                   <div>
@@ -836,7 +836,7 @@ export default function ReadOnlyQuestionViewPage() {
                     <ReadOnlySliderComponent
                       value={lookingValue}
                       isOpenToAll={lookingOpenToAll}
-                      labels={question.answers}
+                      labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
                     />
                   </div>
                   <div>
