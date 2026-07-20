@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import ExclusionControl from '@/components/ExclusionControl';
+import NoteControl from '@/components/NoteControl';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
@@ -53,6 +54,7 @@ export default function QuestionPage() {
   const [excludedAnswerValues, setExcludedAnswerValues] = useState<number[]>(
     normalizeExcludedValues(initialEa?.exc)
   );
+  const [answerNote, setAnswerNote] = useState<string>(initialEa?.note || '');
   const allowedExclusionValues = useMemo(
     () => getAllowedExclusionValues(question),
     [question]
@@ -266,18 +268,22 @@ export default function QuestionPage() {
     </div>
   );
 
-  const OtaExcControls = ({ showOta, checked, onToggle, showExc = true }: { showOta: boolean; checked: boolean; onToggle: () => void; showExc?: boolean }) => (
+  const OtaExcControls = ({ showOta, checked, onToggle, showExc = true, showNote = false }: { showOta: boolean; checked: boolean; onToggle: () => void; showExc?: boolean; showNote?: boolean }) => (
     <div className="grid grid-cols-[44px_28px] sm:grid-cols-[44px_88px] gap-2 items-center min-w-0">
       <div className={showOta ? '' : 'invisible'}>
         <ToggleControl checked={checked} onChange={onToggle} />
       </div>
-      <div className={showExc ? '' : 'invisible'} aria-hidden={!showExc}>
-        <ExclusionControl
-          values={excludedAnswerValues}
-          allowedValues={allowedExclusionValues}
-          blockedValues={blockedExclusionValues}
-          onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))}
-        />
+      <div className={showExc || showNote ? '' : 'invisible'} aria-hidden={!showExc && !showNote}>
+        {showNote && !showExc ? (
+          <NoteControl value={answerNote} onChange={setAnswerNote} />
+        ) : (
+          <ExclusionControl
+            values={excludedAnswerValues}
+            allowedValues={allowedExclusionValues}
+            blockedValues={blockedExclusionValues}
+            onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))}
+          />
+        )}
       </div>
     </div>
   );
@@ -504,7 +510,8 @@ export default function QuestionPage() {
       try {
         const [answerRes, reqRes] = await Promise.all([
           fetch(
-            `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${encodeURIComponent(userId)}&page_size=100`,
+            // user_id marks the requester as the author so their own me_note is returned
+            `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${encodeURIComponent(userId)}&user_id=${encodeURIComponent(userId)}&page_size=100`,
             { headers: { 'Content-Type': 'application/json' } }
           ),
           fetch(
@@ -540,6 +547,7 @@ export default function QuestionPage() {
               existing.me_open_to_all ? [] : [existing.me_answer || 3]
             ));
             setMeShare(existing.me_share !== false);
+            setAnswerNote(existing.me_note || '');
           } else if (!initialEa && currentFetchId === answerFetchIdRef.current) {
             setOpenToAll(prev => ({
               ...prev,
@@ -547,6 +555,7 @@ export default function QuestionPage() {
               lookingForOpen: false,
             }));
             setExcludedAnswerValues([]);
+            setAnswerNote('');
           }
         }
 
@@ -812,6 +821,7 @@ export default function QuestionPage() {
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
         excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues),
+        me_note: answerNote,
         is_required_for_me: meRequired
       };
       // For ethnicity questions, save in background without blocking UI
@@ -1424,6 +1434,7 @@ export default function QuestionPage() {
                 checked={openToAll.meOpen}
                 onToggle={() => handleOpenToAllToggle('meOpen')}
                 showExc={false}
+                showNote
               />
             </div>
           </div>

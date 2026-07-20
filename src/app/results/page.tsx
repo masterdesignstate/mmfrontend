@@ -348,6 +348,9 @@ function ResultsPageContent() {
   const lastCompatibilityTypeRef = useRef<string>('');
   const isCheckingMatchesRef = useRef(false);
   const hasMountedRef = useRef(false);
+  // Guards the search-refetch effect from firing on mount (the initial load
+  // already happens elsewhere).
+  const isInitialSearchMount = useRef(true);
 
   // --- Timing diagnostics ---
   const mountTime = useRef(performance.now());
@@ -752,8 +755,18 @@ function ResultsPageContent() {
   // When search term changes, refetch from page 1 with search parameters
   // Debounce to avoid refetching on every keystroke
   useEffect(() => {
-    if (loading) return; // Don't refetch if already loading
-    
+    // Skip the mount run -- the initial load is already fetched elsewhere.
+    // This guard used to be `if (loading) return`, which also silently dropped
+    // the refetch whenever the user typed while any request was in flight (the
+    // initial load or an infinite-scroll page). Because `loading` wasn't in the
+    // dep array the effect never re-ran once it settled, so the search term was
+    // never sent to the server and search silently degraded to filtering only
+    // the pages already loaded.
+    if (isInitialSearchMount.current) {
+      isInitialSearchMount.current = false;
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       // Reset to page 1 and refetch with search parameters
       setCurrentPage(1);
@@ -768,35 +781,11 @@ function ResultsPageContent() {
   // Apply filtering and sorting whenever profiles, sortOption, or searchTerm changes
   useEffect(() => {
     if (profiles.length > 0) {
-      // First filter by search term if provided
+      // Search is applied server-side (see the `search`/`search_field` params in
+      // fetchCompatibleUsers), so `profiles` already contains only matches.
+      // Re-filtering here would only ever narrow that set to the pages loaded so
+      // far, hiding matches that live on pages the user hasn't scrolled to yet.
       let filteredProfiles = profiles;
-      if (searchTerm.trim()) {
-        const searchLower = searchTerm.toLowerCase().trim();
-        filteredProfiles = profiles.filter(profile => {
-          let matches = false;
-          
-          switch (searchField) {
-            case 'name':
-              const firstName = (profile.user.first_name || '').toLowerCase();
-              matches = firstName.includes(searchLower);
-              break;
-            case 'username':
-              const username = (profile.user.username || '').toLowerCase();
-              matches = username.includes(searchLower);
-              break;
-            case 'live':
-              const live = (profile.user.live || '').toLowerCase();
-              matches = live.includes(searchLower);
-              break;
-            case 'bio':
-              const bio = (profile.user.bio || '').toLowerCase();
-              matches = bio.includes(searchLower);
-              break;
-          }
-          
-          return matches;
-        });
-      }
 
       // Apply distance filtering using the APPLIED snapshot — so the visible cards
       // don't get re-filtered until the new fetch (which uses the new filters server-side) arrives.

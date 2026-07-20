@@ -31,6 +31,8 @@ interface UserAnswer {
   me_open_to_all?: boolean;
   looking_for_open_to_all?: boolean;
   me_share?: boolean;
+  /** Empty string when the viewer is not permitted to see it (stripped server-side). */
+  me_note?: string;
 }
 
 type AnswerVisibility = 'none' | 'all' | 'approved' | 'liked' | 'matched';
@@ -138,8 +140,9 @@ export default function ReadOnlyQuestionViewPage() {
         );
 
         // Fetch user answers for this question number
+        // user_id identifies the viewer so the server can decide whether to include me_note
         const answersResponse = await fetch(
-          `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page_size=100`
+          `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&user_id=${currentUserId || ''}&page_size=100`
         );
         const answersData = await answersResponse.json();
         const answersList = answersData.results || [];
@@ -216,6 +219,40 @@ export default function ReadOnlyQuestionViewPage() {
         )}
 
         <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
+      </div>
+    );
+  };
+
+  /**
+   * Notes attached to this user's Me answers. The server already blanks me_note for
+   * viewers the author's note_visibility setting excludes, so there is no gate here --
+   * a non-empty string means the viewer is allowed to read it.
+   */
+  const renderMeNotes = () => {
+    const noted = userAnswers.filter(a => (a.me_note || '').trim().length > 0);
+    if (noted.length === 0) return null;
+
+    return (
+      <div className="mx-auto mt-4 max-w-[692px] space-y-2">
+        {noted.map(answer => {
+          const question = typeof answer.question === 'object' ? answer.question : null;
+          return (
+            <div key={`note-${answer.id}`} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+              {noted.length > 1 && question && (
+                <div className="mb-1 text-xs font-semibold text-gray-400">
+                  {question.question_name?.toUpperCase()}
+                </div>
+              )}
+              <div className="flex items-start gap-2">
+                <svg aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#672DB7]" viewBox="0 0 16 16" fill="none">
+                  <path d="M11.2 2.3a1.4 1.4 0 0 1 2 2L6.5 11l-2.6.7.7-2.6 6.6-6.8Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2.8 13.8h10.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                <p className="whitespace-pre-wrap text-sm text-gray-800">{answer.me_note}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -318,6 +355,7 @@ export default function ReadOnlyQuestionViewPage() {
             </div>
             <div></div>
           </div>
+          {renderMeNotes()}
         </div>
       );
     }
@@ -462,6 +500,7 @@ export default function ReadOnlyQuestionViewPage() {
                 );
               })}
             </div>
+            {renderMeNotes()}
           </div>
         </div>
       );
@@ -694,6 +733,7 @@ export default function ReadOnlyQuestionViewPage() {
                 );
               })}
             </div>
+            {renderMeNotes()}
           </div>
         </div>
       );
@@ -802,6 +842,7 @@ export default function ReadOnlyQuestionViewPage() {
               );
             })}
           </div>
+          {renderMeNotes()}
         </div>
 
         {/* Them Section */}

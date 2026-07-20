@@ -8,6 +8,7 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import ExclusionControl from '@/components/ExclusionControl';
+import NoteControl from '@/components/NoteControl';
 import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
@@ -40,6 +41,8 @@ interface UserAnswer {
   me_open_to_all: boolean;
   looking_for_open_to_all: boolean;
   excluded_answer_values?: number[];
+  /** Empty string when the viewer is not permitted to see it (stripped server-side). */
+  me_note?: string;
 }
 
 const FREQUENCY_SCALE_LABELS = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
@@ -602,6 +605,7 @@ function QuestionEditPageContent() {
   const [sliderAnswers, setSliderAnswers] = useState<Record<string, number>>({});
   const [openToAllStates, setOpenToAllStates] = useState<Record<string, boolean>>({});
   const [excludedAnswerValues, setExcludedAnswerValues] = useState<Record<string, number[]>>({});
+  const [answerNotes, setAnswerNotes] = useState<Record<string, string>>({});
   const [importanceValues, setImportanceValues] = useState({ me: 3, lookingFor: 3 });
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -680,7 +684,9 @@ function QuestionEditPageContent() {
         // Fire all 3 requests in parallel instead of sequentially
         const [questionsRes, answersRes, requiredRes] = await Promise.all([
           fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`, { headers }),
-          fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&question_number=${questionNumber}&page_size=100`, { headers }),
+          // user_id identifies the viewer so the server returns this user's own me_note
+          // rather than stripping it (see NoteVisibilityResolver on the backend).
+          fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${storedUserId}&user_id=${storedUserId}&question_number=${questionNumber}&page_size=100`, { headers }),
           fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(storedUserId!)}&page_size=200`, { headers }),
         ]);
 
@@ -732,7 +738,8 @@ function QuestionEditPageContent() {
     const sliders: Record<string, number> = {};
     const openToAll: Record<string, boolean> = {};
     const exclusions: Record<string, number[]> = {};
-    
+    const notes: Record<string, string> = {};
+
     questions.forEach(question => {
       // Handle both cases: answer.question as object or as string
       const answer = answers.find(a => {
@@ -751,7 +758,8 @@ function QuestionEditPageContent() {
           getAllowedExclusionValues(question),
           answer.me_open_to_all ? [] : [answer.me_answer || 3]
         );
-        
+        notes[key] = answer.me_note || '';
+
         setImportanceValues({
           me: answer.me_importance || 3,
           lookingFor: answer.looking_for_importance || 3
@@ -768,12 +776,14 @@ function QuestionEditPageContent() {
         openToAll[`${key}_me`] = false;
         openToAll[`${key}_looking`] = false;
         exclusions[key] = [];
+        notes[key] = '';
       }
     });
-    
+
     setSliderAnswers(sliders);
     setOpenToAllStates(openToAll);
     setExcludedAnswerValues(exclusions);
+    setAnswerNotes(notes);
     
     // For single-choice questions (3, 4, 5)
     if ([3, 4, 5].includes(questionNumber) && answers.length > 0) {
@@ -816,6 +826,7 @@ function QuestionEditPageContent() {
           getAllowedExclusionValues(question),
           existingAnswer.me_open_to_all ? [] : [existingAnswer.me_answer || 3]
         ),
+        note: existingAnswer.me_note || '',
       }));
     }
 
@@ -933,6 +944,7 @@ function QuestionEditPageContent() {
               getAllowedExclusionValues(question),
               openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3]
             ),
+            me_note: answerNotes[key] || '',
             is_required_for_me: isNonGroupedQuestionOver10 ? meRequired : false
           };
 
@@ -992,6 +1004,7 @@ function QuestionEditPageContent() {
               getAllowedExclusionValues(question),
               [answerValue]
             ),
+            me_note: answerNotes[`q${question.group_number || question.id}`] ?? existingAnswer?.me_note ?? '',
             is_required_for_me: false
           };
 
@@ -1051,6 +1064,7 @@ function QuestionEditPageContent() {
               getAllowedExclusionValues(question),
               [answerValue]
             ),
+            me_note: answerNotes[`q${question.group_number || question.id}`] ?? existingAnswer?.me_note ?? '',
             is_required_for_me: false
           };
 
@@ -1375,6 +1389,10 @@ function QuestionEditPageContent() {
     </div>
   );
 
+  const setNoteForKey = (key: string, note: string) => {
+    setAnswerNotes(prev => ({ ...prev, [key]: note }));
+  };
+
   const renderOtaSwitch = (
     checked: boolean,
     onChange: () => void,
@@ -1405,18 +1423,24 @@ function QuestionEditPageContent() {
     otaEnabled: boolean,
     showExc = true,
     question?: Question,
+    showNote = false,
   ) => (
     <div className="grid min-h-8 grid-cols-[44px_28px] sm:grid-cols-[44px_88px] items-center gap-2 overflow-visible min-w-0">
       <div className={otaEnabled ? '' : 'invisible'}>
         {otaEnabled ? renderOtaSwitch(checked, onToggle, otaEnabled) : <div className="w-11 h-6" aria-hidden />}
       </div>
-      <div className={showExc ? '' : 'invisible'} aria-hidden={!showExc}>
+      <div className={showExc || showNote ? '' : 'invisible'} aria-hidden={!showExc && !showNote}>
       {showExc ? (
         <ExclusionControl
           values={excludedAnswerValues[key] || []}
           allowedValues={getAllowedExclusionValues(question)}
           blockedValues={getBlockedExclusionValuesForKey(key)}
           onChange={(values) => setExcludedValuesForKey(key, values, question)}
+        />
+      ) : showNote ? (
+        <NoteControl
+          value={answerNotes[key] || ''}
+          onChange={(note) => setNoteForKey(key, note)}
         />
       ) : (
         <div className="w-7 sm:w-[88px]" aria-hidden />
@@ -1653,6 +1677,7 @@ function QuestionEditPageContent() {
                       question.open_to_all_me,
                       false,
                       question,
+                      true,
                     )}
                   </React.Fragment>
                 );
@@ -1826,6 +1851,7 @@ function QuestionEditPageContent() {
                         question.open_to_all_me,
                         false,
                         question,
+                        true,
                       )}
                     </div>
                   </React.Fragment>
@@ -2091,6 +2117,7 @@ function QuestionEditPageContent() {
                 question.open_to_all_me,
                 false,
                 question,
+                true,
               )}
             </div>
           </div>

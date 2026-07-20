@@ -8,6 +8,11 @@ interface Controls {
   adjust: number;
   exponent: number;
   ota: number;
+  // Optional: a backend that predates the auto-updater migration omits these
+  // entirely. Absent means "this deploy has no switches", NOT "switched off" --
+  // see supportsAutoUpdaterToggles below.
+  auto_updater_enabled?: boolean;
+  auto_answer_required_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +79,55 @@ export default function ControlsPage() {
         ...prev,
         [name]: value,
       }));
+    }
+  };
+
+  // Whether the connected backend actually knows about the switches. An older
+  // deploy omits the fields, and rendering that as "off" would wrongly imply the
+  // background job is disabled when it is in fact running normally.
+  const supportsAutoUpdaterToggles = !!controls && 'auto_updater_enabled' in controls;
+  // Both fields default to True server-side, so treat a missing value as on.
+  const autoUpdaterEnabled = controls?.auto_updater_enabled ?? true;
+  const autoAnswerRequiredEnabled = controls?.auto_answer_required_enabled ?? true;
+
+  // Kill switches apply immediately rather than going through the edit/Save
+  // flow used by the numeric knobs -- when you're turning the background job
+  // off you want it off now, not after a second click.
+  const handleToggle = async (
+    field: 'auto_updater_enabled' | 'auto_answer_required_enabled',
+    value: boolean,
+  ) => {
+    if (!controls) return;
+
+    const previous = controls;
+    // Optimistic update so the switch responds instantly.
+    setControls({ ...controls, [field]: value });
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.CONTROLS)}${controls.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update setting');
+      }
+
+      const updatedData = await response.json();
+      setControls(updatedData);
+      setSuccess(
+        field === 'auto_updater_enabled'
+          ? `Auto updater ${value ? 'enabled' : 'disabled'}.`
+          : `Required-question answering ${value ? 'enabled' : 'disabled'}.`,
+      );
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setControls(previous); // Roll back so the UI can't claim a state the server rejected.
+      setError(err instanceof Error ? err.message : 'Failed to update setting');
+      console.error('Error toggling control:', err);
     }
   };
 
@@ -247,6 +301,70 @@ export default function ControlsPage() {
             ) : (
               <div className="text-3xl font-light text-gray-900">{controls?.ota}</div>
             )}
+          </div>
+
+          {/* Background job kill switches -- saved immediately, independent of the edit/Save flow above */}
+          <div className="pt-6 border-t border-gray-100 space-y-5">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
+                Background Activity
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Controls the scheduled job that simulates activity. Changes apply immediately.
+              </p>
+              {controls && !supportsAutoUpdaterToggles && (
+                <p className="mt-2 text-xs font-medium text-amber-600">
+                  This backend doesn&apos;t have the switches yet, so they can&apos;t be changed here.
+                  The job is running with its defaults (both on). Deploy and run migrations to enable them.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="text-sm font-medium text-gray-900">Auto updater</div>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Master switch. When off, the job does nothing at all.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  checked={autoUpdaterEnabled}
+                  onChange={(e) => handleToggle('auto_updater_enabled', e.target.checked)}
+                  disabled={!supportsAutoUpdaterToggles}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-gray-900 peer-focus:ring-2 peer-focus:ring-gray-900 peer-focus:ring-offset-2 peer-disabled:opacity-40 transition-colors"></div>
+                <div className="absolute w-5 h-5 ml-0.5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5 pointer-events-none"></div>
+              </label>
+            </div>
+
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="text-sm font-medium text-gray-900">Answer required questions</div>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Auto-answers pending required questions for real (non-dummy) users. Simulated
+                  accounts are never touched.
+                </p>
+                {supportsAutoUpdaterToggles && !autoUpdaterEnabled && (
+                  <p className="mt-1 text-xs font-medium text-amber-600">
+                    Inactive while the auto updater is off.
+                  </p>
+                )}
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  checked={autoAnswerRequiredEnabled}
+                  onChange={(e) => handleToggle('auto_answer_required_enabled', e.target.checked)}
+                  disabled={!supportsAutoUpdaterToggles}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-gray-900 peer-focus:ring-2 peer-focus:ring-gray-900 peer-focus:ring-offset-2 peer-disabled:opacity-40 transition-colors"></div>
+                <div className="absolute w-5 h-5 ml-0.5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5 pointer-events-none"></div>
+              </label>
+            </div>
           </div>
 
           {/* Action Buttons (shown only when editing) */}

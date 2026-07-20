@@ -26,6 +26,8 @@ function SettingsPageContent() {
   const [photoVis, setPhotoVis] = useState<FeedVisibility>('all');
   const [questionVis, setQuestionVis] = useState<FeedVisibility>('all');
   const [savingFeedVisibility, setSavingFeedVisibility] = useState(false);
+  const [noteVis, setNoteVis] = useState<FeedVisibility>('all');
+  const [savingNoteVisibility, setSavingNoteVisibility] = useState(false);
   const [importanceExclusionValues, setImportanceExclusionValues] = useState<number[]>([]);
   const [savingImportanceExclusion, setSavingImportanceExclusion] = useState(false);
 
@@ -66,6 +68,7 @@ function SettingsPageContent() {
         setBioVis((user.feed_visibility_bio ?? 'all') as FeedVisibility);
         setPhotoVis((user.feed_visibility_photo ?? 'all') as FeedVisibility);
         setQuestionVis((user.feed_visibility_question ?? 'all') as FeedVisibility);
+        setNoteVis((user.note_visibility ?? 'all') as FeedVisibility);
         setImportanceExclusionValues(normalizeExcludedValues(user.importance_exclusion_values, DEFAULT_EXCLUSION_VALUES));
       }).catch(err => {
         console.error('Error loading privacy settings:', err);
@@ -106,6 +109,24 @@ function SettingsPageContent() {
       setMessage({ type: 'error', text: 'Could not update answer sharing. Please try again.' });
     } finally {
       setSavingShareAnswers(false);
+    }
+  };
+
+  const handleChangeNoteVisibility = async (next: FeedVisibility) => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId || savingNoteVisibility || next === noteVis) return;
+    const prev = noteVis;
+    setNoteVis(next);
+    setSavingNoteVisibility(true);
+    try {
+      await apiService.updateUser(userId, { note_visibility: next });
+      posthog.capture('privacy_note_visibility_changed', { value: next });
+    } catch (error) {
+      console.error('Error updating note visibility setting:', error);
+      setNoteVis(prev);
+      setMessage({ type: 'error', text: 'Could not update note visibility. Please try again.' });
+    } finally {
+      setSavingNoteVisibility(false);
     }
   };
 
@@ -413,6 +434,33 @@ function SettingsPageContent() {
                 disabled={savingShareAnswers}
                 className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:ring-[#672DB7] focus:border-[#672DB7] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Who can see Them on answers you share"
+              >
+                <option value="none">None</option>
+                <option value="all">Everyone</option>
+                <option value="approved">Approved</option>
+                <option value="liked">Liked</option>
+                <option value="matched">Matched</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Note Visibility Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="px-5 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Note Visibility</h2>
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900">Show the notes you add to your answers.</h3>
+              </div>
+              <select
+                value={noteVis}
+                onChange={(e) => handleChangeNoteVisibility(e.target.value as FeedVisibility)}
+                disabled={savingNoteVisibility}
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:ring-[#672DB7] focus:border-[#672DB7] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                aria-label="Who can see the notes you add to your answers"
               >
                 <option value="none">None</option>
                 <option value="all">Everyone</option>

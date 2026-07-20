@@ -208,6 +208,7 @@ export interface ApiUser {
   feed_visibility_bio?: FeedVisibility;
   feed_visibility_photo?: FeedVisibility;
   feed_visibility_question?: FeedVisibility;
+  note_visibility?: FeedVisibility;
   importance_exclusion_values?: number[];
   pictures?: UserPicture[];
   profile_prompts?: UserProfilePrompt[];
@@ -230,6 +231,9 @@ export interface UserAnswer {
   me_open_to_all?: boolean;
   me_importance: number;
   me_share?: boolean;
+  /** Empty string when the viewer is not permitted to see it (stripped server-side). */
+  me_note?: string;
+  me_note_updated_at?: string | null;
   looking_for_answer: number;
   looking_for_open_to_all?: boolean;
   looking_for_importance: number;
@@ -739,7 +743,8 @@ class ApiService {
     }
   }
 
-  async getUserAnswers(userId: string): Promise<UserAnswer[]> {
+  /** @param viewerId identifies the requester so the server can decide whether to include me_note. */
+  async getUserAnswers(userId: string, viewerId?: string): Promise<UserAnswer[]> {
     // For user answers, we need to handle the user parameter separately
     // because the endpoint already has query parameters
     let allResults: UserAnswer[] = [];
@@ -751,7 +756,8 @@ class ApiService {
     console.log('userId:', userId);
     
     while (page <= maxPages) {
-      const url = `${API_BASE_URL}/answers/?user=${userId}&page=${page}&page_size=${pageSize}`;
+      const viewerParam = viewerId ? `&user_id=${encodeURIComponent(viewerId)}` : '';
+      const url = `${API_BASE_URL}/answers/?user=${userId}${viewerParam}&page=${page}&page_size=${pageSize}`;
       
       console.log('=== USER ANSWERS FETCH ATTEMPT ===');
       console.log(`Page ${page}/${maxPages} - Final URL: "${url}"`);

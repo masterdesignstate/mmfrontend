@@ -15,6 +15,7 @@ import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import ExclusionControl from '@/components/ExclusionControl';
+import NoteControl from '@/components/NoteControl';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
@@ -374,6 +375,7 @@ export default function UserProfilePage() {
   const [editSliderAnswers, setEditSliderAnswers] = useState<Record<string, number>>({});
   const [editOpenToAllStates, setEditOpenToAllStates] = useState<Record<string, boolean>>({});
   const [editExcludedAnswerValues, setEditExcludedAnswerValues] = useState<Record<string, number[]>>({});
+  const [editAnswerNotes, setEditAnswerNotes] = useState<Record<string, string>>({});
   const [editImportanceValues, setEditImportanceValues] = useState({ me: 3, lookingFor: 3 });
   const [editSaving, setEditSaving] = useState(false);
   const [editMeShare, setEditMeShare] = useState(true);
@@ -575,7 +577,7 @@ export default function UserProfilePage() {
               // Current user's answers (to determine which questions they've answered)
               parallelFetches.push(
                 fetch(
-                  `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=1&page_size=100`,
+                  `${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&user_id=${currentUserId}&page=1&page_size=100`,
                   { headers: { 'Content-Type': 'application/json' } }
                 )
               );
@@ -615,7 +617,7 @@ export default function UserProfilePage() {
                     const remainingPromises = [];
                     for (let p = 2; p <= totalPages; p++) {
                       remainingPromises.push(
-                        fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=${p}&page_size=100`, { headers: { 'Content-Type': 'application/json' } })
+                        fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&user_id=${currentUserId}&page=${p}&page_size=100`, { headers: { 'Content-Type': 'application/json' } })
                           .then(r => r.ok ? r.json() : null)
                           .then(data => data?.results || [])
                       );
@@ -661,7 +663,7 @@ export default function UserProfilePage() {
           const wave1Promises: Promise<Response>[] = [
             fetch(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`, { headers }),                               // [0] user
             fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?page_size=1000`, { headers }),                       // [1] questions
-            fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=1&page_size=${pageSize}`, { headers }), // [2] answers p1
+            fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&user_id=${currentUserId}&page=1&page_size=${pageSize}`, { headers }), // [2] answers p1
             fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(userId)}&page_size=200`, { headers }), // [3] profile user's required
           ];
           // Add compatibility request if applicable
@@ -675,7 +677,7 @@ export default function UserProfilePage() {
               fetch(`${getApiUrl(API_ENDPOINTS.USER_REQUIRED_QUESTIONS)}?user=${encodeURIComponent(currentUserId)}&page_size=200`, { headers }) // [5] current user's required
             );
             wave1Promises.push(
-              fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=1&page_size=${pageSize}`, { headers }) // [6] current user's answers p1
+              fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&user_id=${currentUserId}&page=1&page_size=${pageSize}`, { headers }) // [6] current user's answers p1
             );
           }
 
@@ -721,7 +723,7 @@ export default function UserProfilePage() {
               const remainingPagePromises = [];
               for (let p = 2; p <= totalPages; p++) {
                 remainingPagePromises.push(
-                  fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&page=${p}&page_size=${pageSize}`, { headers })
+                  fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${userId}&user_id=${currentUserId}&page=${p}&page_size=${pageSize}`, { headers })
                     .then(r => r.ok ? r.json() : null)
                     .then(data => data?.results || [])
                 );
@@ -756,7 +758,7 @@ export default function UserProfilePage() {
                 const curAnswerPromises = [];
                 for (let p = 2; p <= totalPages; p++) {
                   curAnswerPromises.push(
-                    fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&page=${p}&page_size=${pageSize}`, { headers })
+                    fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}?user=${currentUserId}&user_id=${currentUserId}&page=${p}&page_size=${pageSize}`, { headers })
                       .then(r => r.ok ? r.json() : null)
                       .then(data => data?.results || [])
                   );
@@ -2130,6 +2132,7 @@ export default function UserProfilePage() {
     const sliders: Record<string, number> = {};
     const openToAll: Record<string, boolean> = {};
     const exclusions: Record<string, number[]> = {};
+    const notes: Record<string, string> = {};
     questionsForNumber.forEach((q: any) => {
       const key = `q${q.group_number || q.id}`;
       const existing = existingAnswers.find((a: any) => {
@@ -2145,11 +2148,13 @@ export default function UserProfilePage() {
         getAllowedExclusionValues(q),
         existing?.me_open_to_all ? [] : [existing?.me_answer || 3]
       );
+      notes[key] = existing?.me_note || '';
     });
 
     setEditSliderAnswers(sliders);
     setEditOpenToAllStates(openToAll);
     setEditExcludedAnswerValues(exclusions);
+    setEditAnswerNotes(notes);
     const firstExisting = existingAnswers[0];
     setEditImportanceValues({
       me: firstExisting?.me_importance || 3,
@@ -2259,6 +2264,7 @@ export default function UserProfilePage() {
           getAllowedExclusionValues(question),
           editOpenToAllStates[`${key}_me`] ? [] : [editSliderAnswers[`${key}_me`] || 3]
         ),
+        me_note: editAnswerNotes[key] || '',
         is_required_for_me: isNonGrouped ? editMeRequired : false
       });
     }
@@ -2360,7 +2366,7 @@ export default function UserProfilePage() {
     )
   );
 
-  const renderEditOtaExcControls = (key: string, checked: boolean, onToggle: () => void, otaEnabled: boolean, showExc = true, question?: ExclusionQuestion) => (
+  const renderEditOtaExcControls = (key: string, checked: boolean, onToggle: () => void, otaEnabled: boolean, showExc = true, question?: ExclusionQuestion, showNote = false) => (
     <div className={`flex items-center gap-2 ${otaEnabled || !showExc ? 'justify-center' : 'justify-start'}`}>
       {otaEnabled && renderEditOtaSwitch(checked, onToggle, otaEnabled)}
       {showExc && (
@@ -2369,6 +2375,12 @@ export default function UserProfilePage() {
           allowedValues={getAllowedExclusionValues(question)}
           blockedValues={getEditBlockedExclusionValuesForKey(key)}
           onChange={(values) => setEditExcludedValuesForKey(key, values, question)}
+        />
+      )}
+      {!showExc && showNote && (
+        <NoteControl
+          value={editAnswerNotes[key] || ''}
+          onChange={(note) => setEditAnswerNotes(prev => ({ ...prev, [key]: note }))}
         />
       )}
     </div>
@@ -3844,6 +3856,7 @@ export default function UserProfilePage() {
                                     false,
                                     false,
                                     selectedSubQ,
+                                    true,
                                   )}
                                 </div>
                               </div>
@@ -4032,6 +4045,7 @@ export default function UserProfilePage() {
                                     question.open_to_all_me,
                                     isRelationship,
                                     question,
+                                    !isRelationship,
                                   )}
                                 </React.Fragment>
                               );
