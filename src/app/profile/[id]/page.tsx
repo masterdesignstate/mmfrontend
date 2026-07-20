@@ -16,6 +16,7 @@ import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import ExclusionControl from '@/components/ExclusionControl';
 import NoteControl from '@/components/NoteControl';
+import NoteReveal from '@/components/NoteReveal';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
@@ -66,6 +67,8 @@ interface UserAnswer {
   looking_for_importance?: number;
   me_share?: boolean;
   looking_for_share?: boolean;
+  /** Empty string when the viewer is not permitted to see it (stripped server-side). */
+  me_note?: string;
   excluded_answer_values?: number[];
   created_at?: string;
   updated_at?: string;
@@ -2386,6 +2389,25 @@ export default function UserProfilePage() {
     </div>
   );
 
+  /**
+   * Read-only notes for the inline question overlay's Me section. The server already
+   * blanks me_note for viewers the author's note_visibility excludes, so a non-empty
+   * string means this viewer is allowed to read it. Mirrors renderMeNotes() on the
+   * standalone /profile/[id]/questions/[questionNumber] page.
+   */
+  const renderReadOnlyMeNotes = (answers: any[]) => {
+    const noted = (answers || []).filter(a => (a?.me_note || '').trim().length > 0);
+    if (noted.length === 0) return null;
+    const ownerName = user?.first_name || user?.username || '';
+    return (
+      <div className="mx-auto mt-2 w-full max-w-[692px] space-y-2">
+        {noted.map((answer: any) => (
+          <NoteReveal key={`ro-note-${answer.id}`} name={ownerName} note={answer.me_note} />
+        ))}
+      </div>
+    );
+  };
+
   if (loading) {
     const loadingTexts = ['Loading profile...', 'Fetching details...', 'Almost there...'];
     return (
@@ -4488,6 +4510,7 @@ export default function UserProfilePage() {
                                 <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
                               </div>
 
+                              {renderReadOnlyMeNotes(answer ? [answer] : [])}
                             </div>
 
                             {/* Them Section */}
@@ -4759,6 +4782,7 @@ export default function UserProfilePage() {
                             );
                           })}
                         </div>
+                        {renderReadOnlyMeNotes(answersForQuestion)}
                       </div>
                     );
 
