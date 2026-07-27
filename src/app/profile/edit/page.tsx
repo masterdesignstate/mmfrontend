@@ -6,11 +6,16 @@ import { useRouter } from 'next/navigation';
 import { mutate } from 'swr';
 import { getMediaDurationSeconds, uploadPromptMediaToAzure, uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import CharCounter from '@/components/CharCounter';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
 import PlacesHttpAutocomplete from '@/components/PlacesHttpAutocomplete';
 import posthog from 'posthog-js';
 import {
   apiService,
+  MAX_BIO_CHARS,
+  MAX_TAGLINE_CHARS,
+  MAX_POLL_OPTION_CHARS,
   MAX_PROMPT_MEDIA_SECONDS,
   MAX_PROFILE_PROMPTS,
   MAX_POLL_PROFILE_PROMPTS,
@@ -148,6 +153,10 @@ export default function EditProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+
+  // Soft caps: over-limit text is typeable so the counter can flag it, but it blocks saving.
+  const taglineOverLimit = isOverLimit(form.tagline, MAX_TAGLINE_CHARS);
+  const bioOverLimit = isOverLimit(form.bio, MAX_BIO_CHARS);
 
   // Photo gallery
   const [pictures, setPictures] = useState<UserPicture[]>([]);
@@ -386,13 +395,18 @@ export default function EditProfilePage() {
       }
       if (item.prompt_type === 'written') {
         if (!item.written_answer.trim()) return 'Written prompts need an answer.';
-        if (item.written_answer.length > MAX_WRITTEN_PROMPT_CHARS) return 'Written answers must be 150 characters or fewer.';
+        if (isOverLimit(item.written_answer, MAX_WRITTEN_PROMPT_CHARS)) {
+          return overLimitMessage('Written answers', MAX_WRITTEN_PROMPT_CHARS);
+        }
       } else if (item.prompt_type === 'voice' || item.prompt_type === 'video') {
         if (!item.media_url || !item.media_duration_seconds) return 'Voice and video prompts need media.';
         if (item.media_duration_seconds > MAX_PROMPT_MEDIA_SECONDS) return 'Voice and video prompts must be 30 seconds or shorter.';
       } else if (item.prompt_type === 'poll') {
         if (item.poll_options.length !== 3 || item.poll_options.some(option => !option.trim())) {
           return 'Poll prompts need exactly 3 options.';
+        }
+        if (item.poll_options.some(option => isOverLimit(option, MAX_POLL_OPTION_CHARS))) {
+          return overLimitMessage('Poll options', MAX_POLL_OPTION_CHARS);
         }
       }
     }
@@ -535,6 +549,8 @@ export default function EditProfilePage() {
     if (!form.fullName || !form.username || !form.dateOfBirth || !form.from || !form.live) {
       return 'Please fill in all required fields';
     }
+    if (taglineOverLimit) return overLimitMessage('Tag line', MAX_TAGLINE_CHARS);
+    if (bioOverLimit) return overLimitMessage('Bio', MAX_BIO_CHARS);
     const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
     if (!dateRegex.test(form.dateOfBirth)) return 'Date must be in MM/DD/YYYY format';
     const [mm, dd, yyyy] = form.dateOfBirth.split('/').map(Number);
@@ -638,7 +654,7 @@ export default function EditProfilePage() {
     }
   }, [form, initialFormState]);
 
-  const canSave = isDirty && !saving;
+  const canSave = isDirty && !saving && !taglineOverLimit && !bioOverLimit;
 
   const renderPromptEditorCard = (item: PromptFormItem, index: number) => {
     const selectedTemplate = promptTemplateById.get(item.template_id);
@@ -677,15 +693,19 @@ export default function EditProfilePage() {
           <div className="mt-3">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-900">Answer</label>
-              <span className="text-xs text-gray-500">{item.written_answer.length}/{MAX_WRITTEN_PROMPT_CHARS}</span>
+              <CharCounter value={item.written_answer} max={MAX_WRITTEN_PROMPT_CHARS} />
             </div>
             <textarea
               value={item.written_answer}
-              onChange={(event) => updatePromptItem(index, { written_answer: event.target.value.slice(0, MAX_WRITTEN_PROMPT_CHARS) })}
-              maxLength={MAX_WRITTEN_PROMPT_CHARS}
+              onChange={(event) => updatePromptItem(index, { written_answer: event.target.value })}
               rows={3}
               placeholder="Write a short answer"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent resize-none"
+              aria-invalid={isOverLimit(item.written_answer, MAX_WRITTEN_PROMPT_CHARS)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent resize-none ${
+                isOverLimit(item.written_answer, MAX_WRITTEN_PROMPT_CHARS)
+                  ? 'border-red-400 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-[#672DB7]'
+              }`}
             />
           </div>
         )}
@@ -745,12 +765,16 @@ export default function EditProfilePage() {
                 value={item.poll_options[optionIndex] || ''}
                 onChange={(event) => {
                   const nextOptions = [...item.poll_options];
-                  nextOptions[optionIndex] = event.target.value.slice(0, 80);
+                  nextOptions[optionIndex] = event.target.value;
                   updatePromptItem(index, { poll_options: nextOptions });
                 }}
-                maxLength={80}
                 placeholder={`Option ${optionIndex + 1}`}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent"
+                aria-invalid={isOverLimit(item.poll_options[optionIndex] || '', MAX_POLL_OPTION_CHARS)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                  isOverLimit(item.poll_options[optionIndex] || '', MAX_POLL_OPTION_CHARS)
+                    ? 'border-red-400 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-[#672DB7]'
+                }`}
               />
             ))}
           </div>
@@ -1052,15 +1076,17 @@ export default function EditProfilePage() {
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-900">Tag line</label>
-                  <span className="text-xs text-gray-500">{form.tagline.length}/40</span>
+                  <CharCounter value={form.tagline} max={MAX_TAGLINE_CHARS} warnAt={5} />
                 </div>
                 <input
                   name="tagline"
                   value={form.tagline}
                   onChange={onChange}
-                  maxLength={40}
                   placeholder="Write a short tagline"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent"
+                  aria-invalid={taglineOverLimit}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                    taglineOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-300 focus:ring-[#672DB7]'
+                  }`}
                 />
               </div>
 
@@ -1130,16 +1156,18 @@ export default function EditProfilePage() {
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-900">Bio</label>
-                  <span className="text-xs text-gray-500">{form.bio.length}/160</span>
+                  <CharCounter value={form.bio} max={MAX_BIO_CHARS} />
                 </div>
                 <textarea
                   name="bio"
                   value={form.bio}
                   onChange={onChange}
-                  maxLength={160}
                   rows={3}
                   placeholder="Tell us about yourself..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-transparent resize-none"
+                  aria-invalid={bioOverLimit}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent resize-none ${
+                    bioOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-300 focus:ring-[#672DB7]'
+                  }`}
                 />
               </div>
             </div>

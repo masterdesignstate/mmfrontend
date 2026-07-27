@@ -7,7 +7,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { apiService, type FeedVisibility, type Post, type PostComment, type UserProfilePrompt } from '@/services/api';
+import { apiService, MAX_LIKE_NOTE_CHARS, type FeedVisibility, type Post, type PostComment, type UserProfilePrompt } from '@/services/api';
+import CharCounter from '@/components/CharCounter';
 import FeedPostCard, { DEFAULT_AVATAR, formatRelative } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import MatchCelebration from '@/components/MatchCelebration';
@@ -19,6 +20,7 @@ import NoteControl from '@/components/NoteControl';
 import NoteReveal from '@/components/NoteReveal';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
+import { isOverLimit } from '@/utils/textLimits';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues, type ExclusionQuestion } from '@/utils/exclusionValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
@@ -347,6 +349,7 @@ export default function UserProfilePage() {
   const [showLikePopup, setShowLikePopup] = useState(false);
   const [showNotePopup, setShowNotePopup] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const noteOverLimit = isOverLimit(noteText, MAX_LIKE_NOTE_CHARS);
   const [showReportPopup, setShowReportPopup] = useState(false);
   const [selectedReasonCategory, setSelectedReasonCategory] = useState('');
   const [reportReasonDetail, setReportReasonDetail] = useState('');
@@ -1305,6 +1308,7 @@ export default function UserProfilePage() {
 
   // Handle sending like with optional note
   const handleSendLike = async () => {
+    if (isOverLimit(noteText, MAX_LIKE_NOTE_CHARS)) return;
     setShowNotePopup(false);
     const currentUserId = localStorage.getItem('user_id');
     if (!currentUserId || !userId) return;
@@ -5373,17 +5377,20 @@ export default function UserProfilePage() {
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Write something nice..."
-                maxLength={200}
-                className="w-full h-28 px-4 py-3 border border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-[15px] mb-2"
+                aria-invalid={noteOverLimit}
+                className={`w-full h-28 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 focus:border-transparent text-[15px] mb-2 ${
+                  noteOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-200 focus:ring-purple-500'
+                }`}
               />
-              <div className="text-right text-xs text-gray-400 mb-6">
-                {noteText.length}/200
+              <div className="text-right mb-6">
+                <CharCounter value={noteText} max={MAX_LIKE_NOTE_CHARS} />
               </div>
 
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleSendLike}
-                  className="w-full py-3.5 text-[15px] font-medium text-white rounded-full hover:opacity-90 active:opacity-80 transition-opacity"
+                  disabled={noteOverLimit}
+                  className="w-full py-3.5 text-[15px] font-medium text-white rounded-full hover:opacity-90 active:opacity-80 transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%)' }}
                 >
                   {noteText.trim() ? 'Send Like & Note' : 'Send Like'}

@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { apiService, type PromptPollVote, type UserProfilePrompt } from '@/services/api';
+import CharCounter from '@/components/CharCounter';
+import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
+import { apiService, MAX_POLL_COMMENT_CHARS, type PromptPollVote, type UserProfilePrompt } from '@/services/api';
 
 type ProfilePromptCardsProps = {
   prompts?: UserProfilePrompt[];
@@ -40,6 +42,13 @@ export default function ProfilePromptCards({
       setErrorByPrompt(prev => ({ ...prev, [prompt.id]: 'Choose an option first.' }));
       return;
     }
+    if (isOverLimit(comments[prompt.id] || '', MAX_POLL_COMMENT_CHARS)) {
+      setErrorByPrompt(prev => ({
+        ...prev,
+        [prompt.id]: overLimitMessage('Comments', MAX_POLL_COMMENT_CHARS),
+      }));
+      return;
+    }
 
     setSubmittingPromptId(prompt.id);
     setErrorByPrompt(prev => ({ ...prev, [prompt.id]: '' }));
@@ -69,6 +78,7 @@ export default function ProfilePromptCards({
         const viewerVote = localVotes[prompt.id] || prompt.viewer_vote || null;
         const selected = selectedOptions[prompt.id] ?? viewerVote?.selected_option_index;
         const isSubmitting = submittingPromptId === prompt.id;
+        const commentOverLimit = isOverLimit(comments[prompt.id] || '', MAX_POLL_COMMENT_CHARS);
 
         return (
           <div key={prompt.id} className="rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -118,16 +128,21 @@ export default function ProfilePromptCards({
                   <>
                     <textarea
                       value={comments[prompt.id] || ''}
-                      onChange={(event) => setComments(prev => ({ ...prev, [prompt.id]: event.target.value.slice(0, 200) }))}
-                      maxLength={200}
+                      onChange={(event) => setComments(prev => ({ ...prev, [prompt.id]: event.target.value }))}
                       rows={2}
                       placeholder="Add a comment"
-                      className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#672DB7]"
+                      aria-invalid={commentOverLimit}
+                      className={`w-full resize-none rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                        commentOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-200 focus:ring-[#672DB7]'
+                      }`}
                     />
+                    <div className="flex justify-end">
+                      <CharCounter value={comments[prompt.id] || ''} max={MAX_POLL_COMMENT_CHARS} />
+                    </div>
                     <button
                       type="button"
                       onClick={() => submitVote(prompt)}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || commentOverLimit}
                       className="w-full rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isSubmitting ? 'Sending...' : viewerVote ? 'Update vote' : 'Vote'}

@@ -38,7 +38,7 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
             <div className="flex justify-center mb-6">
               <Image
                 src="/assets/mmlogox.png"
-                alt="Matchmatical"
+                alt="CompatibleFirst"
                 width={64}
                 height={64}
               />
@@ -114,7 +114,7 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
             <div className="flex justify-center mb-6">
               <Image
                 src="/assets/mmlogox.png"
-                alt="Matchmatical"
+                alt="CompatibleFirst"
                 width={64}
                 height={64}
               />

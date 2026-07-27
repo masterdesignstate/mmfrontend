@@ -31,11 +31,11 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
           <p className="text-gray-700 mb-4">
-            Welcome to Matchmatical. By accessing or using our matchmaking platform, you agree to be bound by these Terms of Service.
+            Welcome to CompatibleFirst. By accessing or using our matchmaking platform, you agree to be bound by these Terms of Service.
             If you do not agree to these terms, please do not use our service.
           </p>
           <p className="text-gray-700">
-            Matchmatical is a compatibility-based matchmaking platform that uses a question-and-answer system to help users find meaningful connections
+            CompatibleFirst is a compatibility-based matchmaking platform that uses a question-and-answer system to help users find meaningful connections
             based on shared values, lifestyle preferences, and compatibility scores.
           </p>
         </section>
@@ -44,7 +44,7 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Eligibility</h2>
           <p className="text-gray-700 mb-4">
-            You must be at least 18 years old to use Matchmatical. By creating an account, you represent and warrant that:
+            You must be at least 18 years old to use CompatibleFirst. By creating an account, you represent and warrant that:
           </p>
           <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
             <li>You are at least 18 years of age</li>
@@ -58,7 +58,7 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Account Registration and Security</h2>
           <p className="text-gray-700 mb-4">
-            To use Matchmatical, you must create an account using a valid email address and password. You agree to:
+            To use CompatibleFirst, you must create an account using a valid email address and password. You agree to:
           </p>
           <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
             <li>Provide accurate, current, and complete information during registration</li>
@@ -73,7 +73,7 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. User Content and Question Answers</h2>
           <p className="text-gray-700 mb-4">
-            Matchmatical allows users to answer questions about themselves and their preferences. You retain ownership of your responses,
+            CompatibleFirst allows users to answer questions about themselves and their preferences. You retain ownership of your responses,
             but grant us a license to use this information for:
           </p>
           <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
@@ -180,7 +180,7 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Disclaimers</h2>
           <p className="text-gray-700 mb-4">
-            Matchmatical is provided "as is" without warranties of any kind. We do not guarantee:
+            CompatibleFirst is provided "as is" without warranties of any kind. We do not guarantee:
           </p>
           <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
             <li>That you will find compatible matches</li>
@@ -194,7 +194,7 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">12. Limitation of Liability</h2>
           <p className="text-gray-700">
-            To the maximum extent permitted by law, Matchmatical shall not be liable for any indirect, incidental, special,
+            To the maximum extent permitted by law, CompatibleFirst shall not be liable for any indirect, incidental, special,
             consequential, or punitive damages arising from your use of the platform, including but not limited to damages
             for loss of profits, data, or relationships.
           </p>

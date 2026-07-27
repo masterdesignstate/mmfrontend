@@ -560,7 +560,7 @@ export default function ProfilePage() {
           <div className="flex justify-center mb-16">
             <Image
               src="/assets/mmlogox.png"
-              alt="Matchmatical"
+              alt="CompatibleFirst"
               width={120}
               height={120}
               priority

@@ -18,6 +18,16 @@ export const MAX_WRITTEN_PROMPT_CHARS = 150;
 export const MAX_PROMPT_MEDIA_SECONDS = 30;
 export const MAX_POLL_COMMENT_CHARS = 200;
 
+// Free-text length limits — keep in sync with the backend
+// (User.tagline / User.bio / UserAnswer.me_note / Post.MAX_BODY_LENGTH).
+export const MAX_TAGLINE_CHARS = 40;
+export const MAX_BIO_CHARS = 280;
+export const MAX_ANSWER_NOTE_CHARS = 160;
+export const MAX_POST_CHARS = 160;
+export const MAX_POST_COMMENT_CHARS = 1000;
+export const MAX_LIKE_NOTE_CHARS = 200;
+export const MAX_POLL_OPTION_CHARS = 80;
+
 export type ProfilePromptType = 'written' | 'voice' | 'video' | 'poll';
 
 export interface PromptTemplate {

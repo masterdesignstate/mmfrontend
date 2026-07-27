@@ -227,7 +227,7 @@ function NotificationsPageContent() {
                       <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center p-1.5 overflow-hidden">
                         <img
                           src="/assets/mmlogox.png"
-                          alt="Matchmatical"
+                          alt="CompatibleFirst"
                           className="w-full h-full object-contain"
                         />
                       </div>

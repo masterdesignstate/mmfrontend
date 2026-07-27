@@ -196,7 +196,7 @@ export default function IntroCardPage() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-100">
         <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} />
-        <h1 className="text-base font-semibold text-gray-900">Matchmatical</h1>
+        <h1 className="text-base font-semibold text-gray-900">CompatibleFirst</h1>
         <div className="w-8" />
       </div>
 

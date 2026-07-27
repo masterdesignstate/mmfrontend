@@ -4,7 +4,10 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import CharCounter from '@/components/CharCounter';
 import PlacesHttpAutocomplete from '@/components/PlacesHttpAutocomplete';
+import { MAX_BIO_CHARS, MAX_TAGLINE_CHARS } from '@/services/api';
+import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
 import posthog from 'posthog-js';
 
 export default function PersonalDetailsPage() {
@@ -27,6 +30,10 @@ export default function PersonalDetailsPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Soft caps: over-limit text is typeable so the counter can flag it, but it blocks Continue.
+  const taglineOverLimit = isOverLimit(formData.tagline, MAX_TAGLINE_CHARS);
+  const bioOverLimit = isOverLimit(formData.bio, MAX_BIO_CHARS);
 
   const formatHeightDisplay = (digits: string) => {
     if (!digits) return '';
@@ -196,6 +203,16 @@ export default function PersonalDetailsPage() {
     // Basic validation
     if (!formData.fullName || !formData.username || !formData.dateOfBirth || !formData.from || !formData.live) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    if (taglineOverLimit) {
+      setError(overLimitMessage('Tagline', MAX_TAGLINE_CHARS));
+      return;
+    }
+
+    if (bioOverLimit) {
+      setError(overLimitMessage('Bio', MAX_BIO_CHARS));
       return;
     }
 
@@ -388,7 +405,7 @@ export default function PersonalDetailsPage() {
                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500">{formData.tagline.length}/40</span>
+                    <CharCounter value={formData.tagline} max={MAX_TAGLINE_CHARS} warnAt={5} />
                   </div>
                 </div>
                 <input
@@ -397,8 +414,10 @@ export default function PersonalDetailsPage() {
                   name="tagline"
                   value={formData.tagline}
                   onChange={handleInputChange}
-                  maxLength={40}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
+                  aria-invalid={taglineOverLimit}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 ${
+                    taglineOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
+                  }`}
                   placeholder="Write a short tagline"
                   disabled={loading}
                 />
@@ -511,16 +530,18 @@ export default function PersonalDetailsPage() {
                   <label htmlFor="bio" className="block text-sm font-medium text-gray-900">
                     Bio
                   </label>
-                  <span className="text-xs text-gray-500">{formData.bio.length}/160</span>
+                  <CharCounter value={formData.bio} max={MAX_BIO_CHARS} />
                 </div>
                 <textarea
                   id="bio"
                   name="bio"
                   value={formData.bio}
                   onChange={handleInputChange}
-                  maxLength={160}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 resize-none"
+                  aria-invalid={bioOverLimit}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 resize-none ${
+                    bioOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'
+                  }`}
                   placeholder="Tell us about yourself..."
                   disabled={loading}
                 />
@@ -529,7 +550,7 @@ export default function PersonalDetailsPage() {
               {/* Continue Button */}
               <button
                 type="submit"
-                disabled={loading || !userCredentials.email}
+                disabled={loading || !userCredentials.email || taglineOverLimit || bioOverLimit}
                 className="w-full bg-[#672DB7] text-white py-3 px-4 rounded-md font-medium hover:bg-[#5a2a9e] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed mt-6 cursor-pointer"
               >
                 {loading ? (

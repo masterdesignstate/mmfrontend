@@ -3,13 +3,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import CharCounter from '@/components/CharCounter';
 import FeedPostCard, { DEFAULT_AVATAR, formatRelative, visibilityLabel } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
+import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
 import {
   apiService,
+  MAX_POST_CHARS,
   MAX_POST_IMAGES,
   type FeedAudience,
   type FeedItem,
@@ -109,6 +112,9 @@ function PostComposer({ viewerId, onPosted }: { viewerId: string; onPosted: (p: 
   const [visibility, setVisibility] = useState<PostVisibility>('all');
   const [visMenuOpen, setVisMenuOpen] = useState(false);
   const visRef = useRef<HTMLDivElement>(null);
+  // Soft cap: typing past the limit is allowed so the counter can flag it,
+  // but posting stays blocked until the body fits.
+  const overLimit = isOverLimit(body, MAX_POST_CHARS);
 
   useEffect(() => {
     if (!visMenuOpen) return;
@@ -149,6 +155,10 @@ function PostComposer({ viewerId, onPosted }: { viewerId: string; onPosted: (p: 
       setError('Write something or attach an image.');
       return;
     }
+    if (isOverLimit(body, MAX_POST_CHARS)) {
+      setError(overLimitMessage('Posts', MAX_POST_CHARS));
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -170,10 +180,17 @@ function PostComposer({ viewerId, onPosted }: { viewerId: string; onPosted: (p: 
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="Share something with the community… use #hashtags to highlight topics."
-        className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+        aria-invalid={overLimit}
+        className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+          overLimit
+            ? 'border-red-400 focus:ring-red-500'
+            : 'border-gray-200 focus:ring-purple-500'
+        }`}
         rows={3}
-        maxLength={2000}
       />
+      <div className="mt-1 flex justify-end">
+        <CharCounter value={body.trim()} max={MAX_POST_CHARS} />
+      </div>
       {imageUrls.length > 0 && (
         <div className="grid grid-cols-5 gap-2 mt-3">
           {imageUrls.map((url, i) => (
@@ -250,7 +267,7 @@ function PostComposer({ viewerId, onPosted }: { viewerId: string; onPosted: (p: 
         <button
           type="button"
           onClick={submit}
-          disabled={submitting || uploading || (!body.trim() && imageUrls.length === 0)}
+          disabled={submitting || uploading || overLimit || (!body.trim() && imageUrls.length === 0)}
           className="px-5 py-2 rounded-lg bg-[#672DB7] text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Posting…' : 'Post'}

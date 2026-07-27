@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-export const NOTE_MAX_LENGTH = 280;
+import CharCounter from '@/components/CharCounter';
+import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
+import { MAX_ANSWER_NOTE_CHARS } from '@/services/api';
+
+export const NOTE_MAX_LENGTH = MAX_ANSWER_NOTE_CHARS;
 
 interface NoteControlProps {
   value: string;
@@ -52,8 +56,11 @@ export default function NoteControl({
     setOpen(true);
   };
 
+  const overLimit = isOverLimit(draft, NOTE_MAX_LENGTH);
+
   const save = () => {
-    onChange(draft.trim().slice(0, NOTE_MAX_LENGTH));
+    if (overLimit) return;
+    onChange(draft.trim());
     setOpen(false);
   };
 
@@ -118,17 +125,22 @@ export default function NoteControl({
             <textarea
               autoFocus
               value={draft}
-              maxLength={NOTE_MAX_LENGTH}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Type your note..."
               rows={4}
-              className="w-full resize-none rounded-xl border border-gray-300 p-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[#672DB7] focus:outline-none focus:ring-1 focus:ring-[#672DB7]"
+              aria-invalid={overLimit}
+              className={`w-full resize-none rounded-xl border p-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 ${
+                overLimit
+                  ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-[#672DB7] focus:ring-[#672DB7]'
+              }`}
             />
 
-            <div className="mt-2 flex items-center justify-end">
-              <span className="text-xs text-gray-400">
-                {draft.length}/{NOTE_MAX_LENGTH}
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-red-600">
+                {overLimit ? overLimitMessage('Notes', NOTE_MAX_LENGTH) : ''}
               </span>
+              <CharCounter value={draft} max={NOTE_MAX_LENGTH} />
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-3">
@@ -142,7 +154,8 @@ export default function NoteControl({
               <button
                 type="button"
                 onClick={save}
-                className="cursor-pointer rounded-lg bg-[#672DB7] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#5a26a0]"
+                disabled={overLimit}
+                className="cursor-pointer rounded-lg bg-[#672DB7] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#5a26a0] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save note
               </button>

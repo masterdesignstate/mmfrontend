@@ -18,12 +18,12 @@ return ( <div className="min-h-screen bg-white text-gray-900">
 <header className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"> <div className="mx-auto max-w-7xl px-6 py-4"> <div className="flex items-center justify-between">
 {/* Logo \*/} <div className="flex items-center"> <Image
              src="/assets/mmlogox.png"
-             alt="Matchmatical"
+             alt="CompatibleFirst"
              width={40}
              height={40}
              className="w-10 h-10"
              priority
-           /> <span className="sr-only">Matchmatical</span> </div>
+           /> <span className="sr-only">CompatibleFirst</span> </div>
 
    
         {/* Right side icons + actions (visual parity with login header) */}
@@ -91,7 +91,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
             Math-based matching, two‑sided questions, clear scores
           </div>
           <h1 className="mt-4 text-4xl md:text-5xl font-semibold leading-tight">
-            Date smarter with <span className="text-[#672DB7]">Matchmatical</span>
+            Date smarter with <span className="text-[#672DB7]">CompatibleFirst</span>
           </h1>
           <p className="mt-4 text-gray-600 md:text-lg">
             Answer 14 mandatory questions on a 1–6 scale (6 = open to all). Each question has a Me value and a Looking value.
@@ -373,7 +373,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
     <div className="mt-10 max-w-3xl mx-auto divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
       {[
         {
-          q: 'What makes Matchmatical different?',
+          q: 'What makes CompatibleFirst different?',
           a: 'Explainable, values-aligned matching with adjustable weights so you stay in control of what matters.',
         },
         {
@@ -418,8 +418,8 @@ return ( <div className="min-h-screen bg-white text-gray-900">
       <div className="grid md:grid-cols-4 gap-8">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2">
-            <Image src="/assets/mmlogox.png" alt="Matchmatical" width={32} height={32} className="w-8 h-8" />
-            <span className="font-semibold">Matchmatical</span>
+            <Image src="/assets/mmlogox.png" alt="CompatibleFirst" width={32} height={32} className="w-8 h-8" />
+            <span className="font-semibold">CompatibleFirst</span>
           </div>
           <p className="mt-3 text-sm text-gray-600">
             A math-based dating app for people who want clarity, not chaos.
@@ -444,7 +444,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
       </div>
 
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-        <p>© {new Date().getFullYear()} Matchmatical. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} CompatibleFirst. All rights reserved.</p>
         <div className="flex items-center gap-4">
           <a href="#" className="hover:text-[#672DB7]">Twitter</a>
           <a href="#" className="hover:text-[#672DB7]">Instagram</a>

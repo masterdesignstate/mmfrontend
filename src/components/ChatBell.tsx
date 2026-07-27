@@ -164,7 +164,7 @@ export default function ChatBell({ userId }: ChatBellProps) {
                           <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 overflow-hidden">
                             <img
                               src="/assets/mmlogox.png"
-                              alt="Matchmatical"
+                              alt="CompatibleFirst"
                               className="w-full h-full object-contain"
                             />
                           </div>

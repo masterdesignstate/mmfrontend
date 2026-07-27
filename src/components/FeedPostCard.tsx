@@ -3,8 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import CharCounter from '@/components/CharCounter';
 import { renderWithHashtags } from '@/utils/hashtags';
-import { apiService, type Post, type PostComment, type PostRevision, type PostVisibility } from '@/services/api';
+import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
+import { apiService, MAX_POST_CHARS, MAX_POST_COMMENT_CHARS, type Post, type PostComment, type PostRevision, type PostVisibility } from '@/services/api';
 
 const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; description: string }[] = [
   { value: 'all', label: 'Everyone', description: 'Anyone can see this post.' },
@@ -37,6 +39,7 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const overLimit = isOverLimit(body, MAX_POST_COMMENT_CHARS);
 
   useEffect(() => {
     apiService.getPostComments(post.id).then((c) => { setComments(c); setLoading(false); }).catch(() => setLoading(false));
@@ -45,6 +48,10 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
   const submit = async () => {
     const trimmed = body.trim();
     if (!trimmed) return;
+    if (overLimit) {
+      setError(overLimitMessage('Comments', MAX_POST_COMMENT_CHARS));
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -103,18 +110,25 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
           onChange={(e) => setBody(e.target.value)}
           placeholder="Write a comment..."
           rows={1}
-          className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          maxLength={1000}
+          aria-invalid={overLimit}
+          className={`flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+            overLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-200 focus:ring-purple-500'
+          }`}
         />
         <button
           type="button"
           onClick={submit}
-          disabled={submitting || !body.trim()}
-          className="px-3 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold disabled:opacity-50"
+          disabled={submitting || overLimit || !body.trim()}
+          className="px-3 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Send
         </button>
       </div>
+      {body.trim().length > 0 && (
+        <div className="mt-1 flex justify-end">
+          <CharCounter value={body} max={MAX_POST_COMMENT_CHARS} warnAt={50} />
+        </div>
+      )}
       {error && <div className="mt-2 text-xs font-medium text-red-600">{error}</div>}
     </div>
   );
@@ -168,6 +182,7 @@ export default function FeedPostCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [postError, setPostError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
+  const editOverLimit = isOverLimit(editBody, MAX_POST_CHARS);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -188,6 +203,10 @@ export default function FeedPostCard({
   };
 
   const saveEdit = async () => {
+    if (editOverLimit) {
+      setPostError(overLimitMessage('Posts', MAX_POST_CHARS));
+      return;
+    }
     setSavingEdit(true);
     setPostError('');
     try {
@@ -289,12 +308,18 @@ export default function FeedPostCard({
 
       {editing ? (
         <div>
-          <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={3} maxLength={2000}
-            className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={3}
+            aria-invalid={editOverLimit}
+            className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+              editOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-200 focus:ring-purple-500'
+            }`} />
+          <div className="mt-1 flex justify-end">
+            <CharCounter value={editBody.trim()} max={MAX_POST_CHARS} />
+          </div>
           {postError && <div className="mt-2 text-xs font-medium text-red-600">{postError}</div>}
           <div className="flex justify-end gap-2 mt-2">
             <button onClick={() => { setEditing(false); setEditBody(post.body); setPostError(''); }} className="px-3 py-1.5 text-sm rounded-lg ring-1 ring-gray-200 hover:bg-gray-50">Cancel</button>
-            <button onClick={saveEdit} disabled={savingEdit || !editBody.trim()} className="px-3 py-1.5 text-sm rounded-lg bg-purple-600 text-white disabled:opacity-50">
+            <button onClick={saveEdit} disabled={savingEdit || editOverLimit || !editBody.trim()} className="px-3 py-1.5 text-sm rounded-lg bg-purple-600 text-white disabled:opacity-50">
               {savingEdit ? 'Saving...' : 'Save'}
             </button>
           </div>
