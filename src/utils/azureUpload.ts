@@ -83,16 +83,6 @@ export const uploadToAzureBlob = async (
     const fileExtension = file.name.split('.').pop() || 'jpg';
     const blobName = generateBlobName(userId, fileExtension);
 
-    // Debug: Log Azure config and environment variables
-    console.log('🔍 Azure Config Debug:');
-    console.log('  Raw env.STORAGE_NAME:', process.env.STORAGE_NAME);
-    console.log('  Raw env.CONTAINER:', process.env.CONTAINER);
-    console.log('  Raw env.SAS_TOKEN (first 50 chars):', process.env.SAS_TOKEN?.substring(0, 50) + '...');
-    console.log('  Storage Name:', AZURE_CONFIG.STORAGE_ACCOUNT_NAME);
-    console.log('  Container:', AZURE_CONFIG.CONTAINER_NAME);
-    console.log('  SAS Token (first 50 chars):', AZURE_CONFIG.SAS_TOKEN.substring(0, 50) + '...');
-    console.log('  Blob Service URL:', AZURE_CONFIG.BLOB_SERVICE_URL);
-
     // Create BlobServiceClient using SAS token (browser-compatible)
     const { BlobServiceClient } = await import('@azure/storage-blob');
     const blobServiceClient = new BlobServiceClient(AZURE_CONFIG.BLOB_SERVICE_URL);
@@ -122,26 +112,11 @@ export const uploadToAzureBlob = async (
       onProgress(100);
     }
 
-    // Get the public URL
-    const photoUrl = blockBlobClient.url;
-    
-    // Update user profile via API
-    const updateResponse = await fetch('/api/auth/update-profile-photo/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        profile_photo_url: photoUrl
-      })
-    });
-
-    if (!updateResponse.ok) {
-      console.warn('Failed to update user profile, but upload succeeded');
-    }
-
-    return photoUrl;
+    // Get the public URL. Callers are responsible for recording it (e.g. via
+    // apiService.addUserPicture) — this utility is shared by the onboarding
+    // gallery, profile edit, and feed post uploads, so it must not assume the
+    // upload is a profile photo.
+    return blockBlobClient.url;
     
   } catch (error) {
     console.error('Azure upload error:', error);
