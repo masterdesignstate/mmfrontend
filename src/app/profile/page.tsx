@@ -562,7 +562,7 @@ export default function ProfilePage() {
               src="/assets/mmlogox.png"
               alt="CompatibleFirst"
               width={120}
-              height={120}
+              height={104}
               priority
             />
           </div>
@@ -822,7 +822,7 @@ export default function ProfilePage() {
                         src={icon.image}
                         alt={icon.label}
                         width={icon.image.includes('drink.png') ? 16 : 18}
-                        height={icon.image.includes('drink.png') ? 16 : 18}
+                        height={icon.image.includes('drink.png') ? 19 : 22}
                         className="object-contain"
                         style={icon.image.includes('prayin.png') ? { position: 'relative', top: '-2px' } : {}}
                       />

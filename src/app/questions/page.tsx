@@ -29,6 +29,8 @@ interface Question {
   submitted_by?: { id: string; username: string } | null;  // User who submitted
   is_answered?: boolean;  // Computed by backend
   is_submitted_by_me?: boolean;  // Computed by backend
+  is_group?: boolean;
+  is_approved?: boolean;
 }
 
 const createDefaultFilters = () => ({
@@ -418,20 +420,20 @@ function QuestionsPageContent() {
       let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=200`;
 
       // Fetch all pages if paginated
-      let allPageQuestions = [];
+      let allPageQuestions: Question[] = [];
       let hasMore = true;
       let pageNum = 1;
 
       while (hasMore && pageNum <= 5) { // Safety limit of 5 pages
-        const response = await fetch(url, {
+        const response: Response = await fetch(url, {
    
           headers: {
             'Content-Type': 'application/json',
           },
         });
 
-        const data = await response.json();
-        const results = data.results || [];
+        const data: { results?: Question[]; next?: string | null } = await response.json();
+        const results: Question[] = data.results || [];
         allPageQuestions = [...allPageQuestions, ...results];
 
         if (data.next) {
@@ -516,15 +518,15 @@ function QuestionsPageContent() {
           let nextUrl: string | null = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?search=${encodeURIComponent(activeTerm)}&page_size=500&include_unapproved=true&skip_user_answers=true`;
           let page = 0;
           while (nextUrl && page < 10) { // safety limit
-            const response = await fetch(nextUrl, {
+            const response: Response = await fetch(nextUrl, {
               headers: { 'Content-Type': 'application/json' },
               signal: controller.signal
             });
             if (!response.ok) {
               throw new Error(`Failed to search questions: ${response.status}`);
             }
-            const data = await response.json();
-            const pageResults = data.results || [];
+            const data: { results?: Question[]; next?: string | null } = await response.json();
+            const pageResults: Question[] = data.results || [];
             serverResults.push(...pageResults);
             nextUrl = data.next || null;
             page += 1;
@@ -559,7 +561,7 @@ function QuestionsPageContent() {
             const results: Question[] = [];
 
             while (nextUrl && page < 25) { // safety limit
-              const response = await fetch(nextUrl, {
+              const response: Response = await fetch(nextUrl, {
             headers: { 'Content-Type': 'application/json' },
             signal: controller.signal
           });
@@ -568,8 +570,8 @@ function QuestionsPageContent() {
                 throw new Error(`Failed to build search index: ${response.status}`);
               }
 
-              const data = await response.json();
-              const pageResults = data.results || [];
+              const data: { results?: Question[]; next?: string | null } = await response.json();
+              const pageResults: Question[] = data.results || [];
               results.push(...pageResults);
               nextUrl = data.next || null;
               page += 1;
@@ -1511,7 +1513,7 @@ function QuestionsPageContent() {
                   onClick={() => setShowFilterModal(prev => !prev)}
                   className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-red-500 bg-red-50 text-gray-900 cursor-pointer"
                 >
-                  <Image src="/assets/asterisk.png" alt="Mandatory" width={24} height={24} />
+                  <Image src="/assets/asterisk.png" alt="Mandatory" width={24} height={29} className="h-auto w-auto" />
                 </button>
               )}
               {activeFilters.questions.answered && (
@@ -1589,7 +1591,7 @@ function QuestionsPageContent() {
                 >
                   {isMandatory && (
                     <div className="absolute -left-2 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm">
-                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={21} />
+                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={25} className="h-auto w-auto" />
                     </div>
                   )}
                   <div className="flex-1">
@@ -1741,7 +1743,7 @@ function QuestionsPageContent() {
                     }`}
                   >
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <Image src="/assets/asterisk.png" alt="Mandatory" width={40} height={40} />
+                      <Image src="/assets/asterisk.png" alt="Mandatory" width={40} height={48} className="h-auto w-auto" />
                       <span className="text-xs font-medium text-gray-900 text-center leading-none">Mandatory</span>
                     </div>
                   </button>

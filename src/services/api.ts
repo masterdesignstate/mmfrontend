@@ -39,6 +39,15 @@ export interface PromptTemplate {
   created_at?: string;
 }
 
+export interface RestrictedWord {
+  id: string;
+  word: string;
+  severity: 'low' | 'medium' | 'high';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PromptPollVote {
   id: string;
   prompt: string;
@@ -270,10 +279,15 @@ export interface Question {
   group_number?: number;
   group_name?: string;
   group_name_text?: string;
-  question_type?: 'basic' | 'four' | 'grouped' | 'double' | 'triple';
+  question_type?: string;
   text: string;
   tags: Array<{ id: number; name: string }>;
-  answers: Array<{ id: string; value: string; answer_text: string; order: number }>;
+  answers: Array<{
+    id?: string;
+    value: string | number;
+    answer_text?: string | null;
+    order?: number;
+  }>;
   is_required_for_match: boolean;
   is_approved: boolean;
   skip_me: boolean;
@@ -281,6 +295,7 @@ export interface Question {
   open_to_all_me: boolean;
   open_to_all_looking_for: boolean;
   is_group: boolean;
+  submitted_by?: Pick<ApiUser, 'id' | 'username' | 'first_name' | 'last_name'> | null;
   created_at: string;
   updated_at: string;
 }
@@ -463,7 +478,9 @@ class ApiService {
   private async fetchAllPages<T>(endpoint: string): Promise<T[]> {
     let allResults: T[] = [];
     let page = 1;
-    const pageSize = 100; // Request more items per page
+    // The API supports up to 1,000 rows per page. Large dashboard datasets
+    // otherwise require 10+ sequential requests and leave the UI loading.
+    const pageSize = 1000;
     
     console.log('=== fetchAllPages DEBUG ===');
     console.log('API_BASE_URL:', API_BASE_URL);
@@ -562,20 +579,38 @@ class ApiService {
     return this.request(`/picture-moderation/${moderationId}/reject/`, 'POST', { user_id: adminUserId, reason });
   }
 
-  async getRestrictedText(): Promise<unknown[]> {
-    return this.fetchAllPages<unknown>('/questions/restricted_text/');
+  async getRestrictedWords(adminUserId: string): Promise<RestrictedWord[]> {
+    return this.fetchAllPages<RestrictedWord>(
+      `/restricted-words/?user_id=${encodeURIComponent(adminUserId)}`
+    );
   }
 
-  async createRestrictedWord(data: Record<string, unknown>): Promise<unknown> {
-    return this.request('/questions/restricted_text/', 'POST', data);
+  async createRestrictedWord(
+    adminUserId: string,
+    data: Pick<RestrictedWord, 'word' | 'severity' | 'is_active'>
+  ): Promise<RestrictedWord> {
+    return this.request('/restricted-words/', 'POST', {
+      ...data,
+      user_id: adminUserId,
+    }) as Promise<RestrictedWord>;
   }
 
-  async updateRestrictedWord(wordId: string, data: Record<string, unknown>): Promise<unknown> {
-    return this.request(`/questions/restricted_text/${wordId}/`, 'PUT', data);
+  async updateRestrictedWord(
+    adminUserId: string,
+    wordId: string,
+    data: Partial<Pick<RestrictedWord, 'word' | 'severity' | 'is_active'>>
+  ): Promise<RestrictedWord> {
+    return this.request(`/restricted-words/${wordId}/`, 'PATCH', {
+      ...data,
+      user_id: adminUserId,
+    }) as Promise<RestrictedWord>;
   }
 
-  async deleteRestrictedWord(wordId: string): Promise<unknown> {
-    return this.request(`/questions/restricted_text/${wordId}/`, 'DELETE');
+  async deleteRestrictedWord(adminUserId: string, wordId: string): Promise<void> {
+    return this.request(
+      `/restricted-words/${wordId}/?user_id=${encodeURIComponent(adminUserId)}`,
+      'DELETE'
+    ) as Promise<void>;
   }
 
   async resolveReport(reportId: string, action: string, duration?: number): Promise<unknown> {

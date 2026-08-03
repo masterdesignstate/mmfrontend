@@ -146,7 +146,7 @@ export default function KidsPage() {
 
     try {
       // Create user answers for both kids questions
-      const userAnswers = [];
+      const userAnswers: Array<Record<string, string | number | boolean | undefined>> = [];
 
       // Kids 1 (Want Kids)
       userAnswers.push({
@@ -227,7 +227,8 @@ export default function KidsPage() {
       } catch {}
 
       // Mark mandatory questions as complete so gated pages unlock instantly
-      localStorage.setItem('mandatory_questions_complete', 'true');
+      localStorage.setItem(`mandatory_questions_complete_${userId}`, 'true');
+      localStorage.removeItem('mandatory_questions_complete');
       posthog.capture('onboarding_step_completed', { step: 'kids', question_number: 10 });
       posthog.capture('onboarding_completed');
 

@@ -39,6 +39,8 @@ export default function VerifyEmailPage() {
 
         if (data.user_id) {
           localStorage.setItem('user_id', data.user_id);
+          localStorage.removeItem('mandatory_questions_complete');
+          localStorage.removeItem(`mandatory_questions_complete_${data.user_id}`);
         }
         if (data.email) {
           localStorage.setItem('user_email', data.email);

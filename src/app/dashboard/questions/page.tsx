@@ -31,19 +31,6 @@ export default function QuestionsPage() {
         // Dashboard needs to see ALL questions including unapproved ones
         const fetchedQuestions = await apiService.getQuestions(true);
 
-        // Debug: Check is_approved field
-        console.log('=== QUESTIONS DEBUG ===');
-        console.log('Total questions:', fetchedQuestions.length);
-        console.log('Approved count:', fetchedQuestions.filter(q => q.is_approved).length);
-        console.log('Unapproved count:', fetchedQuestions.filter(q => !q.is_approved).length);
-        console.log('First 3 questions is_approved values:',
-          fetchedQuestions.slice(0, 3).map(q => ({
-            id: q.id,
-            text: q.text.substring(0, 50),
-            is_approved: q.is_approved
-          }))
-        );
-
         // Sort by question_number by default
         const sortedQuestions = fetchedQuestions.sort((a, b) => {
           const aNum = a.question_number || 0;
@@ -82,7 +69,6 @@ export default function QuestionsPage() {
       // Remove the deleted question from the local state
       setQuestions(prev => prev.filter(q => q.id !== questionToDelete.id));
       
-      console.log('Question deleted successfully');
       setShowDeleteConfirm(false);
       setQuestionToDelete(null);
     } catch (error) {
@@ -124,19 +110,6 @@ export default function QuestionsPage() {
 
     return matchesSearch && matchesTag && matchesApproved && matchesMandatory && matchesDateRange;
   });
-
-  // Debug filter when Approved filter is active
-  if (selectedApproved !== 'All') {
-    console.log('=== APPROVED FILTER DEBUG ===');
-    console.log('Selected Approved:', selectedApproved);
-    console.log('Total questions:', questions.length);
-    console.log('Filtered questions:', filteredQuestions.length);
-    console.log('Sample is_approved values:', questions.slice(0, 5).map(q => ({
-      text: q.text.substring(0, 30),
-      is_approved: q.is_approved,
-      matches: selectedApproved === 'Yes' ? q.is_approved : !q.is_approved
-    })));
-  }
 
   // Sort questions
   const sortedQuestions = [...filteredQuestions].sort((a, b) => {
@@ -546,13 +519,13 @@ export default function QuestionsPage() {
                             sessionStorage.removeItem('questions_metadata');
                             sessionStorage.removeItem('questions_metadata_timestamp');
                             sessionStorage.setItem('questions_metadata_invalidated', Date.now().toString());
-                            console.log('✅ Question approval toggled, cache cleared');
                           } catch (error) {
                             console.error('Error toggling approval:', error);
                             alert('Failed to update approval status. Please try again.');
                           }
                         }}
                         className={`transition-colors duration-200 cursor-pointer ${question.is_approved ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
+                        aria-label={question.is_approved ? `Unapprove ${question.question_name || question.text}` : `Approve ${question.question_name || question.text}`}
                         title={question.is_approved ? 'Approved - Click to unapprove' : 'Not approved - Click to approve'}
                       >
                         <i className={`fas ${question.is_approved ? 'fa-check' : 'fa-times'}`}></i>
@@ -560,6 +533,7 @@ export default function QuestionsPage() {
                       <button 
                         onClick={() => showDeleteConfirmModal(question)}
                         disabled={deletingQuestionId === question.id}
+                        aria-label={`Delete ${question.question_name || question.text}`}
                         className={`transition-colors duration-200 cursor-pointer ${
                           deletingQuestionId === question.id 
                             ? 'text-gray-400 cursor-not-allowed' 
@@ -712,4 +686,4 @@ export default function QuestionsPage() {
       )}
     </div>
   );
-} 
+}

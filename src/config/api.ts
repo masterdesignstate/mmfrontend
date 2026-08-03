@@ -12,6 +12,8 @@ const API_CONFIG = {
     LOGIN: '/auth/login/',
     VERIFY_EMAIL: '/auth/verify-email/',
     RESEND_VERIFICATION_EMAIL: '/auth/resend-verification-email/',
+    REQUEST_PASSWORD_RESET: '/auth/password-reset/request/',
+    CONFIRM_PASSWORD_RESET: '/auth/password-reset/confirm/',
     CHECK_USER: '/auth/check-user/',
     ONBOARDING_STATUS: '/auth/onboarding-status/',
     UPDATE_PROFILE_PHOTO: '/auth/update-profile-photo/',

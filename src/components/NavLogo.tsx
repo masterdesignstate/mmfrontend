@@ -9,7 +9,7 @@ interface NavLogoProps {
   className?: string;
 }
 
-export default function NavLogo({ width = 32, height = 32, className = 'object-contain' }: NavLogoProps) {
+export default function NavLogo({ width = 32, height = 28, className = 'object-contain' }: NavLogoProps) {
   const router = useRouter();
 
   const handleClick = () => {

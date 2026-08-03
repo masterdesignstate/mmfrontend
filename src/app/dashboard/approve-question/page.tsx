@@ -66,10 +66,19 @@ export default function ApproveQuestionsPage() {
     const aValue = a[sortField as keyof typeof a];
     const bValue = b[sortField as keyof typeof b];
 
+    if (aValue == null && bValue == null) return 0;
+    if (aValue == null) return 1;
+    if (bValue == null) return -1;
+
+    const comparison = String(aValue).localeCompare(String(bValue), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+
     if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
+      return comparison;
     } else {
-      return aValue < bValue ? 1 : -1;
+      return -comparison;
     }
   });
 

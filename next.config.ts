@@ -21,12 +21,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   skipTrailingSlashRedirect: true,
   async rewrites() {
     // Use the same base URL logic as api.ts

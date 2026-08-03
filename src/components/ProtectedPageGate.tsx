@@ -40,7 +40,8 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
                 src="/assets/mmlogox.png"
                 alt="CompatibleFirst"
                 width={64}
-                height={64}
+                height={56}
+                className="h-auto w-auto"
               />
             </div>
 
@@ -86,6 +87,7 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
                 localStorage.removeItem('is_admin');
                 localStorage.removeItem('user_email');
                 localStorage.removeItem('mandatory_questions_complete');
+                if (userId) localStorage.removeItem(`mandatory_questions_complete_${userId}`);
                 router.push('/auth/login');
               }}
               className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
@@ -116,7 +118,8 @@ export default function ProtectedPageGate({ children, checkOnboarding = true }: 
                 src="/assets/mmlogox.png"
                 alt="CompatibleFirst"
                 width={64}
-                height={64}
+                height={56}
+                className="h-auto w-auto"
               />
             </div>
 

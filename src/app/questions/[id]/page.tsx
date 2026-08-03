@@ -11,6 +11,7 @@ import ExclusionControl from '@/components/ExclusionControl';
 import NoteControl from '@/components/NoteControl';
 import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
+import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
@@ -23,7 +24,7 @@ interface Question {
   group_name_text?: string;
   question_type?: 'basic' | 'grouped' | 'double' | 'triple' | 'four';
   text: string;
-  answers: Array<{ value: string; answer_text: string }>;
+  answers: AnswerValueLabel[];
   open_to_all_me: boolean;
   open_to_all_looking_for: boolean;
   is_answered?: boolean;  // From backend - whether current user has answered this question
@@ -191,12 +192,12 @@ const MultiSliderTemplate = ({
       );
     }
 
-    const sortedAnswers = questions[0].answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedAnswers = [...questions[0].answers].sort((a, b) => Number(a.value) - Number(b.value));
 
     return (
       <div className="relative text-xs text-gray-500 mb-2" style={{ width: '500px', height: '14px' }}>
         {sortedAnswers.map((answer) => {
-          const value = parseInt(answer.value);
+          const value = Number(answer.value);
           let leftPosition;
 
           if (value === 1) {
@@ -217,7 +218,7 @@ const MultiSliderTemplate = ({
               className="absolute text-xs text-gray-500"
               style={{ left: leftPosition, transform: 'translateX(-50%)' }}
             >
-              {answer.answer_text.toUpperCase()}
+              {(answer.answer_text || '').toUpperCase()}
             </span>
           );
         })}
@@ -416,12 +417,12 @@ const BasicSliderTemplate = ({
       );
     }
 
-    const sortedAnswers = question.answers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedAnswers = [...question.answers].sort((a, b) => Number(a.value) - Number(b.value));
 
     return (
       <div className="relative text-xs text-gray-500" style={{ width: '500px', height: '14px' }}>
         {sortedAnswers.map((answer) => {
-          const value = parseInt(answer.value);
+          const value = Number(answer.value);
           let leftPosition;
 
           if (value === 1) {
@@ -442,7 +443,7 @@ const BasicSliderTemplate = ({
               className="absolute text-xs text-gray-500"
               style={{ left: leftPosition, transform: 'translateX(-50%)' }}
             >
-              {answer.answer_text.toUpperCase()}
+              {(answer.answer_text || '').toUpperCase()}
             </span>
           );
         })}
@@ -1168,7 +1169,7 @@ function QuestionEditPageContent() {
     onChange: (value: number) => void;
     isOpenToAll?: boolean;
     isImportance?: boolean;
-    labels?: Array<{ value: string; answer_text: string }>;
+    labels?: AnswerValueLabel[];
     isBinary?: boolean;
   }) => {
     const [fillWidth, setFillWidth] = useState('0%');
@@ -1319,23 +1320,23 @@ function QuestionEditPageContent() {
     labels, 
     currentValue 
   }: { 
-    labels: Array<{ value: string; answer_text: string }>; 
+    labels: AnswerValueLabel[];
     currentValue: number;
   }) => {
     if (labels.length === 0) return null;
     
     // Sort labels by value
-    const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
-    const minValue = parseInt(sortedLabels[0].value);
-    const maxValue = parseInt(sortedLabels[sortedLabels.length - 1].value);
+    const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
+    const minValue = Number(sortedLabels[0].value);
+    const maxValue = Number(sortedLabels[sortedLabels.length - 1].value);
     
     // Find the current label
-    const currentLabel = sortedLabels.find(label => parseInt(label.value) === currentValue);
+    const currentLabel = sortedLabels.find(label => Number(label.value) === currentValue);
     
     
     return (
       <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-        {currentLabel && (
+        {currentLabel?.answer_text && (
           <span 
             className="absolute" 
             style={{ 
@@ -1362,7 +1363,7 @@ function QuestionEditPageContent() {
     const allAnswers = questions.flatMap(q => q.answers || []);
     if (allAnswers.length === 0) return { minLabel: 'LESS', maxLabel: 'MORE' };
     
-    const sortedAnswers = allAnswers.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedAnswers = [...allAnswers].sort((a, b) => Number(a.value) - Number(b.value));
     const minLabel = sortedAnswers[0]?.answer_text?.toUpperCase() || 'LESS';
     const maxLabel = sortedAnswers[sortedAnswers.length - 1]?.answer_text?.toUpperCase() || 'MORE';
     

@@ -94,7 +94,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
             Date smarter with <span className="text-[#672DB7]">CompatibleFirst</span>
           </h1>
           <p className="mt-4 text-gray-600 md:text-lg">
-            Answer 14 mandatory questions on a 1–6 scale (6 = open to all). Each question has a Me value and a Looking value.
+            Answer 10 mandatory questions on a 1–6 scale (6 = open to all). Each question has a Me value and a Looking value.
             We normalize, apply your per‑question importance, and compute three scores: Overall, Me→Them, and Them→Me.
           </p>
 
@@ -183,7 +183,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
           icon: <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor" aria-hidden="true"><path d="M3 17h6v2H3v-2zm0-6h12v2H3V11zm0-6h18v2H3V5z"/></svg>
         },
         {
-          title: '14 mandatory seeds',
+          title: '10 mandatory seeds',
           desc: 'Admin‑curated core questions start everyone with signal. Users can add more later.',
           icon: <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor" aria-hidden="true"><path d="M3 3h18v2H3zM7 9h14v2H7zM3 15h18v2H3zM7 21h14v2H7z"/></svg>
         },
@@ -226,7 +226,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
         {[
           {
             step: '01',
-            title: 'Answer 14 questions',
+            title: 'Answer 10 questions',
             desc: 'Mandatory, admin‑curated. 1–6 scale where 6 = open to all. More prompts can be added later.',
           },
           {
@@ -418,7 +418,7 @@ return ( <div className="min-h-screen bg-white text-gray-900">
       <div className="grid md:grid-cols-4 gap-8">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2">
-            <Image src="/assets/mmlogox.png" alt="CompatibleFirst" width={32} height={32} className="w-8 h-8" />
+            <Image src="/assets/mmlogox.png" alt="CompatibleFirst" width={32} height={28} className="h-auto w-8" />
             <span className="font-semibold">CompatibleFirst</span>
           </div>
           <p className="mt-3 text-sm text-gray-600">
@@ -445,11 +445,6 @@ return ( <div className="min-h-screen bg-white text-gray-900">
 
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
         <p>© {new Date().getFullYear()} CompatibleFirst. All rights reserved.</p>
-        <div className="flex items-center gap-4">
-          <a href="#" className="hover:text-[#672DB7]">Twitter</a>
-          <a href="#" className="hover:text-[#672DB7]">Instagram</a>
-          <a href="#" className="hover:text-[#672DB7]">TikTok</a>
-        </div>
       </div>
     </div>
   </footer>

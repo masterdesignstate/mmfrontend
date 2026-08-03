@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: 'fas fa-chart-bar' },
@@ -27,13 +27,21 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
+  useEffect(() => {
+    const userId = localStorage.getItem('user_id');
+    const isAdmin = localStorage.getItem('is_admin') === 'true';
+    if (!userId || !isAdmin) {
+      router.replace('/auth/login');
+      return;
+    }
+    setAccessChecked(true);
+  }, [router]);
+
   const handleLogout = () => {
-    // Get user_id before clearing it, so we can clear user-specific data
-    const currentUserId = localStorage.getItem('user_id');
-    
     // Clear ALL user-related data on logout
     localStorage.removeItem('user_id');
     localStorage.removeItem('is_admin');
@@ -58,11 +66,20 @@ export default function DashboardLayout({
     sessionStorage.removeItem('results_page_filters_applied');
     sessionStorage.removeItem('questions_page_filters');
     sessionStorage.removeItem('questions_current_page');
-    console.log('🧹 Cleared all user data on logout (kept celebrated matches)');
-    
     // Redirect to login page
     router.push('/auth/login');
   };
+
+  if (!accessChecked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#672DB7]"
+          aria-label="Checking dashboard access"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -75,8 +92,8 @@ export default function DashboardLayout({
               src="/assets/mmlogox.png"
               alt="Logo"
               width={32}
-              height={32}
-              className="w-8 h-8"
+              height={28}
+              className="h-auto w-8"
             />
             <span className="ml-3 text-lg font-semibold text-gray-900">Dashboard</span>
           </div>

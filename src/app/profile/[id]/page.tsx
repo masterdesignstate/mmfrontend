@@ -22,6 +22,7 @@ import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
 import { isOverLimit } from '@/utils/textLimits';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
+import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues, type ExclusionQuestion } from '@/utils/exclusionValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
@@ -130,7 +131,7 @@ const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = f
   onChange: (value: number) => void;
   isOpenToAll?: boolean;
   isImportance?: boolean;
-  labels?: Array<{ value: string; answer_text: string }>;
+  labels?: AnswerValueLabel[];
 }) => {
   const [fillWidth, setFillWidth] = React.useState('0%');
   const hasAnimatedRef = React.useRef(false);
@@ -159,7 +160,7 @@ const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = f
 
   const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isOpenToAll) return;
-    const sortedLabels = [...labels].sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
@@ -170,7 +171,7 @@ const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = f
     if (e.buttons === 1 && !isOpenToAll) handleSliderClick(e);
   };
 
-  const sortedLabels = [...labels].sort((a, b) => parseInt(a.value) - parseInt(b.value));
+  const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
   const answerValues = getAnswerValues(sortedLabels);
   const minValue = answerValues[0];
   const maxValue = answerValues[answerValues.length - 1];
@@ -2089,7 +2090,7 @@ export default function UserProfilePage() {
       
       if (response.ok) {
         const data = await response.json();
-        let questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
+        const questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
         
         // Sort by group_number if available
         questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
@@ -2187,7 +2188,7 @@ export default function UserProfilePage() {
 
       if (response.ok) {
         const data = await response.json();
-        let questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
+        const questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
         questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
 
         setSelectedQuestionNumber(questionNumber);
@@ -4121,9 +4122,9 @@ export default function UserProfilePage() {
                     value: number;
                     isOpenToAll?: boolean;
                     isImportance?: boolean;
-                    labels?: Array<{ value: string; answer_text: string }>;
+                    labels?: AnswerValueLabel[];
                   }) => {
-                    const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+                    const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
                     const answerValues = getAnswerValues(sortedLabels);
                     const minValue = answerValues[0];
                     const maxValue = answerValues[answerValues.length - 1];

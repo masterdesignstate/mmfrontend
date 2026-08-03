@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
+import type { AnswerValueLabel } from '@/utils/answerValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 
 interface Question {
@@ -16,7 +17,7 @@ interface Question {
   group_name_text?: string;
   question_type?: 'basic' | 'grouped' | 'double' | 'triple' | 'four';
   text: string;
-  answers: Array<{ value: string; answer_text: string }>;
+  answers: AnswerValueLabel[];
   open_to_all_me: boolean;
   open_to_all_looking_for: boolean;
 }
@@ -184,9 +185,9 @@ export default function ReadOnlyQuestionViewPage() {
     value: number;
     isOpenToAll?: boolean;
     isImportance?: boolean;
-    labels?: Array<{ value: string; answer_text: string }>;
+    labels?: AnswerValueLabel[];
   }) => {
-    const sortedLabels = labels.sort((a, b) => parseInt(a.value) - parseInt(b.value));
+    const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
     const answerValues = getAnswerValues(sortedLabels);
     const minValue = answerValues[0];
     const maxValue = answerValues[answerValues.length - 1];

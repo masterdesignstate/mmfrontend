@@ -128,13 +128,8 @@ export default function LoginPage() {
           return;
         }
 
-        // For the specific test user, skip onboarding and go directly to dashboard
-        if (normalizedEmail === 'g') {
-          console.log('🎯 Test user detected, redirecting directly to dashboard');
-          router.push('/dashboard');
-        } else {
-          // For other users, check onboarding status
-          try {
+        // Check onboarding status for members.
+        try {
             const onboardingResponse = await fetch(getApiUrl(API_ENDPOINTS.ONBOARDING_STATUS), {
               method: 'POST',
               headers: {
@@ -165,14 +160,13 @@ export default function LoginPage() {
               }
               router.push(redirectPath);
             } else {
-              console.log('⚠️ Could not check onboarding status, redirecting to dashboard');
-              router.push('/dashboard');
+              console.warn('Could not check onboarding status; opening the member feed.');
+              router.push('/feed');
             }
           } catch {
-            console.log('⚠️ Error checking onboarding status, redirecting to dashboard');
-            router.push('/dashboard');
+            console.warn('Error checking onboarding status; opening the member feed.');
+            router.push('/feed');
           }
-        }
       } else {
         if (response.status === 403 && data.email_verification_required && !data.email_verified) {
           const params = new URLSearchParams({
@@ -215,8 +209,8 @@ export default function LoginPage() {
             src="/assets/mmlogox.png"
             alt="Logo"
             width={40}
-            height={40}
-            className="w-10 h-10"
+            height={35}
+            className="h-auto w-10"
           />
         </div>
         

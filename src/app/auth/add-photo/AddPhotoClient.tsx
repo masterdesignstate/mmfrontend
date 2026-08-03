@@ -152,7 +152,7 @@ export default function AddPhotoClient() {
           <div className="mb-6">
             {primary ? (
               <div className="relative w-full h-[420px] rounded-lg overflow-hidden bg-gray-100">
-                <Image src={primary.image_url} alt="Primary photo" fill className="object-cover" />
+                <Image src={primary.image_url} alt="Primary photo" fill sizes="(max-width: 768px) 100vw, 672px" priority className="object-cover" />
                 <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
                   Primary
                 </div>
@@ -174,7 +174,7 @@ export default function AddPhotoClient() {
                 htmlFor="photo-upload"
                 className="flex flex-col items-center justify-center w-full h-[420px] rounded-lg bg-gray-100 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-50"
               >
-                <Image src="/assets/kamm.png" alt="Camera icon" width={80} height={80} className="mb-6" />
+                <Image src="/assets/kamm.png" alt="Camera icon" width={80} height={97} className="mb-6" />
                 <span className="px-8 py-3 bg-white border border-gray-400 rounded-md text-gray-900 text-base hover:shadow-md">
                   Add your first photo
                 </span>
@@ -189,7 +189,7 @@ export default function AddPhotoClient() {
               if (pic) {
                 return (
                   <div key={pic.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
-                    <Image src={pic.image_url} alt={`Photo ${i + 2}`} fill className="object-cover" />
+                    <Image src={pic.image_url} alt={`Photo ${i + 2}`} fill sizes="(max-width: 768px) 25vw, 160px" className="object-cover" />
                     <button
                       type="button"
                       onClick={() => handleRemove(pic.id)}

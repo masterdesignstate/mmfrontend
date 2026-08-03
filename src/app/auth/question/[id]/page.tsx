@@ -7,6 +7,7 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import ExclusionControl from '@/components/ExclusionControl';
 import NoteControl from '@/components/NoteControl';
 import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
+import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
 
@@ -27,7 +28,7 @@ export default function QuestionPage() {
     question_number: number;
     group_name: string;
     text: string;
-    answers: Array<{ value: string; answer_text: string }>;
+    answers: AnswerValueLabel[];
     open_to_all_me: boolean;
     open_to_all_looking_for: boolean;
   } | null>(null);
@@ -189,9 +190,9 @@ export default function QuestionPage() {
     return (
       <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
         {sortedAnswers.map((answer) => {
-          const value = parseInt(answer.value);
+          const value = parseInt(String(answer.value));
           let leftPosition;
-          const label = answer.answer_text.trim();
+          const label = answer.answer_text?.trim() || '';
 
           if (!label) {
             return null;

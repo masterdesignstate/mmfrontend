@@ -114,6 +114,8 @@ export default function ProfilePhotoGallery({ photos, displayName }: ProfilePhot
               src={src}
               alt={`${displayName} photo ${i + 1}`}
               fill
+              sizes="(max-width: 640px) 100vw, 380px"
+              priority={i === 0}
               draggable={false}
               className="select-none object-cover"
             />

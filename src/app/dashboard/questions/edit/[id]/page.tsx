@@ -10,6 +10,9 @@ interface Answer {
   answer: string;
 }
 
+type QuestionType = 'basic' | 'four' | 'grouped' | 'double' | 'triple';
+const QUESTION_TYPES = new Set<QuestionType>(['basic', 'four', 'grouped', 'double', 'triple']);
+
 const allTags = ["Value", "Trait", "Lifestyle", "Interest", "Career", "Family"];
 
 export default function EditQuestionPage() {
@@ -25,7 +28,7 @@ export default function EditQuestionPage() {
   const [questionName, setQuestionName] = useState('');
   const [groupName, setGroupName] = useState('');
   const [groupNameText, setGroupNameText] = useState('');
-  const [questionType, setQuestionType] = useState<'basic' | 'four' | 'grouped' | 'double' | 'triple'>('basic');
+  const [questionType, setQuestionType] = useState<QuestionType>('basic');
   const [question, setQuestion] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([
     { id: '1', value: '1', answer: 'Casual' },
@@ -76,7 +79,8 @@ export default function EditQuestionPage() {
         setQuestionName(questionData.question_name || '');
         setGroupName(questionData.group_name || '');
         setGroupNameText(questionData.group_name_text || '');
-        setQuestionType(questionData.question_type || 'basic');
+        const fetchedType = questionData.question_type || 'basic';
+        setQuestionType(QUESTION_TYPES.has(fetchedType as QuestionType) ? fetchedType as QuestionType : 'basic');
         setQuestion(questionData.text);
         setSelectedTag(questionData.tags[0]?.name || '');
         setIsMandatory(questionData.is_required_for_match);
@@ -93,9 +97,9 @@ export default function EditQuestionPage() {
           console.log('🔍 ANSWERS COUNT:', questionData.answers.length);
           
           const formattedAnswers = questionData.answers.map((ans, index) => ({
-            id: ans.value, // Use the actual value as ID to ensure uniqueness
-            value: ans.value,
-            answer: ans.answer_text
+            id: String(ans.value), // Use the actual value as ID to ensure uniqueness
+            value: String(ans.value),
+            answer: ans.answer_text || ''
           }));
           
           console.log('🔍 FORMATTED ANSWERS:', formattedAnswers);
@@ -112,7 +116,7 @@ export default function EditQuestionPage() {
           // Populate existing answers into the correct positions
           formattedAnswers.forEach(ans => {
             const backendValue = ans.value; // Value from backend ("1", "2", "3", "4", "5")
-            const targetIndex = parseInt(backendValue) - 1; // Convert to 0-based index (0, 1, 2, 3, 4)
+            const targetIndex = parseInt(String(backendValue)) - 1; // Convert to 0-based index (0, 1, 2, 3, 4)
             
             console.log(`🔍 MAPPING: backendValue="${backendValue}", targetIndex=${targetIndex}, answer="${ans.answer}"`);
             
@@ -120,8 +124,8 @@ export default function EditQuestionPage() {
               // Fill the row with both the value and the answer text
               defaultAnswers[targetIndex] = {
                 id: (targetIndex + 1).toString(),
-                value: backendValue, // Use the actual value from backend
-                answer: ans.answer
+                value: String(backendValue), // Use the actual value from backend
+                answer: ans.answer || ''
               };
               console.log(`✅ MAPPED: Row ${targetIndex + 1} = value:"${backendValue}", answer:"${ans.answer}"`);
             } else {
@@ -693,4 +697,4 @@ export default function EditQuestionPage() {
       </div>
     </div>
   );
-} 
+}

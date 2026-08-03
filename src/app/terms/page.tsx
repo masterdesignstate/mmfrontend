@@ -127,9 +127,9 @@ export default function TermsPage() {
             <li>Use the platform for commercial purposes without authorization</li>
             <li>Create fake accounts or impersonate others</li>
             <li>Use restricted words or offensive language in your profile or messages</li>
-            <li>Attempt to circumvent our security measures or access other users' accounts</li>
+            <li>Attempt to circumvent our security measures or access other users’ accounts</li>
             <li>Scrape, data mine, or use automated tools to access the platform</li>
-            <li>Share or distribute other users' information without consent</li>
+            <li>Share or distribute other users’ information without consent</li>
           </ul>
         </section>
 
@@ -180,7 +180,7 @@ export default function TermsPage() {
         <section className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Disclaimers</h2>
           <p className="text-gray-700 mb-4">
-            CompatibleFirst is provided "as is" without warranties of any kind. We do not guarantee:
+            CompatibleFirst is provided “as is” without warranties of any kind. We do not guarantee:
           </p>
           <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
             <li>That you will find compatible matches</li>

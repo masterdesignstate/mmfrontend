@@ -187,9 +187,6 @@ export default function IntroCardPage() {
     router.push(`/auth/personal-details?${params.toString()}`);
   };
 
-  // Check if user came from hamburger menu (already completed onboarding)
-  const isReturningUser = typeof window !== 'undefined' && localStorage.getItem('mandatory_questions_complete') === 'true';
-
   return (
     <div className="min-h-screen bg-white pb-24 flex flex-col">
 
@@ -292,32 +289,18 @@ export default function IntroCardPage() {
 
       {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {!isReturningUser && (
-          <div className="w-full h-1 bg-gray-200">
-            <div className="h-full bg-black" style={{ width: '25%' }}></div>
-          </div>
-        )}
+        <div className="w-full h-1 bg-gray-200">
+          <div className="h-full bg-black" style={{ width: '25%' }}></div>
+        </div>
 
         <div className="flex justify-between items-center px-6 py-4">
-          {isReturningUser ? (
-            <>
-              <div />
-              <button
-                onClick={() => router.back()}
-                className="px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-gray-800 cursor-pointer transition-colors"
-              >
-                Got it
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={handleBack}
-                className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-              >
-                Back
-              </button>
-              <button
+          <button
+            onClick={handleBack}
+            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
+          >
+            Back
+          </button>
+          <button
                 onClick={handleNext}
                 disabled={loading}
                 className={`px-8 py-3 rounded-md font-medium transition-colors ${
@@ -332,9 +315,7 @@ export default function IntroCardPage() {
                     Loading...
                   </div>
                 ) : 'Next'}
-              </button>
-            </>
-          )}
+          </button>
         </div>
       </footer>
     </div>

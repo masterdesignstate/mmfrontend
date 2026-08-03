@@ -103,7 +103,6 @@ export default function CreateQuestionPage() {
     }
 
     const answersWithValues = answers.filter(answer => answer.value.trim());
-    const answersWithText = answers.filter(answer => answer.value.trim() && answer.answer.trim());
 
     // Check specifically for value 1 and value 5
     const answer1 = answers.find(a => a.value === '1');
@@ -325,6 +324,7 @@ export default function CreateQuestionPage() {
             </label>
             <input
               type="text"
+              aria-label="Question sub number within group"
               value={groupNumber || ''}
               onChange={(e) => setGroupNumber(e.target.value ? Number(e.target.value) : null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
@@ -339,6 +339,7 @@ export default function CreateQuestionPage() {
             </label>
             <input
               type="text"
+              aria-label="Question name within group"
               value={questionName}
               onChange={(e) => setQuestionName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
@@ -356,6 +357,7 @@ export default function CreateQuestionPage() {
             </label>
             <input
               type="text"
+              aria-label="Group name"
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
@@ -370,6 +372,7 @@ export default function CreateQuestionPage() {
             </label>
             <input
               type="text"
+              aria-label="Group question"
               value={groupNameText}
               onChange={(e) => setGroupNameText(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text"
@@ -382,6 +385,7 @@ export default function CreateQuestionPage() {
               Question Type
             </label>
             <select
+              aria-label="Question type"
               value={questionType}
               onChange={(e) => setQuestionType(e.target.value as 'basic' | 'four' | 'grouped' | 'double' | 'triple')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-pointer"
@@ -400,6 +404,7 @@ export default function CreateQuestionPage() {
               Question
             </label>
             <textarea
+              aria-label="Question"
               value={question}
               onChange={(e) => handleQuestionChange(e.target.value)}
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text resize-none ${
@@ -418,6 +423,9 @@ export default function CreateQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
+                role="switch"
+                aria-checked={isApproved}
+                aria-label="Approved"
                 onClick={() => setIsApproved(!isApproved)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
                   isApproved ? 'bg-[#672DB7]' : 'bg-gray-200'
@@ -436,6 +444,9 @@ export default function CreateQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
+                role="switch"
+                aria-checked={isMandatory}
+                aria-label="Mandatory"
                 onClick={() => setIsMandatory(!isMandatory)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
                   isMandatory ? 'bg-[#672DB7]' : 'bg-gray-200'
@@ -454,6 +465,9 @@ export default function CreateQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
+                role="switch"
+                aria-checked={skipMe}
+                aria-label="Skip me"
                 onClick={() => setSkipMe(!skipMe)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
                   skipMe ? 'bg-[#672DB7]' : 'bg-gray-200'
@@ -472,6 +486,9 @@ export default function CreateQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
+                role="switch"
+                aria-checked={skipLookingFor}
+                aria-label="Skip looking"
                 onClick={() => setSkipLookingFor(!skipLookingFor)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
                   skipLookingFor ? 'bg-[#672DB7]' : 'bg-gray-200'
@@ -490,6 +507,9 @@ export default function CreateQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
+                role="switch"
+                aria-checked={openToAllMe}
+                aria-label="Open to all me"
                 onClick={() => setOpenToAllMe(!openToAllMe)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
                   openToAllMe ? 'bg-[#672DB7]' : 'bg-gray-200'
@@ -508,6 +528,9 @@ export default function CreateQuestionPage() {
             <div className="flex items-center">
               <button
                 type="button"
+                role="switch"
+                aria-checked={openToAllLooking}
+                aria-label="Open to all looking"
                 onClick={() => setOpenToAllLooking(!openToAllLooking)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:ring-offset-2 cursor-pointer ${
                   openToAllLooking ? 'bg-[#672DB7]' : 'bg-gray-200'
@@ -535,6 +558,7 @@ export default function CreateQuestionPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
                     <input
                       type="text"
+                      aria-label={`Answer ${answer.id} value`}
                       value={answer.value}
                       onChange={(e) => handleValueChange(answer.id, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
@@ -545,6 +569,7 @@ export default function CreateQuestionPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Answer</label>
                     <input
                       type="text"
+                      aria-label={`Answer ${answer.id} text`}
                       value={answer.answer}
                       onChange={(e) => handleAnswerChange(answer.id, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] cursor-text"
@@ -655,4 +680,4 @@ export default function CreateQuestionPage() {
       </div>
     </div>
   );
-} 
+}

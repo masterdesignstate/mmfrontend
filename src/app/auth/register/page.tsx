@@ -53,6 +53,10 @@ export default function RegisterPage() {
 
       if (response.ok) {
         console.log('✅ Signup successful:', data);
+        localStorage.setItem('user_id', data.user_id);
+        localStorage.removeItem('is_admin');
+        localStorage.removeItem('mandatory_questions_complete');
+        localStorage.removeItem(`mandatory_questions_complete_${data.user_id}`);
         posthog.identify(data.user_id, { email: email.trim().toLowerCase() });
         posthog.capture('user_signed_up', { email: email.trim().toLowerCase(), user_id: data.user_id });
 
@@ -74,7 +78,7 @@ export default function RegisterPage() {
         });
         router.push(`/auth/personal-details?${params.toString()}`);
       } else {
-        console.error('❌ Signup failed:', response.status, data);
+        console.warn('Signup rejected:', response.status, data);
         setError(data.error || `Failed to create account (${response.status})`);
       }
     } catch (error) {

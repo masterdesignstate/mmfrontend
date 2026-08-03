@@ -15,7 +15,7 @@ interface UserGateStatus {
   userId: string | null;
 }
 
-const CACHE_KEY = 'mandatory_questions_complete';
+const cacheKey = (userId: string) => `mandatory_questions_complete_${userId}`;
 
 export function useUserGateStatus(): UserGateStatus {
   const [userId, setUserId] = useState<string | null>(null);
@@ -44,15 +44,20 @@ export function useUserGateStatus(): UserGateStatus {
   // Fall back to localStorage cache while SWR is loading
   const isOnboardingComplete: boolean = data
     ? (data.mandatory_questions_complete ?? false)
-    : (typeof window !== 'undefined' && localStorage.getItem(CACHE_KEY) === 'true');
+    : Boolean(
+        userId
+        && typeof window !== 'undefined'
+        && localStorage.getItem(cacheKey(userId)) === 'true'
+      );
 
   // Sync localStorage cache when SWR data arrives
   useEffect(() => {
-    if (data) {
+    if (data && userId) {
       const complete = data.mandatory_questions_complete ?? false;
-      localStorage.setItem(CACHE_KEY, String(complete));
+      localStorage.setItem(cacheKey(userId), String(complete));
+      localStorage.removeItem('mandatory_questions_complete');
     }
-  }, [data]);
+  }, [data, userId]);
 
   return { isBanned, restrictionType, restrictionReason, emailVerified, email, isOnboardingComplete, isLoading, userId };
 }
