@@ -96,7 +96,7 @@ export default function ExclusionControl({
   };
 
   if (exclusionValues.length === 0) {
-    return <div className={`h-7 w-7 sm:w-[88px] ${className}`} aria-hidden />;
+    return <div className={`h-7 w-[74px] sm:w-[88px] ${className}`} aria-hidden />;
   }
 
   return (
@@ -107,7 +107,7 @@ export default function ExclusionControl({
         title={ariaLabel}
         onClick={toggleOpen}
         disabled={disabled}
-        className={`inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-0 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:px-2.5 ${
+        className={`inline-flex h-7 w-[74px] cursor-pointer items-center justify-center gap-1 rounded-full border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:gap-1.5 sm:px-2.5 sm:text-xs ${
           selected.length > 0
             ? 'border-[#672DB7] bg-[#672DB7] text-white shadow-sm'
             : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:bg-purple-50 hover:text-[#672DB7]'
@@ -126,7 +126,7 @@ export default function ExclusionControl({
             strokeLinecap="round"
           />
         </svg>
-        <span className="hidden sm:inline">{buttonLabel}</span>
+        <span>{buttonLabel}</span>
       </button>
 
       {open && (

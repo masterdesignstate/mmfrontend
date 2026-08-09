@@ -2,14 +2,30 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import ExclusionControl from '@/components/ExclusionControl';
-import NoteControl from '@/components/NoteControl';
-import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
+import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
+import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
+import { getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
+
+/**
+ * Scale captions this page overrides per route. When a route appears here only the listed
+ * values get a caption; anything else on the scale renders blank, matching the labels the
+ * page showed before the shared slider row replaced them.
+ */
+const FREQUENCY_SCALE = { 1: 'NEVER', 2: 'RARELY', 3: 'SOMETIMES', 4: 'REGULARLY', 5: 'DAILY' };
+const SCALE_TEXT_OVERRIDES: Record<string, Record<number, string>> = {
+  ethnicity: { 1: 'LESS', 5: 'MORE' },
+  education: { 1: 'NONE', 3: 'SOME', 5: 'COMPLETED' },
+  diet: { 1: 'NO', 5: 'YES' },
+  '6': FREQUENCY_SCALE,
+  '7': FREQUENCY_SCALE,
+  '8': FREQUENCY_SCALE,
+  '9': { 1: 'UNINVOLVED', 2: 'OBSERVANT', 3: 'ACTIVE', 4: 'FERVENT', 5: 'RADICAL' },
+};
 
 const questionAllowsLookingOta = (
   question?: { question_number?: number; open_to_all_looking_for?: boolean } | null
@@ -116,178 +132,25 @@ export default function QuestionPage() {
     return diet;
   };
 
-  // Helper function to render ALL answer labels at the top
-  const renderTopLabels = () => {
-    // For ethnicity questions, always show LESS and MORE
-    if (params.id === 'ethnicity') {
-      return (
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>LESS</span>
-          <span>MORE</span>
-        </div>
-      );
-    }
-    
-    // For education questions, show NONE, SOME, COMPLETED
-    if (params.id === 'education') {
-      return (
-        <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-          <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-          <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-          <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-        </div>
-      );
-    }
-    
-    // For diet questions, show NO and YES
-    if (params.id === 'diet') {
-      return (
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>NO</span>
-          <span>YES</span>
-        </div>
-      );
-    }
-    
-    // For exercise, habits, and religion questions, show NEVER, RARELY, SOMETIMES, REGULARLY, DAILY
-    if (params.id === '6' || params.id === '7' || params.id === '8') {
-      return (
-        <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-          <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-          <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-          <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-          <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-          <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-        </div>
-      );
-    }
-    
-    // For politics questions, show UNINVOLVED, OBSERVANT, ACTIVE, FERVENT, RADICAL
-    if (params.id === '9') {
-      return (
-        <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-          <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-          <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-          <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-          <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-          <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
-        </div>
-      );
-    }
-    
-    if (!question?.answers || question.answers.length === 0) {
-      return (
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>LESS</span>
-          <span>MORE</span>
-        </div>
-      );
-    }
-    
-    const sortedAnswers = getSliderLabelsForQuestion(question.question_number, question.answers)
-      .sort((a, b) => parseInt(String(a.value)) - parseInt(String(b.value)));
-    
-    return (
-      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-        {sortedAnswers.map((answer) => {
-          const value = parseInt(String(answer.value));
-          let leftPosition;
-          const label = answer.answer_text?.trim() || '';
+  // Scale captions + selectable values for this question, shared by the header strip and
+  // each row's slider so positions always agree.
+  const scaleLabels: AnswerValueLabel[] = useMemo(() => {
+    const routeId = String(params.id);
+    const valueLabels =
+      routeId === 'diet'
+        ? [{ value: '1', answer_text: 'NO' }, { value: '5', answer_text: 'YES' }]
+        : getSliderLabelsForQuestion(question?.question_number, question?.answers || []);
 
-          if (!label) {
-            return null;
-          }
+    if (valueLabels.length === 0) return DEFAULT_SCALE_LABELS;
 
-          if (value === 1) {
-            return (
-              <span
-                key={value}
-                className="absolute text-xs text-gray-500 whitespace-nowrap text-left"
-                style={{ left: '0' }}
-              >
-                {label.toUpperCase()}
-              </span>
-            );
-          }
+    const overrides = SCALE_TEXT_OVERRIDES[routeId];
+    if (!overrides) return valueLabels;
 
-          if (value === 5) {
-            return (
-              <span
-                key={value}
-                className="absolute text-xs text-gray-500 whitespace-nowrap text-right"
-                style={{ right: '0' }}
-              >
-                {label.toUpperCase()}
-              </span>
-            );
-          }
-          
-          // Position labels to center on slider thumb positions
-          if (value === 2) {
-            leftPosition = '25%';
-          } else if (value === 3) {
-            leftPosition = '50%';
-          } else if (value === 4) {
-            leftPosition = '75%';
-          }
-          
-          return (
-            <span 
-              key={value}
-              className="absolute text-xs text-gray-500 whitespace-nowrap"
-              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
-            >
-              {label.toUpperCase()}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const ToggleControl = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-    <label className="flex items-center cursor-pointer">
-      <div className="relative">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onChange}
-          className="sr-only"
-        />
-        <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${checked ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-      </div>
-    </label>
-  );
-
-  const OtaExcHeader = ({ showOta, showExc = true }: { showOta: boolean; showExc?: boolean }) => (
-    <div className="grid grid-cols-[44px_28px] sm:grid-cols-[44px_88px] gap-2 text-xs text-gray-500 min-w-0">
-      <span className={`w-11 text-center ${showOta ? '' : 'invisible'}`}>
-        OTA
-      </span>
-      <span className={`${showExc ? '' : 'invisible'}`} aria-hidden />
-    </div>
-  );
-
-  const OtaExcControls = ({ showOta, checked, onToggle, showExc = true, showNote = false }: { showOta: boolean; checked: boolean; onToggle: () => void; showExc?: boolean; showNote?: boolean }) => (
-    <div className="grid grid-cols-[44px_28px] sm:grid-cols-[44px_88px] gap-2 items-center min-w-0">
-      <div className={showOta ? '' : 'invisible'}>
-        <ToggleControl checked={checked} onChange={onToggle} />
-      </div>
-      <div className={showExc || showNote ? '' : 'invisible'} aria-hidden={!showExc && !showNote}>
-        {showNote && !showExc ? (
-          <NoteControl value={answerNote} onChange={setAnswerNote} />
-        ) : (
-          <ExclusionControl
-            values={excludedAnswerValues}
-            allowedValues={allowedExclusionValues}
-            blockedValues={blockedExclusionValues}
-            onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))}
-          />
-        )}
-      </div>
-    </div>
-  );
+    return valueLabels.map(label => ({
+      value: label.value,
+      answer_text: overrides[Number(label.value)] || '',
+    }));
+  }, [params.id, question]);
 
   
   // For habits page (question 7) - 3 questions + importance
@@ -1085,135 +948,11 @@ export default function QuestionPage() {
     }
   };
 
-  const SliderComponent = ({ 
-    value, 
-    onChange,
-    isOpenToAll = false,
-    isImportance = false
-  }: { 
-    value: number; 
-    onChange: (value: number) => void; 
-    isOpenToAll?: boolean;
-    isImportance?: boolean;
-  }) => {
-    const sliderLabels = isImportance
-      ? []
-      : params.id === 'diet'
-      ? [{ value: '1', answer_text: 'NO' }, { value: '5', answer_text: 'YES' }]
-      : getSliderLabelsForQuestion(question?.question_number, question?.answers || []);
-
-    const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isOpenToAll) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percentage = clickX / rect.width;
-      
-      // Skip position restrictions for importance sliders
-      if (isImportance) {
-        // Importance sliders always use full 1-5 range
-        const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-        onChange(Math.max(1, Math.min(5, newValue)));
-      } else if (params.id === 'diet') {
-        // For diet questions, only allow positions 1, 5
-        onChange(getAnswerValueFromPercentage(percentage, sliderLabels));
-      } else {
-        onChange(getAnswerValueFromPercentage(percentage, sliderLabels));
-      }
-    };
-
-    const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
-        handleSliderClick(e);
-      }
-    };
-
-    const handleMouseDown = () => {
-      document.body.style.userSelect = 'none';
-      window.getSelection()?.removeAllRanges();
-    };
-
-    const handleMouseUp = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleMouseLeave = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleDragStart = (e: React.DragEvent) => {
-      e.preventDefault();
-    };
-
-    const answerValues = getAnswerValues(sliderLabels);
-    const minValue = answerValues[0];
-    const maxValue = answerValues[answerValues.length - 1];
-    const displayValue = getNearestAnswerValue(value, sliderLabels);
-    const displayPosition = getAnswerValuePosition(value, sliderLabels);
-
-    return (
-      <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
-        style={{ userSelect: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onDragStart={handleDragStart}
-      >
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">{minValue}</span>}
-          
-          {/* Custom Slider Track */}
-        <div 
-          className="slider-track w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
-            style={{
-              width: '100%',
-              backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-              borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-            }}
-            onClick={handleSliderClick}
-            onMouseMove={handleSliderDrag}
-            onMouseDown={handleSliderDrag}
-            onDragStart={handleDragStart}
-          />
-          
-          {/* Slider Thumb - OUTSIDE the track container */}
-          {!isOpenToAll && (
-            <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
-              style={{
-                backgroundColor: isImportance ? 'white' : '#672DB7',
-                boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
-              }}
-              onDragStart={handleDragStart}
-            >
-              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
-            </div>
-          )}
-          
-          {!isOpenToAll && (
-            <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">
-              {maxValue}
-            </span>
-          )}
-      </div>
-    );
-  };
-
   if (loadingQuestion) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading question...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loadingQuestion) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading question...</p>
         </div>
       </div>
@@ -1236,54 +975,56 @@ export default function QuestionPage() {
     );
   }
 
+  const rowLabel =
+    params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) :
+    params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
+    params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
+    params.id === '8' ? 'RELIGION' :
+    params.id === '9' ? 'LEFT' :
+    (question?.question_name || 'ANSWER').toUpperCase();
+
+  const showProgress =
+    searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true';
+  const lookingOtaAllowed = questionAllowsLookingOta(question);
+  const meOtaAllowed = Boolean(question.open_to_all_me);
+
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-
-      {/* Header — compact on small devices */}
-      <div className="flex items-center justify-between p-3 sm:p-4">
-        <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
-          />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <main className="flex flex-col items-center justify-center flex-1 px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
-        <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] min-w-0 mx-auto">
-          {/* Title — responsive typography for small devices */}
-          <div className="text-center mb-4 sm:mb-6 lg:mb-8">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2">
-              {params.id === 'ethnicity' ? `${question?.question_number || 3}. Ethnicity` : 
-               params.id === 'education' ? '4. Education' :
-               params.id === 'diet' ? `${question?.question_number || 5}. Diet` :
-               params.id === '6' ? '6. Exercise' :
-               params.id === '8' ? '8. Religion' :
-               params.id === '9' ? '9. Politics' :
-               params.id === 'next-question' ? `${question?.question_number || 6}. ${question?.question_name || 'Next Question'}` :
-               question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'}
-            </h1>
-            <div className="inline-block w-full max-w-full px-0 sm:px-1">
-              <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black mb-3 sm:mb-4 break-words">
-              {params.id === '8' ? 'How often do you practice religion?' :
-               params.id === '9' ? 'How important is politics in your life?' :
-               params.id === 'education' ? 'What is your highest level of education?' :
-               question?.text || 'What ethnicity do you identify with?'}
-            </p>
-              
-              {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
-              {question && question.question_number > 10 && (
-                <div className="flex items-center justify-between w-full mb-8">
+    <OnboardingShell
+      progressPercent={showProgress ? getProgressPercentage() : null}
+      onBack={handleBack}
+      onNext={handleNext}
+      nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
+      loadingLabel="Saving..."
+      loading={loading}
+    >
+      <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
+        <OnboardingTitle
+          step={
+            params.id === 'ethnicity' ? `${question?.question_number || 3}. Ethnicity` :
+            params.id === 'education' ? '4. Education' :
+            params.id === 'diet' ? `${question?.question_number || 5}. Diet` :
+            params.id === '6' ? '6. Exercise' :
+            params.id === '8' ? '8. Religion' :
+            params.id === '9' ? '9. Politics' :
+            params.id === 'next-question' ? `${question?.question_number || 6}. ${question?.question_name || 'Next Question'}` :
+            question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'
+          }
+          question={
+            params.id === '8' ? 'How often do you practice religion?' :
+            params.id === '9' ? 'How important is politics in your life?' :
+            params.id === 'education' ? 'What is your highest level of education?' :
+            question?.text || 'What ethnicity do you identify with?'
+          }
+        >
+          {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
+          {question && question.question_number > 10 && (
+            <div className="mb-4 flex w-full items-center justify-between gap-3 sm:mb-8">
               {/* Required For Match - Left */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setMeRequired(!meRequired)}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                  className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none"
                   style={{ backgroundColor: meRequired ? '#000000' : '#ADADAD' }}
                 >
                   <span
@@ -1291,15 +1032,15 @@ export default function QuestionPage() {
                     style={{ transform: meRequired ? 'translateX(20px)' : 'translateX(2px)' }}
                   />
                 </button>
-                <span className="text-sm text-black">Required For Match</span>
+                <span className="text-xs text-black sm:text-sm">Required For Match</span>
               </div>
 
               {/* Share Answer - Right */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setMeShare(!meShare)}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                  className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none"
                   style={{ backgroundColor: meShare ? '#000000' : '#ADADAD' }}
                 >
                   <span
@@ -1307,181 +1048,76 @@ export default function QuestionPage() {
                     style={{ transform: meShare ? 'translateX(20px)' : 'translateX(2px)' }}
                   />
                 </button>
-                <span className="text-sm text-black">Share Answer</span>
+                <span className="text-xs text-black sm:text-sm">Share Answer</span>
               </div>
-            </div>
-              )}
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
             </div>
           )}
+        </OnboardingTitle>
 
-          {/* Looking For Section */}
-          <div className="mb-4 sm:mb-6">
-            <h3 className="text-xl sm:text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-            
-            {/* LESS/MORE and OTA labels — same 3-col grid on all sizes */}
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
-              <div className="min-w-0" aria-hidden></div>
-              <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
-                {renderTopLabels()}
-              </div>
-              <OtaExcHeader showOta={questionAllowsLookingOta(question)} />
-            </div>
-            
-            {/* Grid: label | slider | OTA — same 3 columns so importance row aligns and gets same slider width */}
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-              {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
-                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
-                 params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
-                 params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
-                 params.id === '8' ? 'RELIGION' :
-                 params.id === '9' ? 'LEFT' :
-                 (question?.question_name || 'ANSWER').toUpperCase()}
-              </div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={lookingForAnswer}
-                  onChange={(value) => handleSliderChange('lookingForAnswer', value)}
-                  isOpenToAll={openToAll.lookingForOpen}
-                  isImportance={false}
-                />
-              </div>
-              <OtaExcControls
-                showOta={questionAllowsLookingOta(question)}
-                checked={openToAll.lookingForOpen}
-                onToggle={() => handleOpenToAllToggle('lookingForOpen')}
-              />
-
-              {/* IMPORTANCE row — same column widths so slider is full width like BLACK row */}
-              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
-                IMPORTANCE
-              </div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
-                  isOpenToAll={false}
-                  isImportance={true}
-                />
-              </div>
-              <div className="shrink-0 w-[144px] h-6" aria-hidden></div>
-            </div>
-
-            {/* Importance labels below Looking For section */}
-            <div className="grid items-center mt-1 sm:mt-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
-              <div className="min-w-0" aria-hidden></div>
-              <div className="relative text-xs text-gray-500 w-full min-w-0">
-                {importance.lookingFor === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.lookingFor === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.lookingFor === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.lookingFor === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.lookingFor === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div className="min-w-0 shrink-0 w-[144px]" aria-hidden></div>
-            </div>
-          </div>
-
-          {/* Me Section */}
-          <div className="mb-4 sm:mb-6 pt-4 sm:pt-8">
-            <h3 className="text-xl sm:text-2xl font-bold text-center mb-1">Me</h3>
-            
-            {/* LESS/MORE and OTA labels — same 3-col grid */}
-            <div className="grid items-center mb-1 sm:mb-2 grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5">
-              <div className="min-w-0" aria-hidden></div>
-              <div className="w-full min-w-0 text-xs text-gray-500 overflow-hidden">
-                {renderTopLabels()}
-              </div>
-              <OtaExcHeader showOta={!!question?.open_to_all_me} showExc={false} />
-            </div>
-            
-            {/* Grid — same 3 columns as Them section */}
-            <div className="grid items-center grid-cols-[72px_minmax(0,1fr)_144px] sm:grid-cols-[80px_1fr_144px] gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-              {/* Question Slider Row */}
-              <div className="text-xs font-semibold text-gray-400 min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap max-w-[72px] sm:max-w-none">
-                {params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) : 
-                 params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
-                 params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
-                 params.id === '8' ? 'RELIGION' :
-                 params.id === '9' ? 'LEFT' :
-                 (question?.question_name || 'ANSWER').toUpperCase()}
-              </div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={meAnswer}
-                  onChange={(value) => handleSliderChange('meAnswer', value)}
-                  isOpenToAll={openToAll.meOpen}
-                  isImportance={false}
-                />
-              </div>
-              <OtaExcControls
-                showOta={!!question.open_to_all_me}
-                checked={openToAll.meOpen}
-                onToggle={() => handleOpenToAllToggle('meOpen')}
-                showExc={false}
-                showNote
-              />
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer with Progress and Navigation */}
-      <footer className="shrink-0 bg-white border-t border-gray-200">
-        {/* Progress Bar - Only show in onboarding context, not profile or questions page context */}
-        {searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true' && (
-          <div className="w-full h-1 bg-gray-200">
-            <div className="h-full bg-black" style={{ width: `${getProgressPercentage()}%` }}></div>
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 rounded border border-red-400 bg-red-100 p-3 text-red-700">
+            {error}
           </div>
         )}
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4">
-          {/* Back Button */}
-          <button
-            onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-          >
-            Back
-          </button>
+        {/* Looking For Section */}
+        <div className="mb-2 sm:mb-6">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+            Them
+          </h3>
 
-          {/* Next/Save Button */}
-          <button
-            onClick={handleNext}
-            disabled={loading}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading
-                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'
-            )}
-          </button>
+          <AnswerScaleHeader labels={scaleLabels} showOta={lookingOtaAllowed} className="mb-2" />
+
+          <div className="space-y-1 sm:space-y-3">
+            <AnswerSliderRow
+              label={rowLabel}
+              labels={scaleLabels}
+              value={lookingForAnswer}
+              onChange={(value) => handleSliderChange('lookingForAnswer', value)}
+              showOta={lookingOtaAllowed}
+              otaChecked={openToAll.lookingForOpen}
+              onOtaToggle={() => handleOpenToAllToggle('lookingForOpen')}
+              showExclude
+              excludedValues={excludedAnswerValues}
+              allowedExclusionValues={allowedExclusionValues}
+              blockedExclusionValues={blockedExclusionValues}
+              onExcludedValuesChange={(values) =>
+                setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))
+              }
+            />
+
+            <AnswerSliderRow
+              label="IMPORTANCE"
+              labels={IMPORTANCE_LABELS}
+              value={importance.lookingFor}
+              onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
+              isImportance
+              showActiveLabelBelow
+            />
+          </div>
         </div>
-      </footer>
-    </div>
+
+        {/* Me Section */}
+        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+
+          <AnswerScaleHeader labels={scaleLabels} showOta={meOtaAllowed} className="mb-2" />
+
+          <AnswerSliderRow
+            label={rowLabel}
+            labels={scaleLabels}
+            value={meAnswer}
+            onChange={(value) => handleSliderChange('meAnswer', value)}
+            showOta={meOtaAllowed}
+            otaChecked={openToAll.meOpen}
+            onOtaToggle={() => handleOpenToAllToggle('meOpen')}
+            showNote
+            note={answerNote}
+            onNoteChange={setAnswerNote}
+          />
+        </div>
+      </div>
+    </OnboardingShell>
   );
 }

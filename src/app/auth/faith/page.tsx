@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import posthog from 'posthog-js';
 
 export default function FaithPage() {
@@ -296,31 +297,17 @@ export default function FaithPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
-          />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
-        <div className="w-full max-w-3xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">11. Faith</h1>
-            <p className="text-3xl font-bold text-black mb-12">
-              What faith do you identify with?
-            </p>
-          </div>
+    <OnboardingShell
+      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : 100}
+      onBack={handleBack}
+      onNext={handleNext}
+      nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
+      loadingLabel="Checking..."
+      loading={loading}
+      contentClassName="flex flex-col justify-center"
+    >
+        <div className="mx-auto w-full max-w-3xl">
+          <OnboardingTitle step="11. Faith" question="What faith do you identify with?" />
 
           {/* Loading Questions */}
           {loadingQuestions && (
@@ -346,49 +333,7 @@ export default function FaithPage() {
             onShowAll={handleLoadMore}
           />
         </div>
-      </main>
-
-      {/* Footer with Progress and Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {/* Progress Bar - Only show in onboarding, not when from questions page */}
-        {searchParams.get('from_questions_page') !== 'true' && (
-          <div className="w-full h-1 bg-gray-200">
-            <div className="h-full bg-black" style={{ width: '100%' }}></div>
-          </div>
-        )}
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center px-6 py-4">
-          {/* Back Button */}
-          <button
-            onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-          >
-            Back
-          </button>
-
-          {/* Next/Save Button */}
-          <button
-            onClick={handleNext}
-            disabled={loading}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading
-                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Checking...
-              </div>
-            ) : (
-              searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'
-            )}
-          </button>
-        </div>
-      </footer>
-    </div>
+    </OnboardingShell>
   );
 }
 

@@ -1,10 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
+import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
+import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
+
+const HABITS_LABELS = [
+  { value: '1', answer_text: 'NEVER' },
+  { value: '2', answer_text: 'RARELY' },
+  { value: '3', answer_text: 'SOMETIMES' },
+  { value: '4', answer_text: 'REGULARLY' },
+  { value: '5', answer_text: 'DAILY' },
+];
 
 export default function HabitsPage() {
   const router = useRouter();
@@ -46,9 +57,10 @@ export default function HabitsPage() {
     habit1MeOpen: false,
     habit2MeOpen: false,
     habit3MeOpen: false,
-    habit1LookingOpen: true,
-    habit2LookingOpen: true,
-    habit3LookingOpen: true
+    // Open-to-all starts off, like every other question — the user opts in.
+    habit1LookingOpen: false,
+    habit2LookingOpen: false,
+    habit3LookingOpen: false
   });
 
   const [importance, setImportance] = useState({
@@ -61,43 +73,22 @@ export default function HabitsPage() {
   const [error, setError] = useState<string>('');
   // Removed exerciseQuestion state - not needed for habits page
 
-  // Hardcoded slider labels for habits questions
-  const habitsSliderLabels = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
-  
-  // Helper function to render all available answer labels at the top
-  const renderTopLabels = () => {
-    return (
-      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-        {habitsSliderLabels.map((label, index) => {
-          const value = index + 1;
-          let leftPosition;
-          
-          // Position labels to center on slider thumb positions
-          if (value === 1) {
-            leftPosition = '14px'; // Left edge of thumb (14px from left)
-          } else if (value === 2) {
-            leftPosition = '25%';
-          } else if (value === 3) {
-            leftPosition = '50%';
-          } else if (value === 4) {
-            leftPosition = '75%';
-          } else if (value === 5) {
-            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
-          }
-          
-          return (
-            <span 
-              key={value}
-              className="absolute text-xs text-gray-500" 
-              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
-            >
-              {label}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
+  const [excluded, setExcluded] = useState<Record<HabitKey, number[]>>({
+    habit1: [], habit2: [], habit3: []
+  });
+  const [notes, setNotes] = useState<Record<HabitKey, string>>({
+    habit1: '', habit2: '', habit3: ''
+  });
+
+  const blockedExclusions = (key: HabitKey) =>
+    openToAll[`${key}MeOpen` as MeOpenKey] ? [] : [myHabits[key]];
+
+  const setExcludedFor = (key: HabitKey, values: number[]) =>
+    setExcluded(prev => ({
+      ...prev,
+      [key]: normalizeExcludedValues(values, DEFAULT_EXCLUSION_VALUES, blockedExclusions(key)),
+    }));
+
   
   // Removed nextQuestions state - not needed for habits page
 
@@ -175,6 +166,8 @@ export default function HabitsPage() {
         looking_for_open_to_all: boolean;
         looking_for_importance: number;
         looking_for_share: boolean;
+        excluded_answer_values: number[];
+        me_note: string;
       }> = [];
       
       // Habit 1 (Alcohol)
@@ -188,7 +181,11 @@ export default function HabitsPage() {
         looking_for_answer: openToAll.habit1LookingOpen ? 6 : lookingFor.habit1,
         looking_for_open_to_all: openToAll.habit1LookingOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        excluded_answer_values: normalizeExcludedValues(
+          excluded.habit1, DEFAULT_EXCLUSION_VALUES, blockedExclusions('habit1')
+        ),
+        me_note: notes.habit1
       });
 
       // Habit 2 (Cigarettes)
@@ -202,7 +199,11 @@ export default function HabitsPage() {
         looking_for_answer: openToAll.habit2LookingOpen ? 6 : lookingFor.habit2,
         looking_for_open_to_all: openToAll.habit2LookingOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        excluded_answer_values: normalizeExcludedValues(
+          excluded.habit2, DEFAULT_EXCLUSION_VALUES, blockedExclusions('habit2')
+        ),
+        me_note: notes.habit2
       });
 
       // Habit 3 (Vape)
@@ -216,7 +217,11 @@ export default function HabitsPage() {
         looking_for_answer: openToAll.habit3LookingOpen ? 6 : lookingFor.habit3,
         looking_for_open_to_all: openToAll.habit3LookingOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        excluded_answer_values: normalizeExcludedValues(
+          excluded.habit3, DEFAULT_EXCLUSION_VALUES, blockedExclusions('habit3')
+        ),
+        me_note: notes.habit3
       });
 
       // Save answers in background (optimistic approach)
@@ -290,339 +295,93 @@ export default function HabitsPage() {
   };
 
   // Slider component - EXACT COPY from gender page
-  const SliderComponent = ({ 
-    value, 
-    onChange,
-    isOpenToAll = false,
-    isImportance = false
-  }: { 
-    value: number; 
-    onChange: (value: number) => void; 
-    isOpenToAll?: boolean;
-    isImportance?: boolean;
-  }) => {
-    const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isOpenToAll) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percentage = clickX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-      onChange(Math.max(1, Math.min(5, newValue)));
-    };
-
-    const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
-        handleSliderClick(e);
-      }
-    };
-
-    const handleMouseDown = () => {
-      document.body.style.userSelect = 'none';
-      window.getSelection()?.removeAllRanges();
-    };
-
-    const handleMouseUp = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleMouseLeave = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleDragStart = (e: React.DragEvent) => {
-      e.preventDefault();
-    };
-
-    return (
-      <div className="w-full h-5 relative flex items-center select-none"
-        style={{ userSelect: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onDragStart={handleDragStart}
-      >
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-          
-          {/* Custom Slider Track */}
-          <div 
-            className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
-            style={{
-              width: '100%',
-              backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-              borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-            }}
-            onClick={handleSliderClick}
-            onMouseMove={handleSliderDrag}
-            onMouseDown={handleSliderDrag}
-            onDragStart={handleDragStart}
-          />
-          
-          {/* Slider Thumb - OUTSIDE the track container */}
-          {!isOpenToAll && (
-            <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
-              style={{
-                backgroundColor: isImportance ? 'white' : '#672DB7',
-                boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
-              }}
-              onDragStart={handleDragStart}
-            >
-              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
-            </div>
-          )}
-          
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
-      </div>
-    );
-  };
-
-  // Hardcoded OTA settings for habits questions
-  const anyLookingForOpen = true; // All habits questions have open_to_all_looking_for = true
-  const anyMeOpen = false; // All habits questions have open_to_all_me = false
+  const habitRows = habitKeys.map((key, index) => ({
+    key,
+    index,
+    label: habitsLabels[index],
+  }));
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
-          />
+    <OnboardingShell
+      progressPercent={70}
+      onBack={handleBack}
+      onNext={handleNext}
+      loadingLabel="Saving..."
+      loading={loading}
+    >
+      <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
+        <OnboardingTitle step="7. Habits" question="How often do you engage in these habits?" />
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 rounded border border-red-400 bg-red-100 p-3 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Them Section */}
+        <div className="mb-2 sm:mb-6">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+            Them
+          </h3>
+
+          <AnswerScaleHeader labels={HABITS_LABELS} showOta className="mb-2" />
+
+          <div className="space-y-1 sm:space-y-3">
+            {habitRows.map(({ key, index, label }) => (
+              <AnswerSliderRow
+                key={`looking-${key}`}
+                label={label}
+                labels={HABITS_LABELS}
+                value={lookingFor[key]}
+                onChange={(value) => handleSliderChange('lookingFor', key, value)}
+                showOta
+                otaChecked={openToAll[lookingOpenKeys[index]]}
+                onOtaToggle={() => handleOpenToAllToggle(lookingOpenKeys[index])}
+                showExclude
+                excludedValues={excluded[key]}
+                allowedExclusionValues={DEFAULT_EXCLUSION_VALUES}
+                blockedExclusionValues={blockedExclusions(key)}
+                onExcludedValuesChange={(values) => setExcludedFor(key, values)}
+              />
+            ))}
+
+            <AnswerSliderRow
+              label="IMPORTANCE"
+              labels={IMPORTANCE_LABELS}
+              value={importance.lookingFor}
+              onChange={handleLookingForImportanceChange}
+              isImportance
+              showActiveLabelBelow
+            />
+          </div>
+        </div>
+
+        {/* Me Section */}
+        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+
+          <AnswerScaleHeader labels={HABITS_LABELS} showOta className="mb-2" />
+
+          <div className="space-y-1 sm:space-y-3">
+            {habitRows.map(({ key, index, label }) => (
+              <AnswerSliderRow
+                key={`me-${key}`}
+                label={label}
+                labels={HABITS_LABELS}
+                value={myHabits[key]}
+                onChange={(value) => handleSliderChange('myHabits', key, value)}
+                showOta
+                otaChecked={openToAll[meOpenKeys[index]]}
+                onOtaToggle={() => handleOpenToAllToggle(meOpenKeys[index])}
+                showNote
+                note={notes[key]}
+                onNoteChange={(note) => setNotes(prev => ({ ...prev, [key]: note }))}
+              />
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
-        <div className="w-full max-w-4xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">7. Habits</h1>
-            <p className="text-3xl font-bold text-black mb-12">
-              How often do you engage in these habits?
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-
-          {/* Looking For Section */}
-          <div className="mb-10">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div>
-              <div className="w-full">{renderTopLabels()}</div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {anyLookingForOpen ? 'OTA' : ''}
-              </div>
-            </div>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(8px, 2vw, 16px)'
-              }}
-            >
-              {habitKeys.map((habitKey, index) => {
-                const lookingOpenKey = lookingOpenKeys[index];
-
-                return (
-                  <React.Fragment key={`looking-${habitKey}`}>
-                    <div className="text-xs font-semibold text-gray-400">
-                      {habitsLabels[index]}
-                    </div>
-                    <div className="relative">
-                      <SliderComponent
-                        value={lookingFor[habitKey]}
-                        onChange={(value) => handleSliderChange('lookingFor', habitKey, value)}
-                        isOpenToAll={openToAll[lookingOpenKey]}
-                      />
-                    </div>
-                    <div className="flex justify-center">
-                      {true ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAll[lookingOpenKey]}
-                              onChange={() => handleOpenToAllToggle(lookingOpenKey)}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAll[lookingOpenKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[lookingOpenKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={handleLookingForImportanceChange}
-                  isOpenToAll={false}
-                  isImportance={true}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-            </div>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div>
-              <div className="relative text-xs text-gray-500 w-full">
-                {importance.lookingFor === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.lookingFor === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.lookingFor === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.lookingFor === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.lookingFor === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div>
-            </div>
-          </div>
-
-          {/* Me Section */}
-          <div className="mb-6 pt-2">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mb-2 mobile-grid-labels"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div>
-              <div className="w-full">{renderTopLabels()}</div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {anyMeOpen ? 'OTA' : ''}
-              </div>
-            </div>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(8px, 2vw, 16px)'
-              }}
-            >
-              {habitKeys.map((habitKey, index) => {
-                const meOpenKey = meOpenKeys[index];
-
-                return (
-                  <React.Fragment key={`me-${habitKey}`}>
-                    <div className="text-xs font-semibold text-gray-400">
-                      {habitsLabels[index]}
-                    </div>
-                    <div className="relative">
-                      <SliderComponent
-                        value={myHabits[habitKey]}
-                        onChange={(value) => handleSliderChange('myHabits', habitKey, value)}
-                        isOpenToAll={openToAll[meOpenKey]}
-                      />
-                    </div>
-                    <div className="flex justify-center">
-                      {false ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAll[meOpenKey]}
-                              onChange={() => handleOpenToAllToggle(meOpenKey)}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAll[meOpenKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[meOpenKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer with Progress and Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '70%' }}></div>
-        </div>
-        
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center px-6 py-4">
-          {/* Back Button */}
-          <button
-            onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-          >
-            Back
-          </button>
-          
-          {/* Next Button */}
-          <button
-            onClick={handleNext}
-            disabled={loading}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading
-                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              'Next'
-            )}
-          </button>
-        </div>
-      </footer>
-    </div>
+    </OnboardingShell>
   );
 }

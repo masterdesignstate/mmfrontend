@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import OnboardingShell from '@/components/OnboardingShell';
 
 export default function IntroCardPage() {
   const router = useRouter();
@@ -188,32 +188,31 @@ export default function IntroCardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24 flex flex-col">
-
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100">
-        <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} />
-        <h1 className="text-base font-semibold text-gray-900">CompatibleFirst</h1>
-        <div className="w-8" />
-      </div>
-
+    <OnboardingShell
+      headerTitle="CompatibleFirst"
+      progressPercent={25}
+      onBack={handleBack}
+      onNext={handleNext}
+      loading={loading}
+      contentClassName="flex flex-col justify-center"
+    >
       {/* Centered content */}
-      <div className="flex-1 flex flex-col justify-center max-w-xl w-full mx-auto px-5">
+      <div className="mx-auto w-full max-w-xl">
 
 
       {/* Error */}
       {error && (
-        <div className="mx-6 mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+        <div className="mb-3 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       {/* Feature Grid */}
-      <div className="space-y-3">
+      <div className="space-y-2 sm:space-y-3">
 
         {/* Section: Answering Questions */}
-        <p className="text-sm font-semibold tracking-widest uppercase text-[#672DB7] px-1">How It Works</p>
-        <div className="grid grid-cols-3 gap-2.5">
+        <p className="text-[10px] sm:text-sm font-semibold tracking-widest uppercase text-[#672DB7] px-1">How It Works</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           <FeatureCard
             icon={
               <svg className="w-5 h-5 text-[#672DB7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,13 +238,13 @@ export default function IntroCardPage() {
               </svg>
             }
             title="Importance"
-            description="Rate how much each question matters to you from 1–5"
+            description="Rate how much each question matters to you"
           />
         </div>
 
         {/* Section: Controls */}
-        <p className="text-sm font-semibold tracking-widest uppercase text-[#672DB7] px-1 pt-1">Question Controls</p>
-        <div className="grid grid-cols-3 gap-2.5">
+        <p className="text-[10px] sm:text-sm font-semibold tracking-widest uppercase text-[#672DB7] px-1 pt-1">Question Controls</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           <FeatureCard
             icon={<ToggleIcon on color="#672DB7" />}
             title="Open to All"
@@ -254,7 +253,7 @@ export default function IntroCardPage() {
           <FeatureCard
             icon={<ToggleIcon on color="#000" />}
             title="Required"
-            description="Your match must answer this question to see you"
+            description="Others must answer this question to match with you"
           />
           <FeatureCard
             icon={<ToggleIcon on color="#000" />}
@@ -264,8 +263,8 @@ export default function IntroCardPage() {
         </div>
 
         {/* Section: Compatibility */}
-        <p className="text-sm font-semibold tracking-widest uppercase text-[#672DB7] px-1 pt-1">Compatibility</p>
-        <div className="grid grid-cols-3 gap-2.5">
+        <p className="text-[10px] sm:text-sm font-semibold tracking-widest uppercase text-[#672DB7] px-1 pt-1">Compatibility</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           <FeatureCard
             icon={<ScoreRing pct={87} />}
             title="Overall"
@@ -273,12 +272,12 @@ export default function IntroCardPage() {
           />
           <FeatureCard
             icon={<ScoreRing pct={92} />}
-            title="Compatible with Me"
+            title="My preferences"
             description="How well they fit what you're looking for"
           />
           <FeatureCard
             icon={<ScoreRing pct={83} />}
-            title="I'm Compatible with"
+            title="Their preferences"
             description="How well you fit what they're looking for"
           />
         </div>
@@ -286,39 +285,7 @@ export default function IntroCardPage() {
       </div>
 
       </div>{/* end centered content */}
-
-      {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '25%' }}></div>
-        </div>
-
-        <div className="flex justify-between items-center px-6 py-4">
-          <button
-            onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-          >
-            Back
-          </button>
-          <button
-                onClick={handleNext}
-                disabled={loading}
-                className={`px-8 py-3 rounded-md font-medium transition-colors ${
-                  !loading
-                    ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {loading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Loading...
-                  </div>
-                ) : 'Next'}
-          </button>
-        </div>
-      </footer>
-    </div>
+    </OnboardingShell>
   );
 }
 
@@ -326,10 +293,10 @@ export default function IntroCardPage() {
 
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className="bg-[#F8F8F8] rounded-2xl p-4 flex flex-col items-start min-h-[150px]">
-      <div className="mb-3">{icon}</div>
-      <h3 className="text-base font-bold text-gray-900 leading-tight mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+    <div className="bg-[#F8F8F8] rounded-2xl p-2.5 sm:p-4 flex flex-col items-start min-h-[104px] sm:min-h-[150px]">
+      <div className="mb-2 origin-left scale-75 sm:mb-3 sm:scale-100">{icon}</div>
+      <h3 className="text-[11px] sm:text-base font-bold text-gray-900 leading-tight mb-1">{title}</h3>
+      <p className="text-[9px] leading-[1.35] sm:text-sm sm:leading-relaxed text-gray-500">{description}</p>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import ExclusionControl from '@/components/ExclusionControl';
+import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
+import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
+import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
 
 export default function FaithQuestionPage() {
@@ -92,20 +94,6 @@ export default function FaithQuestionPage() {
     }
   }, [searchParams]);
 
-  const handleSliderChange = (section: 'myAnswer' | 'lookingForAnswer' | 'importance', value?: number) => {
-    if (section === 'myAnswer' && value !== undefined) {
-      setMyAnswer(value);
-    } else if (section === 'lookingForAnswer' && value !== undefined) {
-      setLookingForAnswer(value);
-    } else if (section === 'importance' && value !== undefined) {
-      setImportance(prev => ({ ...prev, me: value }));
-    }
-  };
-
-  const handleLookingForImportanceChange = (value: number) => {
-    setImportance(prev => ({ ...prev, lookingFor: value }));
-  };
-
   const handleOpenToAllToggle = (switchType: string) => {
     setOpenToAll(prev => ({ ...prev, [switchType]: !prev[switchType as keyof typeof prev] }));
   };
@@ -174,344 +162,106 @@ export default function FaithQuestionPage() {
     router.push(`/auth/faith?${params.toString()}`);
   };
 
-  const faithGridClass = 'grid items-center mx-auto w-full max-w-[95vw] grid-cols-[80px_minmax(0,1fr)_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5';
-
-  const EndpointLabels = () => (
-    <div className="flex justify-between text-xs text-gray-500">
-      <span>Less</span>
-      <span className="text-right">More</span>
-    </div>
-  );
-
-  const OtaExcludeHeader = ({ showOta }: { showOta: boolean }) => (
-    <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-      {showOta && <span className="w-11 text-center">OTA</span>}
-      <span className="w-7 sm:w-[88px]" aria-hidden />
-    </div>
-  );
-
-  const ToggleControl = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-    <label className="flex items-center cursor-pointer">
-      <div className="relative">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onChange}
-          className="sr-only"
-        />
-        <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${checked ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-      </div>
-    </label>
-  );
-
-  // Faith is a strength scale, so expose all five positions.
-  const SliderComponent = ({ 
-    value, 
-    onChange,
-    isOpenToAll = false
-  }: { 
-    value: number; 
-    onChange: (value: number) => void; 
-    isOpenToAll?: boolean;
-  }) => {
-    const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isOpenToAll) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percentage = clickX / rect.width;
-      const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-      onChange(Math.max(1, Math.min(5, newValue)));
-    };
-
-    const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
-        handleSliderClick(e);
-      }
-    };
-
-    const handleMouseDown = () => {
-      document.body.style.userSelect = 'none';
-      window.getSelection()?.removeAllRanges();
-    };
-
-    const handleMouseUp = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleMouseLeave = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleDragStart = (e: React.DragEvent) => {
-      e.preventDefault();
-    };
-
-    return (
-      <div className="w-full h-5 relative flex items-center select-none"
-        style={{ userSelect: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onDragStart={handleDragStart}
-      >
-          {/* Custom Slider Track */}
-          <div 
-            className="w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
-            style={{
-              width: '100%',
-              backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-              borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-            }}
-            onClick={handleSliderClick}
-            onMouseMove={handleSliderDrag}
-            onMouseDown={handleSliderDrag}
-            onDragStart={handleDragStart}
-          />
-          
-          {/* Slider Thumb - OUTSIDE the track container */}
-          {!isOpenToAll && (
-            <div 
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold shadow-sm z-30 cursor-pointer"
-              style={{
-                backgroundColor: '#672DB7',
-                left: value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`
-              }}
-              onDragStart={handleDragStart}
-            >
-              <span className="text-white">{value}</span>
-            </div>
-          )}
-      </div>
-    );
-  };
+  const scaleLabels: AnswerValueLabel[] =
+    question?.answers && question.answers.length > 0 ? question.answers : DEFAULT_SCALE_LABELS;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
+    <OnboardingShell
+      progressPercent={null}
+      onBack={handleBack}
+      onNext={handleNext}
+      nextLabel="Save"
+      loadingLabel="Saving..."
+      loading={loading}
+    >
+      <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
+        <OnboardingTitle
+          step={`11. ${question?.question_name || 'Faith'}`}
+          question={question?.text || 'Select a faith to answer'}
+        />
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 rounded border border-red-400 bg-red-100 p-3 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Me Section */}
+        <div className="mb-2 sm:mb-6">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+
+          <AnswerScaleHeader
+            labels={scaleLabels}
+            showOta={Boolean(question?.open_to_all_me)}
+            className="mb-2"
           />
+
+          <div className="space-y-1 sm:space-y-3">
+            <AnswerSliderRow
+              label={(question?.question_name || 'ANSWER').toUpperCase()}
+              labels={scaleLabels}
+              value={myAnswer}
+              onChange={setMyAnswer}
+              showOta={Boolean(question?.open_to_all_me)}
+              otaChecked={openToAll.answer1MeOpen}
+              onOtaToggle={() => handleOpenToAllToggle('answer1MeOpen')}
+              showExclude
+              excludedValues={excludedAnswerValues}
+              allowedExclusionValues={allowedExclusionValues}
+              blockedExclusionValues={blockedExclusionValues}
+              onExcludedValuesChange={(values) =>
+                setExcludedAnswerValues(
+                  normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues)
+                )
+              }
+            />
+
+            <AnswerSliderRow
+              label="IMPORTANCE"
+              labels={IMPORTANCE_LABELS}
+              value={importance.me}
+              onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
+              isImportance
+              showActiveLabelBelow
+            />
+          </div>
+        </div>
+
+        {/* Them Section */}
+        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+            Them
+          </h3>
+
+          <AnswerScaleHeader
+            labels={scaleLabels}
+            showOta={Boolean(question?.open_to_all_looking_for)}
+            className="mb-2"
+          />
+
+          <div className="space-y-1 sm:space-y-3">
+            <AnswerSliderRow
+              label={(question?.question_name || 'ANSWER').toUpperCase()}
+              labels={scaleLabels}
+              value={lookingForAnswer}
+              onChange={setLookingForAnswer}
+              showOta={Boolean(question?.open_to_all_looking_for)}
+              otaChecked={openToAll.answer1LookingOpen}
+              onOtaToggle={() => handleOpenToAllToggle('answer1LookingOpen')}
+            />
+
+            <AnswerSliderRow
+              label="IMPORTANCE"
+              labels={IMPORTANCE_LABELS}
+              value={importance.lookingFor}
+              onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
+              isImportance
+              showActiveLabelBelow
+            />
+          </div>
         </div>
       </div>
-
-      {/* Main Content */}
-      <main className="flex flex-col items-center justify-center flex-1 px-6 py-6">
-        <div className="w-full max-w-4xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">
-              11. {question?.question_name || 'Faith'}
-            </h1>
-            <p className="text-3xl font-bold text-black mb-12">
-              {question?.text || 'Select a faith to answer'}
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-
-          {/* Me Section */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-            
-            <div className={`${faithGridClass} mb-2`}>
-              <div></div>
-              <EndpointLabels />
-              <OtaExcludeHeader showOta={Boolean(question?.open_to_all_me)} />
-            </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className={faithGridClass}>
-              
-              {/* FAITH Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(question?.question_name || 'FAITH').toUpperCase()}
-              </div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={myAnswer}
-                  onChange={(value) => handleSliderChange('myAnswer', value)}
-                  isOpenToAll={openToAll.answer1MeOpen}
-                />
-              </div>
-              <div className="flex items-center justify-center gap-2">
-                {question?.open_to_all_me && (
-                  <ToggleControl
-                    checked={openToAll.answer1MeOpen}
-                    onChange={() => handleOpenToAllToggle('answer1MeOpen')}
-                  />
-                )}
-                <ExclusionControl
-                  values={excludedAnswerValues}
-                  allowedValues={allowedExclusionValues}
-                  blockedValues={blockedExclusionValues}
-                  onChange={(values) => setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))}
-                />
-              </div>
-
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={importance.me}
-                  onChange={(value) => handleSliderChange('importance', value)}
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
-            </div>
-
-            {/* Importance labels below Me section - centered and dynamic */}
-            <div className={`${faithGridClass} mt-2`}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative min-w-0 text-xs text-gray-500">
-                {/* Only show the label for the current importance value */}
-                {importance.me === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.me === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.me === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.me === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.me === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
-            </div>
-          </div>
-
-          {/* Looking For Section */}
-          <div className="mb-6 pt-8">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-            
-            <div className={`${faithGridClass} mb-2`}>
-              <div></div>
-              <EndpointLabels />
-              <OtaExcludeHeader showOta={Boolean(question?.open_to_all_looking_for)} />
-            </div>
-            
-            {/* Grid container for perfect alignment */}
-            <div className={faithGridClass}>
-              
-              {/* FAITH Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">
-                {(question?.question_name || 'FAITH').toUpperCase()}
-              </div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={lookingForAnswer}
-                  onChange={(value) => handleSliderChange('lookingForAnswer', value)}
-                  isOpenToAll={openToAll.answer1LookingOpen}
-                />
-              </div>
-              <div className="flex items-center justify-center">
-                {/* Only show switch if Faith question has open_to_all_looking_for enabled */}
-                {question?.open_to_all_looking_for ? (
-                  <ToggleControl
-                    checked={openToAll.answer1LookingOpen}
-                    onChange={() => handleOpenToAllToggle('answer1LookingOpen')}
-                  />
-                ) : (
-                  <div className="w-11 h-6"></div> // Empty placeholder to maintain grid alignment
-                )}
-              </div>
-
-              {/* IMPORTANCE Slider Row */}
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative min-w-0">
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={handleLookingForImportanceChange}
-                  isOpenToAll={false}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-              
-            </div>
-
-            {/* Importance labels below Looking For section - centered and dynamic */}
-            <div className={`${faithGridClass} mt-2`}>
-              <div></div> {/* Empty placeholder for label column */}
-              <div className="relative min-w-0 text-xs text-gray-500">
-                {/* Only show the label for the current importance value */}
-                {importance.lookingFor === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.lookingFor === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.lookingFor === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.lookingFor === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.lookingFor === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div> {/* Empty placeholder for switch column */}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer with Progress and Navigation */}
-      <footer className="shrink-0 bg-white border-t border-gray-200">
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '100%' }}></div>
-        </div>
-        
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center px-6 py-4">
-          {/* Back Button */}
-          <button
-            onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-          >
-            Back
-          </button>
-          
-          {/* Next Button */}
-          <button
-            onClick={handleNext}
-            disabled={loading}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
-              !loading
-                ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              'Next'
-            )}
-          </button>
-        </div>
-      </footer>
-    </div>
+    </OnboardingShell>
   );
 }

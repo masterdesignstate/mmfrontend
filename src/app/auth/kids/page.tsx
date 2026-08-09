@@ -1,10 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
+import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
+import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 import posthog from 'posthog-js';
+
+const WANT_KIDS_LABELS = [
+  { value: '1', answer_text: "DON'T WANT" },
+  { value: '2', answer_text: 'DOUBTFUL' },
+  { value: '3', answer_text: 'UNSURE' },
+  { value: '4', answer_text: 'EVENTUALLY' },
+  { value: '5', answer_text: 'WANT' },
+];
+
+// "Have kids" is a yes/no question: only the two ends are selectable.
+const HAVE_KIDS_LABELS = [
+  { value: '1', answer_text: "DON'T HAVE" },
+  { value: '5', answer_text: 'HAVE' },
+];
 
 export default function KidsPage() {
   const router = useRouter();
@@ -41,8 +58,9 @@ export default function KidsPage() {
   const [openToAll, setOpenToAll] = useState<Record<MeOpenKey | LookingOpenKey, boolean>>({
     kids1MeOpen: false,
     kids2MeOpen: false,
-    kids1LookingOpen: true,
-    kids2LookingOpen: true
+    // Open-to-all starts off, like every other question — the user opts in.
+    kids1LookingOpen: false,
+    kids2LookingOpen: false
   });
 
   const [importance, setImportance] = useState({
@@ -53,48 +71,21 @@ export default function KidsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // Hardcoded slider labels for kids questions
-  const kidsSliderLabels = ['YES', 'MAYBE', 'NO PREFERENCE', 'PREFER NO', 'DEFINITELY NO'];
-  
-  // Helper function to render all available answer labels at the top
-  const renderTopLabels = (sliderIndex: number) => {
-    const wantKidsLabels = ['DON\'T WANT', 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
-    const haveKidsLabels = ['DON\'T HAVE', '', '', '', 'HAVE'];
-    
-    const labels = sliderIndex === 0 ? wantKidsLabels : haveKidsLabels;
-    
-    return (
-      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-        {labels.map((label, index) => {
-          const value = index + 1;
-          let leftPosition;
-          
-          // Position labels to center on slider thumb positions
-          if (value === 1) {
-            leftPosition = '14px'; // Left edge of thumb (14px from left)
-          } else if (value === 2) {
-            leftPosition = '25%';
-          } else if (value === 3) {
-            leftPosition = '50%';
-          } else if (value === 4) {
-            leftPosition = '75%';
-          } else if (value === 5) {
-            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
-          }
-          
-          return (
-            <span 
-              key={value}
-              className="absolute text-xs text-gray-500" 
-              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
-            >
-              {label}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
+  const [excluded, setExcluded] = useState<Record<KidsKey, number[]>>({ kids1: [], kids2: [] });
+  const [notes, setNotes] = useState<Record<KidsKey, string>>({ kids1: '', kids2: '' });
+
+  const blockedExclusions = (key: KidsKey) =>
+    openToAll[`${key}MeOpen` as MeOpenKey] ? [] : [myKids[key]];
+
+  const setExcludedFor = (key: KidsKey, values: number[], isBinary: boolean) =>
+    setExcluded(prev => ({
+      ...prev,
+      [key]: normalizeExcludedValues(
+        values,
+        isBinary ? [1, 5] : DEFAULT_EXCLUSION_VALUES,
+        blockedExclusions(key)
+      ),
+    }));
 
   // Load user ID from URL params
   useEffect(() => {
@@ -127,10 +118,6 @@ export default function KidsPage() {
     setOpenToAll(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleMeImportanceChange = (value: number) => {
-    setImportance(prev => ({ ...prev, me: value }));
-  };
-
   const handleLookingForImportanceChange = (value: number) => {
     setImportance(prev => ({ ...prev, lookingFor: value }));
   };
@@ -146,7 +133,7 @@ export default function KidsPage() {
 
     try {
       // Create user answers for both kids questions
-      const userAnswers: Array<Record<string, string | number | boolean | undefined>> = [];
+      const userAnswers: Array<Record<string, string | number | boolean | number[] | undefined>> = [];
 
       // Kids 1 (Want Kids)
       userAnswers.push({
@@ -159,7 +146,11 @@ export default function KidsPage() {
         looking_for_answer: openToAll.kids1LookingOpen ? 6 : lookingFor.kids1,
         looking_for_open_to_all: openToAll.kids1LookingOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        excluded_answer_values: normalizeExcludedValues(
+          excluded.kids1, DEFAULT_EXCLUSION_VALUES, blockedExclusions('kids1')
+        ),
+        me_note: notes.kids1
       });
 
       // Kids 2 (Have Kids)
@@ -173,7 +164,11 @@ export default function KidsPage() {
         looking_for_answer: openToAll.kids2LookingOpen ? 6 : lookingFor.kids2,
         looking_for_open_to_all: openToAll.kids2LookingOpen,
         looking_for_importance: importance.lookingFor,
-        looking_for_share: true
+        looking_for_share: true,
+        excluded_answer_values: normalizeExcludedValues(
+          excluded.kids2, [1, 5], blockedExclusions('kids2')
+        ),
+        me_note: notes.kids2
       });
 
       // Save answers in background (optimistic approach)
@@ -254,330 +249,99 @@ export default function KidsPage() {
     router.push(`/auth/question/9?${params.toString()}`);
   };
 
-  // Slider component - EXACT COPY from habits page
-  const SliderComponent = ({
-    value,
-    onChange,
-    isOpenToAll = false,
-    isImportance = false,
-    isBinary = false
-  }: {
-    value: number;
-    onChange: (value: number) => void;
-    isOpenToAll?: boolean;
-    isImportance?: boolean;
-    isBinary?: boolean;
-  }) => {
-    const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isOpenToAll) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percentage = clickX / rect.width;
-      if (isBinary) {
-        // Binary: left half = 1, right half = 5
-        onChange(percentage < 0.5 ? 1 : 5);
-        return;
-      }
-      const newValue = Math.round(percentage * 4) + 1; // 1-5 range
-      onChange(Math.max(1, Math.min(5, newValue)));
-    };
-
-    const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.buttons === 1 && !isOpenToAll) { // Left mouse button
-        handleSliderClick(e);
-      }
-    };
-
-    const handleMouseDown = () => {
-      document.body.style.userSelect = 'none';
-      window.getSelection()?.removeAllRanges();
-    };
-
-    const handleMouseUp = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleMouseLeave = () => {
-      document.body.style.userSelect = '';
-    };
-
-    const handleDragStart = (e: React.DragEvent) => {
-      e.preventDefault();
-    };
-
-    return (
-      <div className="w-full h-5 relative flex items-center select-none"
-        style={{ userSelect: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onDragStart={handleDragStart}
-      >
-          {!isOpenToAll && <span className="absolute left-2 text-xs text-gray-500 pointer-events-none z-10">1</span>}
-
-          {/* Custom Slider Track */}
-          <div
-            className="slider-track w-full h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
-            style={{
-              width: '100%',
-              backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-              borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-            }}
-            onClick={handleSliderClick}
-            onMouseMove={handleSliderDrag}
-            onMouseDown={handleSliderDrag}
-            onDragStart={handleDragStart}
-          />
-
-          {/* Slider Thumb - OUTSIDE the track container */}
-          {!isOpenToAll && (
-            <div
-              className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
-              style={{
-                backgroundColor: isImportance ? 'white' : '#672DB7',
-                boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                left: isBinary
-                  ? (value === 1 ? '0px' : 'calc(100% - 28px)')
-                  : (value === 1 ? '0px' : value === 5 ? 'calc(100% - 28px)' : `calc(${((value - 1) / 4) * 100}% - 14px)`)
-              }}
-              onDragStart={handleDragStart}
-            >
-              <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{value}</span>
-            </div>
-          )}
-
-          {!isOpenToAll && <span className="absolute right-2 text-xs text-gray-500 pointer-events-none z-10">5</span>}
-      </div>
-    );
-  };
-
-  // Hardcoded OTA settings for kids questions
-  const anyLookingForOpen = true; // All kids questions have open_to_all_looking_for = true
-  const anyMeOpen = true; // Want Kids question has open_to_all_me = true
+  const kidsRows: Array<{
+    key: KidsKey;
+    label: string;
+    labels: typeof WANT_KIDS_LABELS;
+    isBinary: boolean;
+  }> = [
+    { key: kidsKeys[0], label: kidsLabels[0], labels: WANT_KIDS_LABELS, isBinary: false },
+    { key: kidsKeys[1], label: kidsLabels[1], labels: HAVE_KIDS_LABELS, isBinary: true },
+  ];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center">
-          <Image
-            src="/assets/mmlogox.png"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="mr-2"
-          />
+    <OnboardingShell
+      progressPercent={100}
+      onBack={handleBack}
+      onNext={handleNext}
+      loadingLabel="Saving..."
+      loading={loading}
+    >
+      <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
+        <OnboardingTitle step="10. Kids" question="What are your thoughts on kids?" />
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 rounded border border-red-400 bg-red-100 p-3 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Them Section */}
+        <div className="mb-2 sm:mb-6">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+            Them
+          </h3>
+
+          <AnswerScaleHeader labels={[]} showOta className="mb-1" />
+
+          <div className="space-y-1 sm:space-y-3">
+            {kidsRows.map(({ key, label, labels, isBinary }, index) => (
+              <AnswerSliderRow
+                key={`looking-${key}`}
+                label={label}
+                labels={labels}
+                showScaleAbove
+                value={lookingFor[key]}
+                onChange={(value) => handleSliderChange('lookingFor', key, value)}
+                showOta
+                otaChecked={openToAll[lookingOpenKeys[index]]}
+                onOtaToggle={() => handleOpenToAllToggle(lookingOpenKeys[index])}
+                showExclude
+                excludedValues={excluded[key]}
+                allowedExclusionValues={isBinary ? [1, 5] : DEFAULT_EXCLUSION_VALUES}
+                blockedExclusionValues={blockedExclusions(key)}
+                onExcludedValuesChange={(values) => setExcludedFor(key, values, isBinary)}
+              />
+            ))}
+
+            <AnswerSliderRow
+              label="IMPORTANCE"
+              labels={IMPORTANCE_LABELS}
+              value={importance.lookingFor}
+              onChange={handleLookingForImportanceChange}
+              isImportance
+              showActiveLabelBelow
+            />
+          </div>
+        </div>
+
+        {/* Me Section */}
+        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
+          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+
+          <AnswerScaleHeader labels={[]} showOta className="mb-1" />
+
+          <div className="space-y-1 sm:space-y-3">
+            {kidsRows.map(({ key, label, labels, isBinary }, index) => (
+              <AnswerSliderRow
+                key={`me-${key}`}
+                label={label}
+                labels={labels}
+                showScaleAbove
+                value={myKids[key]}
+                onChange={(value) => handleSliderChange('myKids', key, value)}
+                showOta
+                otaChecked={openToAll[meOpenKeys[index]]}
+                onOtaToggle={() => handleOpenToAllToggle(meOpenKeys[index])}
+                showNote
+                note={notes[key]}
+                onNoteChange={(note) => setNotes(prev => ({ ...prev, [key]: note }))}
+              />
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Main Content */}
-      <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-6">
-        <div className="w-full max-w-4xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black mb-2">10. Kids</h1>
-            <p className="text-3xl font-bold text-black mb-12">
-              What are your thoughts on kids?
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-
-          {/* Looking For Section */}
-          <div className="mb-10">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(8px, 2vw, 16px)'
-              }}
-            >
-              {kidsKeys.map((kidsKey, index) => {
-                const lookingOpenKey = lookingOpenKeys[index];
-
-                return (
-                  <React.Fragment key={`looking-${kidsKey}`}>
-                    <div className="text-xs font-semibold text-gray-400">
-                      {kidsLabels[index]}
-                    </div>
-                    <div className="relative">
-                      {/* Labels above slider */}
-                      <div className="mb-2">
-                        {renderTopLabels(index)}
-                      </div>
-                      <SliderComponent
-                        value={lookingFor[kidsKey]}
-                        onChange={(value) => handleSliderChange('lookingFor', kidsKey, value)}
-                        isOpenToAll={openToAll[lookingOpenKey]}
-                        isBinary={kidsKey === 'kids2'}
-                      />
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && anyLookingForOpen ? '' : 'invisible'}`}>
-                        OTA
-                      </div>
-                      {true ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAll[lookingOpenKey]}
-                              onChange={() => handleOpenToAllToggle(lookingOpenKey)}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAll[lookingOpenKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[lookingOpenKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-
-              <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-              <div className="relative">
-                {/* Add same spacing as kids sliders */}
-                <div className="mb-2">
-                  {/* Empty space to match kids sliders spacing */}
-                </div>
-                <SliderComponent
-                  value={importance.lookingFor}
-                  onChange={handleLookingForImportanceChange}
-                  isOpenToAll={false}
-                  isImportance={true}
-                />
-              </div>
-              <div className="w-11 h-6"></div>
-            </div>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mt-2"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)'
-              }}
-            >
-              <div></div>
-              <div className="relative text-xs text-gray-500 w-full">
-                {importance.lookingFor === 1 && (
-                  <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>
-                )}
-                {importance.lookingFor === 2 && (
-                  <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>
-                )}
-                {importance.lookingFor === 3 && (
-                  <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>
-                )}
-                {importance.lookingFor === 4 && (
-                  <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>
-                )}
-                {importance.lookingFor === 5 && (
-                  <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>
-                )}
-              </div>
-              <div></div>
-            </div>
-          </div>
-
-          {/* Me Section */}
-          <div className="mb-6 pt-2">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-
-            <div
-              className="grid items-center justify-center mx-auto w-full max-w-[640px] mobile-grid-rows"
-              style={{
-                gridTemplateColumns: 'minmax(88px, 0.28fr) minmax(0, 1fr) 60px',
-                columnGap: 'clamp(12px, 5vw, 24px)',
-                rowGap: 'clamp(8px, 2vw, 16px)'
-              }}
-            >
-              {kidsKeys.map((kidsKey, index) => {
-                const meOpenKey = meOpenKeys[index];
-
-                return (
-                  <React.Fragment key={`me-${kidsKey}`}>
-                    <div className="text-xs font-semibold text-gray-400">
-                      {kidsLabels[index]}
-                    </div>
-                    <div className="relative">
-                      {/* Labels above slider */}
-                      <div className="mb-2">
-                        {renderTopLabels(index)}
-                      </div>
-                      <SliderComponent
-                        value={myKids[kidsKey]}
-                        onChange={(value) => handleSliderChange('myKids', kidsKey, value)}
-                        isOpenToAll={openToAll[meOpenKey]}
-                        isBinary={kidsKey === 'kids2'}
-                      />
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className={`text-xs text-gray-500 text-center mb-1 ${index === 0 && anyMeOpen ? '' : 'invisible'}`}>
-                        OTA
-                      </div>
-                      {index === 0 ? (
-                        <label className="flex items-center cursor-pointer">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={openToAll[meOpenKey]}
-                              onChange={() => handleOpenToAllToggle(meOpenKey)}
-                              className="sr-only"
-                            />
-                            <div className={`block w-11 h-6 rounded-full ${openToAll[meOpenKey] ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${openToAll[meOpenKey] ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </label>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer with Progress and Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-gray-200">
-          <div className="h-full bg-black" style={{ width: '100%' }}></div>
-        </div>
-        
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center px-6 py-4">
-          {/* Back Button */}
-          <button
-            onClick={handleBack}
-            className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
-          >
-            Back
-          </button>
-          
-          {/* Next Button */}
-          <button
-            onClick={handleNext}
-            disabled={loading}
-            className="bg-black text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Saving...' : 'Next'}
-          </button>
-        </div>
-      </footer>
-    </div>
+    </OnboardingShell>
   );
 }

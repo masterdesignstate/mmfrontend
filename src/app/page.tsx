@@ -29,7 +29,7 @@ const featureCards = [
   },
   {
     title: 'Importance',
-    description: 'Rate how much each question matters to you from 1–5',
+    description: 'Rate how much each question matters to you',
     icon: (
       <svg className="h-5 w-5 text-[#672DB7]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
@@ -43,7 +43,7 @@ const featureCards = [
   },
   {
     title: 'Required',
-    description: 'Choose the questions a potential match must answer',
+    description: 'Others must answer this question to match with you',
     icon: <ToggleIcon color="#18181B" />,
   },
   {
@@ -57,12 +57,12 @@ const featureCards = [
     icon: <ScoreRing percentage={87} />,
   },
   {
-    title: 'Compatible with Me',
+    title: 'My preferences',
     description: 'How well they fit what you are looking for',
     icon: <ScoreRing percentage={92} />,
   },
   {
-    title: "I'm Compatible with",
+    title: 'Their preferences',
     description: 'How well you fit what they are looking for',
     icon: <ScoreRing percentage={83} />,
   },

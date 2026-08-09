@@ -21,8 +21,9 @@ interface NoteControlProps {
 
 /**
  * Note button for the Me answer, sized to match ExclusionControl so it can drop into
- * the same grid cell (icon-only 28px circle on mobile, 88px pill from `sm:` up).
- * Unlike ExclusionControl's inline popover this opens a centered modal.
+ * the same grid cell (74px pill on mobile, 88px from `sm:` up — the text label stays
+ * visible at every width). Unlike ExclusionControl's inline popover this opens a
+ * centered modal.
  */
 export default function NoteControl({
   value,
@@ -72,7 +73,7 @@ export default function NoteControl({
         title={ariaLabel}
         onClick={openModal}
         disabled={disabled}
-        className={`inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-0 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:px-2.5 ${
+        className={`inline-flex h-7 w-[74px] cursor-pointer items-center justify-center gap-1 rounded-full border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:gap-1.5 sm:px-2.5 sm:text-xs ${
           hasNote
             ? 'border-[#672DB7] bg-[#672DB7] text-white shadow-sm'
             : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:bg-purple-50 hover:text-[#672DB7]'
@@ -93,7 +94,7 @@ export default function NoteControl({
           />
           <path d="M2.8 13.8h10.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
         </svg>
-        <span className="hidden sm:inline">{buttonLabel}</span>
+        <span>{buttonLabel}</span>
       </button>
 
       {open && (
