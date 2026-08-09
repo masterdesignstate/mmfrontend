@@ -14,9 +14,15 @@ import {
  * Column template shared by the scale header and every slider row, so the label / slider /
  * controls columns line up down a section. Below `sm` rows switch to a two-line layout
  * (label + controls on top, full-width slider underneath) — see AnswerSliderRow.
+ *
+ * The label column is 120px because that clears the longest row captions this flow
+ * produces: UNDERGRADUATE (110px) and HISPANIC/LATINO (104px) are single unbreakable
+ * tokens, and PRE HIGH SCHOOL / PACIFIC ISLANDER / NATIVE AMERICAN measure ~113px at
+ * 12px semibold. The slider column is 1fr rather than a fixed width so it absorbs the
+ * difference between the `sm` and `lg` container widths on its own.
  */
 export const SCALE_GRID =
-  'sm:grid-cols-[80px_minmax(0,1fr)_144px] sm:gap-x-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5';
+  'sm:grid-cols-[120px_minmax(0,1fr)_144px] sm:gap-x-3 lg:gap-x-5';
 
 const CONTROLS_GRID = 'grid grid-cols-[44px_auto] items-end gap-2 min-w-0 sm:items-center';
 
@@ -244,7 +250,12 @@ export default function AnswerSliderRow({
       } ${SCALE_GRID} ${className}`}
     >
       <div className="col-start-1 row-start-1 flex min-w-0 items-baseline gap-2">
-        <span className="truncate text-xs font-semibold text-gray-400">{label}</span>
+        {/* truncate is a backstop for arbitrarily long question names; every caption the
+            mandatory questions produce fits the 120px column. title exposes the full text
+            if one ever does clip. */}
+        <span className="truncate text-xs font-semibold text-gray-400" title={label}>
+          {label}
+        </span>
       </div>
 
       <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3 sm:justify-self-start">

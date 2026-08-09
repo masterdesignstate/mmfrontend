@@ -8,6 +8,16 @@ export interface UserPicture {
   created_at?: string;
 }
 
+/** What the server reports after an admin hard-deletes a user. */
+export interface DeleteUserResult {
+  status: string;
+  deleted_user_id: string;
+  deleted_user: string;
+  deleted_rows: number;
+  /** Row counts keyed by Django model label, e.g. { "api.UserAnswer": 7 }. */
+  deleted_by_model: Record<string, number>;
+}
+
 export const MAX_USER_PICTURES = 5;
 export const MAX_PROFILE_PROMPTS = 6;
 export const MAX_WRITTEN_PROFILE_PROMPTS = 3;
@@ -634,6 +644,19 @@ class ApiService {
 
   async updateUser(userId: string, patch: Partial<ApiUser>): Promise<ApiUser> {
     return this.request(`/users/${userId}/`, 'PATCH', patch) as Promise<ApiUser>;
+  }
+
+  /**
+   * Permanently delete a user. Irreversible — it cascades to their answers, pictures,
+   * results, conversations, messages, posts and reports. Use restrictUser to merely
+   * block an account. `adminUserId` identifies the acting admin to the server, which
+   * rejects the call with 403 if it is not an admin.
+   */
+  async deleteUser(userId: string, adminUserId: string): Promise<DeleteUserResult> {
+    return this.request(
+      `/users/${userId}/?user_id=${encodeURIComponent(adminUserId)}`,
+      'DELETE'
+    ) as Promise<DeleteUserResult>;
   }
 
   // ----- Picture gallery -----

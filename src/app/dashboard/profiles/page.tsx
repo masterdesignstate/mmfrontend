@@ -38,13 +38,15 @@ export default function ProfilesPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showActionModal, setShowActionModal] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<'restrict' | 'permanent' | 'remove_restriction' | null>(null);
+  const [selectedAction, setSelectedAction] = useState<'restrict' | 'permanent' | 'remove_restriction' | 'delete' | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<ProfileData | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [restrictDuration, setRestrictDuration] = useState(30);
   const [dismissDescription, setDismissDescription] = useState('');
   const [restrictReason, setRestrictReason] = useState('admin_restriction');
   const [restrictReasonDetail, setRestrictReasonDetail] = useState('');
+  // Hard delete is irreversible, so it asks the admin to retype the account name.
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const formatAnswerValue = (value: number | null) => value ?? '-';
 
@@ -140,13 +142,14 @@ export default function ProfilesPage() {
     }
   };
 
-  const handleAction = (action: 'restrict' | 'permanent' | 'remove_restriction', profile: ProfileData) => {
+  const handleAction = (action: 'restrict' | 'permanent' | 'remove_restriction' | 'delete', profile: ProfileData) => {
     setSelectedAction(action);
     setSelectedProfile(profile);
     setRestrictDuration(30);
     setDismissDescription('');
     setRestrictReason('admin_restriction');
     setRestrictReasonDetail('');
+    setDeleteConfirmText('');
     setShowActionModal(true);
   };
 
@@ -175,8 +178,15 @@ export default function ProfilesPage() {
         await apiService.removeRestriction(selectedProfile.id, dismissDescription ? { description: dismissDescription } : undefined);
         // Refresh the profiles list
         await fetchProfiles();
+      } else if (selectedAction === 'delete') {
+        const adminUserId = localStorage.getItem('user_id');
+        if (!adminUserId) {
+          throw new Error('Could not identify the signed-in admin. Please sign in again.');
+        }
+        await apiService.deleteUser(selectedProfile.id, adminUserId);
+        await fetchProfiles();
       }
-      
+
       setShowActionModal(false);
       setSelectedAction(null);
       setSelectedProfile(null);
@@ -578,6 +588,13 @@ export default function ProfilesPage() {
                       >
                         <i className="fas fa-user-secret"></i>
                       </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleAction('delete', profile); }}
+                        className="text-red-700 hover:text-red-900 transition-colors duration-200 cursor-pointer"
+                        title="Delete user permanently"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -664,24 +681,54 @@ export default function ProfilesPage() {
             <div className="text-center mb-5">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
                 selectedAction === 'restrict' ? 'bg-orange-50' :
-                selectedAction === 'permanent' ? 'bg-red-50' : 'bg-gray-100'
+                selectedAction === 'permanent' ? 'bg-red-50' :
+                selectedAction === 'delete' ? 'bg-red-100' : 'bg-gray-100'
               }`}>
                 <i className={`fas ${
                   selectedAction === 'restrict' ? 'fa-clock text-orange-600' :
-                  selectedAction === 'permanent' ? 'fa-ban text-red-600' : 'fa-times text-gray-600'
+                  selectedAction === 'permanent' ? 'fa-ban text-red-600' :
+                  selectedAction === 'delete' ? 'fa-trash text-red-700' : 'fa-times text-gray-600'
                 } text-xl`}></i>
               </div>
               <h3 className="text-lg font-semibold text-gray-900">
                 {selectedAction === 'restrict' && (selectedProfile.restrictionType === 'Restricted' ? 'Modify Suspension' : 'Temporary Restriction')}
                 {selectedAction === 'permanent' && 'Permanent Ban'}
                 {selectedAction === 'remove_restriction' && 'Dismiss'}
+                {selectedAction === 'delete' && 'Delete User'}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
                 {selectedAction === 'restrict' && (selectedProfile.restrictionType === 'Restricted' ? `Change the suspension duration for ${selectedProfile.name}.` : `Set a temporary suspension for ${selectedProfile.name}.`)}
                 {selectedAction === 'permanent' && `Permanently ban ${selectedProfile.name}? This cannot be automatically reversed.`}
                 {selectedAction === 'remove_restriction' && `Dismiss all restrictions and reports for ${selectedProfile.name}? Their status will be set to None.`}
+                {selectedAction === 'delete' && `Permanently delete ${selectedProfile.name}. This cannot be undone.`}
               </p>
             </div>
+
+            {selectedAction === 'delete' && (
+              <div className="mb-5">
+                <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
+                  <p className="text-sm text-red-800">
+                    This erases the account and everything attached to it — answers,
+                    pictures, results, conversations, messages, posts and reports.
+                  </p>
+                  <p className="mt-2 text-sm text-red-800">
+                    To block the account instead while keeping its data, use{' '}
+                    <span className="font-semibold">Permanent Ban</span>.
+                  </p>
+                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type <span className="font-semibold text-gray-900">{selectedProfile.name}</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={selectedProfile.name}
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            )}
 
             {selectedAction === 'remove_restriction' && (
               <div className="mb-5">
@@ -752,10 +799,14 @@ export default function ProfilesPage() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={executeAction}
-                disabled={actionLoading}
-                className={`w-full py-2.5 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-50 ${
+                disabled={
+                  actionLoading ||
+                  (selectedAction === 'delete' && deleteConfirmText.trim() !== selectedProfile.name)
+                }
+                className={`w-full py-2.5 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   selectedAction === 'restrict' ? 'bg-orange-600 hover:bg-orange-700' :
                   selectedAction === 'permanent' ? 'bg-red-600 hover:bg-red-700' :
+                  selectedAction === 'delete' ? 'bg-red-700 hover:bg-red-800' :
                   'bg-gray-600 hover:bg-gray-700'
                 }`}
               >
@@ -766,6 +817,7 @@ export default function ProfilesPage() {
                 ) : (
                   selectedAction === 'restrict' ? (selectedProfile.restrictionType === 'Restricted' ? `Set to ${restrictDuration} days` : `Suspend for ${restrictDuration} days`) :
                   selectedAction === 'permanent' ? 'Permanently Ban' :
+                  selectedAction === 'delete' ? 'Delete Permanently' :
                   'Dismiss'
                 )}
               </button>

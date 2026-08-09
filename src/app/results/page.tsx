@@ -1629,15 +1629,17 @@ function ResultsPageContent() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="relative flex items-center p-4 border-b border-gray-200">
-        <div className="absolute left-4">
+      {/* Header — logo and menu sit in flow rather than absolutely positioned, so the
+          search row can never grow underneath them on a narrow screen. */}
+      <div className="relative flex items-center gap-2 p-3 sm:gap-4 sm:p-4 border-b border-gray-200">
+        <div className="shrink-0">
           <NavLogo />
         </div>
 
         {/* Centered Search Bar */}
-        <div className="flex items-center justify-center w-full">
-          <div className="flex items-center max-w-2xl">
-            <div className="relative flex items-center">
+        <div className="flex min-w-0 flex-1 items-center justify-center">
+          <div className="flex min-w-0 flex-1 items-center sm:flex-none sm:max-w-2xl">
+            <div className="relative flex min-w-0 flex-1 items-center sm:flex-none">
               <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none">
                 <svg className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1648,7 +1650,7 @@ function ResultsPageContent() {
                 placeholder={searchField === 'name' ? 'Search by Name' : searchField === 'username' ? 'Search by Username' : searchField === 'live' ? 'Search by Location' : 'Search by Bio'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-[220px] sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 md:pr-20 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full md:rounded-l-full md:rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
+                className="w-full min-w-0 sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 md:pr-20 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full md:rounded-l-full md:rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
               />
               {/* Search Field Dropdown Button - visible on md+ screens */}
               <div className="hidden md:block relative" ref={searchFieldDropdownRef}>
@@ -1727,7 +1729,7 @@ function ResultsPageContent() {
 
             <button
               onClick={() => setShowFilterModal(true)}
-              className={`ml-2 sm:ml-4 inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
+              className={`ml-2 shrink-0 sm:ml-4 inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
                 showFiltersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
               }`}
             >
@@ -1742,11 +1744,11 @@ function ResultsPageContent() {
               </span>
             </button>
 
-            <div className="relative ml-2">
+            <div className="relative ml-2 shrink-0">
               <button
                 ref={sortButtonRef}
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="inline-flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
               >
                 <svg className="w-4 h-4 inline text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
@@ -1805,7 +1807,7 @@ function ResultsPageContent() {
           </div>
         </div>
 
-        <div className="absolute right-4">
+        <div className="shrink-0">
           <HamburgerMenu />
         </div>
       </div>
@@ -2140,23 +2142,25 @@ function ResultsPageContent() {
                         {/* Gradient Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                        {/* Profile Info — bottom padding matches the chip's py-1.5 so baselines align */}
-                        <div className="absolute bottom-0 left-0 right-0 px-3 pt-3 pb-1.5 text-white">
-                          <h3 className="font-bold text-xl leading-none [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
+                        {/* Name and score share one flex row so the badge reserves its own
+                            width and the name truncates instead of running underneath it.
+                            At two cards per row the photo is only ~148px wide on a phone. */}
+                        <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-between gap-1 text-white">
+                          <h3 className="min-w-0 flex-1 truncate px-2 pt-3 pb-1.5 font-bold text-sm leading-none sm:px-3 sm:text-xl [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
                             {firstName}, {age}
                           </h3>
-                        </div>
 
-                        {/* Compatibility Percentage Corner Badge */}
-                        <div
-                          className={`absolute bottom-0 right-0 z-20 flex items-center justify-center rounded-tl-2xl px-3 py-1.5 text-base font-bold text-white backdrop-blur-md pointer-events-none
-                            [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]
-                            ${profile.user.is_online
-                              ? 'bg-green-500/40 shadow-[inset_0_2px_0_0_rgba(34,197,94,0.9),inset_2px_0_0_0_rgba(34,197,94,0.9)]'
-                              : 'bg-white/25'
-                            }`}
-                        >
-                          {Math.round(compatibilityScore)}%
+                          {/* Compatibility Percentage Corner Badge */}
+                          <div
+                            className={`shrink-0 flex items-center justify-center rounded-tl-2xl px-2 py-1.5 text-xs font-bold backdrop-blur-md pointer-events-none sm:px-3 sm:text-base
+                              [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]
+                              ${profile.user.is_online
+                                ? 'bg-green-500/40 shadow-[inset_0_2px_0_0_rgba(34,197,94,0.9),inset_2px_0_0_0_rgba(34,197,94,0.9)]'
+                                : 'bg-white/25'
+                              }`}
+                          >
+                            {Math.round(compatibilityScore)}%
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2279,7 +2283,7 @@ function ResultsPageContent() {
                       <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
                         <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                       </div>
-                      <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                      <div className="absolute left-0 top-6 hidden w-64 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 sm:block">
                         <div className="space-y-2">
                           <div>
                             <span className="font-semibold">My Preferences:</span> How well they match what you&apos;re looking for
@@ -2347,7 +2351,7 @@ function ResultsPageContent() {
                         <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
                           <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                         </div>
-                        <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                        <div className="absolute left-0 top-6 hidden w-64 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 sm:block">
                           When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
                           <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
                         </div>

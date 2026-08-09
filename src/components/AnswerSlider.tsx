@@ -192,13 +192,6 @@ export default function AnswerSlider({
           )}
         </div>
 
-        {/* The scale above no longer applies when every answer is accepted, so say so. */}
-        {isOpenToAll && (
-          <span className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-[10px] font-semibold tracking-wide text-white sm:text-xs">
-            OPEN TO ALL
-          </span>
-        )}
-
         {!isOpenToAll && (
           <div
             className="pointer-events-none absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold"

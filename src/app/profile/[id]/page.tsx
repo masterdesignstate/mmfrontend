@@ -3087,22 +3087,24 @@ export default function UserProfilePage() {
 
         {/* Section 1 — Identity row (From / Live / Height / Activity) */}
         <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm">
-          <div className="grid grid-cols-4 gap-3">
-            <div className="text-center">
+          {/* Two columns on a phone: four 65px tracks cannot hold values like
+              "Brownsville" or "10 months ago", which then spill past the card edge. */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4 sm:gap-3">
+            <div className="min-w-0 text-center">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</h3>
-              <p className="mt-1 text-sm font-medium text-gray-900">{user.from_location || 'Austin'}</p>
+              <p className="mt-1 truncate text-sm font-medium text-gray-900">{user.from_location || 'Austin'}</p>
             </div>
-            <div className="text-center">
+            <div className="min-w-0 text-center">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live</h3>
-              <p className="mt-1 text-sm font-medium text-gray-900">{user.live || 'Austin'}</p>
+              <p className="mt-1 truncate text-sm font-medium text-gray-900">{user.live || 'Austin'}</p>
             </div>
-            <div className="text-center">
+            <div className="min-w-0 text-center">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Height</h3>
-              <p className="mt-1 text-sm font-medium text-gray-900">{formatHeight(user.height)}</p>
+              <p className="mt-1 truncate text-sm font-medium text-gray-900">{formatHeight(user.height)}</p>
             </div>
-            <div className="text-center">
+            <div className="min-w-0 text-center">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activity</h3>
-              <div className="mt-1 flex items-center justify-center">
+              <div className="mt-1 flex min-w-0 items-center justify-center">
                 <ActivityStatus
                   isOnline={user.is_online || false}
                   lastActive={user.last_active}
@@ -3180,7 +3182,7 @@ export default function UserProfilePage() {
             <div className="flex gap-3 mb-3">
               {/* Total Questions Answered */}
               <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
+                <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
                   Total Questions Answered
                 </div>
                 <div className="flex items-baseline">
@@ -3192,7 +3194,7 @@ export default function UserProfilePage() {
 
               {/* Mutual Questions Answered */}
               <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
+                <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
                   Mutual Questions Answered
                 </div>
                 <div className="flex items-baseline">
@@ -3206,53 +3208,53 @@ export default function UserProfilePage() {
             {/* Overall, My Preferences, Their Preferences */}
             <div className="flex gap-3 mb-3">
               {/* Overall */}
-              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-4 py-3 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-2.5 py-3 flex-1 min-w-0 sm:px-4">
+                <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
                   Overall
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${accentColor}`}>
+                  <span className={`text-2xl font-black sm:text-3xl ${accentColor}`}>
                     {Math.round(
                       showRequired
                         ? (activeRequiredScores?.overall ?? compatibility.overall_compatibility)
                         : compatibility.overall_compatibility
                     )}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
+                  <span className={`text-base font-bold ml-0.5 sm:text-lg sm:ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
 
               {/* My Preferences */}
-              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-4 py-3 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-2.5 py-3 flex-1 min-w-0 sm:px-4">
+                <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
                   My Preferences
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${accentColor}`}>
+                  <span className={`text-2xl font-black sm:text-3xl ${accentColor}`}>
                     {Math.round(
                       showRequired
                         ? (activeRequiredScores?.myPreferences ?? compatibility.compatible_with_me)
                         : compatibility.compatible_with_me
                     )}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
+                  <span className={`text-base font-bold ml-0.5 sm:text-lg sm:ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
 
               {/* Their Preferences */}
-              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-4 py-3 flex-1">
-                <div className="text-sm font-normal text-black capitalize mb-2">
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-2.5 py-3 flex-1 min-w-0 sm:px-4">
+                <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
                   Their Preferences
                 </div>
                 <div className="flex items-baseline">
-                  <span className={`text-3xl font-black ${accentColor}`}>
+                  <span className={`text-2xl font-black sm:text-3xl ${accentColor}`}>
                     {Math.round(
                       showRequired
                         ? (activeRequiredScores?.theirPreferences ?? compatibility.im_compatible_with)
                         : compatibility.im_compatible_with
                     )}
                   </span>
-                  <span className={`text-lg font-bold ml-1 ${accentColor}`}>%</span>
+                  <span className={`text-base font-bold ml-0.5 sm:text-lg sm:ml-1 ${accentColor}`}>%</span>
                 </div>
               </div>
             </div>
@@ -3273,7 +3275,7 @@ export default function UserProfilePage() {
                     <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
                       <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
                     </div>
-                    <div className="absolute left-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                    <div className="absolute left-0 top-6 hidden w-64 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 sm:block">
                       When enabled, this shows required compatibility and completeness based on required questions.
                       <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
                     </div>
@@ -3355,30 +3357,32 @@ export default function UserProfilePage() {
                           t.isActive ? 'shadow-sm' : ''
                         }`}
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="flex items-center justify-center w-6 h-6 rounded-full text-white transition-all bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                        <div className="flex min-w-0 items-center gap-2 mb-2">
+                          <span className="flex shrink-0 items-center justify-center w-6 h-6 rounded-full text-white transition-all bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </span>
-                          <span className="text-sm font-semibold text-[#672DB7]">
+                          <span className="min-w-0 truncate text-xs font-semibold text-[#672DB7] sm:text-sm">
                             {t.label}
                           </span>
                         </div>
-                        <div className="flex items-baseline justify-between">
-                          <div className="flex items-baseline">
-                            <span className={`text-3xl font-black ${numberAccent}`}>
+                        {/* Each tile is only ~105px wide on a phone, so "Complete" is dropped
+                            there — the number, the % sign and the n/total fraction still fit. */}
+                        <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-1">
+                          <div className="flex min-w-0 items-baseline">
+                            <span className={`text-2xl font-black sm:text-3xl ${numberAccent}`}>
                               {t.pct !== null ? t.pct : 'N/A'}
                             </span>
                             {t.pct !== null && (
                               <>
-                                <span className={`text-lg font-bold ml-0.5 ${numberAccent}`}>%</span>
-                                <span className={`text-sm font-semibold ml-1 ${numberAccent}`}>Complete</span>
+                                <span className={`text-base font-bold ml-0.5 sm:text-lg ${numberAccent}`}>%</span>
+                                <span className={`hidden text-sm font-semibold ml-1 sm:inline ${numberAccent}`}>Complete</span>
                               </>
                             )}
                           </div>
                           {t.mutual !== undefined && t.total !== undefined && t.total > 0 && (
-                            <span className="text-xs font-medium text-gray-500 tabular-nums">
+                            <span className="shrink-0 text-xs font-medium text-gray-500 tabular-nums">
                               {t.mutual}/{t.total}
                             </span>
                           )}
@@ -3621,11 +3625,11 @@ export default function UserProfilePage() {
           onClick={() => setShowQuestionsModal(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-4 h-[80vh] flex flex-col relative"
+            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-4 h-[80vh] flex flex-col relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between gap-2 p-4 border-b border-gray-200 sm:p-6">
               {selectedQuestionNumber ? (
                 <>
                   <button
@@ -3655,8 +3659,8 @@ export default function UserProfilePage() {
                 </>
               ) : (
                 <>
-                  <h2 className="text-xl font-semibold">Questions Answered</h2>
-                  <div className="flex items-center gap-3">
+                  <h2 className="min-w-0 truncate text-base font-semibold sm:text-xl">Questions Answered</h2>
+                  <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                     {/* Filter Button — icon-only on iPad and smaller (match results page) */}
                     <button
                       onClick={() => setShowFilterModal(true)}
@@ -3737,11 +3741,11 @@ export default function UserProfilePage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-24 py-6">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-8 sm:py-6 lg:px-24">
               {selectedQuestionNumber ? (
                 isAnsweringPending ? (
                   // Render editable answer form for "My Pending" questions
-                  <div className="flex flex-col items-center justify-center min-h-full">
+                  <div className="flex min-h-full w-full min-w-0 flex-col justify-center">
                   {(() => {
                     const questionNumber = selectedQuestionNumber;
                     const isGrouped = selectedQuestionData.length > 0 && selectedQuestionData[0].question_type === 'grouped';
@@ -4105,7 +4109,7 @@ export default function UserProfilePage() {
                   </div>
                 ) : (
                 // Show question details inline (read-only)
-                <div className="flex flex-col items-center justify-center min-h-full">
+                <div className="flex min-h-full w-full min-w-0 flex-col justify-center">
                 {(() => {
                   const questionType = selectedQuestionData[0]?.question_type || 'basic';
                   const questionNumber = selectedQuestionNumber;
@@ -4174,7 +4178,7 @@ export default function UserProfilePage() {
                     const labels = groupNumber === 2 ? wantKidsLabels : haveKidsLabels; // group_number 1 = Have, 2 = Want
                     
                     return (
-                      <div className="relative text-xs text-gray-500 w-full mb-2" style={{ height: '14px' }}>
+                      <div className="relative w-full min-w-0 mb-2 text-[9px] text-gray-500 sm:text-xs" style={{ height: '14px' }}>
                         {labels.map((label, index) => {
                           const value = index + 1;
                           let leftPosition;
@@ -4209,7 +4213,7 @@ export default function UserProfilePage() {
                   // Helper function to render top labels for education question
                   const renderEducationTopLabels = () => {
                     return (
-                      <div className="relative text-xs text-gray-500 w-full mb-2" style={{ height: '14px' }}>
+                      <div className="relative w-full min-w-0 mb-2 text-[9px] text-gray-500 sm:text-xs" style={{ height: '14px' }}>
                         <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
                         <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
                         <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
@@ -4230,7 +4234,7 @@ export default function UserProfilePage() {
                   // Helper function to render top labels for frequency questions (Exercise, Habits, Religion)
                   const renderFrequencyTopLabels = () => {
                     return (
-                      <div className="relative text-xs text-gray-500 w-full mb-2" style={{ height: '14px' }}>
+                      <div className="relative w-full min-w-0 mb-2 text-[9px] text-gray-500 sm:text-xs" style={{ height: '14px' }}>
                         <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
                         <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
                         <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
@@ -4254,7 +4258,7 @@ export default function UserProfilePage() {
                       <div className="mb-6">
                         <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
 
-                        <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                        <div className="grid w-full min-w-0 items-center justify-center mx-auto mb-2" style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px', columnGap: '12px', gap: '12px 8px' }}>
                           <div></div>
                           <div className="flex justify-between text-xs text-gray-500">
                             {(() => {
@@ -4283,7 +4287,7 @@ export default function UserProfilePage() {
                           </div>
                         </div>
 
-                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                        <div className="grid w-full min-w-0 items-center justify-center mx-auto" style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px', columnGap: '12px', gap: '12px 8px' }}>
                           {selectedQuestionData.map((question: any) => {
                             const answer = answersForQuestion.find(a => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
@@ -4350,9 +4354,9 @@ export default function UserProfilePage() {
                         </div>
 
                         {/* Importance labels */}
-                        <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
+                        <div className="grid w-full min-w-0 items-center justify-center mx-auto mt-2" style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px', columnGap: '12px', gap: '12px 8px' }}>
                           <div></div>
-                          <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
+                          <div className="relative w-full min-w-0 text-xs text-gray-500">
                             {(() => {
                               const importance = answersForQuestion[0]?.me_importance || 3;
                               const positions: Record<number, { left: string; label: string }> = {
@@ -4436,7 +4440,7 @@ export default function UserProfilePage() {
 
                               {/* Switches for non-mandatory questions - above Me title */}
                               {questionNumber > 10 && (
-                                <div className="mx-auto mt-4 mb-4 flex items-center justify-between" style={{ width: '500px' }}>
+                                <div className="mx-auto mt-4 mb-4 flex w-full min-w-0 items-center justify-between gap-2">
                                   {/* Required For Match - Left */}
                                   <div className="flex items-center gap-3">
                                     <div className="relative">
@@ -4462,7 +4466,7 @@ export default function UserProfilePage() {
                               <h4 className="text-xl font-bold text-center mb-4">Me</h4>
 
                               {/* Labels above slider */}
-                              <div className="mx-auto mb-2" style={{ width: '500px' }}>
+                              <div className="mx-auto mb-2 w-full min-w-0">
                                 <div className="flex justify-between text-xs text-gray-500">
                                   {isEducationQuestion && (
                                     <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
@@ -4511,7 +4515,7 @@ export default function UserProfilePage() {
                                 </div>
                               </div>
 
-                              <div className="mx-auto" style={{ width: '500px' }}>
+                              <div className="mx-auto w-full min-w-0">
                                 <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
                               </div>
 
@@ -4524,7 +4528,7 @@ export default function UserProfilePage() {
                                 <h4 className="text-xl font-bold text-center mb-4" style={{ color: '#672DB7' }}>Them</h4>
 
                                 {/* Labels above slider */}
-                                <div className="mx-auto mb-2" style={{ width: '500px' }}>
+                                <div className="mx-auto mb-2 w-full min-w-0">
                                   <div className="flex justify-between text-xs text-gray-500">
                                     {isEducationQuestion && (
                                       <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
@@ -4573,7 +4577,7 @@ export default function UserProfilePage() {
                                   </div>
                                 </div>
 
-                                <div className="mx-auto" style={{ width: '500px' }}>
+                                <div className="mx-auto w-full min-w-0">
                                   <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
                                 </div>
                               </div>
@@ -4673,7 +4677,7 @@ export default function UserProfilePage() {
 
                     // Helper to render labels row for a section
                     const renderSectionLabels = (sectionType: 'me' | 'them', hasAnyOTA: boolean) => (
-                      <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: hasAnyOTA ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                      <div className="grid w-full min-w-0 items-center justify-center mx-auto mb-2" style={{ gridTemplateColumns: hasAnyOTA ? 'minmax(0,1fr) 44px' : 'minmax(0,1fr)', columnGap: '12px', gap: '12px 8px' }}>
                         <div className="flex justify-between text-xs text-gray-500">
                           {isRelationshipQuestion && (
                             <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
@@ -4756,7 +4760,7 @@ export default function UserProfilePage() {
                       <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
                         <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
                         {renderSectionLabels('me', showMeOtaColumn)}
-                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: showMeOtaColumn ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                        <div className="grid w-full min-w-0 items-center justify-center mx-auto" style={{ gridTemplateColumns: showMeOtaColumn ? 'minmax(0,1fr) 44px' : 'minmax(0,1fr)', columnGap: '12px', gap: '12px 8px' }}>
                           {displayQuestionData.map((question) => {
                             const answer = answersForQuestion.find((a: any) => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
@@ -4796,7 +4800,7 @@ export default function UserProfilePage() {
                       <div className="mb-6">
                         <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
                         {renderSectionLabels('them', showThemOtaColumn)}
-                        <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: showThemOtaColumn ? '500px 60px' : '500px', columnGap: '20px', gap: '20px 12px' }}>
+                        <div className="grid w-full min-w-0 items-center justify-center mx-auto" style={{ gridTemplateColumns: showThemOtaColumn ? 'minmax(0,1fr) 44px' : 'minmax(0,1fr)', columnGap: '12px', gap: '12px 8px' }}>
                           {displayQuestionData.map((question) => {
                             const answer = answersForQuestion.find((a: any) => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
@@ -5023,10 +5027,10 @@ export default function UserProfilePage() {
 
             {/* Footer for read-only non-grouped question detail: Answer/View button */}
             {!isAnsweringPending && selectedQuestionNumber && !selectedGroupedQuestionId && selectedQuestionData[0]?.question_type !== 'grouped' && (
-              <div className="flex justify-end items-center px-6 py-4 border-t border-gray-200">
+              <div className="flex shrink-0 justify-end items-center gap-2 px-4 py-3 border-t border-gray-200 sm:px-6 sm:py-4">
                 <button
                   onClick={handleAnswerQuestion}
-                  className="px-8 py-3 rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800"
+                  className="shrink-0 whitespace-nowrap px-4 py-2.5 text-sm rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800 sm:px-8 sm:py-3 sm:text-base"
                 >
                   {selectedQuestionData[0] && currentUserAnsweredQuestionIds.has(String(selectedQuestionData[0].id).toLowerCase()) ? 'View/Change Answer' : 'Answer Question'}
                 </button>
@@ -5035,7 +5039,7 @@ export default function UserProfilePage() {
 
             {/* Footer for read-only grouped sub-question: Back to Group (leading) + Answer/View button (trailing) */}
             {!isAnsweringPending && selectedQuestionNumber && selectedGroupedQuestionId && (
-              <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200">
+              <div className="flex shrink-0 justify-between items-center gap-2 px-4 py-3 border-t border-gray-200 sm:px-6 sm:py-4">
                 <button
                   onClick={() => setSelectedGroupedQuestionId(null)}
                   className="flex items-center text-gray-600 hover:text-gray-900 cursor-pointer"
@@ -5047,7 +5051,7 @@ export default function UserProfilePage() {
                 </button>
                 <button
                   onClick={handleAnswerQuestion}
-                  className="px-8 py-3 rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800"
+                  className="shrink-0 whitespace-nowrap px-4 py-2.5 text-sm rounded-md font-medium transition-colors cursor-pointer bg-black text-white hover:bg-gray-800 sm:px-8 sm:py-3 sm:text-base"
                 >
                   {currentUserAnsweredQuestionIds.has(String(selectedGroupedQuestionId).toLowerCase()) ? 'View/Change Answer' : 'Answer Question'}
                 </button>
@@ -5059,7 +5063,7 @@ export default function UserProfilePage() {
             {isAnsweringPending && selectedQuestionNumber && (
               !(selectedQuestionData[0]?.question_type === 'grouped' && !selectedGroupedQuestionId)
             ) && (
-              <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200">
+              <div className="flex shrink-0 justify-between items-center gap-2 px-4 py-3 border-t border-gray-200 sm:px-6 sm:py-4">
                 {editError && <p className="text-red-500 text-sm">{editError}</p>}
                 {!editError && <div />}
                 <button
