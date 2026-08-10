@@ -2146,13 +2146,13 @@ function ResultsPageContent() {
                             width and the name truncates instead of running underneath it.
                             At two cards per row the photo is only ~148px wide on a phone. */}
                         <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-between gap-1 text-white">
-                          <h3 className="min-w-0 flex-1 truncate px-2 pt-3 pb-1.5 font-bold text-sm leading-none sm:px-3 sm:text-xl [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
+                          <h3 className="min-w-0 flex-1 truncate px-2 pt-3 pb-1.5 font-bold text-xs leading-none sm:px-3 sm:text-xl [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
                             {firstName}, {age}
                           </h3>
 
                           {/* Compatibility Percentage Corner Badge */}
                           <div
-                            className={`shrink-0 flex items-center justify-center rounded-tl-2xl px-2 py-1.5 text-xs font-bold backdrop-blur-md pointer-events-none sm:px-3 sm:text-base
+                            className={`shrink-0 flex items-center justify-center rounded-tl-2xl px-1.5 py-1.5 text-[10px] font-bold backdrop-blur-md pointer-events-none sm:px-3 sm:text-base
                               [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]
                               ${profile.user.is_online
                                 ? 'bg-green-500/40 shadow-[inset_0_2px_0_0_rgba(34,197,94,0.9),inset_2px_0_0_0_rgba(34,197,94,0.9)]'
