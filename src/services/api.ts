@@ -1,5 +1,6 @@
 // Type definitions for API responses
 import { API_BASE_URL as CONFIG_API_BASE_URL } from '@/config/api';
+import { clearStoredIdentity, getStoredUserId } from '@/utils/userSession';
 
 export interface UserPicture {
   id: string;
@@ -442,6 +443,17 @@ async function getApiErrorMessage(response: Response): Promise<string> {
   }
 }
 
+/**
+ * True when `endpoint` addresses the signed-in user's own record, e.g.
+ * `/users/<storedId>/pictures/`. Used to tell "my account is gone" apart from "the person
+ * I was looking at is gone" — only the former should log us out.
+ */
+function endpointTargetsStoredUser(endpoint: string): boolean {
+  const storedId = getStoredUserId();
+  if (!storedId) return false;
+  return endpoint.startsWith(`/users/${storedId}/`) || endpoint === `/users/${storedId}`;
+}
+
 
 class ApiService {
   private async request(endpoint: string, method: string, data?: Record<string, unknown>): Promise<unknown> {
@@ -462,8 +474,14 @@ class ApiService {
     }
 
     const response = await fetch(url, options);
-    
+
     if (!response.ok) {
+      // A 404 on our OWN id means the account behind the stored session is gone — deleted,
+      // or a stale id left over from an earlier signup. Every subsequent call would fail
+      // the same way, so drop the identity rather than let the user keep acting on it.
+      if (response.status === 404 && endpointTargetsStoredUser(endpoint)) {
+        clearStoredIdentity();
+      }
       const error = new Error(await getApiErrorMessage(response));
       (error as Error & { status?: number }).status = response.status;
       throw error;

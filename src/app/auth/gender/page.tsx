@@ -7,6 +7,7 @@ import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
+import { resolveOnboardingUserId } from '@/utils/userSession';
 import posthog from 'posthog-js';
 
 type GenderKey = 'male' | 'female';
@@ -61,15 +62,16 @@ export default function GenderPage() {
     female: '45e0858e-8870-4378-ac4a-02e1043b5c2e'  // Group 2
   };
 
+  // URL param first, then the persisted copy — this step used to read the query string
+  // only, so returning to it without one silently broke every save.
   useEffect(() => {
-    const userIdParam = searchParams.get('user_id');
-    if (userIdParam) {
-      setUserId(userIdParam);
-      console.log('📋 Set userId from URL param:', userIdParam);
-    } else {
-      console.log('❌ No user_id parameter found in URL');
+    const resolved = resolveOnboardingUserId(searchParams.get('user_id'));
+    if (!resolved) {
+      router.replace('/auth/register?reason=session_expired');
+      return;
     }
-  }, [searchParams]);
+    setUserId(resolved);
+  }, [searchParams, router]);
 
   const handleSliderChange = (section: 'myGender' | 'lookingFor' | 'importance', gender: string, value: number) => {
     if (section === 'myGender') {

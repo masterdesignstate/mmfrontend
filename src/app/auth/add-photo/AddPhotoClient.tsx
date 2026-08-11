@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { apiService, MAX_USER_PICTURES, type UserPicture } from '@/services/api';
+import { clearStoredIdentity, isMissingUserError, resolveOnboardingUserId } from '@/utils/userSession';
 import posthog from 'posthog-js';
 
 export default function AddPhotoClient() {
@@ -18,13 +19,40 @@ export default function AddPhotoClient() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const userId = searchParams.get('user_id');
+  // Fall back to the persisted id: this step used to read the query string only, so
+  // returning to it without one left the page unable to upload or list anything.
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const resolved = resolveOnboardingUserId(searchParams.get('user_id'));
+    if (!resolved) {
+      router.replace('/auth/register');
+      return;
+    }
+    setUserId(resolved);
+  }, [searchParams, router]);
+
+  // Send the user back to the start when the stored id no longer resolves to an account,
+  // instead of leaving them on a step where every action fails.
+  const handleLostIdentity = useCallback(() => {
+    clearStoredIdentity();
+    router.replace('/auth/register?reason=session_expired');
+  }, [router]);
 
   // Load any pre-existing pictures (in case user comes back to this step)
   useEffect(() => {
     if (!userId) return;
-    apiService.getUserPictures(userId).then(setPictures).catch(() => { /* noop */ });
-  }, [userId]);
+    apiService.getUserPictures(userId)
+      .then(setPictures)
+      .catch((err) => {
+        // Previously swallowed, which is why the photos already on the account looked lost.
+        if (isMissingUserError(err)) {
+          handleLostIdentity();
+          return;
+        }
+        setError('We could not load your photos. Check your connection and try again.');
+      });
+  }, [userId, handleLostIdentity]);
 
   // Load questions (preserved from previous behavior)
   useEffect(() => {
@@ -41,8 +69,14 @@ export default function AddPhotoClient() {
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !userId) return;
+    if (!file) return;
     event.target.value = ''; // allow re-selecting the same file later
+
+    if (!userId) {
+      // Used to be a silent `return`, so the picker just appeared to do nothing.
+      handleLostIdentity();
+      return;
+    }
 
     if (pictures.length >= MAX_USER_PICTURES) {
       setError(`You can upload up to ${MAX_USER_PICTURES} photos.`);
@@ -60,6 +94,10 @@ export default function AddPhotoClient() {
     } catch (err) {
       console.error('Upload failed:', err);
       posthog.captureException(err as Error);
+      if (isMissingUserError(err)) {
+        handleLostIdentity();
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
@@ -76,6 +114,7 @@ export default function AddPhotoClient() {
       const refreshed = await apiService.getUserPictures(userId);
       setPictures(refreshed);
     } catch (err) {
+      if (isMissingUserError(err)) { handleLostIdentity(); return; }
       setError(err instanceof Error ? err.message : 'Could not remove photo');
     } finally {
       setBusy(false);
@@ -91,6 +130,7 @@ export default function AddPhotoClient() {
       const updated = await apiService.reorderUserPictures(userId, newOrder);
       setPictures(updated);
     } catch (err) {
+      if (isMissingUserError(err)) { handleLostIdentity(); return; }
       setError(err instanceof Error ? err.message : 'Could not reorder photos');
     } finally {
       setBusy(false);
@@ -98,7 +138,11 @@ export default function AddPhotoClient() {
   };
 
   const handleContinue = () => {
-    if (!userId || pictures.length === 0) {
+    if (!userId) {
+      handleLostIdentity();
+      return;
+    }
+    if (pictures.length === 0) {
       setError('Please add at least one photo.');
       return;
     }

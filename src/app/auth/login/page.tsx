@@ -34,6 +34,10 @@ const getOnboardingRedirectPath = (
     case 'add_photo':
       return addUserIdParam('/auth/add-photo', resolvedUserId);
     case 'gender':
+      // Still partway through the mandatory questions. Sending these users to /feed
+      // dropped them onto the "Complete Your Profile" gate instead of the step they
+      // stopped at; the intro card routes them to the first unanswered question.
+      return addUserIdParam('/auth/introcard', resolvedUserId);
     case 'complete':
       return '/feed';
     default:

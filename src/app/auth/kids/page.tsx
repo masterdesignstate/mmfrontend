@@ -7,6 +7,7 @@ import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
+import { resolveOnboardingUserId } from '@/utils/userSession';
 import posthog from 'posthog-js';
 
 const WANT_KIDS_LABELS = [
@@ -87,14 +88,16 @@ export default function KidsPage() {
       ),
     }));
 
-  // Load user ID from URL params
+  // URL param first, then the persisted copy — this step used to read the query string
+  // only, so returning to it without one silently broke every save.
   useEffect(() => {
-    const userIdParam = searchParams.get('user_id');
-    if (userIdParam) {
-      console.log('📋 Set userId from URL param:', userIdParam);
-      setUserId(userIdParam);
+    const resolved = resolveOnboardingUserId(searchParams.get('user_id'));
+    if (!resolved) {
+      router.replace('/auth/register?reason=session_expired');
+      return;
     }
-  }, [searchParams]);
+    setUserId(resolved);
+  }, [searchParams, router]);
 
   const handleSliderChange = (section: 'myKids' | 'lookingFor', key: KidsKey, value: number) => {
     console.log(`🎚️ Slider changed: ${key} = ${value} (${section})`);
