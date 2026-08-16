@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Exact result card renderer</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: #00ff00; }
+    body { font-family: Arial, Helvetica, sans-serif; }
+    #shell {
+      position: relative;
+      margin: 20px;
+      padding: 4px;
+      border-radius: 16px;
+      background: var(--progress);
+      box-shadow: 0 12px 30px rgba(52,31,75,.22);
+    }
+    #inner {
+      position: relative;
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      margin: 4px;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #fff;
+    }
+    #photo-wrap { position: absolute; inset: 0; overflow: hidden; background: #e5e7eb; }
+    #photo {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      object-position: var(--position-x, 50%) var(--position-y, 50%);
+      transform: scale(var(--zoom, 1));
+    }
+    #fade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.70), transparent 58%); }
+    #action {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      min-width: 40px;
+      height: 40px;
+      padding: 6px 10px;
+      border-radius: 0 0 12px 0;
+      background: rgba(255,255,255,.25);
+      box-shadow: inset -1px -1px 0 rgba(255,255,255,.28);
+      backdrop-filter: blur(12px);
+    }
+    #action img { width: 25px; height: 23px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.28)); }
+    #bottom {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 3;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 4px;
+      color: #fff;
+    }
+    #name {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      padding: 12px 6px 6px 12px;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    #score {
+      flex: none;
+      padding: 8px 12px;
+      border-radius: 16px 0 0 0;
+      background: rgba(255,255,255,.25);
+      backdrop-filter: blur(12px);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+  </style>
+</head>
+<body>
+  <div id="shell">
+    <div id="inner">
+      <div id="photo-wrap"><img id="photo" alt=""><div id="fade"></div></div>
+      <div id="action"><img src="/assets/check2.png" alt=""></div>
+      <div id="bottom"><div id="name"></div><div id="score"></div></div>
+    </div>
+  </div>
+  <script>
+    const p = new URLSearchParams(location.search);
+    const size = Number(p.get('size') || 320);
+    const score = Math.max(0, Math.min(100, Number(p.get('score') || 92)));
+    const stop = n => `${score * n}deg`;
+    document.body.style.width = `${size + 40}px`;
+    document.body.style.height = `${size + 40}px`;
+    const shell = document.querySelector('#shell');
+    shell.style.width = `${size}px`;
+    shell.style.height = `${size}px`;
+    shell.style.setProperty('--progress', `conic-gradient(from -90deg,
+      #A855F7 0deg,
+      #8B5CF6 ${stop(.9)},
+      #7C3AED ${stop(1.8)},
+      #672DB7 ${stop(2.7)},
+      #5B21B6 ${stop(3.6)},
+      #5B21B6 ${score * 3.6 + 2}deg,
+      #d1d5db ${score * 3.6 + 3}deg,
+      #d1d5db 360deg)`);
+    shell.style.setProperty('--zoom', p.get('zoom') || '1');
+    shell.style.setProperty('--position-x', `${p.get('positionX') || '50'}%`);
+    shell.style.setProperty('--position-y', `${p.get('positionY') || '50'}%`);
+    document.querySelector('#photo').src = p.get('image') || '/assets/compatiblefirst-card-alex-source-v1.png';
+    document.querySelector('#name').textContent = p.get('name') || 'Alex, 29';
+    document.querySelector('#score').textContent = `${score}%`;
+  </script>
+</body>
+</html>

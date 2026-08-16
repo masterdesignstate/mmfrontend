@@ -2401,7 +2401,13 @@ export default function UserProfilePage() {
    * standalone /profile/[id]/questions/[questionNumber] page.
    */
   const renderReadOnlyMeNotes = (answers: any[]) => {
-    const noted = (answers || []).filter(a => (a?.me_note || '').trim().length > 0);
+    const seenNotes = new Set<string>();
+    const noted = (answers || []).filter(answer => {
+      const note = (answer?.me_note || '').trim();
+      if (!note || seenNotes.has(note)) return false;
+      seenNotes.add(note);
+      return true;
+    });
     if (noted.length === 0) return null;
     const ownerName = user?.first_name || user?.username || '';
     return (

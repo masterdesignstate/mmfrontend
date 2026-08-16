@@ -76,9 +76,7 @@ export default function HabitsPage() {
   const [excluded, setExcluded] = useState<Record<HabitKey, number[]>>({
     habit1: [], habit2: [], habit3: []
   });
-  const [notes, setNotes] = useState<Record<HabitKey, string>>({
-    habit1: '', habit2: '', habit3: ''
-  });
+  const [questionNote, setQuestionNote] = useState('');
 
   const blockedExclusions = (key: HabitKey) =>
     openToAll[`${key}MeOpen` as MeOpenKey] ? [] : [myHabits[key]];
@@ -185,7 +183,7 @@ export default function HabitsPage() {
         excluded_answer_values: normalizeExcludedValues(
           excluded.habit1, DEFAULT_EXCLUSION_VALUES, blockedExclusions('habit1')
         ),
-        me_note: notes.habit1
+        me_note: questionNote
       });
 
       // Habit 2 (Cigarettes)
@@ -203,7 +201,7 @@ export default function HabitsPage() {
         excluded_answer_values: normalizeExcludedValues(
           excluded.habit2, DEFAULT_EXCLUSION_VALUES, blockedExclusions('habit2')
         ),
-        me_note: notes.habit2
+        me_note: questionNote
       });
 
       // Habit 3 (Vape)
@@ -221,7 +219,7 @@ export default function HabitsPage() {
         excluded_answer_values: normalizeExcludedValues(
           excluded.habit3, DEFAULT_EXCLUSION_VALUES, blockedExclusions('habit3')
         ),
-        me_note: notes.habit3
+        me_note: questionNote
       });
 
       // Save answers in background (optimistic approach)
@@ -308,6 +306,8 @@ export default function HabitsPage() {
       onNext={handleNext}
       loadingLabel="Saving..."
       loading={loading}
+      questionNote={questionNote}
+      onQuestionNoteChange={setQuestionNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle step="7. Habits" question="How often do you engage in these habits?" />
@@ -321,7 +321,7 @@ export default function HabitsPage() {
 
         {/* Them Section */}
         <div className="mb-2 sm:mb-6">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
             Them
           </h3>
 
@@ -346,20 +346,22 @@ export default function HabitsPage() {
               />
             ))}
 
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importance.lookingFor}
-              onChange={handleLookingForImportanceChange}
-              isImportance
-              showActiveLabelBelow
-            />
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.lookingFor}
+                onChange={handleLookingForImportanceChange}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
           </div>
         </div>
 
         {/* Me Section */}
         <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
           <AnswerScaleHeader labels={HABITS_LABELS} showOta className="mb-2" />
 
@@ -374,12 +376,25 @@ export default function HabitsPage() {
                 showOta
                 otaChecked={openToAll[meOpenKeys[index]]}
                 onOtaToggle={() => handleOpenToAllToggle(meOpenKeys[index])}
-                showNote
-                note={notes[key]}
-                onNoteChange={(note) => setNotes(prev => ({ ...prev, [key]: note }))}
+                showNote={index === 0}
+                note={questionNote}
+                onNoteChange={setQuestionNote}
               />
             ))}
           </div>
+        </div>
+
+        <div className="mb-2 pt-1 sm:hidden">
+          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+          <AnswerSliderRow
+            label="IMPORTANCE"
+            labels={IMPORTANCE_LABELS}
+            value={importance.lookingFor}
+            onChange={handleLookingForImportanceChange}
+            isImportance
+            hideMobileRowLabel
+          />
         </div>
       </div>
     </OnboardingShell>

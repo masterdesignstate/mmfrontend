@@ -52,6 +52,7 @@ export default function RelationshipPage() {
   const [excluded, setExcluded] = useState<Record<RelationshipKey, number[]>>({
     friend: [], hookup: [], date: [], partner: []
   });
+  const [questionNote, setQuestionNote] = useState('');
 
   const blockedExclusions = (key: RelationshipKey) =>
     openToAll[key] ? [] : [myAnswers[key]];
@@ -140,7 +141,8 @@ export default function RelationshipPage() {
                 excluded[questionKey as RelationshipKey],
                 DEFAULT_EXCLUSION_VALUES,
                 blockedExclusions(questionKey as RelationshipKey)
-              )
+              ),
+              me_note: questionNote,
             };
           });
 
@@ -203,6 +205,8 @@ export default function RelationshipPage() {
       onNext={handleNext}
       loadingLabel="Saving..."
       loading={loading}
+      questionNote={questionNote}
+      onQuestionNoteChange={setQuestionNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle step="1. Relationship" question="What relationship are you looking for?" />
@@ -216,7 +220,7 @@ export default function RelationshipPage() {
 
         {/* Me Section */}
         <div className="mb-2 sm:mb-6">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
           <AnswerScaleHeader labels={DEFAULT_SCALE_LABELS} showOta className="mb-2" />
 
@@ -243,15 +247,30 @@ export default function RelationshipPage() {
               );
             })}
 
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importance.me}
-              onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
-              isImportance
-              showActiveLabelBelow
-            />
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.me}
+                onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
           </div>
+        </div>
+
+        <div className="mb-2 pt-1 sm:hidden">
+          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+          <AnswerSliderRow
+            label="IMPORTANCE"
+            labels={IMPORTANCE_LABELS}
+            value={importance.me}
+            onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
+            isImportance
+            hideMobileRowLabel
+          />
         </div>
       </div>
     </OnboardingShell>

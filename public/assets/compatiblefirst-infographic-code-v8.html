@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CompatibleFirst infographic</title>
+  <style>
+    :root {
+      --purple:#672DB7;
+      --purple-dark:#5B21B6;
+      --purple-mid:#7C3AED;
+      --purple-light:#A855F7;
+      --ink:#18151D;
+      --muted:#6B6571;
+      --wash:#F5F1FA;
+      --paper:#FCFBFD;
+      --line:rgba(103,45,183,.16);
+      --line-strong:rgba(103,45,183,.28);
+      --shadow:0 24px 65px rgba(59,31,82,.12);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;overflow:hidden;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+    body{background:var(--wash)}
+    .stage{display:none;position:relative;overflow:hidden;background:
+      radial-gradient(circle at 9% 8%,rgba(255,255,255,.98),transparent 29%),
+      radial-gradient(circle at 90% 80%,rgba(255,255,255,.78),transparent 30%),
+      linear-gradient(135deg,#FBF9FD 0%,#F5F1FA 58%,#EEE7F6 100%)}
+    html[data-v="horizontal"] #horizontal,
+    html[data-v="vertical"] #vertical,
+    html[data-v="ranked"] #ranked,
+    html[data-v="portrait"] #portrait{display:block}
+    .landscape{width:1672px;height:941px}
+    #vertical{width:1536px;height:1024px}
+    #portrait{width:916px;height:1717px}
+    html[data-fit="1"][data-v="horizontal"] body,
+    html[data-fit="1"][data-v="ranked"] body{width:1280px;height:720px}
+    html[data-fit="1"][data-v="horizontal"] .landscape,
+    html[data-fit="1"][data-v="ranked"] .landscape{transform:scale(.76555);transform-origin:0 0}
+    html[data-fit="1"][data-v="vertical"] body{width:1280px;height:853px}
+    html[data-fit="1"][data-v="vertical"] #vertical{transform:scale(.833333);transform-origin:0 0}
+    .stage:before{content:"";position:absolute;inset:24px;border:1px solid rgba(255,255,255,.72);border-radius:38px;pointer-events:none}
+    .dots{position:absolute;width:112px;height:72px;opacity:.2;background-image:radial-gradient(circle,var(--purple) 2px,transparent 2.3px);background-size:16px 16px}
+    .header{position:relative;z-index:4;display:flex;align-items:flex-start;justify-content:space-between;padding:54px 66px 0}
+    .title h1{margin:0;font-size:68px;line-height:.98;letter-spacing:-.052em;font-weight:820}
+    .title h1 span{color:var(--purple)}
+    .title p{margin:18px 0 0;color:var(--muted);font-size:22px;line-height:1.35}
+    .brand{display:flex;align-items:center;gap:12px;padding-top:1px}
+    .brand>img{width:50px;height:44px;object-fit:contain}
+    .brand-copy{position:relative;padding-bottom:18px;font-size:31px;line-height:1;font-weight:790;letter-spacing:-.045em;white-space:nowrap}
+    .brand-copy .first{color:var(--purple)}
+    .brand-copy .com{position:absolute;right:1px;top:34px;color:var(--ink);font-size:13px;font-weight:750;letter-spacing:.02em}
+    .surface{position:relative;z-index:2;border:1px solid rgba(255,255,255,.94);background:rgba(255,255,255,.64);box-shadow:var(--shadow),inset 0 1px 0 #fff;backdrop-filter:blur(22px)}
+    .eyebrow{margin-bottom:10px;color:var(--purple);font-size:12px;font-weight:850;letter-spacing:.17em;text-transform:uppercase}
+    .micro{color:var(--purple);font-size:11px;font-weight:850;letter-spacing:.15em;text-transform:uppercase}
+
+    .person{position:relative;overflow:hidden;border-radius:24px;background:#fff;border:1px solid rgba(103,45,183,.12);box-shadow:0 18px 44px rgba(57,32,78,.14)}
+    .person img{width:100%;height:100%;display:block;object-fit:cover}
+    .person:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.68),transparent 52%)}
+    .person-label{position:absolute;z-index:2;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:end;padding:17px;color:#fff;font-size:22px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+    .person-label small{padding:6px 9px;border:1px solid rgba(255,255,255,.38);border-radius:999px;background:rgba(255,255,255,.2);font-size:10px;letter-spacing:.12em;backdrop-filter:blur(8px)}
+
+    .formula{position:relative;border-radius:28px;border:1px solid var(--line);background:rgba(255,255,255,.92);box-shadow:0 20px 55px rgba(57,32,78,.10);overflow:hidden}
+    .formula-head{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid rgba(24,21,29,.06);background:linear-gradient(90deg,#fff,#F8F4FC)}
+    .formula-head strong{font-size:16px}.formula-head span{color:var(--purple);font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+    .steps{display:grid;gap:12px;padding:15px}
+    .steps.row{grid-template-columns:repeat(3,1fr)}
+    .step{position:relative;min-width:0;border:1px solid rgba(103,45,183,.09);border-radius:20px;background:linear-gradient(145deg,#fff,#FAF7FD);padding:17px;box-shadow:inset 0 1px 0 #fff}
+    .iconbox{display:grid;place-items:center;width:46px;height:46px;margin-bottom:14px;border-radius:15px;color:var(--purple);border:1px solid rgba(103,45,183,.18);background:linear-gradient(145deg,#F8F3FD,#EEE4F8);box-shadow:0 8px 18px rgba(103,45,183,.10)}
+    .iconbox svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .step h3{margin:0;font-size:17px;letter-spacing:-.025em}.step p{margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
+    .math-plus{position:absolute;z-index:4;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--purple);color:#fff;border:4px solid #fff;font-weight:850;box-shadow:0 6px 16px rgba(103,45,183,.2)}
+
+    .arrow{position:relative;flex:none;background:var(--purple);height:2px;width:52px;opacity:.92}
+    .arrow:after{content:"";position:absolute;right:0;top:-4px;width:9px;height:9px;border-top:2px solid var(--purple);border-right:2px solid var(--purple);transform:rotate(45deg)}
+    .arrow.down{width:2px;height:36px}
+    .arrow.down:after{right:-4px;top:auto;bottom:0;transform:rotate(135deg)}
+
+    .score{display:grid;place-items:center;text-align:center;border-radius:28px;border:1px solid var(--line);background:linear-gradient(145deg,#fff,#F7F2FC);box-shadow:0 18px 48px rgba(57,32,78,.10)}
+    .score-ring{position:relative;display:grid;place-items:center;width:158px;height:158px;border-radius:50%;background:conic-gradient(var(--purple) 0 92%,#DED9E5 92% 100%);box-shadow:0 16px 36px rgba(103,45,183,.16)}
+    .score-ring:after{content:"";position:absolute;inset:14px;border-radius:50%;background:linear-gradient(145deg,#fff,#F6F0FB);box-shadow:inset 0 0 0 1px rgba(103,45,183,.09)}
+    .score-value{position:relative;z-index:2;color:var(--purple);font-size:47px;font-weight:850;letter-spacing:-.055em}
+    .score h3{margin:13px 0 0;font-size:16px}.score p{margin:5px 0 0;color:var(--muted);font-size:11px}
+
+    .result-shell{position:relative;padding:8px;border-radius:24px;background:conic-gradient(from -90deg,#A855F7 0deg,#8B5CF6 82.8deg,#7C3AED 165.6deg,#672DB7 248.4deg,#5B21B6 331.2deg,#5B21B6 333.2deg,#d1d5db 334.2deg,#d1d5db 360deg);box-shadow:0 20px 50px rgba(57,32,78,.18)}
+    .result{position:relative;width:100%;height:100%;overflow:hidden;border-radius:17px;background:#fff}
+    .result>img{width:100%;height:100%;display:block;object-fit:cover}
+    .result:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72),transparent 57%)}
+    .result-action{position:absolute;z-index:3;left:0;top:0;display:grid;place-items:center;width:42px;height:42px;border-radius:0 0 12px 0;background:rgba(255,255,255,.3);box-shadow:inset -1px -1px 0 rgba(255,255,255,.34);backdrop-filter:blur(12px)}
+    .result-action img{width:25px;height:23px;object-fit:contain}
+    .result-bottom{position:absolute;z-index:3;left:0;right:0;bottom:0;display:flex;align-items:end;justify-content:space-between;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.65)}
+    .result-name{min-width:0;padding:16px 7px 8px 12px;font-size:18px;font-weight:800;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .result-percent{flex:none;padding:9px 11px;border-radius:17px 0 0 0;background:rgba(255,255,255,.27);font-size:16px;font-weight:800;line-height:1;backdrop-filter:blur(12px)}
+    .result-caption{margin:0 0 11px 6px;color:var(--purple);font-size:11px;font-weight:850;letter-spacing:.15em;text-transform:uppercase}
+
+    /* Horizontal */
+    #horizontal .dots.a{left:28px;top:245px}#horizontal .dots.b{right:26px;bottom:36px}
+    #horizontal .surface{height:570px;margin:42px 46px 0;border-radius:36px}
+    .hflow{position:absolute;inset:54px 38px;display:flex;align-items:center;justify-content:center;gap:18px}
+    #horizontal .person{width:215px;height:286px}
+    #horizontal .formula{width:600px;height:268px}
+    #horizontal .step{min-height:174px}
+    #horizontal .math-plus.a{left:193px;top:140px}#horizontal .math-plus.b{left:395px;top:140px}
+    #horizontal .score{width:205px;height:286px}
+    #horizontal .result-shell{width:228px;height:228px}
+    #horizontal .arrow{width:42px}
+    .bottom-line{position:absolute;left:370px;right:370px;bottom:35px;padding:15px 22px;border:1px solid rgba(103,45,183,.11);border-radius:17px;background:rgba(245,241,250,.78);color:var(--purple);font-size:18px;font-weight:780;text-align:center}
+
+    /* Vertical top-to-bottom */
+    #vertical .header{padding:38px 52px 0}#vertical .title h1{font-size:50px}#vertical .title p{font-size:18px;margin-top:10px}
+    #vertical .brand-copy{font-size:27px}#vertical .brand-copy .com{top:30px;font-size:12px}
+    #vertical .surface{height:840px;margin:22px 44px 0;border-radius:34px}
+    .vflow{position:absolute;inset:24px 52px 22px;display:flex;flex-direction:column;align-items:center}
+    .v-user{display:flex;align-items:center;gap:18px;width:390px;height:138px;padding:12px 22px 12px 12px;border:1px solid var(--line);border-radius:24px;background:#fff;box-shadow:0 16px 40px rgba(57,32,78,.09)}
+    .v-user .person{width:114px;height:114px;flex:none}.v-user .person-label{padding:10px;font-size:16px}.v-user h2{margin:6px 0 5px;font-size:26px}.v-user p{margin:0;color:var(--muted);font-size:13px}
+    #vertical .formula{width:830px;height:198px}#vertical .formula-head{height:50px}#vertical .steps{padding:12px}#vertical .step{min-height:121px;padding:13px 15px;display:grid;grid-template-columns:42px 1fr;column-gap:12px;align-items:center}
+    #vertical .iconbox{width:40px;height:40px;margin:0}#vertical .step p{margin-top:4px}
+    #vertical .score{width:160px;height:160px;padding:0;border-radius:32px}#vertical .score>div{display:grid;place-items:center}#vertical .score-ring{width:120px;height:120px}#vertical .score-value{font-size:35px}#vertical .score h3,#vertical .score p{display:none}
+    #vertical .result-shell{width:218px;height:218px}
+    #vertical .arrow.down{height:28px}
+    #vertical .footer-note{margin-top:10px;color:var(--purple);font-size:17px;font-weight:780}
+
+    /* Ranked */
+    #ranked .surface{height:590px;margin:35px 46px 0;border-radius:36px}
+    .rflow{position:absolute;inset:38px 32px;display:grid;grid-template-columns:212px 36px 535px 36px 205px 48px 1fr;align-items:center}
+    #ranked .person{width:205px;height:286px}
+    #ranked .formula{width:535px;height:330px}#ranked .formula-head{height:54px}#ranked .steps{grid-template-columns:1fr;padding:12px}#ranked .step{min-height:77px;padding:12px 14px;display:grid;grid-template-columns:40px 1fr;align-items:center;column-gap:12px}
+    #ranked .iconbox{width:38px;height:38px;margin:0;border-radius:12px}#ranked .step p{margin-top:3px}
+    #ranked .score{width:195px;height:265px}#ranked .score-ring{width:132px;height:132px}#ranked .score-value{font-size:38px}
+    #ranked .arrow{width:30px}
+    .rank-results{height:512px;padding:18px;border:1px solid var(--line);border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 18px 48px rgba(57,32,78,.10)}
+    .rank-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:12px}.rank-head h3{margin:4px 0 0;font-size:18px}.rank-head span{color:var(--muted);font-size:11px}
+    .rank-stack{display:grid;gap:10px}.rank-row{display:flex;align-items:center;gap:13px;padding:8px;border:1px solid rgba(103,45,183,.09);border-radius:20px;background:linear-gradient(145deg,#fff,#FAF7FD)}
+    #ranked .result-shell{width:126px;height:126px;flex:none;padding:6px;border-radius:18px;box-shadow:0 10px 24px rgba(57,32,78,.13)}#ranked .result{border-radius:13px}#ranked .result-action{width:34px;height:34px}#ranked .result-action img{width:20px;height:18px}#ranked .result-name{font-size:13px;padding:11px 5px 6px 8px}#ranked .result-percent{font-size:12px;padding:7px}
+    .rank-meta b{display:block;font-size:16px}.rank-meta small{display:block;margin-top:5px;color:var(--muted);font-size:11px}.rank-value{margin-top:8px;color:var(--purple);font-size:22px;font-weight:850}
+
+    /* Portrait */
+    #portrait .header{display:block;padding:42px 48px 0;height:205px}#portrait .title h1{font-size:54px;max-width:760px}#portrait .title p{font-size:18px;margin-top:13px;max-width:660px}
+    #portrait .brand{position:absolute;right:44px;top:142px;transform:scale(.82);transform-origin:right top}
+    #portrait .surface{height:1465px;margin:12px 28px 0;border-radius:36px}
+    .pflow{position:absolute;inset:30px 40px 25px;display:flex;flex-direction:column;align-items:center}
+    .p-user{display:flex;align-items:center;gap:22px;width:520px;height:190px;padding:15px 27px 15px 15px;border:1px solid var(--line);border-radius:28px;background:#fff;box-shadow:0 18px 48px rgba(57,32,78,.1)}
+    .p-user .person{width:160px;height:160px;flex:none}.p-user h2{margin:7px 0 6px;font-size:32px}.p-user p{margin:0;color:var(--muted);font-size:14px;line-height:1.4}
+    #portrait .formula{width:700px;height:390px}#portrait .steps{grid-template-columns:1fr;padding:14px}#portrait .step{min-height:94px;padding:15px 18px;display:grid;grid-template-columns:48px 1fr;align-items:center;column-gap:15px}#portrait .iconbox{margin:0}#portrait .step h3{font-size:19px}#portrait .step p{font-size:13px;margin-top:4px}
+    #portrait .score{width:176px;height:176px;padding:0;border-radius:34px}#portrait .score>div{display:grid;place-items:center}#portrait .score-ring{width:134px;height:134px}#portrait .score-value{font-size:39px}#portrait .score h3,#portrait .score p{display:none}
+    #portrait .result-shell{width:300px;height:300px}
+    #portrait .arrow.down{height:38px}
+    .portrait-foot{margin-top:18px;color:var(--purple);font-size:22px;font-weight:800}
+  </style>
+  <script>const q=new URLSearchParams(location.search);document.documentElement.dataset.v=q.get('v')||'horizontal';if(q.get('fit'))document.documentElement.dataset.fit='1';</script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <symbol id="qicon" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></symbol>
+    <symbol id="mathicon" viewBox="0 0 24 24"><path d="M4 8h15m0 0-3-3m3 3-3 3M20 16H5m0 0 3 3m-3-3 3-3"/></symbol>
+    <symbol id="sorticon" viewBox="0 0 24 24"><path d="M5 19v-5M10 19v-8M15 19V8M20 19V4"/><path d="m4 8 4 2 5-5 4 2 3-3"/></symbol>
+  </defs></svg>
+
+  <template id="brand-template"><div class="brand"><img src="/assets/mmlogox.png" alt=""><div class="brand-copy">Compatible<span class="first">First</span><span class="com">.com</span></div></div></template>
+  <template id="formula-template"><div class="formula"><div class="formula-head"><strong>Your compatibility formula</strong><span>Built from your inputs</span></div><div class="steps row"><article class="step"><div class="iconbox"><svg><use href="#qicon"/></svg></div><div><h3>Questions</h3><p>Answer questions that matter to you.</p></div></article><article class="step"><div class="iconbox"><svg><use href="#mathicon"/></svg></div><div><h3>Two-way math</h3><p>Your preferences and their preferences both count.</p></div></article><article class="step"><div class="iconbox"><svg><use href="#sorticon"/></svg></div><div><h3>Sort by compatibility</h3><p>See the strongest matches first.</p></div></article></div></div></template>
+  <template id="score-template"><div class="score"><div><div class="score-ring"><span class="score-value">92%</span></div><h3>Compatibility</h3><p>Calculated from your choices</p></div></div></template>
+  <template id="result-template"><div><div class="result-caption">Your strongest match</div><div class="result-shell"><div class="result"><img src="/assets/compatiblefirst-card-alex-source-v1.png" alt="Alex"><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Alex, 29</div><div class="result-percent">92%</div></div></div></div></div></template>
+
+  <section id="horizontal" class="stage landscape"><div class="dots a"></div><div class="dots b"></div><header class="header"><div class="title"><div class="eyebrow">How compatibility works</div><h1>Compatibility <span>Comes First</span></h1><p>Your inputs shape every compatibility score.</p></div><div data-brand></div></header><main class="surface"><div class="hflow"><div><div class="micro" style="margin:0 0 11px 7px">Start with you</div><div class="person"><img src="/assets/compatiblefirst-user-female-source-v1.png" alt="You"><div class="person-label"><span>You</span><small>YOUR INPUTS</small></div></div></div><div class="arrow"></div><div data-formula></div><div class="arrow"></div><div data-score></div><div class="arrow"></div><div data-result></div></div><div class="bottom-line">Your answers and preferences shape who rises to the top.</div></main></section>
+
+  <section id="vertical" class="stage"><header class="header"><div class="title"><h1>Compatibility <span>Comes First</span></h1><p>Every score starts with your choices.</p></div><div data-brand></div></header><main class="surface"><div class="vflow"><div class="v-user"><div class="person"><img src="/assets/compatiblefirst-user-female-source-v1.png" alt="You"><div class="person-label"><span>You</span></div></div><div><div class="micro">Start here</div><h2>You</h2><p>Your answers and preferences define the inputs.</p></div></div><div class="arrow down"></div><div data-formula></div><div class="arrow down"></div><div data-score></div><div class="arrow down"></div><div data-result></div><div class="footer-note">See where you align.</div></div></main></section>
+
+  <section id="ranked" class="stage landscape"><header class="header"><div class="title"><div class="eyebrow">Compatibility you can see</div><h1>Your choices shape <span>who rises.</span></h1><p>Every result is sorted by the compatibility you create.</p></div><div data-brand></div></header><main class="surface"><div class="rflow"><div><div class="micro" style="margin:0 0 11px 6px">Your profile</div><div class="person"><img src="/assets/compatiblefirst-user-female-source-v1.png" alt="You"><div class="person-label"><span>You</span><small>INPUTS</small></div></div></div><div class="arrow"></div><div data-formula></div><div class="arrow"></div><div data-score></div><div class="arrow"></div><div class="rank-results"><div class="rank-head"><div><div class="micro">Results</div><h3>Sorted for you</h3></div><span>Highest first</span></div><div class="rank-stack"><div class="rank-row" data-rank="alex"></div><div class="rank-row" data-rank="marc"></div><div class="rank-row" data-rank="eli"></div></div></div></div></main></section>
+
+  <section id="portrait" class="stage"><header class="header"><div class="title"><h1>Compatibility <span>Comes First</span></h1><p>Your answers. Your preferences. Your compatibility.</p></div><div data-brand></div></header><main class="surface"><div class="pflow"><div class="p-user"><div class="person"><img src="/assets/compatiblefirst-user-female-source-v1.png" alt="You"></div><div><div class="micro">Start with you</div><h2>You</h2><p>Answer questions that matter and define what you are looking for.</p></div></div><div class="arrow down"></div><div data-formula></div><div class="arrow down"></div><div data-score></div><div class="arrow down"></div><div data-result></div><div class="portrait-foot">See where you align.</div></div></main></section>
+
+  <script>
+    const clone=id=>document.querySelector(id).content.cloneNode(true);
+    document.querySelectorAll('[data-brand]').forEach(n=>n.append(clone('#brand-template')));
+    document.querySelectorAll('[data-formula]').forEach(n=>n.append(clone('#formula-template')));
+    document.querySelectorAll('[data-score]').forEach(n=>n.append(clone('#score-template')));
+    document.querySelectorAll('[data-result]').forEach(n=>n.append(clone('#result-template')));
+    const ranked={alex:{name:'Alex, 29',score:'94%',img:'/assets/compatiblefirst-card-alex-source-v1.png'},marc:{name:'Marc, 31',score:'88%',img:'/assets/compatiblefirst-card-marcus-source-v3.png'},eli:{name:'Eli, 30',score:'81%',img:'/assets/compatiblefirst-card-eli-source-v3.png'}};
+    document.querySelectorAll('[data-rank]').forEach(row=>{const x=ranked[row.dataset.rank];row.innerHTML=`<div class="result-shell"><div class="result"><img src="${x.img}" alt="${x.name}"><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">${x.name}</div><div class="result-percent">${x.score}</div></div></div></div><div class="rank-meta"><b>${x.name}</b><small>Compatibility from your inputs</small><div class="rank-value">${x.score}</div></div>`});
+  </script>
+</body>
+</html>

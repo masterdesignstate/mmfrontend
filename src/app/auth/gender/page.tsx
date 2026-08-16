@@ -41,9 +41,9 @@ export default function GenderPage() {
     lookingFor: 3
   });
 
-  // Per-question "Them" exclusions and "Me" notes, matching the dynamic question page.
+  // Exclusions stay per answer; the note belongs to the whole Gender question.
   const [excluded, setExcluded] = useState<Record<GenderKey, number[]>>({ male: [], female: [] });
-  const [notes, setNotes] = useState<Record<GenderKey, string>>({ male: '', female: '' });
+  const [questionNote, setQuestionNote] = useState('');
 
   const [error, setError] = useState<string>('');
 
@@ -132,7 +132,7 @@ export default function GenderPage() {
               DEFAULT_EXCLUSION_VALUES,
               blockedExclusions('male')
             ),
-            me_note: notes.male
+            me_note: questionNote
           },
           {
             user_id: userId,
@@ -150,7 +150,7 @@ export default function GenderPage() {
               DEFAULT_EXCLUSION_VALUES,
               blockedExclusions('female')
             ),
-            me_note: notes.female
+            me_note: questionNote
           }
         ];
 
@@ -203,6 +203,8 @@ export default function GenderPage() {
       progressPercent={20}
       onBack={handleBack}
       onNext={handleNext}
+      questionNote={questionNote}
+      onQuestionNoteChange={setQuestionNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle step="2. Gender" question="What gender do you identify with?" />
@@ -216,7 +218,7 @@ export default function GenderPage() {
 
         {/* Them Section */}
         <div className="mb-2 sm:mb-6">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
             Them
           </h3>
 
@@ -245,37 +247,52 @@ export default function GenderPage() {
               />
             ))}
 
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importance.lookingFor}
-              onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
-              isImportance
-              showActiveLabelBelow
-            />
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.lookingFor}
+                onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
           </div>
         </div>
 
         {/* Me Section — no OTA here: you answer for yourself. */}
         <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
           <AnswerScaleHeader labels={DEFAULT_SCALE_LABELS} className="mb-2" />
 
           <div className="space-y-1 sm:space-y-3">
-            {genderRows.map(({ key, label }) => (
+            {genderRows.map(({ key, label }, index) => (
               <AnswerSliderRow
                 key={`me-${key}`}
                 label={label}
                 labels={DEFAULT_SCALE_LABELS}
                 value={myGender[key]}
                 onChange={(value) => handleSliderChange('myGender', key, value)}
-                showNote
-                note={notes[key]}
-                onNoteChange={(note) => setNotes(prev => ({ ...prev, [key]: note }))}
+                showNote={index === 0}
+                note={questionNote}
+                onNoteChange={setQuestionNote}
               />
             ))}
           </div>
+        </div>
+
+        <div className="mb-2 pt-1 sm:hidden">
+          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+          <AnswerSliderRow
+            label="IMPORTANCE"
+            labels={IMPORTANCE_LABELS}
+            value={importance.lookingFor}
+            onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
+            isImportance
+            hideMobileRowLabel
+          />
         </div>
       </div>
     </OnboardingShell>

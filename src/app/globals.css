@@ -17,3 +17,64 @@ body {
   color: #171717;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes mobile-value-label-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mobile-value-label-in {
+  animation: mobile-value-label-in 240ms ease-out;
+}
+
+@keyframes mobile-ota-track-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(103, 45, 183, 0);
+  }
+  45% {
+    box-shadow:
+      0 0 0 3px rgba(103, 45, 183, 0.16),
+      0 0 18px rgba(103, 45, 183, 0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(103, 45, 183, 0.1),
+      0 0 9px rgba(103, 45, 183, 0.18);
+  }
+}
+
+@keyframes mobile-ota-thumb-glow {
+  0% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+  45% {
+    box-shadow:
+      0 0 0 5px rgba(103, 45, 183, 0.18),
+      0 0 20px rgba(103, 45, 183, 0.38);
+  }
+  100% {
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.14),
+      0 0 0 2px rgba(103, 45, 183, 0.1);
+  }
+}
+
+.mobile-ota-track-glow {
+  animation: mobile-ota-track-glow 720ms ease-out both;
+}
+
+.mobile-ota-thumb-glow {
+  animation: mobile-ota-thumb-glow 720ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-ota-track-glow,
+  .mobile-ota-thumb-glow,
+  .mobile-value-label-in {
+    animation: none;
+  }
+}

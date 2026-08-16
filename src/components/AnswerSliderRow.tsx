@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect, useId } from 'react';
+
 import AnswerSlider from '@/components/AnswerSlider';
 import ExclusionControl from '@/components/ExclusionControl';
 import NoteControl from '@/components/NoteControl';
+import { useMobileQuestionActionRegistry } from '@/components/MobileQuestionActions';
 import {
   getAnswerValuePosition,
   getAnswerValues,
@@ -205,6 +208,8 @@ export interface AnswerSliderRowProps extends RowControlsProps {
   disabled?: boolean;
   /** Render the active label under the slider on `sm`+ (used by the IMPORTANCE row). */
   showActiveLabelBelow?: boolean;
+  /** Hide the row caption below the mobile slider when a surrounding section already names it. */
+  hideMobileRowLabel?: boolean;
   /**
    * Render this row's own scale strip above its slider on `sm`+. For sections where every
    * row shares one scale, use AnswerScaleHeader once instead; this is for pages like Kids
@@ -232,24 +237,80 @@ export default function AnswerSliderRow({
   isImportance = false,
   disabled = false,
   showActiveLabelBelow = false,
+  hideMobileRowLabel = false,
   showScaleAbove = false,
   className = '',
   ...controls
 }: AnswerSliderRowProps) {
+  const actionId = useId();
+  const mobileActionRegistry = useMobileQuestionActionRegistry();
   const displayValue = getNearestAnswerValue(value, labels);
   const activeLabel =
     labels.find(entry => Number(entry.value) === displayValue)?.answer_text?.trim() || '';
   const activePercent = getAnswerValuePosition(displayValue, labels);
   const activeIndex = getAnswerValues(labels).indexOf(displayValue);
   const isOpenToAll = Boolean(controls.otaChecked && controls.showOta);
+  const moveQuestionLabelLeft = Boolean(
+    !hideMobileRowLabel && !isOpenToAll && displayValue === 3 && activeLabel
+  );
+  const hasMobileAction = Boolean(controls.showOta || controls.showExclude || controls.showNote);
+  const excludedValuesKey = (controls.excludedValues || []).join(',');
+  const allowedValuesKey = (controls.allowedExclusionValues || []).join(',');
+  const blockedValuesKey = (controls.blockedExclusionValues || []).join(',');
+
+  useEffect(() => {
+    if (!mobileActionRegistry) return;
+    if (!hasMobileAction) {
+      mobileActionRegistry.unregister(actionId);
+      return;
+    }
+    mobileActionRegistry.register(actionId, {
+      label,
+      showOta: controls.showOta,
+      otaChecked: controls.otaChecked,
+      showExclude: controls.showExclude,
+      excludedValues: controls.excludedValues,
+      allowedExclusionValues: controls.allowedExclusionValues,
+      blockedExclusionValues: controls.blockedExclusionValues,
+      onExcludedValuesChange: controls.onExcludedValuesChange,
+      showNote: controls.showNote,
+      note: controls.note,
+      onNoteChange: controls.onNoteChange,
+    });
+  }, [
+    actionId,
+    controls.allowedExclusionValues,
+    controls.blockedExclusionValues,
+    controls.excludedValues,
+    allowedValuesKey,
+    blockedValuesKey,
+    controls.note,
+    controls.onExcludedValuesChange,
+    controls.onNoteChange,
+    controls.otaChecked,
+    controls.showExclude,
+    controls.showNote,
+    controls.showOta,
+    excludedValuesKey,
+    hasMobileAction,
+    label,
+    mobileActionRegistry,
+  ]);
+
+  useEffect(() => {
+    if (!mobileActionRegistry) return;
+    return () => mobileActionRegistry.unregister(actionId);
+  }, [actionId, mobileActionRegistry]);
 
   return (
     <div
-      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 sm:gap-y-0 ${
+      onPointerDownCapture={() => mobileActionRegistry?.activate(actionId)}
+      onFocusCapture={() => mobileActionRegistry?.activate(actionId)}
+      className={`grid grid-cols-1 items-center gap-y-1 sm:gap-y-0 ${
         showScaleAbove ? 'sm:items-end' : ''
       } ${SCALE_GRID} ${className}`}
     >
-      <div className="col-start-1 row-start-1 flex min-w-0 items-baseline gap-2">
+      <div className="hidden min-w-0 items-baseline gap-2 sm:col-start-1 sm:row-start-1 sm:flex">
         {/* truncate is a backstop for arbitrarily long question names; every caption the
             mandatory questions produce fits the 120px column. title exposes the full text
             if one ever does clip. */}
@@ -258,18 +319,16 @@ export default function AnswerSliderRow({
         </span>
       </div>
 
-      <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3 sm:justify-self-start">
+      <div
+        className={`${mobileActionRegistry ? 'hidden' : 'col-start-1 row-start-2 justify-self-center'} sm:col-start-3 sm:row-start-1 sm:block sm:justify-self-start`}
+      >
         <RowControls {...controls} />
       </div>
 
-      <div className="col-span-2 col-start-1 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
-        {/* On `sm`+ the section header already carries this strip, unless the row owns its
-            own scale (Kids), so it would otherwise be repeated on every row. */}
-        <ScaleLabelStrip
-          labels={labels}
-          dimmed={isOpenToAll}
-          className={showScaleAbove ? 'sm:mb-1' : 'sm:mb-1 sm:hidden'}
-        />
+      <div className="relative col-start-1 row-start-1 min-w-0 sm:col-start-2 sm:row-start-1">
+        {showScaleAbove && (
+          <ScaleLabelStrip labels={labels} dimmed={isOpenToAll} className="mb-1 hidden sm:block" />
+        )}
         <AnswerSlider
           value={value}
           onChange={onChange}
@@ -278,7 +337,33 @@ export default function AnswerSliderRow({
           isImportance={isImportance}
           disabled={disabled}
           ariaLabel={label}
+          otaEnabled={Boolean(controls.showOta)}
+          onOtaToggle={controls.onOtaToggle}
         />
+        <div className="relative -mt-1 mb-1 h-4 overflow-hidden text-[9px] sm:hidden">
+          {!hideMobileRowLabel && (
+            <span
+              className="absolute top-0 max-w-[48%] truncate font-semibold uppercase tracking-[0.12em] text-gray-400 transition-all duration-300 ease-out"
+              style={
+                moveQuestionLabelLeft
+                  ? { left: 0, transform: 'translateX(0)' }
+                  : { left: '50%', transform: 'translateX(-50%)' }
+              }
+              title={label}
+            >
+              {label}
+            </span>
+          )}
+          {activeLabel && !isOpenToAll && (
+            <span
+              key={`${displayValue}-${activeLabel}`}
+              className="mobile-value-label-in absolute top-0 max-w-[48%] truncate whitespace-nowrap font-semibold uppercase text-[#672DB7]"
+              style={labelStyle(activeIndex, getAnswerValues(labels).length, activePercent)}
+            >
+              {activeLabel.toUpperCase()}
+            </span>
+          )}
+        </div>
       </div>
 
       {showActiveLabelBelow && (

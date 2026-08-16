@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CompatibleFirst — native infographic system</title>
+  <style>
+    :root {
+      --purple: #672DB7;
+      --purple-2: #7C3AED;
+      --purple-3: #8B5CF6;
+      --purple-4: #A855F7;
+      --purple-deep: #5B21B6;
+      --ink: #101522;
+      --muted: #57546a;
+      --line: rgba(103,45,183,.86);
+      --glass: rgba(255,255,255,.58);
+      --glass-strong: rgba(255,255,255,.76);
+      --border: rgba(255,255,255,.84);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; min-height: 100%; overflow: hidden; }
+    body { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: #f5f2fb; }
+    #art { position: relative; overflow: hidden; isolation: isolate; background:
+      radial-gradient(900px 540px at 4% -4%, rgba(255,255,255,1), transparent 72%),
+      radial-gradient(720px 650px at 98% 8%, rgba(157,112,218,.17), transparent 74%),
+      radial-gradient(800px 560px at 44% 110%, rgba(103,45,183,.11), transparent 72%),
+      linear-gradient(132deg, #faf9fd 0%, #f2eef9 48%, #f9f7fc 100%);
+    }
+    #art::before { content:""; position:absolute; inset:0; z-index:-2; opacity:.45; background-image:
+      linear-gradient(110deg, transparent 0 38%, rgba(255,255,255,.5) 38.2% 38.7%, transparent 39%),
+      linear-gradient(20deg, transparent 0 71%, rgba(103,45,183,.035) 71.2% 71.55%, transparent 71.8%); }
+    #art::after { content:""; position:absolute; inset:0; z-index:-1; background:
+      radial-gradient(circle at 12% 78%, rgba(103,45,183,.09) 0 2px, transparent 2.8px) 0 0/18px 18px;
+      -webkit-mask: linear-gradient(90deg, #000 0 14%, transparent 23% 77%, #000 86% 100%); mask: linear-gradient(90deg, #000 0 14%, transparent 23% 77%, #000 86% 100%); opacity:.45; }
+    .horizontal, .ranked { width: 1600px; height: 900px; }
+    .vertical { width: 1600px; height: 1320px; }
+    .portrait { width: 1080px; height: 1960px; }
+
+    h1, h2, h3, p { margin: 0; }
+    .title { padding:30px 38px; border-radius:30px; text-align:left; background:linear-gradient(145deg,rgba(255,255,255,.75),rgba(255,255,255,.42)); border:1.5px solid rgba(255,255,255,.88); box-shadow:0 24px 58px rgba(56,29,98,.08),inset 0 1px 0 white; backdrop-filter:blur(22px); }
+    .headline { font-weight: 760; letter-spacing: -.052em; line-height: .98; }
+    .headline .accent { color: var(--purple); }
+    .subhead { color: #272337; font-size: 23px; letter-spacing: -.02em; }
+    .tagline { color: var(--purple); font-size: 34px; font-weight: 760; letter-spacing: -.035em; }
+
+    .brand { position:absolute; display:flex; align-items:center; gap:12px; }
+    .brand .mark { display:block; width:66px; height:58px; object-fit:contain; }
+    .wordmark { display:flex; align-items:baseline; white-space:nowrap; font-size:37px; line-height:.9; font-weight:760; letter-spacing:-.052em; color:var(--ink); }
+    .wordmark .first { color:var(--purple); }
+    .brand-copy { position:relative; padding-bottom:17px; }
+    .dotcom { position:absolute; right:0; bottom:0; color:var(--ink); font-size:16px; line-height:1; font-weight:720; letter-spacing:-.02em; }
+
+    .glass { background: linear-gradient(145deg, rgba(255,255,255,.76), rgba(255,255,255,.39)); border: 1.5px solid rgba(255,255,255,.88); box-shadow: 0 26px 60px rgba(48,25,86,.11), inset 0 1px 0 white, inset 0 -1px 0 rgba(103,45,183,.055); backdrop-filter: blur(24px); }
+    .soft-panel { background: linear-gradient(150deg,rgba(255,255,255,.78),rgba(255,255,255,.47)); border: 1.25px solid rgba(255,255,255,.9); box-shadow: 0 16px 32px rgba(52,28,90,.075), inset 0 1px 0 white; backdrop-filter: blur(20px); }
+
+    .orb { position:relative; flex:0 0 auto; display:grid; place-items:center; border-radius:50%; background:
+      radial-gradient(circle at 30% 22%, rgba(255,255,255,.52), transparent 20%),
+      radial-gradient(circle at 72% 78%, rgba(63,12,137,.72), transparent 45%),
+      linear-gradient(145deg, #a95af0 0%, #7c3aed 38%, #672db7 67%, #49148d 100%);
+      border: 1px solid rgba(255,255,255,.58); box-shadow: 0 14px 28px rgba(67,25,136,.22), inset 0 0 0 2px rgba(255,255,255,.10), inset 0 -12px 20px rgba(36,0,83,.16); }
+    .orb::after { content:""; position:absolute; inset:7%; border-radius:50%; border:1px solid rgba(255,255,255,.24); }
+    .orb svg { position:relative; z-index:2; width:49%; height:49%; fill:none; stroke:#fff; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; filter: drop-shadow(0 2px 3px rgba(41,0,92,.32)); }
+
+    .formula { display:flex; align-items:stretch; gap:18px; }
+    .step { min-width:0; flex:1; display:flex; flex-direction:column; align-items:center; text-align:center; padding: 24px 18px 22px; border-radius: 24px; }
+    .step .orb { width:104px; height:104px; margin-bottom:17px; }
+    .step h3 { font-size:22px; line-height:1.08; letter-spacing:-.035em; font-weight:750; }
+    .step p { margin-top:9px; max-width:185px; font-size:16px; line-height:1.38; color:var(--muted); }
+    .plus { align-self:center; color:var(--purple); font-size:38px; line-height:1; font-weight:800; }
+
+    .user-card { position:absolute; border-radius:30px; padding:13px; }
+    .user-photo { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:22px; display:block; box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+    .user-label { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 10px 6px; }
+    .user-label strong { font-size:30px; color:var(--purple); letter-spacing:-.04em; }
+    .input-pill { padding:7px 12px; border-radius:999px; color:#fff; background:rgba(16,21,34,.58); font-size:12px; font-weight:700; letter-spacing:.12em; }
+
+    .score { position:absolute; width:220px; height:220px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:800; font-size:66px; letter-spacing:-.055em; background:
+      linear-gradient(35deg, transparent 0 47%, rgba(255,255,255,.09) 47.3% 50%, transparent 50.4%),
+      linear-gradient(145deg, transparent 0 34%, rgba(255,255,255,.10) 34.3% 38%, transparent 38.5%),
+      radial-gradient(circle at 28% 22%, #a86af0 0%, #7435cf 32%, #672db7 55%, #2f0872 100%);
+      border:1px solid rgba(255,255,255,.66); box-shadow: 0 22px 42px rgba(65,20,137,.25), inset 0 0 0 7px rgba(255,255,255,.06); }
+    .score::before { content:""; position:absolute; inset:-34px; border-radius:50%; border:1px solid rgba(103,45,183,.13); box-shadow: inset 0 0 0 10px rgba(255,255,255,.16), 0 0 0 12px rgba(103,45,183,.05), 0 0 0 24px rgba(255,255,255,.30); }
+    .score::after { content:""; position:absolute; inset:-17px; border-radius:50%; border:2px solid rgba(255,255,255,.85); }
+    .score .node { position:absolute; width:13px; height:13px; border-radius:50%; background:linear-gradient(145deg,#a855f7,#5b21b6); box-shadow:0 2px 5px rgba(55,14,120,.28); }
+    .score .n1 { top:-25px; left:calc(50% - 6px); } .score .n2 { right:-25px; top:calc(50% - 6px); } .score .n3 { bottom:-25px; left:calc(50% - 6px); } .score .n4 { left:-25px; top:calc(50% - 6px); }
+
+    .result { position:absolute; padding:7px; border-radius:25px; background:conic-gradient(from -90deg, #a855f7 0deg, #8b5cf6 83deg, #7c3aed 166deg, #672db7 249deg, #5b21b6 331deg, #d1d5db 334deg 360deg); box-shadow:0 24px 42px rgba(51,22,93,.22); }
+    .result-inner { position:relative; width:100%; height:100%; border-radius:19px; overflow:hidden; background:#fff; }
+    .result img.photo { width:100%; height:100%; object-fit:cover; display:block; }
+    .result .photo-shade { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,.76), transparent 43%); }
+    .status { position:absolute; top:0; left:0; z-index:3; width:56px; height:54px; display:grid; place-items:center; border-radius:0 0 18px 0; background:rgba(255,255,255,.34); backdrop-filter:blur(12px); box-shadow: inset -1px -1px 0 rgba(255,255,255,.5); }
+    .status img { width:34px; height:31px; object-fit:contain; filter:drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+    .result-bottom { position:absolute; left:0; right:0; bottom:0; z-index:3; display:flex; align-items:flex-end; justify-content:space-between; color:#fff; }
+    .result-name { min-width:0; padding:18px 12px 12px; font-size:21px; line-height:1; font-weight:750; text-shadow:0 1px 3px #000; }
+    .result-score { flex:none; min-width:58px; padding:14px 10px 12px; border-radius:18px 0 0 0; text-align:center; font-size:18px; line-height:1; font-weight:760; background:rgba(255,255,255,.28); backdrop-filter:blur(12px); text-shadow:0 1px 3px #000; box-shadow:inset 1px 1px 0 rgba(255,255,255,.28); }
+
+    .wire { position:absolute; inset:0; width:100%; height:100%; z-index:-.5; overflow:visible; }
+    .wire path { fill:none; stroke:var(--line); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+    .wire circle { r:6px; fill:url(#nodeGradient); stroke:rgba(255,255,255,.78); stroke-width:1.5; }
+
+    /* horizontal */
+    .horizontal .brand { top:72px; right:52px; }
+    .horizontal .title { position:absolute; top:38px; left:40px; width:930px; height:160px; }
+    .horizontal .headline { font-size:64px; }
+    .horizontal .subhead { margin-top:17px; }
+    .horizontal .user-card { width:210px; top:314px; left:40px; }
+    .horizontal .formula { position:absolute; width:720px; height:286px; top:300px; left:300px; padding:15px; border-radius:30px; }
+    .horizontal .score { width:190px; height:190px; left:1095px; top:348px; font-size:60px; }
+    .horizontal .result { width:200px; height:200px; top:343px; left:1350px; }
+    .horizontal .tagline { position:absolute; bottom:74px; width:100%; text-align:center; }
+
+    /* vertical */
+    .vertical .brand { top:70px; right:52px; }
+    .vertical .title { position:absolute; top:32px; left:42px; width:860px; height:150px; }
+    .vertical .headline { font-size:54px; }
+    .vertical .subhead { margin-top:13px; }
+    .vertical .user-card { width:210px; top:205px; left:695px; }
+    .vertical .user-card .user-label { justify-content:center; }
+    .vertical .formula { position:absolute; width:1030px; height:220px; top:480px; left:285px; padding:14px; border-radius:30px; }
+    .vertical .step { flex-direction:row; text-align:left; gap:20px; padding:22px; }
+    .vertical .step .orb { width:106px; height:106px; margin:0; }
+    .vertical .step p { max-width:170px; }
+    .vertical .plus { font-size:34px; }
+    .vertical .score { width:184px; height:184px; left:708px; top:775px; font-size:58px; }
+    .vertical .result { width:198px; height:198px; top:1000px; left:701px; }
+    .vertical .tagline { position:absolute; bottom:34px; width:100%; text-align:center; }
+
+    /* ranked */
+    .ranked .brand { top:72px; right:52px; }
+    .ranked .title { position:absolute; top:38px; left:40px; width:930px; height:160px; }
+    .ranked .headline { font-size:62px; }
+    .ranked .subhead { margin-top:16px; }
+    .ranked .user-card { width:210px; top:300px; left:30px; }
+    .ranked .formula { position:absolute; width:590px; height:270px; top:312px; left:280px; padding:14px; border-radius:30px; gap:10px; }
+    .ranked .step { padding:18px 8px; }
+    .ranked .step .orb { width:94px; height:94px; margin-bottom:14px; }
+    .ranked .step h3 { font-size:18px; }
+    .ranked .step p { font-size:14px; }
+    .ranked .plus { font-size:30px; }
+    .ranked .score { width:180px; height:180px; left:935px; top:356px; font-size:56px; }
+    .ranked .result { width:154px; height:154px; left:1404px; }
+    .ranked .r1 { top:222px; } .ranked .r2 { top:407px; } .ranked .r3 { top:592px; }
+    .ranked .result .status { width:40px; height:39px; border-radius:0 0 13px 0; }
+    .ranked .result .status img { width:25px; height:23px; }
+    .ranked .result-name { padding:11px 7px 8px; font-size:14px; }
+    .ranked .result-score { min-width:42px; padding:9px 6px 8px; border-radius:12px 0 0 0; font-size:12px; }
+    .ranked .tagline { position:absolute; bottom:55px; width:100%; text-align:center; }
+
+    /* portrait */
+    .portrait .brand { top:40px; left:354px; }
+    .portrait .brand .mark { width:72px; height:64px; }
+    .portrait .wordmark { font-size:40px; }
+    .portrait .title { position:absolute; top:142px; left:90px; width:900px; height:172px; text-align:center; }
+    .portrait .headline { font-size:62px; }
+    .portrait .subhead { margin-top:18px; font-size:22px; }
+    .portrait .user-card { width:390px; top:350px; left:345px; display:grid; grid-template-columns:210px 1fr; gap:22px; padding:16px; }
+    .portrait .user-card .user-photo { width:210px; }
+    .portrait .user-card .user-label { flex-direction:column; align-items:flex-start; justify-content:center; padding:0; }
+    .portrait .formula { position:absolute; width:720px; height:470px; top:650px; left:180px; padding:20px; border-radius:34px; flex-direction:column; gap:12px; }
+    .portrait .step { flex-direction:row; text-align:left; gap:30px; min-height:136px; padding:18px 26px; }
+    .portrait .step .orb { width:106px; height:106px; margin:0; }
+    .portrait .step h3 { font-size:28px; }
+    .portrait .step p { font-size:19px; max-width:420px; }
+    .portrait .plus { display:none; }
+    .portrait .score { width:240px; height:240px; left:420px; top:1240px; font-size:76px; }
+    .portrait .result { width:292px; height:292px; top:1560px; left:394px; padding:8px; border-radius:29px; }
+    .portrait .result-inner { border-radius:22px; }
+    .portrait .status { width:72px; height:70px; border-radius:0 0 22px 0; }
+    .portrait .status img { width:42px; height:38px; }
+    .portrait .result-name { padding:22px 15px 15px; font-size:25px; }
+    .portrait .result-score { min-width:72px; padding:18px 12px 15px; font-size:22px; }
+    .portrait .tagline { position:absolute; bottom:48px; width:100%; text-align:center; font-size:38px; }
+  </style>
+</head>
+<body>
+  <main id="art"></main>
+  <script>
+    const A='/assets/';
+    const icons={
+      questions:`<svg viewBox="0 0 48 48"><path d="M20 14h20M20 24h20M20 34h20"/><path d="m8.5 13 2.5 2.5 5-6M8.5 23l2.5 2.5 5-6M8.5 33l2.5 2.5 5-6"/></svg>`,
+      math:`<svg viewBox="0 0 48 48"><path d="M8 16h28M30 10l6 6-6 6M40 32H12M18 26l-6 6 6 6"/></svg>`,
+      sort:`<svg viewBox="0 0 48 48"><path d="M10 38V29M20 38V22M30 38V15M40 38V8"/><path d="m8 18 9 4 9-9 7 3 7-8"/></svg>`
+    };
+    const step=(kind,title,copy)=>`<section class="step soft-panel"><div class="orb">${icons[kind]}</div><div><h3>${title}</h3><p>${copy}</p></div></section>`;
+    const formula=(klass='')=>`<section class="formula glass ${klass}">${step('questions','Questions','Answer questions that matter to you.')}<b class="plus">+</b>${step('math','Two-way math','Your preferences + their preferences.')}<b class="plus">+</b>${step('sort','Sort by compatibility','See the strongest matches first.')}</section>`;
+    const brand=()=>`<div class="brand" aria-label="CompatibleFirst.com"><img class="mark" src="${A}mmlogox.png" alt=""><div class="brand-copy"><div class="wordmark"><span>Compatible</span><span class="first">First</span></div><span class="dotcom">.com</span></div></div>`;
+    const user=(wide=false)=>`<section class="user-card glass"><img class="user-photo" src="${A}compatiblefirst-portrait-you-v10.png" alt="You"><div class="user-label"><strong>You</strong><span class="input-pill">YOUR INPUTS</span></div></section>`;
+    const score=(pct)=>`<div class="score">${pct}%<i class="node n1"></i><i class="node n2"></i><i class="node n3"></i><i class="node n4"></i></div>`;
+    const result=(name,pct,img,klass='')=>`<article class="result ${klass}"><div class="result-inner"><img class="photo" src="${A}${img}" alt="${name}"><div class="photo-shade"></div><div class="status"><img src="${A}check2.png" alt=""></div><div class="result-bottom"><div class="result-name">${name}</div><div class="result-score">${pct}%</div></div></div></article>`;
+    const wireDefs=`<defs><linearGradient id="nodeGradient" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#A855F7"/><stop offset="1" stop-color="#5B21B6"/></linearGradient></defs>`;
+    const title=(sub)=>`<header class="title"><h1 class="headline">Compatibility <span class="accent">Comes First</span></h1><p class="subhead">${sub}</p></header>`;
+
+    function horizontal(){return `${brand()}${title('Your inputs shape every compatibility score.')}${user()}${formula()}${score(92)}${result('Alex, 29',92,'compatiblefirst-portrait-alex-v10.png')}<svg class="wire" viewBox="0 0 1600 900">${wireDefs}<path d="M250 443H300"/><circle cx="250" cy="443"/><circle cx="300" cy="443"/><path d="M1020 443H1070"/><circle cx="1020" cy="443"/><path d="M1310 443H1350"/><circle cx="1350" cy="443"/></svg><p class="tagline">Built from what matters to you.</p>`}
+    function vertical(){return `${brand()}${title('Every score starts with your choices.')}${user()}${formula()}${score(92)}${result('Alex, 29',92,'compatiblefirst-portrait-alex-v10.png')}<svg class="wire" viewBox="0 0 1600 1320">${wireDefs}<path d="M800 465V480"/><circle cx="800" cy="465"/><circle cx="800" cy="480"/><path d="M800 700V750"/><circle cx="800" cy="700"/><path d="M800 978V1000"/><circle cx="800" cy="1000"/></svg><p class="tagline">Your answers shape the math.</p>`}
+    function ranked(){return `${brand()}${title('Your inputs shape who rises to the top.')}${user()}${formula()}${score(94)}${result('Alex, 29',94,'compatiblefirst-portrait-alex-v10.png','r1')}${result('Marc, 31',88,'compatiblefirst-portrait-marc-v10.png','r2')}${result('Eli, 30',81,'compatiblefirst-portrait-eli-v10.png','r3')}<svg class="wire" viewBox="0 0 1600 900">${wireDefs}<path d="M240 440H280"/><circle cx="240" cy="440"/><circle cx="280" cy="440"/><path d="M870 446H910"/><circle cx="870" cy="446"/><path d="M1140 446H1248Q1266 446 1266 428V299Q1266 299 1284 299H1404M1266 446V484Q1266 484 1284 484H1404M1266 484V669Q1266 669 1284 669H1404"/><circle cx="1266" cy="446"/><circle cx="1404" cy="299"/><circle cx="1404" cy="484"/><circle cx="1404" cy="669"/></svg><p class="tagline">More answers. Clearer compatibility.</p>`}
+    function portrait(){return `${brand()}${title('Your answers. Your preferences. Your compatibility.')}${user(true)}${formula()}${score(92)}${result('Alex, 29',92,'compatiblefirst-portrait-alex-v10.png')}<svg class="wire" viewBox="0 0 1080 1960">${wireDefs}<path d="M540 592V650"/><circle cx="540" cy="592"/><circle cx="540" cy="650"/><path d="M540 1120V1215"/><circle cx="540" cy="1120"/><path d="M540 1490V1560"/><circle cx="540" cy="1560"/></svg><p class="tagline">See where you align.</p>`}
+
+    const variant=new URLSearchParams(location.search).get('variant')||'horizontal';
+    const scale=Math.max(1,Number(new URLSearchParams(location.search).get('scale')||1));
+    const art=document.getElementById('art');
+    art.className=variant;
+    art.innerHTML=({horizontal,vertical,ranked,portrait}[variant]||horizontal)();
+    if(scale!==1){ art.style.zoom=String(scale); }
+  </script>
+</body>
+</html>

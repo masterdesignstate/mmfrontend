@@ -37,6 +37,7 @@ export default function FaithQuestionPage() {
     lookingFor: 3
   });
   const [excludedAnswerValues, setExcludedAnswerValues] = useState<number[]>([]);
+  const [questionNote, setQuestionNote] = useState('');
   const allowedExclusionValues = useMemo(
     () => getAllowedExclusionValues(question),
     [question]
@@ -124,7 +125,8 @@ export default function FaithQuestionPage() {
         looking_for_open_to_all: openToAll.answer1LookingOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
-        excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues)
+        excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues),
+        me_note: questionNote,
       };
 
       // Save the user answer
@@ -173,6 +175,8 @@ export default function FaithQuestionPage() {
       nextLabel="Save"
       loadingLabel="Saving..."
       loading={loading}
+      questionNote={questionNote}
+      onQuestionNoteChange={setQuestionNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle
@@ -187,9 +191,10 @@ export default function FaithQuestionPage() {
           </div>
         )}
 
+        <div className="flex flex-col sm:block">
         {/* Me Section */}
-        <div className="mb-2 sm:mb-6">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+        <div className="order-2 mb-2 pt-1 sm:mb-6 sm:pt-0">
+          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
           <AnswerScaleHeader
             labels={scaleLabels}
@@ -215,22 +220,27 @@ export default function FaithQuestionPage() {
                   normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues)
                 )
               }
+              showNote
+              note={questionNote}
+              onNoteChange={setQuestionNote}
             />
 
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importance.me}
-              onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
-              isImportance
-              showActiveLabelBelow
-            />
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.me}
+                onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
           </div>
         </div>
 
         {/* Them Section */}
-        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+        <div className="order-1 mb-2 sm:mb-6 sm:pt-8">
+          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
             Them
           </h3>
 
@@ -251,15 +261,39 @@ export default function FaithQuestionPage() {
               onOtaToggle={() => handleOpenToAllToggle('answer1LookingOpen')}
             />
 
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.lookingFor}
+                onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="order-3 mb-2 pt-1 sm:hidden">
+          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+          <div className="space-y-1">
             <AnswerSliderRow
-              label="IMPORTANCE"
+              label="THEM"
               labels={IMPORTANCE_LABELS}
               value={importance.lookingFor}
               onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
               isImportance
-              showActiveLabelBelow
+            />
+            <AnswerSliderRow
+              label="ME"
+              labels={IMPORTANCE_LABELS}
+              value={importance.me}
+              onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
+              isImportance
             />
           </div>
+        </div>
         </div>
       </div>
     </OnboardingShell>

@@ -1215,8 +1215,9 @@ function QuestionEditPageContent() {
   }) => (
     <div className={`mb-2 sm:mb-6 ${className}`}>
       <h3
-        className="mb-1 text-center text-lg font-bold sm:text-2xl"
-        style={titleColor ? { color: titleColor } : undefined}
+        className={`-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl ${
+          titleColor ? 'text-black' : ''
+        }`}
       >
         {title}
       </h3>
@@ -1257,16 +1258,36 @@ function QuestionEditPageContent() {
         ))}
 
         {importanceValue !== undefined && onImportanceChange && (
-          <AnswerSliderRow
-            label="IMPORTANCE"
-            labels={IMPORTANCE_LABELS}
-            value={importanceValue}
-            onChange={onImportanceChange}
-            isImportance
-            showActiveLabelBelow
-          />
+          <div className="hidden sm:block">
+            <AnswerSliderRow
+              label="IMPORTANCE"
+              labels={IMPORTANCE_LABELS}
+              value={importanceValue}
+              onChange={onImportanceChange}
+              isImportance
+              showActiveLabelBelow
+            />
+          </div>
         )}
       </div>
+    </div>
+  );
+
+  const renderMobileImportanceSection = (
+    value: number,
+    onChange: (value: number) => void
+  ) => (
+    <div className="mb-2 pt-1 sm:hidden">
+      <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+      <AnswerSliderRow
+        label="IMPORTANCE"
+        labels={IMPORTANCE_LABELS}
+        value={value}
+        onChange={onChange}
+        isImportance
+        hideMobileRowLabel
+      />
     </div>
   );
 
@@ -1288,20 +1309,26 @@ function QuestionEditPageContent() {
 
       return (
         sliderSectionShell(
-          renderSliderSection({
-            title: 'Me',
-            rows: questions.map((question) => ({
-              question,
-              storageKey: `q${question.group_number}`,
-              stateKey: `q${question.group_number}_me`,
-              label: question.question_name.toUpperCase(),
-              labels: DEFAULT_SCALE_LABELS,
-              otaEnabled: question.open_to_all_me,
-            })),
-            showExclude: true,
-            importanceValue: importanceValues.me,
-            onImportanceChange: (value) => setImportanceValues(prev => ({ ...prev, me: value })),
-          })
+          <>
+            {renderSliderSection({
+              title: 'Me',
+              rows: questions.map((question) => ({
+                question,
+                storageKey: `q${question.group_number}`,
+                stateKey: `q${question.group_number}_me`,
+                label: question.question_name.toUpperCase(),
+                labels: DEFAULT_SCALE_LABELS,
+                otaEnabled: question.open_to_all_me,
+              })),
+              showExclude: true,
+              importanceValue: importanceValues.me,
+              onImportanceChange: (value) => setImportanceValues(prev => ({ ...prev, me: value })),
+            })}
+            {renderMobileImportanceSection(
+              importanceValues.me,
+              (value) => setImportanceValues(prev => ({ ...prev, me: value }))
+            )}
+          </>
         )
       );
     }
@@ -1350,6 +1377,10 @@ function QuestionEditPageContent() {
               showNote: true,
               className: 'pt-1 sm:pt-8',
             })}
+            {renderMobileImportanceSection(
+              importanceValues.lookingFor,
+              (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
+            )}
           </>
         )
       );
@@ -1401,6 +1432,10 @@ function QuestionEditPageContent() {
               showNote: true,
               className: 'pt-1 sm:pt-8',
             })}
+            {renderMobileImportanceSection(
+              importanceValues.lookingFor,
+              (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
+            )}
           </>
         )
       );
@@ -1594,6 +1629,10 @@ function QuestionEditPageContent() {
               showNote: true,
               className: 'pt-1 sm:pt-8',
             })}
+            {renderMobileImportanceSection(
+              importanceValues.lookingFor,
+              (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
+            )}
           </>
         )
       );

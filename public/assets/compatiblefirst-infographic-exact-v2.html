@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CompatibleFirst.com infographic variations</title>
+  <style>
+    :root {
+      --purple: #672DB7;
+      --purple-hover: #59259F;
+      --purple-soft: #F1EAFB;
+      --purple-wash: #F5F1FA;
+      --ink: #18151D;
+      --muted: #6B6571;
+      --line: rgba(103, 45, 183, .14);
+      --line-strong: rgba(103, 45, 183, .24);
+      --card: #FCFBFD;
+      --white: #FFFFFF;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #EAE4EF;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .variant { display: none; position: relative; overflow: hidden; background: var(--purple-wash); }
+    html[data-variant="horizontal"] #horizontal,
+    html[data-variant="vertical"] #vertical,
+    html[data-variant="ranked"] #ranked,
+    html[data-variant="portrait"] #portrait { display: block; }
+    .landscape { width: 1672px; height: 941px; }
+    .portrait { width: 864px; height: 1821px; }
+    html[data-fit="landscape"] body { width: 1253px; height: 706px; overflow: hidden; }
+    html[data-fit="landscape"] .landscape { transform: scale(.7494); transform-origin: 0 0; }
+
+    .landscape::before,
+    .portrait::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 16% 15%, rgba(255,255,255,.98) 0 11%, transparent 34%),
+        radial-gradient(circle at 84% 82%, rgba(255,255,255,.9) 0 12%, transparent 34%),
+        linear-gradient(135deg, #FBF9FD 0%, #F5F1FA 52%, #EEE7F6 100%);
+    }
+
+    .dot-grid {
+      position: absolute;
+      width: 120px;
+      height: 70px;
+      opacity: .32;
+      background-image: radial-gradient(circle, var(--purple) 2px, transparent 2.4px);
+      background-size: 16px 16px;
+    }
+
+    .header {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .landscape .header { padding: 48px 62px 0; }
+    .portrait .header { padding: 42px 50px 0; align-items: center; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 12px;
+      color: var(--purple);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--purple); }
+    h1 { margin: 0; letter-spacing: -.045em; line-height: .98; font-size: 62px; }
+    .portrait h1 { font-size: 53px; }
+    .accent { color: var(--purple); }
+    .subhead { margin: 14px 0 0; color: var(--muted); font-size: 21px; line-height: 1.4; }
+    .portrait .subhead { max-width: 560px; font-size: 19px; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      white-space: nowrap;
+      padding-top: 5px;
+    }
+    .brand img { width: 40px; height: 35px; object-fit: contain; }
+    .brand-name { font-size: 29px; font-weight: 750; letter-spacing: -.035em; }
+    .brand-name .first, .brand-name .dotcom { color: var(--purple); }
+    .brand-name .dotcom { margin-left: 2px; font-size: .54em; font-weight: 800; letter-spacing: -.01em; vertical-align: .3em; }
+    .portrait .brand { position: absolute; right: 42px; top: 37px; }
+    .portrait .brand-name { font-size: 20px; }
+    .portrait .brand img { width: 29px; height: 25px; }
+
+    .canvas {
+      position: relative;
+      z-index: 2;
+      border: 1px solid rgba(255,255,255,.94);
+      background: rgba(255,255,255,.68);
+      box-shadow: 0 30px 80px rgba(52,31,75,.13), inset 0 1px 0 #fff;
+      backdrop-filter: blur(18px);
+    }
+    .landscape .canvas { margin: 36px 46px 0; height: 655px; border-radius: 38px; }
+    .portrait .canvas { margin: 32px 30px 30px; height: 1610px; border-radius: 38px; }
+    .canvas::after {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border-radius: 28px;
+      border: 1px solid rgba(103,45,183,.07);
+      pointer-events: none;
+    }
+
+    .micro-label {
+      color: var(--purple);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    .you-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      background: #fff;
+      border: 1px solid rgba(103,45,183,.11);
+      box-shadow: 0 18px 45px rgba(52,31,75,.14);
+    }
+    .you-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .you-card .you-bar {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 17px 18px 15px;
+      color: #fff;
+      font-size: 21px;
+      font-weight: 800;
+      text-shadow: 0 1px 3px rgba(0,0,0,.6);
+      background: linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,0));
+    }
+    .you-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.22);
+      border: 1px solid rgba(255,255,255,.35);
+      backdrop-filter: blur(8px);
+      font-size: 10px;
+      letter-spacing: .12em;
+    }
+
+    .formula-panel {
+      position: relative;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: 0 16px 42px rgba(52,31,75,.09);
+      overflow: hidden;
+    }
+    .formula-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 54px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(24,21,29,.06);
+      background: linear-gradient(90deg, #fff, #FAF7FD);
+    }
+    .formula-head strong { font-size: 15px; }
+    .formula-head span { color: var(--purple); font-size: 11px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+    .formula-items { display: grid; gap: 11px; padding: 14px; }
+    .formula-items.cols { grid-template-columns: repeat(3, 1fr); }
+    .formula-item {
+      min-width: 0;
+      min-height: 142px;
+      padding: 17px;
+      border-radius: 19px;
+      background: var(--card);
+      border: 1px solid rgba(103,45,183,.08);
+    }
+    .formula-item .icon {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      margin-bottom: 13px;
+      border-radius: 12px;
+      color: var(--purple);
+      background: var(--purple-soft);
+    }
+    .icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .formula-item h3 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+    .formula-item p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.42; }
+    .plus {
+      position: absolute;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--purple);
+      border: 4px solid #fff;
+      font-weight: 800;
+      box-shadow: 0 6px 16px rgba(103,45,183,.26);
+    }
+
+    .flow-arrow { position: relative; flex: 0 0 54px; height: 2px; background: var(--purple); opacity: .9; }
+    .flow-arrow::after { content: ""; position: absolute; right: -1px; top: -5px; width: 10px; height: 10px; border-top: 2px solid var(--purple); border-right: 2px solid var(--purple); transform: rotate(45deg); }
+    .flow-arrow.down { width: 2px; height: 46px; flex: none; }
+    .flow-arrow.down::after { right: -5px; top: auto; bottom: 0; transform: rotate(135deg); }
+
+    .score-card {
+      position: relative;
+      display: grid;
+      place-items: center;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: linear-gradient(145deg, #fff 0%, #F7F2FC 100%);
+      box-shadow: 0 16px 42px rgba(52,31,75,.10);
+      text-align: center;
+    }
+    .score-ring {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, #fff 0 51%, transparent 52%),
+        conic-gradient(var(--purple) 0 92%, #E5E2E8 92% 100%);
+      box-shadow: inset 0 0 0 16px #fff, 0 12px 34px rgba(103,45,183,.16);
+    }
+    .score-ring::after { content: ""; position: absolute; inset: 22px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(103,45,183,.08); }
+    .score-value { position: relative; z-index: 2; color: var(--purple); font-size: 43px; font-weight: 850; letter-spacing: -.05em; }
+    .score-card h3 { margin: 14px 0 0; font-size: 15px; }
+    .score-card p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+
+    /* Exact codebase result-card treatment from results/page.tsx. */
+    .result-card-shell {
+      position: relative;
+      padding: 7px;
+      border-radius: 20px;
+      background: conic-gradient(from -90deg,
+        #A855F7 0deg,
+        #8B5CF6 85.5deg,
+        #7C3AED 171deg,
+        #672DB7 256.5deg,
+        #5B21B6 342deg,
+        #5B21B6 344deg,
+        #d1d5db 345deg,
+        #d1d5db 360deg);
+      box-shadow: 0 18px 45px rgba(52,31,75,.18);
+    }
+    .result-card-shell.score-90 { background: conic-gradient(from -90deg, #A855F7 0deg, #8B5CF6 81deg, #7C3AED 162deg, #672DB7 243deg, #5B21B6 324deg, #5B21B6 326deg, #d1d5db 327deg, #d1d5db 360deg); }
+    .result-card-shell.score-85 { background: conic-gradient(from -90deg, #A855F7 0deg, #8B5CF6 76.5deg, #7C3AED 153deg, #672DB7 229.5deg, #5B21B6 306deg, #5B21B6 308deg, #d1d5db 309deg, #d1d5db 360deg); }
+    .result-card {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      border-radius: 15px;
+      background: #fff;
+    }
+    .result-card > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .result-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.72), transparent 58%); }
+    .result-action {
+      position: absolute;
+      left: 0; top: 0; z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 46px; height: 42px;
+      border-radius: 0 0 12px 0;
+      background: rgba(255,255,255,.25);
+      box-shadow: inset -1px -1px 0 rgba(255,255,255,.28);
+      backdrop-filter: blur(12px);
+    }
+    .result-action img { width: 25px; height: 23px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.28)); }
+    .result-bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; color: #fff; }
+    .result-name { min-width: 0; padding: 16px 7px 7px 12px; font-size: 20px; font-weight: 800; line-height: 1; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+    .result-score { flex: none; padding: 8px 10px; border-radius: 16px 0 0 0; background: rgba(255,255,255,.25); backdrop-filter: blur(12px); font-size: 16px; font-weight: 800; line-height: 1; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+
+    .detail-strip {
+      position: absolute;
+      left: 44px;
+      right: 44px;
+      bottom: 26px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .detail-chip {
+      display: flex; align-items: center; gap: 11px;
+      padding: 12px 15px;
+      border-radius: 16px;
+      color: var(--muted);
+      background: rgba(245,241,250,.72);
+      border: 1px solid rgba(103,45,183,.08);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .detail-chip b { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 8px; color: var(--purple); background: #fff; }
+    .canvas-insight {
+      position: absolute;
+      left: 310px;
+      right: 310px;
+      top: 452px;
+      padding: 19px 26px;
+      border-radius: 20px;
+      color: var(--ink);
+      background: linear-gradient(90deg, rgba(241,234,251,.72), rgba(255,255,255,.92), rgba(241,234,251,.72));
+      border: 1px solid rgba(103,45,183,.10);
+      text-align: center;
+      font-size: 23px;
+      font-weight: 750;
+      letter-spacing: -.025em;
+    }
+    .canvas-insight span { color: var(--purple); }
+
+    /* Horizontal */
+    #horizontal .dot-grid.one { left: 20px; top: 214px; }
+    #horizontal .dot-grid.two { right: 10px; bottom: 22px; }
+    .horizontal-flow {
+      position: absolute;
+      left: 44px; right: 44px; top: 74px;
+      display: flex;
+      align-items: center;
+    }
+    #horizontal .you-card { width: 224px; height: 310px; }
+    #horizontal .formula-panel { width: 620px; height: 255px; }
+    #horizontal .plus.a { left: 198px; top: 108px; }
+    #horizontal .plus.b { left: 404px; top: 108px; }
+    #horizontal .score-card { width: 220px; height: 310px; }
+    #horizontal .result-card-shell { width: 244px; height: 244px; }
+    #horizontal .flow-arrow { margin: 0 14px; }
+
+    /* Vertical landscape */
+    #vertical .header-copy { max-width: 660px; }
+    #vertical .canvas { margin-top: 24px; }
+    #vertical .dot-grid.one { left: 22px; bottom: 35px; }
+    #vertical .dot-grid.two { right: 8px; top: 110px; }
+    .vertical-flow {
+      position: absolute;
+      inset: 36px 52px 26px;
+      display: grid;
+      grid-template-columns: 300px 1fr 300px;
+      grid-template-rows: 210px 1fr;
+      gap: 18px 28px;
+    }
+    .vertical-you-wrap { grid-column: 1; grid-row: 1 / span 2; display: flex; flex-direction: column; justify-content: center; }
+    #vertical .you-card { width: 282px; height: 390px; }
+    .vertical-core { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #vertical .formula-panel { width: 695px; }
+    #vertical .formula-item { min-height: 122px; }
+    #vertical .formula-item p { font-size: 11px; }
+    #vertical .score-card { width: 245px; height: 188px; margin-top: 12px; grid-template-columns: 118px 1fr; padding: 18px; text-align: left; }
+    #vertical .score-ring { width: 110px; height: 110px; box-shadow: inset 0 0 0 12px #fff, 0 10px 25px rgba(103,45,183,.14); }
+    #vertical .score-value { font-size: 32px; }
+    #vertical .score-card h3 { margin: 0 0 6px; }
+    .vertical-result-wrap { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #vertical .result-card-shell { width: 282px; height: 282px; }
+    .side-caption { margin-bottom: 13px; font-size: 12px; font-weight: 800; letter-spacing: .12em; color: var(--purple); text-transform: uppercase; }
+    .vertical-step-arrow { position: absolute; z-index: 4; color: var(--purple); font-size: 36px; font-weight: 400; line-height: 1; }
+    .vertical-step-arrow.in { left: 310px; top: 224px; transform: rotate(-18deg); }
+    .vertical-step-arrow.out { left: 970px; top: 424px; }
+
+    /* Ranked */
+    #ranked .canvas { margin-top: 26px; }
+    .ranked-flow { position: absolute; inset: 39px 39px 28px; display: grid; grid-template-columns: 210px 520px 190px 1fr; align-items: center; gap: 24px; }
+    .rank-arrow { position: absolute; z-index: 5; top: 50%; width: 18px; height: 2px; background: var(--purple); }
+    .rank-arrow::after { content: ""; position: absolute; right: 0; top: -4px; width: 8px; height: 8px; border-right: 2px solid var(--purple); border-top: 2px solid var(--purple); transform: rotate(45deg); }
+    .rank-arrow.a { left: 213px; }
+    .rank-arrow.b { left: 757px; }
+    .rank-arrow.c { left: 971px; }
+    #ranked .you-card { width: 210px; height: 305px; }
+    #ranked .formula-panel { width: 520px; }
+    #ranked .formula-items { grid-template-columns: 1fr; padding: 12px; }
+    #ranked .formula-item { min-height: 78px; display: grid; grid-template-columns: 42px 1fr; align-items: center; column-gap: 13px; padding: 13px 15px; }
+    #ranked .formula-item .icon { margin: 0; }
+    #ranked .formula-item h3 { font-size: 15px; }
+    #ranked .formula-item p { margin-top: 3px; font-size: 11px; }
+    #ranked .score-card { width: 190px; height: 268px; }
+    #ranked .score-ring { width: 132px; height: 132px; }
+    #ranked .score-value { font-size: 37px; }
+    .results-panel { padding: 18px; border-radius: 28px; border: 1px solid var(--line); background: #fff; box-shadow: 0 16px 42px rgba(52,31,75,.10); }
+    .results-panel-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 13px; }
+    .results-panel-head h3 { margin: 0; font-size: 18px; }
+    .results-panel-head span { color: var(--muted); font-size: 11px; }
+    .result-stack { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    #ranked .result-card-shell { width: 193px; height: 193px; box-shadow: 0 12px 28px rgba(52,31,75,.15); }
+    #ranked .result-name { font-size: 15px; padding-left: 9px; }
+    #ranked .result-score { font-size: 13px; padding: 7px 8px; }
+
+    /* Portrait */
+    #portrait { background: var(--purple-wash); }
+    #portrait .header { height: 170px; display: block; }
+    #portrait .canvas { margin-top: 18px; }
+    .portrait-flow { position: absolute; inset: 32px 34px 28px; display: flex; flex-direction: column; align-items: center; }
+    #portrait .you-card { width: 360px; height: 300px; }
+    #portrait .you-card img { object-position: center 30%; }
+    #portrait .formula-panel { width: 670px; margin-top: 20px; }
+    #portrait .formula-items { grid-template-columns: 1fr; }
+    #portrait .formula-item { min-height: 84px; display: grid; grid-template-columns: 48px 1fr; align-items: center; column-gap: 14px; padding: 14px 18px; }
+    #portrait .formula-item .icon { margin: 0; width: 43px; height: 43px; }
+    #portrait .formula-item h3 { font-size: 18px; }
+    #portrait .formula-item p { margin-top: 4px; font-size: 13px; }
+    #portrait .score-card { width: 310px; height: 194px; grid-template-columns: 132px 1fr; padding: 22px; margin-top: 18px; text-align: left; }
+    #portrait .score-ring { width: 120px; height: 120px; }
+    #portrait .score-value { font-size: 35px; }
+    #portrait .score-card h3 { margin: 0 0 7px; }
+    #portrait .result-card-shell { width: 510px; height: 510px; margin-top: 19px; border-radius: 28px; padding: 9px; }
+    #portrait .result-card { border-radius: 20px; }
+    #portrait .result-action { width: 60px; height: 56px; }
+    #portrait .result-action img { width: 31px; height: 29px; }
+    #portrait .result-name { font-size: 31px; padding: 25px 12px 15px 20px; }
+    #portrait .result-score { font-size: 25px; padding: 14px 16px; border-radius: 22px 0 0 0; }
+    #portrait .flow-arrow.down { height: 34px; margin-top: 1px; }
+    .portrait-foot { margin-top: 17px; color: var(--purple); font-size: 24px; font-weight: 800; letter-spacing: -.025em; }
+  </style>
+  <script>
+    const renderParams = new URLSearchParams(location.search);
+    document.documentElement.dataset.variant = renderParams.get('v') || 'horizontal';
+    if (renderParams.get('fit') === 'landscape') document.documentElement.dataset.fit = 'landscape';
+  </script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <symbol id="questions-icon" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></symbol>
+    <symbol id="twoway-icon" viewBox="0 0 24 24"><path d="M4 8h14m0 0-3-3m3 3-3 3M20 16H6m0 0 3 3m-3-3 3-3"/></symbol>
+    <symbol id="sort-icon" viewBox="0 0 24 24"><path d="M5 18V10M10 18V7M15 18V4M20 18V2"/><path d="m4 5 4 3 5-5 4 2 3-3"/></symbol>
+  </defs></svg>
+
+  <section id="horizontal" class="variant landscape">
+    <div class="dot-grid one"></div><div class="dot-grid two"></div>
+    <header class="header">
+      <div><div class="eyebrow">How compatibility works</div><h1>Compatibility <span class="accent">Comes First</span></h1><p class="subhead">Your answers and preferences shape every score.</p></div>
+      <div class="brand"><img src="/assets/mmlogox.png" alt=""><div class="brand-name">Compatible<span class="first">First</span><span class="dotcom">.com</span></div></div>
+    </header>
+    <main class="canvas">
+      <div class="horizontal-flow">
+        <div><div class="micro-label" style="margin:0 0 12px 7px">Start with you</div><div class="you-card"><img src="/assets/girls/taycanstar_european_cutest_20-year-old_model_in_a_full_body_c_4ddbbaa9-90b7-4478-a992-b7b93a809ea5_2.png" alt=""><div class="you-bar"><span>You</span><span class="you-pill">YOUR INPUTS</span></div></div></div>
+        <div class="flow-arrow"></div>
+        <div class="formula-panel"><div class="formula-head"><strong>Your compatibility formula</strong><span>Three signals, one result</span></div><div class="formula-items cols">
+          <article class="formula-item"><div class="icon"><svg><use href="#questions-icon"/></svg></div><h3>Questions</h3><p>Answer questions that matter to you.</p></article>
+          <article class="formula-item"><div class="icon"><svg><use href="#twoway-icon"/></svg></div><h3>Two-way math</h3><p>Your preferences and their preferences both count.</p></article>
+          <article class="formula-item"><div class="icon"><svg><use href="#sort-icon"/></svg></div><h3>Sort by compatibility</h3><p>The strongest alignment rises first.</p></article>
+        </div><span class="plus a">+</span><span class="plus b">+</span></div>
+        <div class="flow-arrow"></div>
+        <div class="score-card"><div><div class="score-ring"><span class="score-value">95%</span></div><h3>Compatibility</h3><p>Calculated from your inputs</p></div></div>
+        <div class="flow-arrow"></div>
+        <div><div class="micro-label" style="margin:0 0 12px 7px">Your best fit</div><div class="result-card-shell"><div class="result-card"><img src="/assets/girls/IMG_0501.JPG" alt="Rachel"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Rachel, 29</div><div class="result-score">95%</div></div></div></div></div>
+      </div>
+      <div class="canvas-insight">The score reflects <span>what you care about</span>—because your inputs shape the math.</div>
+      <div class="detail-strip"><div class="detail-chip"><b>✓</b>Built from answers you choose</div><div class="detail-chip"><b>↔</b>Measured in both directions</div><div class="detail-chip"><b>↑</b>Ranked by strongest compatibility</div></div>
+    </main>
+  </section>
+
+  <section id="vertical" class="variant landscape">
+    <div class="dot-grid one"></div><div class="dot-grid two"></div>
+    <header class="header"><div class="header-copy"><div class="eyebrow">Made from what matters</div><h1>Your inputs become <span class="accent">compatibility.</span></h1><p class="subhead">Answer what matters, compare both ways, then see who aligns.</p></div><div class="brand"><img src="/assets/mmlogox.png" alt=""><div class="brand-name">Compatible<span class="first">First</span><span class="dotcom">.com</span></div></div></header>
+    <main class="canvas"><div class="vertical-flow"><span class="vertical-step-arrow in">↗</span><span class="vertical-step-arrow out">→</span>
+      <div class="vertical-you-wrap"><div class="side-caption">You define the inputs</div><div class="you-card"><img src="/assets/girls/taycanstar_european_cutest_20-year-old_model_in_a_full_body_c_4ddbbaa9-90b7-4478-a992-b7b93a809ea5_2.png" alt=""><div class="you-bar"><span>You</span><span class="you-pill">START HERE</span></div></div></div>
+      <div class="vertical-core"><div class="formula-panel"><div class="formula-head"><strong>What creates the score</strong><span>Based on your choices</span></div><div class="formula-items cols">
+        <article class="formula-item"><div class="icon"><svg><use href="#questions-icon"/></svg></div><h3>Questions</h3><p>Answer questions that matter to you.</p></article><article class="formula-item"><div class="icon"><svg><use href="#twoway-icon"/></svg></div><h3>Two-way math</h3><p>Both people’s preferences are calculated.</p></article><article class="formula-item"><div class="icon"><svg><use href="#sort-icon"/></svg></div><h3>Sort by compatibility</h3><p>See the strongest matches first.</p></article>
+      </div></div><div class="flow-arrow down"></div><div class="score-card"><div class="score-ring"><span class="score-value">95%</span></div><div><h3>Clear compatibility</h3><p>Not a generic rating—your inputs produce the number.</p></div></div></div>
+      <div class="vertical-result-wrap"><div class="side-caption">A result you can use</div><div class="result-card-shell"><div class="result-card"><img src="/assets/girls/IMG_0426.JPG" alt="Sophia"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Sophia, 26</div><div class="result-score">95%</div></div></div></div></div>
+    </div></main>
+  </section>
+
+  <section id="ranked" class="variant landscape">
+    <header class="header"><div><div class="eyebrow">Compatibility you can see</div><h1>Your choices shape <span class="accent">who rises.</span></h1><p class="subhead">Every result card is sorted by the compatibility you create.</p></div><div class="brand"><img src="/assets/mmlogox.png" alt=""><div class="brand-name">Compatible<span class="first">First</span><span class="dotcom">.com</span></div></div></header>
+    <main class="canvas"><div class="ranked-flow"><span class="rank-arrow a"></span><span class="rank-arrow b"></span><span class="rank-arrow c"></span>
+      <div><div class="micro-label" style="margin:0 0 12px 7px">Your profile</div><div class="you-card"><img src="/assets/girls/taycanstar_european_cutest_20-year-old_model_in_a_full_body_c_4ddbbaa9-90b7-4478-a992-b7b93a809ea5_2.png" alt=""><div class="you-bar"><span>You</span><span class="you-pill">INPUTS</span></div></div></div>
+      <div class="formula-panel"><div class="formula-head"><strong>Your compatibility formula</strong><span>What the ranking uses</span></div><div class="formula-items">
+        <article class="formula-item"><div class="icon"><svg><use href="#questions-icon"/></svg></div><div><h3>Questions</h3><p>Answer questions that matter to you.</p></div></article><article class="formula-item"><div class="icon"><svg><use href="#twoway-icon"/></svg></div><div><h3>Two-way math</h3><p>Your preferences + their preferences.</p></div></article><article class="formula-item"><div class="icon"><svg><use href="#sort-icon"/></svg></div><div><h3>Sort by compatibility</h3><p>The strongest alignment appears first.</p></div></article>
+      </div></div>
+      <div class="score-card"><div><div class="score-ring"><span class="score-value">95%</span></div><h3>Compatibility scores</h3><p>Created from your inputs</p></div></div>
+      <div class="results-panel"><div class="results-panel-head"><div><div class="micro-label" style="margin-bottom:5px">Results</div><h3>Sorted for you</h3></div><span>Highest compatibility first</span></div><div class="result-stack">
+        <div class="result-card-shell"><div class="result-card"><img src="/assets/girls/IMG_0501.JPG" alt="Rachel"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Rachel, 29</div><div class="result-score">95%</div></div></div></div>
+        <div class="result-card-shell score-90"><div class="result-card"><img src="/assets/girls/IMG_0459.JPG" alt="Megan"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Megan, 28</div><div class="result-score">90%</div></div></div></div>
+        <div class="result-card-shell score-85"><div class="result-card"><img src="/assets/girls/IMG_9894.JPG" alt="Olivia"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Olivia, 24</div><div class="result-score">85%</div></div></div></div>
+        <div class="result-card-shell score-85"><div class="result-card"><img src="/assets/girls/IMG_0432.JPG" alt="Ashley"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Ashley, 27</div><div class="result-score">85%</div></div></div></div>
+      </div></div>
+    </div></main>
+  </section>
+
+  <section id="portrait" class="variant portrait">
+    <header class="header"><div class="eyebrow">How compatibility works</div><h1>Your inputs shape every <span class="accent">match.</span></h1><p class="subhead">Answer what matters. We calculate both directions. You see the strongest compatibility first.</p><div class="brand"><img src="/assets/mmlogox.png" alt=""><div class="brand-name">Compatible<span class="first">First</span><span class="dotcom">.com</span></div></div></header>
+    <main class="canvas"><div class="portrait-flow">
+      <div class="you-card"><img src="/assets/girls/taycanstar_european_cutest_20-year-old_model_in_a_full_body_c_4ddbbaa9-90b7-4478-a992-b7b93a809ea5_2.png" alt=""><div class="you-bar"><span>You</span><span class="you-pill">YOUR INPUTS</span></div></div><div class="flow-arrow down"></div>
+      <div class="formula-panel"><div class="formula-head"><strong>Your compatibility formula</strong><span>Based on your choices</span></div><div class="formula-items">
+        <article class="formula-item"><div class="icon"><svg><use href="#questions-icon"/></svg></div><div><h3>Questions</h3><p>Answer questions that matter to you.</p></div></article><article class="formula-item"><div class="icon"><svg><use href="#twoway-icon"/></svg></div><div><h3>Two-way math</h3><p>Your preferences and their preferences both count.</p></div></article><article class="formula-item"><div class="icon"><svg><use href="#sort-icon"/></svg></div><div><h3>Sort by compatibility</h3><p>See the strongest matches first.</p></div></article>
+      </div></div><div class="flow-arrow down"></div>
+      <div class="score-card"><div class="score-ring"><span class="score-value">95%</span></div><div><div class="micro-label" style="margin-bottom:6px">Calculated from your inputs</div><h3>Compatibility you can use</h3><p>Your answers create the score.</p></div></div><div class="flow-arrow down"></div>
+      <div class="result-card-shell"><div class="result-card"><img src="/assets/girls/IMG_0501.JPG" alt="Rachel"><div class="result-gradient"></div><div class="result-action"><img src="/assets/check2.png" alt=""></div><div class="result-bottom"><div class="result-name">Rachel, 29</div><div class="result-score">95%</div></div></div></div><div class="portrait-foot">See who aligns with what matters to you.</div>
+    </div></main>
+  </section>
+</body>
+</html>

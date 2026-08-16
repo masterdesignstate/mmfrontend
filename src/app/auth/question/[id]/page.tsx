@@ -996,6 +996,8 @@ export default function QuestionPage() {
       nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
       loadingLabel="Saving..."
       loading={loading}
+      questionNote={answerNote}
+      onQuestionNoteChange={setAnswerNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle
@@ -1063,7 +1065,7 @@ export default function QuestionPage() {
 
         {/* Looking For Section */}
         <div className="mb-2 sm:mb-6">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
             Them
           </h3>
 
@@ -1087,20 +1089,22 @@ export default function QuestionPage() {
               }
             />
 
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importance.lookingFor}
-              onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
-              isImportance
-              showActiveLabelBelow
-            />
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.lookingFor}
+                onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
           </div>
         </div>
 
         {/* Me Section */}
         <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
           <AnswerScaleHeader labels={scaleLabels} showOta={meOtaAllowed} className="mb-2" />
 
@@ -1115,6 +1119,20 @@ export default function QuestionPage() {
             showNote
             note={answerNote}
             onNoteChange={setAnswerNote}
+          />
+        </div>
+
+        {/* Importance Section — mobile only; desktop keeps the existing row layout. */}
+        <div className="mb-2 pt-1 sm:hidden">
+          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+          <AnswerSliderRow
+            label="IMPORTANCE"
+            labels={IMPORTANCE_LABELS}
+            value={importance.lookingFor}
+            onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
+            isImportance
+            hideMobileRowLabel
           />
         </div>
       </div>

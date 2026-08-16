@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CompatibleFirst glossy infographic</title>
+  <style>
+    :root{--purple:#672DB7;--light:#A855F7;--mid:#7C3AED;--dark:#5B21B6;--ink:#18151D}
+    *{box-sizing:border-box}html,body{margin:0;overflow:hidden;background:#f6f2fb;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+    .stage{display:none;position:relative;overflow:hidden}.base{position:absolute;inset:0;width:100%;height:100%;display:block}
+    html[data-v="horizontal"] #horizontal,html[data-v="vertical"] #vertical,html[data-v="ranked"] #ranked,html[data-v="portrait"] #portrait{display:block}
+    #horizontal,#ranked{width:1672px;height:941px}#vertical{width:1536px;height:1024px}#portrait{width:916px;height:1717px}
+    html[data-fit="1"][data-v="horizontal"] body,html[data-fit="1"][data-v="ranked"] body{width:1280px;height:720px}
+    html[data-fit="1"][data-v="horizontal"] .stage,html[data-fit="1"][data-v="ranked"] .stage{transform:scale(.76555);transform-origin:0 0}
+    html[data-fit="1"][data-v="vertical"] body{width:1280px;height:853px}html[data-fit="1"][data-v="vertical"] .stage{transform:scale(.833333);transform-origin:0 0}
+    .brand-patch{position:absolute;height:70px;border-radius:12px;background:rgba(245,241,250,.78);backdrop-filter:blur(18px)}
+    .brand{position:absolute;display:flex;align-items:center;gap:10px;height:58px;color:var(--ink)}
+    .brand>img{width:47px;height:41px;object-fit:contain}.brand-copy{position:relative;padding-bottom:15px;font-size:31px;line-height:1;font-weight:800;letter-spacing:-.045em;white-space:nowrap}.brand-copy b{color:var(--purple)}
+    .brand-copy small{position:absolute;right:1px;top:34px;color:var(--ink);font-size:13px;font-weight:800;letter-spacing:.015em}
+    .orb{position:absolute;display:grid;place-items:center;border-radius:50%;color:#fff;background:
+      radial-gradient(circle at 28% 20%,rgba(255,255,255,.54),transparent 26%),
+      linear-gradient(145deg,var(--light) 0%,var(--mid) 38%,var(--purple) 70%,var(--dark) 100%);
+      border:1px solid rgba(255,255,255,.82);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),inset 0 -13px 24px rgba(44,14,91,.24),0 11px 24px rgba(57,32,78,.25)}
+    .orb:after{content:"";position:absolute;inset:6px;border-radius:50%;border:1px solid rgba(255,255,255,.18)}
+    .orb svg{position:relative;z-index:2;width:48%;height:48%;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 2px rgba(38,8,77,.3))}
+    .connector{position:absolute;background:var(--purple);z-index:4}.connector.v{width:3px}.connector.h{height:3px}.connector:before,.connector:after{content:"";position:absolute;width:13px;height:13px;border-radius:50%;background:var(--purple);box-shadow:0 2px 5px rgba(57,32,78,.25)}
+    .connector.v:before{left:-5px;top:-5px}.connector.v:after{left:-5px;bottom:-5px}.connector.h:before{top:-5px;left:-5px}.connector.h:after{top:-5px;right:-5px}
+    .connector-clean{position:absolute;z-index:3;background:rgba(246,242,250,.86);backdrop-filter:blur(14px)}
+    .result-shell{position:absolute;padding:8px;border-radius:24px;background:conic-gradient(from -90deg,#A855F7 0deg,#8B5CF6 82.8deg,#7C3AED 165.6deg,#672DB7 248.4deg,#5B21B6 331.2deg,#5B21B6 333.2deg,#d1d5db 334.2deg,#d1d5db 360deg);box-shadow:0 20px 48px rgba(57,32,78,.22)}
+    .result{position:relative;width:100%;height:100%;overflow:hidden;border-radius:17px;background:#fff}.result>img{width:100%;height:100%;display:block;object-fit:cover}.result:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.74),transparent 57%)}
+    .action{position:absolute;z-index:3;left:0;top:0;display:grid;place-items:center;width:48px;height:46px;border-radius:0 0 13px 0;background:rgba(255,255,255,.3);box-shadow:inset -1px -1px 0 rgba(255,255,255,.36);backdrop-filter:blur(12px)}.action img{width:28px;height:26px;object-fit:contain}
+    .bottom{position:absolute;z-index:3;left:0;right:0;bottom:0;display:flex;align-items:end;justify-content:space-between;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.68)}.name{min-width:0;padding:17px 7px 9px 12px;font-size:21px;font-weight:800;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pct{flex:none;padding:10px 12px;border-radius:18px 0 0 0;background:rgba(255,255,255,.29);font-size:18px;font-weight:800;line-height:1;backdrop-filter:blur(12px)}
+    .rank.result-shell{padding:7px;border-radius:21px}.rank .result{border-radius:15px}.rank .action{width:44px;height:42px}.rank .action img{width:25px;height:23px}.rank .name{font-size:17px;padding:13px 5px 7px 9px}.rank .pct{font-size:15px;padding:8px 9px}
+    /* horizontal surgical positions */
+    #horizontal .brand-patch{left:1237px;top:30px;width:405px}#horizontal .brand{left:1258px;top:43px}
+    #horizontal .q{left:388px;top:385px;width:130px;height:130px}#horizontal .m{left:616px;top:385px;width:130px;height:130px}#horizontal .s{left:842px;top:385px;width:130px;height:130px}
+    #horizontal .result-shell{left:1374px;top:368px;width:236px;height:236px}#horizontal .connector{left:1278px;top:493px;width:98px}
+    /* vertical surgical positions */
+    #vertical .brand-patch{left:1142px;top:25px;width:354px}#vertical .brand{left:1168px;top:36px}.brand.compact .brand-copy{font-size:27px}.brand.compact .brand-copy small{top:30px;font-size:12px}.brand.compact>img{width:43px;height:38px}
+    #vertical .q{left:228px;top:311px;width:118px;height:118px}#vertical .m{left:617px;top:311px;width:118px;height:118px}#vertical .s{left:998px;top:311px;width:118px;height:118px}
+    #vertical .result-shell{left:658px;top:700px;width:220px;height:220px}#vertical .connector-clean{left:724px;top:628px;width:88px;height:77px;border-radius:18px}#vertical .connector{left:766px;top:634px;height:68px}
+    /* ranked surgical positions */
+    #ranked .brand-patch{left:1290px;top:24px;width:346px}#ranked .brand{left:1315px;top:35px}
+    #ranked .q{left:346px;top:435px;width:108px;height:108px}#ranked .m{left:519px;top:435px;width:108px;height:108px}#ranked .s{left:692px;top:435px;width:108px;height:108px}
+    #ranked .a1{left:1424px;top:278px;width:170px;height:170px}#ranked .a2{left:1424px;top:493px;width:170px;height:170px}#ranked .a3{left:1424px;top:708px;width:170px;height:170px}
+    /* portrait surgical positions */
+    #portrait .brand-patch{left:270px;top:20px;width:374px}#portrait .brand{left:280px;top:31px}
+    #portrait .q{left:192px;top:531px;width:100px;height:100px}#portrait .m{left:192px;top:656px;width:100px;height:100px}#portrait .s{left:192px;top:781px;width:100px;height:100px}
+    #portrait .result-shell{left:316px;top:1260px;width:285px;height:285px}#portrait .connector{left:456px;top:1203px;height:59px}
+  </style>
+  <script>const p=new URLSearchParams(location.search);document.documentElement.dataset.v=p.get('v')||'horizontal';if(p.get('fit'))document.documentElement.dataset.fit='1';</script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <symbol id="q" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></symbol>
+    <symbol id="m" viewBox="0 0 24 24"><path d="M4 8h15m0 0-3-3m3 3-3 3M20 16H5m0 0 3 3m-3-3 3-3"/></symbol>
+    <symbol id="s" viewBox="0 0 24 24"><path d="M5 19v-5M10 19v-8M15 19V8M20 19V4"/><path d="m4 8 4 2 5-5 4 2 3-3"/></symbol>
+  </defs></svg>
+  <template id="brand"><div class="brand-patch"></div><div class="brand"><img src="/assets/mmlogox.png" alt=""><div class="brand-copy">Compatible<b>First</b><small>.com</small></div></div></template>
+  <template id="orbs"><div class="orb q"><svg><use href="#q"/></svg></div><div class="orb m"><svg><use href="#m"/></svg></div><div class="orb s"><svg><use href="#s"/></svg></div></template>
+  <template id="card"><div class="result"><img src="/assets/compatiblefirst-card-alex-source-v1.png" alt="Alex"><div class="action"><img src="/assets/check2.png" alt=""></div><div class="bottom"><div class="name">Alex, 29</div><div class="pct">92%</div></div></div></template>
+  <section id="horizontal" class="stage"><img class="base" src="/assets/compatiblefirst-flow-horizontal-glossy-base-v9.png" alt=""><div data-brand></div><div data-orbs></div><div class="connector h"></div><div class="result-shell" data-card></div></section>
+  <section id="vertical" class="stage"><img class="base" src="/assets/compatiblefirst-flow-vertical-glossy-base-v9.png" alt=""><div data-brand class="compact"></div><div data-orbs></div><div class="connector-clean"></div><div class="connector v"></div><div class="result-shell" data-card></div></section>
+  <section id="ranked" class="stage"><img class="base" src="/assets/compatiblefirst-flow-ranked-men-glossy-base-v9.png" alt=""><div data-brand class="compact"></div><div data-orbs></div><div class="result-shell rank a1" data-rank="alex"></div><div class="result-shell rank a2" data-rank="marc"></div><div class="result-shell rank a3" data-rank="eli"></div></section>
+  <section id="portrait" class="stage"><img class="base" src="/assets/compatiblefirst-flow-portrait-glossy-base-v9.png" alt=""><div data-brand class="compact"></div><div data-orbs></div><div class="connector v"></div><div class="result-shell" data-card></div></section>
+  <script>
+    const clone=id=>document.querySelector(id).content.cloneNode(true);
+    document.querySelectorAll('[data-brand]').forEach(n=>{const x=clone('#brand');const b=x.querySelector('.brand');if(n.classList.contains('compact'))b.classList.add('compact');n.append(x)});
+    document.querySelectorAll('[data-orbs]').forEach(n=>n.append(clone('#orbs')));
+    document.querySelectorAll('[data-card]').forEach(n=>n.append(clone('#card')));
+    const people={alex:['/assets/compatiblefirst-card-alex-source-v1.png','Alex, 29','94%'],marc:['/assets/compatiblefirst-card-marcus-source-v3.png','Marc, 31','88%'],eli:['/assets/compatiblefirst-card-eli-source-v3.png','Eli, 30','81%']};
+    document.querySelectorAll('[data-rank]').forEach(n=>{const x=people[n.dataset.rank];n.innerHTML=`<div class="result"><img src="${x[0]}" alt="${x[1]}"><div class="action"><img src="/assets/check2.png" alt=""></div><div class="bottom"><div class="name">${x[1]}</div><div class="pct">${x[2]}</div></div></div>`});
+  </script>
+</body>
+</html>

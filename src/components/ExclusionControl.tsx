@@ -14,6 +14,7 @@ interface ExclusionControlProps {
   ariaLabel?: string;
   helpText?: string;
   disabled?: boolean;
+  popoverPlacement?: 'above' | 'below';
 }
 
 export default function ExclusionControl({
@@ -27,6 +28,7 @@ export default function ExclusionControl({
   ariaLabel = 'Exclude answer values',
   helpText = 'Hide people from your results when their answer to this question is one of these values.',
   disabled = false,
+  popoverPlacement = 'below',
 }: ExclusionControlProps) {
   const [open, setOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -131,7 +133,11 @@ export default function ExclusionControl({
 
       {open && (
         <div
-          className="absolute right-0 top-9 z-50 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg"
+          className={`absolute z-50 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg ${
+            popoverPlacement === 'above'
+              ? 'bottom-9 left-1/2 -translate-x-1/2'
+              : 'right-0 top-9'
+          }`}
           onPointerDownCapture={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >

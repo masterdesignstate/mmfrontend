@@ -73,7 +73,7 @@ export default function KidsPage() {
   const [error, setError] = useState<string>('');
 
   const [excluded, setExcluded] = useState<Record<KidsKey, number[]>>({ kids1: [], kids2: [] });
-  const [notes, setNotes] = useState<Record<KidsKey, string>>({ kids1: '', kids2: '' });
+  const [questionNote, setQuestionNote] = useState('');
 
   const blockedExclusions = (key: KidsKey) =>
     openToAll[`${key}MeOpen` as MeOpenKey] ? [] : [myKids[key]];
@@ -153,7 +153,7 @@ export default function KidsPage() {
         excluded_answer_values: normalizeExcludedValues(
           excluded.kids1, DEFAULT_EXCLUSION_VALUES, blockedExclusions('kids1')
         ),
-        me_note: notes.kids1
+        me_note: questionNote
       });
 
       // Kids 2 (Have Kids)
@@ -171,7 +171,7 @@ export default function KidsPage() {
         excluded_answer_values: normalizeExcludedValues(
           excluded.kids2, [1, 5], blockedExclusions('kids2')
         ),
-        me_note: notes.kids2
+        me_note: questionNote
       });
 
       // Save answers in background (optimistic approach)
@@ -269,6 +269,8 @@ export default function KidsPage() {
       onNext={handleNext}
       loadingLabel="Saving..."
       loading={loading}
+      questionNote={questionNote}
+      onQuestionNoteChange={setQuestionNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle step="10. Kids" question="What are your thoughts on kids?" />
@@ -282,7 +284,7 @@ export default function KidsPage() {
 
         {/* Them Section */}
         <div className="mb-2 sm:mb-6">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl" style={{ color: '#672DB7' }}>
+          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
             Them
           </h3>
 
@@ -308,20 +310,22 @@ export default function KidsPage() {
               />
             ))}
 
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importance.lookingFor}
-              onChange={handleLookingForImportanceChange}
-              isImportance
-              showActiveLabelBelow
-            />
+            <div className="hidden sm:block">
+              <AnswerSliderRow
+                label="IMPORTANCE"
+                labels={IMPORTANCE_LABELS}
+                value={importance.lookingFor}
+                onChange={handleLookingForImportanceChange}
+                isImportance
+                showActiveLabelBelow
+              />
+            </div>
           </div>
         </div>
 
         {/* Me Section */}
         <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="mb-1 text-center text-lg font-bold sm:text-2xl">Me</h3>
+          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
           <AnswerScaleHeader labels={[]} showOta className="mb-1" />
 
@@ -337,12 +341,25 @@ export default function KidsPage() {
                 showOta
                 otaChecked={openToAll[meOpenKeys[index]]}
                 onOtaToggle={() => handleOpenToAllToggle(meOpenKeys[index])}
-                showNote
-                note={notes[key]}
-                onNoteChange={(note) => setNotes(prev => ({ ...prev, [key]: note }))}
+                showNote={index === 0}
+                note={questionNote}
+                onNoteChange={setQuestionNote}
               />
             ))}
           </div>
+        </div>
+
+        <div className="mb-2 pt-1 sm:hidden">
+          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+
+          <AnswerSliderRow
+            label="IMPORTANCE"
+            labels={IMPORTANCE_LABELS}
+            value={importance.lookingFor}
+            onChange={handleLookingForImportanceChange}
+            isImportance
+            hideMobileRowLabel
+          />
         </div>
       </div>
     </OnboardingShell>

@@ -2,6 +2,10 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import {
+  MobileQuestionActionDock,
+  MobileQuestionActionsProvider,
+} from '@/components/MobileQuestionActions';
 
 interface OnboardingShellProps {
   children: ReactNode;
@@ -17,6 +21,9 @@ interface OnboardingShellProps {
   contentClassName?: string;
   /** Optional brand text centred in the header (used by the intro card). */
   headerTitle?: string;
+  /** One note for the whole question, independent of its Me/Them answer rows. */
+  questionNote?: string;
+  onQuestionNoteChange?: (note: string) => void;
 }
 
 /**
@@ -38,71 +45,81 @@ export default function OnboardingShell({
   disabled = false,
   contentClassName = '',
   headerTitle,
+  questionNote,
+  onQuestionNoteChange,
 }: OnboardingShellProps) {
+  const questionNoteControl = onQuestionNoteChange
+    ? { value: questionNote || '', onChange: onQuestionNoteChange }
+    : undefined;
+
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-white">
-      <div
-        className={`flex shrink-0 items-center justify-between p-3 sm:p-4 ${
-          headerTitle ? 'border-b border-gray-100' : ''
-        }`}
-      >
-        <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} />
-        {headerTitle && (
-          <>
-            <h1 className="text-sm font-semibold text-gray-900 sm:text-base">{headerTitle}</h1>
-            <div className="w-8" />
-          </>
-        )}
-      </div>
+    <MobileQuestionActionsProvider questionNote={questionNoteControl}>
+      <div className="flex h-[100dvh] flex-col overflow-hidden bg-white">
+        <div
+          className={`flex shrink-0 items-center justify-between p-3 sm:p-4 ${
+            headerTitle ? 'border-b border-gray-100' : ''
+          }`}
+        >
+          <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} />
+          {headerTitle && (
+            <>
+              <h1 className="text-sm font-semibold text-gray-900 sm:text-base">{headerTitle}</h1>
+              <div className="w-8" />
+            </>
+          )}
+        </div>
 
-      <main
-        className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-6 sm:py-4 ${contentClassName}`}
-      >
-        {children}
-      </main>
+        <main
+          className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-6 sm:py-4 ${contentClassName}`}
+        >
+          {children}
+        </main>
 
-      <footer className="shrink-0 border-t border-gray-200 bg-white">
-        {progressPercent !== null && (
-          <div className="h-1 w-full bg-gray-200">
-            <div className="h-full bg-black" style={{ width: `${progressPercent}%` }} />
-          </div>
-        )}
+        <MobileQuestionActionDock />
 
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
-          {onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="cursor-pointer font-medium text-gray-900 transition-colors hover:text-gray-500"
-            >
-              Back
-            </button>
-          ) : (
-            <span />
+        <footer className="shrink-0 border-t border-gray-200 bg-white">
+          {progressPercent !== null && (
+            <div className="h-1 w-full bg-gray-200">
+              <div className="h-full bg-black" style={{ width: `${progressPercent}%` }} />
+            </div>
           )}
 
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={loading || disabled}
-            className={`rounded-md px-8 py-3 font-medium transition-colors ${
-              !loading && !disabled
-                ? 'cursor-pointer bg-black text-white hover:bg-gray-800'
-                : 'cursor-not-allowed bg-gray-300 text-gray-500'
-            }`}
-          >
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
-                {loadingLabel}
-              </span>
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="cursor-pointer font-medium text-gray-900 transition-colors hover:text-gray-500"
+              >
+                Back
+              </button>
             ) : (
-              nextLabel
+              <span />
             )}
-          </button>
-        </div>
-      </footer>
-    </div>
+
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={loading || disabled}
+              className={`rounded-md px-8 py-3 font-medium transition-colors ${
+                !loading && !disabled
+                  ? 'cursor-pointer bg-black text-white hover:bg-gray-800'
+                  : 'cursor-not-allowed bg-gray-300 text-gray-500'
+              }`}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                  {loadingLabel}
+                </span>
+              ) : (
+                nextLabel
+              )}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </MobileQuestionActionsProvider>
   );
 }
 
