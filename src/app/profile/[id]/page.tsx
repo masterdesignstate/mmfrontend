@@ -15,13 +15,17 @@ import MatchCelebration from '@/components/MatchCelebration';
 import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
-import ExclusionControl from '@/components/ExclusionControl';
-import NoteControl from '@/components/NoteControl';
 import NoteReveal from '@/components/NoteReveal';
+import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import {
+  MobileQuestionActionDock,
+  MobileQuestionActionsProvider,
+} from '@/components/MobileQuestionActions';
+import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
+import { buildQuestionScaleLabels } from '@/utils/questionScales';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
 import { isOverLimit } from '@/utils/textLimits';
-import { getAnswerValueFromPercentage, getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues, type ExclusionQuestion } from '@/utils/exclusionValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
@@ -124,103 +128,6 @@ const HeartGlyph = ({
     <path d="M12 21.2l-1.45-1.31C5.42 15.25 2 12.16 2 8.38 2 5.29 4.42 3 7.5 3c1.73 0 3.4.81 4.5 2.08C13.1 3.81 14.77 3 16.5 3 19.58 3 22 5.29 22 8.38c0 3.78-3.42 6.87-8.55 11.51L12 21.2z" />
   </svg>
 );
-
-// Interactive editable slider component (for answering pending questions inline)
-const EditableSlider = ({ value, onChange, isOpenToAll = false, isImportance = false, labels = [] }: {
-  value: number;
-  onChange: (value: number) => void;
-  isOpenToAll?: boolean;
-  isImportance?: boolean;
-  labels?: AnswerValueLabel[];
-}) => {
-  const [fillWidth, setFillWidth] = React.useState('0%');
-  const hasAnimatedRef = React.useRef(false);
-  const raf1Ref = React.useRef<number | null>(null);
-  const raf2Ref = React.useRef<number | null>(null);
-
-  React.useLayoutEffect(() => {
-    if (isOpenToAll && !hasAnimatedRef.current) {
-      setFillWidth('0%');
-      raf1Ref.current = requestAnimationFrame(() => {
-        raf2Ref.current = requestAnimationFrame(() => {
-          setFillWidth('100%');
-          hasAnimatedRef.current = true;
-        });
-      });
-      return () => {
-        if (raf1Ref.current) cancelAnimationFrame(raf1Ref.current);
-        if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
-      };
-    }
-    if (!isOpenToAll) {
-      hasAnimatedRef.current = false;
-      setFillWidth('0%');
-    }
-  }, [isOpenToAll]);
-
-  const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isOpenToAll) return;
-    const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    onChange(getAnswerValueFromPercentage(percentage, sortedLabels));
-  };
-
-  const handleSliderDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.buttons === 1 && !isOpenToAll) handleSliderClick(e);
-  };
-
-  const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
-  const answerValues = getAnswerValues(sortedLabels);
-  const minValue = answerValues[0];
-  const maxValue = answerValues[answerValues.length - 1];
-  const displayValue = getNearestAnswerValue(value, sortedLabels);
-  const displayPosition = getAnswerValuePosition(value, sortedLabels);
-
-  return (
-    <div className="w-full h-6 min-h-6 sm:h-5 relative flex items-center select-none"
-      style={{ userSelect: 'none' }}
-      onMouseDown={() => { document.body.style.userSelect = 'none'; window.getSelection()?.removeAllRanges(); }}
-      onMouseUp={() => { document.body.style.userSelect = ''; }}
-      onMouseLeave={() => { document.body.style.userSelect = ''; }}
-      onDragStart={(e) => e.preventDefault()}
-    >
-      <span className={`absolute left-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{minValue}</span>
-      <div
-        className="w-full h-full min-h-5 rounded-[20px] relative cursor-pointer transition-all duration-200 border"
-        style={{
-          backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-          borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-        }}
-        onClick={handleSliderClick}
-        onMouseMove={handleSliderDrag}
-        onMouseDown={handleSliderDrag}
-        onDragStart={(e) => e.preventDefault()}
-      >
-        {isOpenToAll && (
-          <div
-            className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
-            style={{ width: fillWidth, transition: 'width 1.2s ease-in-out' }}
-          />
-        )}
-      </div>
-      {!isOpenToAll && (
-        <div
-          className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30 cursor-pointer"
-          style={{
-            backgroundColor: isImportance ? 'white' : '#672DB7',
-            boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-            left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
-          }}
-        >
-          <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
-        </div>
-      )}
-      <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
-    </div>
-  );
-};
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -2353,47 +2260,6 @@ export default function UserProfilePage() {
     }));
   };
 
-  const renderEditOtaExcHeader = (showOta: boolean, showExc = true) => (
-    <div className={`flex gap-2 text-xs text-gray-500 min-w-0 ${showOta || !showExc ? 'justify-center' : 'justify-start'}`}>
-      {showOta && <span className="w-11 text-center">OTA</span>}
-      {showExc && <span className="w-7 sm:w-[88px]" aria-hidden />}
-    </div>
-  );
-
-  const renderEditOtaSwitch = (checked: boolean, onChange: () => void, enabled: boolean) => (
-    enabled ? (
-      <label className="flex items-center cursor-pointer">
-        <div className="relative">
-          <input type="checkbox" checked={checked} onChange={onChange} className="sr-only" />
-          <div className={`block w-11 h-6 rounded-full ${checked ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}></div>
-          <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition bg-white ${checked ? 'transform translate-x-5' : ''}`}></div>
-        </div>
-      </label>
-    ) : (
-      <div className="w-11 h-6" aria-hidden></div>
-    )
-  );
-
-  const renderEditOtaExcControls = (key: string, checked: boolean, onToggle: () => void, otaEnabled: boolean, showExc = true, question?: ExclusionQuestion, showNote = false) => (
-    <div className={`flex items-center gap-2 ${otaEnabled || !showExc ? 'justify-center' : 'justify-start'}`}>
-      {otaEnabled && renderEditOtaSwitch(checked, onToggle, otaEnabled)}
-      {showExc && (
-        <ExclusionControl
-          values={editExcludedAnswerValues[key] || []}
-          allowedValues={getAllowedExclusionValues(question)}
-          blockedValues={getEditBlockedExclusionValuesForKey(key)}
-          onChange={(values) => setEditExcludedValuesForKey(key, values, question)}
-        />
-      )}
-      {!showExc && showNote && (
-        <NoteControl
-          value={editAnswerNotes[key] || ''}
-          onChange={(note) => setEditAnswerNotes(prev => ({ ...prev, [key]: note }))}
-        />
-      )}
-    </div>
-  );
-
   /**
    * Read-only notes for the inline question overlay's Me section. The server already
    * blanks me_note for viewers the author's note_visibility excludes, so a non-empty
@@ -3625,13 +3491,17 @@ export default function UserProfilePage() {
 
       {/* Questions Modal Overlay */}
       {showQuestionsModal && (
-        <div 
-          className="fixed inset-0 flex items-center justify-center z-50" 
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
           onClick={() => setShowQuestionsModal(false)}
         >
+          {/* The provider/dock pair mirrors OnboardingShell: on phones each row's OTA,
+              exclude and note controls move out of the row and into one rail above the
+              modal footer, leaving the slider the full width of the sheet. */}
+          <MobileQuestionActionsProvider>
           <div
-            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-4 h-[80vh] flex flex-col relative overflow-hidden"
+            className="bg-white rounded-3xl shadow-lg w-full max-w-4xl mx-2 h-[85vh] flex flex-col relative overflow-hidden sm:mx-4 sm:h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -3647,21 +3517,22 @@ export default function UserProfilePage() {
                         handleBackToQuestionsList();
                       }
                     }}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
+                    className="flex shrink-0 items-center text-gray-600 hover:text-gray-900"
                   >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                    <span>Back</span>
+                    {/* The word is dropped on phones so the question keeps the middle. */}
+                    <span className="hidden sm:inline">Back</span>
                   </button>
-                  <h2 className="text-xl font-semibold flex-1 text-center">
+                  <h2 className="min-w-0 flex-1 text-center text-sm font-semibold sm:text-xl">
                     {isAnsweringPending && selectedGroupedQuestionId
                       ? selectedQuestionData.find((q: any) => q.id === selectedGroupedQuestionId)?.question_name || `Question ${selectedQuestionNumber}`
                       : (selectedQuestionData[0]?.group_name_text ||
                          selectedQuestionData[0]?.text ||
                          `Question ${selectedQuestionNumber}`)}
                   </h2>
-                  <div className="w-20"></div> {/* Spacer for centering */}
+                  <div className="w-5 shrink-0 sm:w-20" /> {/* Spacer for centering */}
                 </>
               ) : (
                 <>
@@ -3756,13 +3627,6 @@ export default function UserProfilePage() {
                     const questionNumber = selectedQuestionNumber;
                     const isGrouped = selectedQuestionData.length > 0 && selectedQuestionData[0].question_type === 'grouped';
                     const isRelationship = questionNumber === 1;
-                    const IMPORTANCE_LABELS_EDIT = [
-                      { value: "1", answer_text: "TRIVIAL" },
-                      { value: "2", answer_text: "MINOR" },
-                      { value: "3", answer_text: "AVERAGE" },
-                      { value: "4", answer_text: "SIGNIFICANT" },
-                      { value: "5", answer_text: "ESSENTIAL" }
-                    ];
 
                     // Icon mapping for grouped question cards
                     const editOptionIcons: Record<number, string> = {
@@ -3778,11 +3642,16 @@ export default function UserProfilePage() {
                         const selectedSubQ = selectedQuestionData.find((q: any) => q.id === selectedGroupedQuestionId);
                         if (selectedSubQ) {
                           const subKey = `q${selectedSubQ.group_number || selectedSubQ.id}`;
+                          const subScaleLabels = buildQuestionScaleLabels(selectedSubQ, questionNumber);
+                          const subRowLabel = (selectedSubQ.question_name || 'ANSWER').toUpperCase();
+                          const subLookingOta = questionAllowsLookingOta(selectedSubQ);
+                          const subMeOta = Boolean(selectedSubQ.open_to_all_me);
 
-                          // Render using the same responsive grid as the questions page
+                          // Same shared rows as onboarding and the questions editor, so the
+                          // mobile two-line layout and the action dock come along with them.
                           return (
                             <div className="w-full overflow-x-hidden">
-                              <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
+                              <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto min-w-0">
 
                               {/* Share/Required toggles for non-mandatory grouped questions > 10 */}
                               {questionNumber > 10 && (
@@ -3803,99 +3672,71 @@ export default function UserProfilePage() {
                               )}
 
                               {/* THEM section (first) */}
-                              <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+                              <div className="mb-2 sm:mb-6">
+                                <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl" style={{ color: '#672DB7' }}>Them</h3>
 
-                                {/* LESS/MORE + OTA header row */}
-                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                                  <div></div>
-                                  <div className="flex justify-between text-xs text-gray-500 min-w-0">
-                                    <span>LESS</span>
-                                    <span>MORE</span>
-                                  </div>
-                                  {renderEditOtaExcHeader(true)}
-                                </div>
+                                <AnswerScaleHeader labels={subScaleLabels} showOta={subLookingOta} className="mb-2" />
 
-                                {/* Slider grid */}
-                                <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                                  <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
-                                  <div className="relative min-w-0">
-                                    <EditableSlider
-                                      value={editSliderAnswers[`${subKey}_looking`] || 3}
-                                      onChange={(val: number) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_looking`]: val }))}
-                                      isOpenToAll={editOpenToAllStates[`${subKey}_looking`] || false}
-                                    />
-                                  </div>
-                                  {renderEditOtaExcControls(
-                                    subKey,
-                                    editOpenToAllStates[`${subKey}_looking`] || false,
-                                    () => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_looking`]: !prev[`${subKey}_looking`] })),
-                                    true,
-                                    true,
-                                    selectedSubQ,
-                                  )}
+                                <div className="space-y-1 sm:space-y-3">
+                                  <AnswerSliderRow
+                                    label={subRowLabel}
+                                    labels={subScaleLabels}
+                                    value={editSliderAnswers[`${subKey}_looking`] || 3}
+                                    onChange={(val) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_looking`]: val }))}
+                                    showOta={subLookingOta}
+                                    otaChecked={editOpenToAllStates[`${subKey}_looking`] || false}
+                                    onOtaToggle={() => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_looking`]: !prev[`${subKey}_looking`] }))}
+                                    showExclude
+                                    excludedValues={editExcludedAnswerValues[subKey] || []}
+                                    allowedExclusionValues={getAllowedExclusionValues(selectedSubQ)}
+                                    blockedExclusionValues={getEditBlockedExclusionValuesForKey(subKey)}
+                                    onExcludedValuesChange={(values) => setEditExcludedValuesForKey(subKey, values, selectedSubQ)}
+                                  />
 
-                                  {/* IMPORTANCE row */}
-                                  <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-                                  <div className="relative min-w-0">
-                                    <EditableSlider
+                                  <div className="hidden sm:block">
+                                    <AnswerSliderRow
+                                      label="IMPORTANCE"
+                                      labels={IMPORTANCE_LABELS}
                                       value={editImportanceValues.lookingFor}
-                                      onChange={(val: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: val }))}
-                                      isImportance={true}
-                                      labels={IMPORTANCE_LABELS_EDIT}
+                                      onChange={(val) => setEditImportanceValues(prev => ({ ...prev, lookingFor: val }))}
+                                      isImportance
+                                      showActiveLabelBelow
                                     />
                                   </div>
-                                  <div className="w-[144px] h-6"></div>
-                                </div>
-
-                                {/* Importance label below */}
-                                <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                                  <div></div>
-                                  <div className="relative text-xs text-gray-500 w-full min-w-0">
-                                    {editImportanceValues.lookingFor === 1 && <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>TRIVIAL</span>}
-                                    {editImportanceValues.lookingFor === 2 && <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>MINOR</span>}
-                                    {editImportanceValues.lookingFor === 3 && <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>AVERAGE</span>}
-                                    {editImportanceValues.lookingFor === 4 && <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>SIGNIFICANT</span>}
-                                    {editImportanceValues.lookingFor === 5 && <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>ESSENTIAL</span>}
-                                  </div>
-                                  <div></div>
                                 </div>
                               </div>
 
                               {/* ME section */}
-                              <div className="mb-6 pt-8">
-                                <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+                              <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
+                                <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
-                                {/* LESS/MORE header row */}
-                                <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                                  <div></div>
-                                  <div className="flex justify-between text-xs text-gray-500 min-w-0">
-                                    <span>LESS</span>
-                                    <span>MORE</span>
-                                  </div>
-                                  {renderEditOtaExcHeader(false, false)}
-                                </div>
+                                <AnswerScaleHeader labels={subScaleLabels} showOta={subMeOta} className="mb-2" />
 
-                                {/* Slider grid */}
-                                <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                                  <div className="text-xs font-semibold text-gray-400 min-w-0">{selectedSubQ.question_name.toUpperCase()}</div>
-                                  <div className="relative min-w-0">
-                                    <EditableSlider
-                                      value={editSliderAnswers[`${subKey}_me`] || 3}
-                                      onChange={(val: number) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_me`]: val }))}
-                                      isOpenToAll={editOpenToAllStates[`${subKey}_me`] || false}
-                                    />
-                                  </div>
-                                  {renderEditOtaExcControls(
-                                    subKey,
-                                    editOpenToAllStates[`${subKey}_me`] || false,
-                                    () => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_me`]: !prev[`${subKey}_me`] })),
-                                    false,
-                                    false,
-                                    selectedSubQ,
-                                    true,
-                                  )}
-                                </div>
+                                <AnswerSliderRow
+                                  label={subRowLabel}
+                                  labels={subScaleLabels}
+                                  value={editSliderAnswers[`${subKey}_me`] || 3}
+                                  onChange={(val) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_me`]: val }))}
+                                  showOta={subMeOta}
+                                  otaChecked={editOpenToAllStates[`${subKey}_me`] || false}
+                                  onOtaToggle={() => setEditOpenToAllStates(prev => ({ ...prev, [`${subKey}_me`]: !prev[`${subKey}_me`] }))}
+                                  showNote
+                                  note={editAnswerNotes[subKey] || ''}
+                                  onNoteChange={(note) => setEditAnswerNotes(prev => ({ ...prev, [subKey]: note }))}
+                                />
+                              </div>
+
+                              {/* Importance — mobile only; desktop keeps it inside the Them section. */}
+                              <div className="mb-2 pt-1 sm:hidden">
+                                <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+                                <AnswerSliderRow
+                                  label="IMPORTANCE"
+                                  labels={IMPORTANCE_LABELS}
+                                  value={editImportanceValues.lookingFor}
+                                  onChange={(val) => setEditImportanceValues(prev => ({ ...prev, lookingFor: val }))}
+                                  isImportance
+                                  hideMobileRowLabel
+                                />
                               </div>
 
                               </div>
@@ -3977,13 +3818,18 @@ export default function UserProfilePage() {
                     const displayQuestionData = questionNumber === 2
                       ? [...selectedQuestionData].sort((a, b) => (b.group_number || 0) - (a.group_number || 0))
                       : selectedQuestionData;
-                    const answerLabels = (selectedQuestionData[0]?.answers || []) as Array<{ value: string | number; answer_text?: string }>;
-                    const lessLabel = answerLabels.find((a) => String(a.value) === '1')?.answer_text?.toUpperCase() || 'LESS';
-                    const moreLabel = answerLabels.find((a) => String(a.value) === '5')?.answer_text?.toUpperCase() || 'MORE';
+                    const editRows = displayQuestionData.map((question) => ({
+                      question,
+                      key: `q${question.group_number || question.id}`,
+                      label: (question.question_name || 'ANSWER').toUpperCase(),
+                      labels: buildQuestionScaleLabels(question, questionNumber),
+                    }));
+                    const editThemOta = displayQuestionData.some(questionAllowsLookingOta);
+                    const editMeOta = displayQuestionData.some((q) => q.open_to_all_me);
 
                     return (
                       <div className="w-full overflow-x-hidden">
-                        <div className="w-full max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto">
+                        <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto min-w-0">
                         {/* Share/Required toggles for non-mandatory questions > 10 */}
                         {questionNumber > 10 && displayQuestionData[0]?.question_type !== 'grouped' && (
                           <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
@@ -4004,109 +3850,103 @@ export default function UserProfilePage() {
 
                         {/* Them Section (shown for all except Q1 Relationship) */}
                         {!isRelationship && (
-                          <div className="mb-6">
-                            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+                          <div className="mb-2 sm:mb-6">
+                            <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl" style={{ color: '#672DB7' }}>Them</h3>
 
-                            <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                              <div></div>
-                              <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                              {renderEditOtaExcHeader(displayQuestionData.some(questionAllowsLookingOta))}
-                            </div>
+                            <AnswerScaleHeader labels={editRows[0]?.labels || []} showOta={editThemOta} className="mb-2" />
 
-                            <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                              {displayQuestionData.map((question) => {
-                                const key = `q${question.group_number || question.id}`;
-                                const lookingKey = `${key}_looking`;
-                                const isSingleBasic = displayQuestionData.length === 1;
-                                return (
-                                  <React.Fragment key={`looking-${question.id}`}>
-                                    {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
-                                    <div className="relative min-w-0">
-                                      <EditableSlider value={editSliderAnswers[lookingKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [lookingKey]: value }))} isOpenToAll={editOpenToAllStates[lookingKey] || false} labels={getSliderLabelsForQuestion(question.question_number, question.answers || [])} />
-                                    </div>
-                                    {renderEditOtaExcControls(
-                                      key,
-                                      editOpenToAllStates[lookingKey] || false,
-                                      () => setEditOpenToAllStates(prev => ({ ...prev, [lookingKey]: !prev[lookingKey] })),
-                                      questionAllowsLookingOta(question),
-                                      true,
-                                      question,
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-                              {/* Importance slider row */}
-                              {displayQuestionData.length === 1 ? <div></div> : <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>}
-                              <div className="relative min-w-0">
-                                <EditableSlider value={editImportanceValues.lookingFor} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} />
+                            <div className="space-y-1 sm:space-y-3">
+                              {editRows.map(({ question, key, label, labels }) => (
+                                <AnswerSliderRow
+                                  key={`looking-${question.id}`}
+                                  label={label}
+                                  labels={labels}
+                                  value={editSliderAnswers[`${key}_looking`] || 3}
+                                  onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_looking`]: value }))}
+                                  showOta={questionAllowsLookingOta(question)}
+                                  otaChecked={editOpenToAllStates[`${key}_looking`] || false}
+                                  onOtaToggle={() => setEditOpenToAllStates(prev => ({ ...prev, [`${key}_looking`]: !prev[`${key}_looking`] }))}
+                                  showExclude
+                                  excludedValues={editExcludedAnswerValues[key] || []}
+                                  allowedExclusionValues={getAllowedExclusionValues(question)}
+                                  blockedExclusionValues={getEditBlockedExclusionValuesForKey(key)}
+                                  onExcludedValuesChange={(values) => setEditExcludedValuesForKey(key, values, question)}
+                                />
+                              ))}
+
+                              <div className="hidden sm:block">
+                                <AnswerSliderRow
+                                  label="IMPORTANCE"
+                                  labels={IMPORTANCE_LABELS}
+                                  value={editImportanceValues.lookingFor}
+                                  onChange={(value) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))}
+                                  isImportance
+                                  showActiveLabelBelow
+                                />
                               </div>
-                              <div className="w-[144px] h-6"></div>
-                            </div>
-
-                            {/* Importance label */}
-                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                              <div></div>
-                              <div className="relative text-xs text-gray-500 w-full min-w-0">
-                                {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.lookingFor !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
-                              </div>
-                              <div></div>
                             </div>
                           </div>
                         )}
 
                         {/* Me Section (no importance slider, except Q1) */}
-                        <div className={`mb-6 ${!isRelationship ? 'pt-8' : ''}`}>
-                          <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+                        <div className={`mb-2 sm:mb-6 ${!isRelationship ? 'pt-1 sm:pt-8' : ''}`}>
+                          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
-                          <div className="grid items-center justify-center mb-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                            <div></div>
-                            <div className="flex justify-between text-xs text-gray-500 min-w-0"><span>{lessLabel}</span><span>{moreLabel}</span></div>
-                            {renderEditOtaExcHeader(displayQuestionData.some((q) => q.open_to_all_me), isRelationship)}
-                          </div>
+                          <AnswerScaleHeader labels={editRows[0]?.labels || []} showOta={editMeOta} className="mb-2" />
 
-                          <div className="grid items-center justify-center grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                            {displayQuestionData.map((question) => {
-                              const key = `q${question.group_number || question.id}`;
-                              const meKey = `${key}_me`;
-                              const isSingleBasic = displayQuestionData.length === 1;
-                              return (
-                                <React.Fragment key={question.id}>
-                                  {isSingleBasic ? <div></div> : <div className="text-xs font-semibold text-gray-400 min-w-0">{question.question_name?.toUpperCase()}</div>}
-                                  <div className="relative min-w-0">
-                                    <EditableSlider value={editSliderAnswers[meKey] || 3} onChange={(value: number) => setEditSliderAnswers(prev => ({ ...prev, [meKey]: value }))} isOpenToAll={editOpenToAllStates[meKey] || false} labels={getSliderLabelsForQuestion(question.question_number, question.answers || [])} />
-                                  </div>
-                                  {renderEditOtaExcControls(
-                                    key,
-                                    editOpenToAllStates[meKey] || false,
-                                    () => setEditOpenToAllStates(prev => ({ ...prev, [meKey]: !prev[meKey] })),
-                                    question.open_to_all_me,
-                                    isRelationship,
-                                    question,
-                                    !isRelationship,
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
+                          <div className="space-y-1 sm:space-y-3">
+                            {editRows.map(({ question, key, label, labels }) => (
+                              <AnswerSliderRow
+                                key={question.id}
+                                label={label}
+                                labels={labels}
+                                value={editSliderAnswers[`${key}_me`] || 3}
+                                onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_me`]: value }))}
+                                showOta={Boolean(question.open_to_all_me)}
+                                otaChecked={editOpenToAllStates[`${key}_me`] || false}
+                                onOtaToggle={() => setEditOpenToAllStates(prev => ({ ...prev, [`${key}_me`]: !prev[`${key}_me`] }))}
+                                // Q1 is Me-only, so its exclusions live here; every other question
+                                // excludes from the Them side and keeps the note on Me.
+                                showExclude={isRelationship}
+                                excludedValues={editExcludedAnswerValues[key] || []}
+                                allowedExclusionValues={getAllowedExclusionValues(question)}
+                                blockedExclusionValues={getEditBlockedExclusionValuesForKey(key)}
+                                onExcludedValuesChange={(values) => setEditExcludedValuesForKey(key, values, question)}
+                                showNote={!isRelationship}
+                                note={editAnswerNotes[key] || ''}
+                                onNoteChange={(note) => setEditAnswerNotes(prev => ({ ...prev, [key]: note }))}
+                              />
+                            ))}
+
                             {/* For Q1: importance slider in Me section */}
                             {isRelationship && (
-                              <>
-                                <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-                                <div className="relative min-w-0"><EditableSlider value={editImportanceValues.me} onChange={(value: number) => setEditImportanceValues(prev => ({ ...prev, me: value }))} isImportance={true} labels={IMPORTANCE_LABELS_EDIT} /></div>
-                                <div className="w-[144px] h-6"></div>
-                              </>
+                              <div className="hidden sm:block">
+                                <AnswerSliderRow
+                                  label="IMPORTANCE"
+                                  labels={IMPORTANCE_LABELS}
+                                  value={editImportanceValues.me}
+                                  onChange={(value) => setEditImportanceValues(prev => ({ ...prev, me: value }))}
+                                  isImportance
+                                  showActiveLabelBelow
+                                />
+                              </div>
                             )}
                           </div>
+                        </div>
 
-                          {/* Importance label for Q1 */}
-                          {isRelationship && (
-                            <div className="grid items-center justify-center mt-2 grid-cols-[80px_1fr_144px] gap-x-3 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3">
-                              <div></div>
-                              <div className="relative text-xs text-gray-500 w-full min-w-0">
-                                {IMPORTANCE_LABELS_EDIT.map((label) => { const v = parseInt(label.value); if (editImportanceValues.me !== v) return null; const pos = v === 1 ? '14px' : v === 2 ? '25%' : v === 3 ? '50%' : v === 4 ? '75%' : 'calc(100% - 14px)'; return <span key={v} className="absolute" style={{ left: pos, transform: 'translateX(-50%)' }}>{label.answer_text}</span>; })}
-                              </div>
-                              <div></div>
-                            </div>
-                          )}
+                        {/* Importance — mobile only; desktop keeps it inside its section. */}
+                        <div className="mb-2 pt-1 sm:hidden">
+                          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+                          <AnswerSliderRow
+                            label="IMPORTANCE"
+                            labels={IMPORTANCE_LABELS}
+                            value={isRelationship ? editImportanceValues.me : editImportanceValues.lookingFor}
+                            onChange={(value) => setEditImportanceValues(prev => (
+                              isRelationship ? { ...prev, me: value } : { ...prev, lookingFor: value }
+                            ))}
+                            isImportance
+                            hideMobileRowLabel
+                          />
                         </div>
                         </div>
                       </div>
@@ -4127,256 +3967,60 @@ export default function UserProfilePage() {
                     return selectedQuestionData.some(q => q.id === questionId);
                   });
 
-                  // Read-only slider component
-                  const ReadOnlySlider = ({ value, isOpenToAll = false, isImportance = false, labels = [] }: {
-                    value: number;
-                    isOpenToAll?: boolean;
-                    isImportance?: boolean;
-                    labels?: AnswerValueLabel[];
-                  }) => {
-                    const sortedLabels = [...labels].sort((a, b) => Number(a.value) - Number(b.value));
-                    const answerValues = getAnswerValues(sortedLabels);
-                    const minValue = answerValues[0];
-                    const maxValue = answerValues[answerValues.length - 1];
-                    const displayValue = getNearestAnswerValue(value, sortedLabels);
-                    const displayPosition = getAnswerValuePosition(value, sortedLabels);
-                    
-                    return (
-                      <div className="w-full h-5 relative flex items-center select-none">
-                        <span className={`absolute left-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{minValue}</span>
-                        <div
-                          className="w-full h-5 rounded-[20px] relative border"
-                          style={{
-                            backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-                            borderColor: isOpenToAll ? '#672DB7' : '#ADADAD'
-                          }}
-                        >
-                          {isOpenToAll && (
-                            // When Open to All is enabled, show full purple fill (100% width)
-                            <div
-                              className="absolute top-0 left-0 h-full bg-[#672DB7] rounded-[20px]"
-                              style={{ width: '100%' }}
-                            />
-                          )}
-                        </div>
-                        {!isOpenToAll && (
-                          <div 
-                            className="absolute top-1/2 transform -translate-y-1/2 w-7 h-7 border border-gray-300 rounded-full flex items-center justify-center text-sm font-semibold z-30"
-                            style={{
-                              backgroundColor: isImportance ? 'white' : '#672DB7',
-                              boxShadow: isImportance ? '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.12)',
-                              left: displayPosition === 0 ? '0px' : displayPosition === 100 ? 'calc(100% - 28px)' : `calc(${displayPosition}% - 14px)`
-                            }}
-                          >
-                            <span style={{ color: isImportance ? '#672DB7' : 'white' }}>{displayValue}</span>
-                          </div>
-                        )}
-                        <span className={`absolute right-2 text-xs pointer-events-none z-10 ${isOpenToAll ? 'text-white font-medium' : 'text-gray-500'}`}>{maxValue}</span>
-                      </div>
-                    );
-                  };
-
-                  // Helper function to render top labels for kids question
-                  const renderKidsTopLabels = (groupNumber: number) => {
-                    const wantKidsLabels = ['DON\'T WANT', 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
-                    const haveKidsLabels = ['DON\'T HAVE', '', '', '', 'HAVE'];
-                    
-                    const labels = groupNumber === 2 ? wantKidsLabels : haveKidsLabels; // group_number 1 = Have, 2 = Want
-                    
-                    return (
-                      <div className="relative w-full min-w-0 mb-2 text-[9px] text-gray-500 sm:text-xs" style={{ height: '14px' }}>
-                        {labels.map((label, index) => {
-                          const value = index + 1;
-                          let leftPosition;
-                          
-                          // Position labels to center on slider thumb positions
-                          if (value === 1) {
-                            leftPosition = '14px'; // Left edge of thumb (14px from left)
-                          } else if (value === 2) {
-                            leftPosition = '25%';
-                          } else if (value === 3) {
-                            leftPosition = '50%';
-                          } else if (value === 4) {
-                            leftPosition = '75%';
-                          } else if (value === 5) {
-                            leftPosition = 'calc(100% - 14px)'; // Right edge of thumb (14px from right)
-                          }
-                          
-                          return (
-                            <span 
-                              key={value}
-                              className="absolute text-xs text-gray-500" 
-                              style={{ left: leftPosition, transform: 'translateX(-50%)' }}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    );
-                  };
-
-                  // Helper function to render top labels for education question
-                  const renderEducationTopLabels = () => {
-                    return (
-                      <div className="relative w-full min-w-0 mb-2 text-[9px] text-gray-500 sm:text-xs" style={{ height: '14px' }}>
-                        <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                        <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                      </div>
-                    );
-                  };
-
-                  // Helper function to render top labels for diet question
-                  const renderDietTopLabels = () => {
-                    return (
-                      <div className="flex justify-between text-xs text-gray-500 mb-2">
-                        <span>NO</span>
-                        <span>YES</span>
-                      </div>
-                    );
-                  };
-
-                  // Helper function to render top labels for frequency questions (Exercise, Habits, Religion)
-                  const renderFrequencyTopLabels = () => {
-                    return (
-                      <div className="relative w-full min-w-0 mb-2 text-[9px] text-gray-500 sm:text-xs" style={{ height: '14px' }}>
-                        <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                        <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                        <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                        <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                      </div>
-                    );
-                  };
-
                   // Special handling for Relationship question (question_number === 1) - ONLY Me section
                   if (questionNumber === 1) {
-                    const IMPORTANCE_LABELS = [
-                      { value: "1", answer_text: "TRIVIAL" },
-                      { value: "2", answer_text: "MINOR" },
-                      { value: "3", answer_text: "AVERAGE" },
-                      { value: "4", answer_text: "SIGNIFICANT" },
-                      { value: "5", answer_text: "ESSENTIAL" }
-                    ];
-                    
+                    const relationshipLabels = buildQuestionScaleLabels(selectedQuestionData[0], questionNumber);
+
                     return (
-                      <div className="mb-6">
-                        <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
+                      <div className="mb-2 sm:mb-6">
+                        <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
 
-                        <div className="grid w-full min-w-0 items-center justify-center mx-auto mb-2" style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px', columnGap: '12px', gap: '12px 8px' }}>
-                          <div></div>
-                          <div className="flex justify-between text-xs text-gray-500">
-                            {(() => {
-                              // For non-mandatory questions, show actual answer labels for value 1 and 5
-                              if (questionNumber > 10 && selectedQuestionData[0]?.answers?.length > 0) {
-                                const answers = selectedQuestionData[0].answers;
-                                const answer1 = answers.find((a: any) => a.value === '1' || a.value === 1);
-                                const answer5 = answers.find((a: any) => a.value === '5' || a.value === 5);
-                                return (
-                                  <>
-                                    <span>{answer1?.answer_text?.toUpperCase() || 'LESS'}</span>
-                                    <span>{answer5?.answer_text?.toUpperCase() || 'MORE'}</span>
-                                  </>
-                                );
-                              }
-                              return (
-                                <>
-                                  <span>LESS</span>
-                                  <span>MORE</span>
-                                </>
-                              );
-                            })()}
-                          </div>
-                          <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                            {selectedQuestionData.some(q => q.open_to_all_me) ? 'OTA' : ''}
-                          </div>
-                        </div>
+                        <AnswerScaleHeader labels={relationshipLabels} readOnly className="mb-2" />
 
-                        <div className="grid w-full min-w-0 items-center justify-center mx-auto" style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px', columnGap: '12px', gap: '12px 8px' }}>
+                        <div className="space-y-1 sm:space-y-3">
                           {selectedQuestionData.map((question: any) => {
                             const answer = answersForQuestion.find(a => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                               return questionId === question.id;
                             });
-                            
-                            // If me_answer is 6, it means "Open to All" is enabled
-                            // Check both number 6 and string "6", and also check the me_open_to_all flag
+
+                            // me_answer 6 (or the flag) means "Open to All"; the slider then shows a
+                            // full purple track, so the value underneath only has to be in range.
                             const rawMeAnswer = answer?.me_answer;
-                            const isOpenToAll = Number(rawMeAnswer) === 6 ||
-                                               answer?.me_open_to_all === true;
-                            // When Open to All is enabled, use value 3 for display (but slider will be full purple)
-                            // When disabled, use the actual answer value (1-5)
+                            const isOpenToAll = Number(rawMeAnswer) === 6 || answer?.me_open_to_all === true;
                             const meValue = isOpenToAll ? 3 : (rawMeAnswer ? Number(rawMeAnswer) : 3);
-                            const meOpenToAll = isOpenToAll;
 
                             return (
-                              <React.Fragment key={question.id}>
-                                <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                                <div className="relative">
-                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={getSliderLabelsForQuestion(question.question_number, question.answers)} />
-                                </div>
-                                <div>
-                                  {question.open_to_all_me ? (
-                                    <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                                      <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                                    </div>
-                                  ) : (
-                                    <div className="w-11 h-6"></div>
-                                  )}
-                                </div>
-                              </React.Fragment>
+                              <AnswerSliderRow
+                                key={question.id}
+                                readOnly
+                                label={(question.question_name || 'ANSWER').toUpperCase()}
+                                labels={buildQuestionScaleLabels(question, questionNumber)}
+                                value={meValue}
+                                showOta={isOpenToAll}
+                                otaChecked={isOpenToAll}
+                              />
                             );
                           })}
 
                           {/* SHARE ANSWER Row - only for non-mandatory questions */}
                           {questionNumber > 10 && (
-                            <>
-                              <div className="text-xs font-semibold text-gray-400">SHARE ANSWER</div>
-                              <div className="flex items-center">
-                                <span className="text-sm text-gray-600">
-                                  {answersForQuestion[0]?.me_share !== false ? 'Enabled' : 'Disabled'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-center">
-                                <div className={`block w-11 h-6 rounded-full ${answersForQuestion[0]?.me_share !== false ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                                  <div className={`dot absolute top-0.5 w-5 h-5 rounded-full transition ${answersForQuestion[0]?.me_share !== false ? 'transform translate-x-5 bg-white' : 'left-0.5 bg-white'}`}></div>
-                                </div>
-                              </div>
-                            </>
+                            <div className="flex items-center justify-center gap-3 pt-1 text-xs text-gray-500 sm:justify-start sm:pl-[132px]">
+                              <span className="font-semibold text-gray-400">SHARE ANSWER</span>
+                              <span className="text-sm text-gray-600">
+                                {answersForQuestion[0]?.me_share !== false ? 'Enabled' : 'Disabled'}
+                              </span>
+                            </div>
                           )}
 
-                          {/* IMPORTANCE Slider Row */}
-                          <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-                          <div className="relative">
-                            <ReadOnlySlider
-                              value={answersForQuestion[0]?.me_importance || 3}
-                              isOpenToAll={false}
-                              isImportance={true}
-                              labels={IMPORTANCE_LABELS}
-                            />
-                          </div>
-                          <div className="w-11 h-6"></div>
-                        </div>
-
-                        {/* Importance labels */}
-                        <div className="grid w-full min-w-0 items-center justify-center mx-auto mt-2" style={{ gridTemplateColumns: '72px minmax(0,1fr) 44px', columnGap: '12px', gap: '12px 8px' }}>
-                          <div></div>
-                          <div className="relative w-full min-w-0 text-xs text-gray-500">
-                            {(() => {
-                              const importance = answersForQuestion[0]?.me_importance || 3;
-                              const positions: Record<number, { left: string; label: string }> = {
-                                1: { left: '14px', label: 'TRIVIAL' },
-                                2: { left: '25%', label: 'MINOR' },
-                                3: { left: '50%', label: 'AVERAGE' },
-                                4: { left: '75%', label: 'SIGNIFICANT' },
-                                5: { left: 'calc(100% - 14px)', label: 'ESSENTIAL' }
-                              };
-                              const pos = positions[importance];
-                              return pos ? <span className="absolute" style={{ left: pos.left, transform: 'translateX(-50%)' }}>{pos.label}</span> : null;
-                            })()}
-                          </div>
-                          <div></div>
+                          <AnswerSliderRow
+                            readOnly
+                            label="IMPORTANCE"
+                            labels={IMPORTANCE_LABELS}
+                            value={answersForQuestion[0]?.me_importance || 3}
+                            isImportance
+                            showActiveLabelBelow
+                          />
                         </div>
                       </div>
                     );
@@ -4419,13 +4063,9 @@ export default function UserProfilePage() {
                         const meValue = isOpenToAllMe ? 3 : (answer && rawMeAnswer !== undefined ? Number(rawMeAnswer) : 3);
                         const lookingValue = isOpenToAllLooking ? 3 : (answer && rawLookingAnswer !== undefined ? Number(rawLookingAnswer) : 3);
 
-                        const isEducationQuestion = questionNumber === 4;
-                        const isDietQuestion = questionNumber === 5;
-                        const isExerciseQuestion = questionNumber === 6;
-                        const isHabitsQuestion = questionNumber === 7;
-                        const isReligionQuestion = questionNumber === 8;
-                        const isPoliticsQuestion = questionNumber === 9;
-                        
+                        const subQuestionLabels = buildQuestionScaleLabels(selectedQuestion, questionNumber);
+                        const subQuestionRowLabel = (selectedQuestion.question_name || 'ANSWER').toUpperCase();
+
                         // Check if answer is shared
                         const isShared = canReadProfileAnswer(answer);
                         const isDisabled = !isShared;
@@ -4469,123 +4109,37 @@ export default function UserProfilePage() {
                                 </div>
                               )}
 
-                              <h4 className="text-xl font-bold text-center mb-4">Me</h4>
+                              <h4 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-xl">Me</h4>
 
-                              {/* Labels above slider */}
-                              <div className="mx-auto mb-2 w-full min-w-0">
-                                <div className="flex justify-between text-xs text-gray-500">
-                                  {isEducationQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                      <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                    </div>
-                                  )}
-                                  {isDietQuestion && (
-                                    <div className="flex justify-between text-xs text-gray-500 w-full">
-                                      <span>NO</span>
-                                      <span>YES</span>
-                                    </div>
-                                  )}
-                                  {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                    </div>
-                                  )}
-                                  {isPoliticsQuestion && (
-                                    <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                      <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                                      <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                                      <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                                      <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                                      <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
-                                    </div>
-                                  )}
-                                  {questionNumber === 3 && (
-                                    <>
-                                      <span>LESS</span>
-                                      <span>MORE</span>
-                                    </>
-                                  )}
-                                  {/* For non-mandatory questions (> 10), show value 1 and value 5 labels */}
-                                  {questionNumber > 10 && selectedQuestion.answers && selectedQuestion.answers.length > 0 && (
-                                    <>
-                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
-                                      <span>{selectedQuestion.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
+                              <AnswerScaleHeader labels={subQuestionLabels} readOnly className="mb-2" />
 
-                              <div className="mx-auto w-full min-w-0">
-                                <ReadOnlySlider value={meValue} isOpenToAll={isOpenToAllMe} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
-                              </div>
+                              <AnswerSliderRow
+                                readOnly
+                                label={subQuestionRowLabel}
+                                labels={subQuestionLabels}
+                                value={meValue}
+                                showOta={isOpenToAllMe}
+                                otaChecked={isOpenToAllMe}
+                              />
 
                               {renderReadOnlyMeNotes(answer ? [answer] : [])}
                             </div>
 
                             {/* Them Section */}
                             {shareThemAnswers && isShared && (
-                              <div className="mb-6">
-                                <h4 className="text-xl font-bold text-center mb-4" style={{ color: '#672DB7' }}>Them</h4>
+                              <div className="mb-2 pt-1 sm:mb-6 sm:pt-4">
+                                <h4 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-xl" style={{ color: '#672DB7' }}>Them</h4>
 
-                                {/* Labels above slider */}
-                                <div className="mx-auto mb-2 w-full min-w-0">
-                                  <div className="flex justify-between text-xs text-gray-500">
-                                    {isEducationQuestion && (
-                                      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                        <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                                        <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                                      </div>
-                                    )}
-                                    {isDietQuestion && (
-                                      <div className="flex justify-between text-xs text-gray-500 w-full">
-                                        <span>NO</span>
-                                        <span>YES</span>
-                                      </div>
-                                    )}
-                                    {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
-                                      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                        <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                                        <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                                        <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                                        <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                                      </div>
-                                    )}
-                                    {isPoliticsQuestion && (
-                                      <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                                        <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                                        <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                                        <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                                        <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                                        <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
-                                      </div>
-                                    )}
-                                    {questionNumber === 3 && (
-                                      <>
-                                        <span>LESS</span>
-                                        <span>MORE</span>
-                                      </>
-                                    )}
-                                    {/* For non-mandatory questions (> 10), show value 1 and value 5 labels */}
-                                    {questionNumber > 10 && selectedQuestion.answers && selectedQuestion.answers.length > 0 && (
-                                      <>
-                                        <span>{selectedQuestion.answers.find((a: any) => a.value === '1' || a.value === 1)?.answer_text?.toUpperCase() || 'LESS'}</span>
-                                        <span>{selectedQuestion.answers.find((a: any) => a.value === '5' || a.value === 5)?.answer_text?.toUpperCase() || 'MORE'}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
+                                <AnswerScaleHeader labels={subQuestionLabels} readOnly className="mb-2" />
 
-                                <div className="mx-auto w-full min-w-0">
-                                  <ReadOnlySlider value={lookingValue} isOpenToAll={isOpenToAllLooking} labels={getSliderLabelsForQuestion(questionNumber, selectedQuestion.answers)} />
-                                </div>
+                                <AnswerSliderRow
+                                  readOnly
+                                  label={subQuestionRowLabel}
+                                  labels={subQuestionLabels}
+                                  value={lookingValue}
+                                  showOta={isOpenToAllLooking}
+                                  otaChecked={isOpenToAllLooking}
+                                />
                               </div>
                             )}
 
@@ -4657,12 +4211,8 @@ export default function UserProfilePage() {
                     const isRelationshipQuestion = questionNumber === 1;
                     const isGenderQuestion = questionNumber === 2;
                     const isKidsQuestion = questionNumber === 10;
-                    const isEducationQuestion = questionNumber === 4;
-                    const isDietQuestion = questionNumber === 5;
                     const isExerciseQuestion = questionNumber === 6;
                     const isHabitsQuestion = questionNumber === 7;
-                    const isReligionQuestion = questionNumber === 8;
-                    const isPoliticsQuestion = questionNumber === 9;
                     const displayQuestionData = isGenderQuestion
                       ? [...selectedQuestionData].sort((a, b) => (b.group_number || 0) - (a.group_number || 0))
                       : selectedQuestionData;
@@ -4681,63 +4231,21 @@ export default function UserProfilePage() {
                       );
                     }
 
-                    // Helper to render labels row for a section
-                    const renderSectionLabels = (sectionType: 'me' | 'them', hasAnyOTA: boolean) => (
-                      <div className="grid w-full min-w-0 items-center justify-center mx-auto mb-2" style={{ gridTemplateColumns: hasAnyOTA ? 'minmax(0,1fr) 44px' : 'minmax(0,1fr)', columnGap: '12px', gap: '12px 8px' }}>
-                        <div className="flex justify-between text-xs text-gray-500">
-                          {isRelationshipQuestion && (
-                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                              <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>FRIEND</span>
-                              <span className="absolute" style={{ left: '37%', transform: 'translateX(-50%)' }}>HOOKUP</span>
-                              <span className="absolute" style={{ left: '63%', transform: 'translateX(-50%)' }}>DATE</span>
-                              <span className="absolute" style={{ left: '90%', transform: 'translateX(-50%)' }}>PARTNER</span>
-                            </div>
-                          )}
-                          {isEducationQuestion && (
-                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                              <span className="absolute text-left" style={{ left: '0' }}>NONE</span>
-                              <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOME</span>
-                              <span className="absolute text-right" style={{ right: '0' }}>COMPLETED</span>
-                            </div>
-                          )}
-                          {isDietQuestion && (
-                            <div className="flex justify-between text-xs text-gray-500 w-full">
-                              <span>NO</span>
-                              <span>YES</span>
-                            </div>
-                          )}
-                          {(isExerciseQuestion || isHabitsQuestion || isReligionQuestion) && (
-                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                              <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>NEVER</span>
-                              <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>RARELY</span>
-                              <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>SOMETIMES</span>
-                              <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>REGULARLY</span>
-                              <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>DAILY</span>
-                            </div>
-                          )}
-                          {isPoliticsQuestion && (
-                            <div className="relative text-xs text-gray-500 w-full" style={{ height: '14px' }}>
-                              <span className="absolute" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                              <span className="absolute" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                              <span className="absolute" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                              <span className="absolute" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                              <span className="absolute" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
-                            </div>
-                          )}
-                          {!isRelationshipQuestion && !isEducationQuestion && !isDietQuestion && !isExerciseQuestion && !isHabitsQuestion && !isReligionQuestion && !isPoliticsQuestion && !isKidsQuestion && (
-                            <>
-                              <span>LESS</span>
-                              <span>MORE</span>
-                            </>
-                          )}
-                        </div>
-                        {hasAnyOTA && !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion && (
-                          <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                            OTA
-                          </div>
-                        )}
-                      </div>
-                    );
+                    // One shared row spec per sub-question, so the Me and Them sections stay
+                    // in step and both use the same scale captions as the editor.
+                    const readOnlyRows = displayQuestionData.map((question) => ({
+                      question,
+                      label: isKidsQuestion
+                        ? (question.group_number === 1 ? 'HAVE' : 'WANT')
+                        : (question.question_name || 'ANSWER').toUpperCase(),
+                      labels: buildQuestionScaleLabels(question, questionNumber),
+                      answer: answersForQuestion.find((a: any) => {
+                        const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                        return questionId === question.id;
+                      }),
+                    }));
+                    // Kids is the one question whose two rows carry different scales.
+                    const perRowScale = isKidsQuestion;
 
                     const canShowOtaColumn = !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion;
 
@@ -4763,37 +4271,27 @@ export default function UserProfilePage() {
 
                     // Me sliders section
                     const renderMeSliders = () => (
-                      <div className={`mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
-                        <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-                        {renderSectionLabels('me', showMeOtaColumn)}
-                        <div className="grid w-full min-w-0 items-center justify-center mx-auto" style={{ gridTemplateColumns: showMeOtaColumn ? 'minmax(0,1fr) 44px' : 'minmax(0,1fr)', columnGap: '12px', gap: '12px 8px' }}>
-                          {displayQuestionData.map((question) => {
-                            const answer = answersForQuestion.find((a: any) => {
-                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                              return questionId === question.id;
-                            });
+                      <div className={`mb-2 sm:mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
+                        <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+                        {!perRowScale && (
+                          <AnswerScaleHeader labels={readOnlyRows[0]?.labels || []} readOnly className="mb-2" />
+                        )}
+                        <div className="space-y-1 sm:space-y-3">
+                          {readOnlyRows.map(({ question, label, labels, answer }) => {
                             const isOpenToAllMe = Number(answer?.me_answer) === 6 || answer?.me_open_to_all || false;
                             const meValue = isOpenToAllMe ? 3 : (answer?.me_answer !== undefined ? Number(answer.me_answer) : 3);
-                            const meOpenToAll = isOpenToAllMe;
 
                             return (
-                              <React.Fragment key={`me-${question.id}`}>
-                                <div className="relative">
-                                  {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                  <ReadOnlySlider value={meValue} isOpenToAll={meOpenToAll} labels={getSliderLabelsForQuestion(question.question_number, question.answers)} />
-                                </div>
-                                {showMeOtaColumn && (
-                                  <div>
-                                    {question.open_to_all_me && meOpenToAll ? (
-                                      <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                                        <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                                      </div>
-                                    ) : (
-                                      <div className="w-11 h-6"></div>
-                                    )}
-                                  </div>
-                                )}
-                              </React.Fragment>
+                              <AnswerSliderRow
+                                key={`me-${question.id}`}
+                                readOnly
+                                label={label}
+                                labels={labels}
+                                value={meValue}
+                                showScaleAbove={perRowScale}
+                                showOta={showMeOtaColumn && isOpenToAllMe}
+                                otaChecked={isOpenToAllMe}
+                              />
                             );
                           })}
                         </div>
@@ -4803,29 +4301,27 @@ export default function UserProfilePage() {
 
                     // Them sliders section
                     const renderThemSliders = () => (
-                      <div className="mb-6">
-                        <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-                        {renderSectionLabels('them', showThemOtaColumn)}
-                        <div className="grid w-full min-w-0 items-center justify-center mx-auto" style={{ gridTemplateColumns: showThemOtaColumn ? 'minmax(0,1fr) 44px' : 'minmax(0,1fr)', columnGap: '12px', gap: '12px 8px' }}>
-                          {displayQuestionData.map((question) => {
-                            const answer = answersForQuestion.find((a: any) => {
-                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                              return questionId === question.id;
-                            });
+                      <div className="mb-2 sm:mb-6">
+                        <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl" style={{ color: '#672DB7' }}>Them</h3>
+                        {!perRowScale && (
+                          <AnswerScaleHeader labels={readOnlyRows[0]?.labels || []} readOnly className="mb-2" />
+                        )}
+                        <div className="space-y-1 sm:space-y-3">
+                          {readOnlyRows.map(({ question, label, labels, answer }) => {
                             const isOpenToAllLooking = Number(answer?.looking_for_answer) === 6 || answer?.looking_for_open_to_all || false;
                             const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer !== undefined ? Number(answer.looking_for_answer) : 3);
-                            const lookingOpenToAll = isOpenToAllLooking;
 
                             return (
-                              <React.Fragment key={`looking-${question.id}`}>
-                                <div className="relative">
-                                  {isKidsQuestion && renderKidsTopLabels(question.group_number || 1)}
-                                  <ReadOnlySlider value={lookingValue} isOpenToAll={lookingOpenToAll} labels={getSliderLabelsForQuestion(question.question_number, question.answers)} />
-                                </div>
-                                {showThemOtaColumn && (
-                                  <div className="w-11 h-6"></div>
-                                )}
-                              </React.Fragment>
+                              <AnswerSliderRow
+                                key={`looking-${question.id}`}
+                                readOnly
+                                label={label}
+                                labels={labels}
+                                value={lookingValue}
+                                showScaleAbove={perRowScale}
+                                showOta={showThemOtaColumn && isOpenToAllLooking}
+                                otaChecked={isOpenToAllLooking}
+                              />
                             );
                           })}
                         </div>
@@ -5031,6 +4527,8 @@ export default function UserProfilePage() {
               )}
             </div>
 
+            <MobileQuestionActionDock />
+
             {/* Footer for read-only non-grouped question detail: Answer/View button */}
             {!isAnsweringPending && selectedQuestionNumber && !selectedGroupedQuestionId && selectedQuestionData[0]?.question_type !== 'grouped' && (
               <div className="flex shrink-0 justify-end items-center gap-2 px-4 py-3 border-t border-gray-200 sm:px-6 sm:py-4">
@@ -5169,6 +4667,7 @@ export default function UserProfilePage() {
               </div>
             )}
           </div>
+          </MobileQuestionActionsProvider>
         </div>
       )}
 

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1672, initial-scale=1" />
+  <title>CompatibleFirst diagonal sequence</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      width: 1672px;
+      height: 941px;
+      margin: 0;
+      overflow: hidden;
+      background: #f8f6ff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .canvas {
+      position: relative;
+      width: 1672px;
+      height: 941px;
+      background: url('/assets/compatiblefirst-sort-diagonal-site-purple-base-v41.png') center / 100% 100% no-repeat;
+    }
+    .sort-panel {
+      position: absolute;
+      z-index: 3;
+      left: 780px;
+      top: 260px;
+      width: 445px;
+      height: 215px;
+      padding: 18px;
+      border: 1px solid rgba(124, 58, 237, .20);
+      border-radius: 22px;
+      background: rgba(249, 247, 255, .94);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.96), 0 12px 28px rgba(73, 45, 105, .12);
+      backdrop-filter: blur(22px);
+    }
+    .sort-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sort-icon {
+      display: flex;
+      width: 52px;
+      height: 52px;
+      flex: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 13px;
+      background: linear-gradient(145deg, #A855F7 0%, #7C3AED 50%, #672DB7 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.30), 0 7px 13px rgba(91,33,182,.23);
+    }
+    .sort-icon svg { width: 32px; height: 32px; display: block; }
+    .sort-copy h2 {
+      margin: 0 0 4px;
+      color: #111;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+    .sort-copy p {
+      margin: 0;
+      color: #672DB7;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.15;
+    }
+    .mini-card {
+      position: absolute;
+      top: 85px;
+      width: 120px;
+      height: 120px;
+      padding: 2px;
+      border-radius: 12px;
+      background: var(--progress);
+      box-shadow: 0 7px 15px rgba(52, 31, 75, .18);
+    }
+    .mini-card.one { left: 18px; }
+    .mini-card.two { left: 162px; }
+    .mini-card.three { left: 306px; }
+    .mini-inner {
+      position: relative;
+      width: calc(100% - 4px);
+      height: calc(100% - 4px);
+      margin: 2px;
+      overflow: hidden;
+      border-radius: 11px;
+      background: #fff;
+    }
+    .mini-photo, .selected-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 46%;
+    }
+    .mini-fade, .selected-fade {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.70), transparent 58%);
+    }
+    .mini-status {
+      position: absolute;
+      z-index: 3;
+      top: 0;
+      left: 0;
+      display: flex;
+      width: 29px;
+      height: 29px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0 0 9px 0;
+      background: rgba(255,255,255,.25);
+      box-shadow: inset -1px -1px 0 rgba(255,255,255,.28);
+      backdrop-filter: blur(8px);
+    }
+    .mini-status img { width: 19px; height: 18px; object-fit: contain; }
+    .mini-bottom {
+      position: absolute;
+      z-index: 3;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1px;
+      color: #fff;
+    }
+    .mini-name {
+      min-width: 0;
+      flex: 1;
+      padding: 8px 3px 5px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .mini-score {
+      flex: none;
+      padding: 6px 7px;
+      border-radius: 11px 0 0 0;
+      background: rgba(255,255,255,.25);
+      backdrop-filter: blur(8px);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .selected-card {
+      position: absolute;
+      z-index: 4;
+      left: 1260px;
+      top: 365px;
+      width: 360px;
+      height: 360px;
+      padding: 4px;
+      border-radius: 16px;
+      background: conic-gradient(
+        from -90deg,
+        #A855F7 0deg,
+        #8B5CF6 84.6deg,
+        #7C3AED 169.2deg,
+        #672DB7 253.8deg,
+        #5B21B6 338.4deg,
+        #5B21B6 340.4deg,
+        #D1D5DB 341.4deg,
+        #D1D5DB 360deg
+      );
+      box-shadow: 0 14px 30px rgba(52,31,75,.22), 0 2px 8px rgba(91,33,182,.12);
+    }
+    .selected-inner {
+      position: relative;
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      margin: 4px;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #fff;
+    }
+    .selected-status {
+      position: absolute;
+      z-index: 3;
+      top: 0;
+      left: 0;
+      display: flex;
+      width: 40px;
+      min-width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      border-radius: 0 0 12px 0;
+      background: rgba(255,255,255,.25);
+      box-shadow: inset -1px -1px 0 rgba(255,255,255,.28);
+      backdrop-filter: blur(12px);
+    }
+    .selected-status img {
+      width: 25px;
+      height: 23px;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.28));
+    }
+    .selected-bottom {
+      position: absolute;
+      z-index: 3;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 4px;
+      color: #fff;
+    }
+    .selected-name {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      padding: 12px 6px 6px 12px;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .selected-score {
+      flex: none;
+      padding: 8px 12px;
+      border-radius: 16px 0 0 0;
+      background: rgba(255,255,255,.25);
+      backdrop-filter: blur(12px);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <section class="sort-panel" aria-label="Ranked profile thumbnails">
+      <header class="sort-header">
+        <div class="sort-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="5" cy="7" r="2" fill="white"/>
+            <circle cx="5" cy="16" r="2" fill="white"/>
+            <circle cx="5" cy="25" r="2" fill="white"/>
+            <path d="M10 7H20M10 16H18M10 25H16M24 6V25M20.5 21.5L24 25L27.5 21.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="sort-copy"><h2>Sort by compatibility</h2><p>Strongest matches first</p></div>
+      </header>
+      <article class="mini-card one" style="--progress:conic-gradient(from -90deg,#A855F7 0deg,#8B5CF6 84.6deg,#7C3AED 169.2deg,#672DB7 253.8deg,#5B21B6 338.4deg,#5B21B6 340.4deg,#D1D5DB 341.4deg,#D1D5DB 360deg)">
+        <div class="mini-inner"><img class="mini-photo" src="/assets/compatiblefirst-portrait-alex-v10.png" alt="Alex"><div class="mini-fade"></div><div class="mini-status"><img src="/assets/check2.png" alt=""></div><div class="mini-bottom"><div class="mini-name">Alex, 29</div><div class="mini-score">94%</div></div></div>
+      </article>
+      <article class="mini-card two" style="--progress:conic-gradient(from -90deg,#A855F7 0deg,#8B5CF6 79.2deg,#7C3AED 158.4deg,#672DB7 237.6deg,#5B21B6 316.8deg,#5B21B6 318.8deg,#D1D5DB 319.8deg,#D1D5DB 360deg)">
+        <div class="mini-inner"><img class="mini-photo" src="/assets/compatiblefirst-portrait-marc-v10.png" alt="Marcus"><div class="mini-fade"></div><div class="mini-status"><img src="/assets/check2.png" alt=""></div><div class="mini-bottom"><div class="mini-name">Marcus, 31</div><div class="mini-score">88%</div></div></div>
+      </article>
+      <article class="mini-card three" style="--progress:conic-gradient(from -90deg,#A855F7 0deg,#8B5CF6 72.9deg,#7C3AED 145.8deg,#672DB7 218.7deg,#5B21B6 291.6deg,#5B21B6 293.6deg,#D1D5DB 294.6deg,#D1D5DB 360deg)">
+        <div class="mini-inner"><img class="mini-photo" src="/assets/compatiblefirst-portrait-eli-v10.png" alt="Eli"><div class="mini-fade"></div><div class="mini-status"><img src="/assets/check2.png" alt=""></div><div class="mini-bottom"><div class="mini-name">Eli, 30</div><div class="mini-score">81%</div></div></div>
+      </article>
+    </section>
+
+    <article class="selected-card">
+      <div class="selected-inner">
+        <img class="selected-photo" src="/assets/compatiblefirst-portrait-alex-v10.png" alt="Alex">
+        <div class="selected-fade"></div>
+        <div class="selected-status"><img src="/assets/check2.png" alt=""></div>
+        <div class="selected-bottom"><div class="selected-name">Alex, 29</div><div class="selected-score">94%</div></div>
+      </div>
+    </article>
+  </main>
+  <script>
+    const offset = Number(new URLSearchParams(window.location.search).get('offset') || 0)
+    document.querySelector('.canvas').style.transform = `translateX(-${offset}px)`
+  </script>
+</body>
+</html>

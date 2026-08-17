@@ -8,6 +8,10 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import {
+  MobileQuestionActionDock,
+  MobileQuestionActionsProvider,
+} from '@/components/MobileQuestionActions';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import { getAnswerValues, getSliderLabelsForQuestion } from '@/utils/answerValues';
@@ -1737,7 +1741,10 @@ function QuestionEditPageContent() {
   }
 
   return (
-    // Pinned footer + a single scrolling content area, so Save is always reachable.
+    // Pinned footer + a single scrolling content area, so Save is always reachable. The
+    // provider/dock pair mirrors OnboardingShell so phones get the same action rail — OTA
+    // help, the exclusion picker and the note editor — instead of per-row inline controls.
+    <MobileQuestionActionsProvider>
     <div className="h-[100dvh] overflow-hidden bg-white flex flex-col">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between p-3 sm:p-4">
@@ -1831,6 +1838,8 @@ function QuestionEditPageContent() {
         </div>
       </main>
 
+      <MobileQuestionActionDock />
+
       {/* Footer with Navigation */}
       <footer className="shrink-0 bg-white border-t border-gray-200">
         <div className="flex justify-between items-center px-6 py-3 sm:py-4">
@@ -1893,6 +1902,7 @@ function QuestionEditPageContent() {
         </div>
       </footer>
     </div>
+    </MobileQuestionActionsProvider>
   );
 }
 

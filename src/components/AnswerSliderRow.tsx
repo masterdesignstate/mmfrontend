@@ -27,6 +27,10 @@ import {
 export const SCALE_GRID =
   'sm:grid-cols-[120px_minmax(0,1fr)_144px] sm:gap-x-3 lg:gap-x-5';
 
+/** Same as SCALE_GRID minus the controls column, for rows that only display an answer. */
+export const READONLY_SCALE_GRID =
+  'sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-x-3 lg:gap-x-5';
+
 const CONTROLS_GRID = 'grid grid-cols-[44px_auto] items-end gap-2 min-w-0 sm:items-center';
 
 /** Absolute position for a label: ends hug the edges, middles centre on the thumb. */
@@ -181,19 +185,26 @@ export function RowControls({
 export function AnswerScaleHeader({
   labels,
   showOta = false,
+  /** Drop the controls column so the strip lines up with a section of read-only rows. */
+  readOnly = false,
   className = '',
 }: {
   labels: AnswerValueLabel[];
   showOta?: boolean;
+  readOnly?: boolean;
   className?: string;
 }) {
   return (
-    <div className={`hidden items-end sm:grid ${SCALE_GRID} ${className}`}>
+    <div
+      className={`hidden items-end sm:grid ${readOnly ? READONLY_SCALE_GRID : SCALE_GRID} ${className}`}
+    >
       <div aria-hidden />
       <ScaleLabelStrip labels={labels} />
-      <div className="text-xs text-gray-500">
-        <span className={`block w-11 text-center ${showOta ? '' : 'invisible'}`}>OTA</span>
-      </div>
+      {!readOnly && (
+        <div className="text-xs text-gray-500">
+          <span className={`block w-11 text-center ${showOta ? '' : 'invisible'}`}>OTA</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -203,9 +214,15 @@ export interface AnswerSliderRowProps extends RowControlsProps {
   label: string;
   labels: AnswerValueLabel[];
   value: number;
-  onChange: (value: number) => void;
+  /** Optional only when `readOnly` — an editable row must be able to report changes. */
+  onChange?: (value: number) => void;
   isImportance?: boolean;
   disabled?: boolean;
+  /**
+   * Display an already-given answer: the slider is inert, the row registers no mobile
+   * actions and the controls column is dropped. Used when viewing someone else's answers.
+   */
+  readOnly?: boolean;
   /** Render the active label under the slider on `sm`+ (used by the IMPORTANCE row). */
   showActiveLabelBelow?: boolean;
   /** Hide the row caption below the mobile slider when a surrounding section already names it. */
@@ -236,6 +253,7 @@ export default function AnswerSliderRow({
   onChange,
   isImportance = false,
   disabled = false,
+  readOnly = false,
   showActiveLabelBelow = false,
   hideMobileRowLabel = false,
   showScaleAbove = false,
@@ -243,7 +261,9 @@ export default function AnswerSliderRow({
   ...controls
 }: AnswerSliderRowProps) {
   const actionId = useId();
-  const mobileActionRegistry = useMobileQuestionActionRegistry();
+  const registry = useMobileQuestionActionRegistry();
+  // A read-only row has nothing to dock: no OTA toggle, no exclusions, no note editor.
+  const mobileActionRegistry = readOnly ? null : registry;
   const displayValue = getNearestAnswerValue(value, labels);
   const activeLabel =
     labels.find(entry => Number(entry.value) === displayValue)?.answer_text?.trim() || '';
@@ -253,7 +273,9 @@ export default function AnswerSliderRow({
   const moveQuestionLabelLeft = Boolean(
     !hideMobileRowLabel && !isOpenToAll && displayValue === 3 && activeLabel
   );
-  const hasMobileAction = Boolean(controls.showOta || controls.showExclude || controls.showNote);
+  const hasMobileAction = Boolean(
+    !readOnly && (controls.showOta || controls.showExclude || controls.showNote)
+  );
   const excludedValuesKey = (controls.excludedValues || []).join(',');
   const allowedValuesKey = (controls.allowedExclusionValues || []).join(',');
   const blockedValuesKey = (controls.blockedExclusionValues || []).join(',');
@@ -308,7 +330,7 @@ export default function AnswerSliderRow({
       onFocusCapture={() => mobileActionRegistry?.activate(actionId)}
       className={`grid grid-cols-1 items-center gap-y-1 sm:gap-y-0 ${
         showScaleAbove ? 'sm:items-end' : ''
-      } ${SCALE_GRID} ${className}`}
+      } ${readOnly ? READONLY_SCALE_GRID : SCALE_GRID} ${className}`}
     >
       <div className="hidden min-w-0 items-baseline gap-2 sm:col-start-1 sm:row-start-1 sm:flex">
         {/* truncate is a backstop for arbitrarily long question names; every caption the
@@ -319,11 +341,15 @@ export default function AnswerSliderRow({
         </span>
       </div>
 
-      <div
-        className={`${mobileActionRegistry ? 'hidden' : 'col-start-1 row-start-2 justify-self-center'} sm:col-start-3 sm:row-start-1 sm:block sm:justify-self-start`}
-      >
-        <RowControls {...controls} />
-      </div>
+      {readOnly ? (
+        <div className="hidden sm:col-start-3 sm:row-start-1 sm:block" aria-hidden />
+      ) : (
+        <div
+          className={`${mobileActionRegistry ? 'hidden' : 'col-start-1 row-start-2 justify-self-center'} sm:col-start-3 sm:row-start-1 sm:block sm:justify-self-start`}
+        >
+          <RowControls {...controls} />
+        </div>
+      )}
 
       <div className="relative col-start-1 row-start-1 min-w-0 sm:col-start-2 sm:row-start-1">
         {showScaleAbove && (
@@ -331,13 +357,13 @@ export default function AnswerSliderRow({
         )}
         <AnswerSlider
           value={value}
-          onChange={onChange}
+          onChange={onChange || (() => {})}
           labels={labels}
           isOpenToAll={isOpenToAll}
           isImportance={isImportance}
-          disabled={disabled}
+          disabled={disabled || readOnly}
           ariaLabel={label}
-          otaEnabled={Boolean(controls.showOta)}
+          otaEnabled={!readOnly && Boolean(controls.showOta)}
           onOtaToggle={controls.onOtaToggle}
         />
         <div className="relative -mt-1 mb-1 h-4 overflow-hidden text-[9px] sm:hidden">

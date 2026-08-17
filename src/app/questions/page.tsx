@@ -54,6 +54,22 @@ const createDefaultFilters = () => ({
 type QuestionsPageFilters = ReturnType<typeof createDefaultFilters>;
 type QuestionSortOption = 'randomized' | 'popular' | 'new' | 'number';
 
+/** The five question-type tiles in the filter modal, in display order. */
+const QUESTION_FILTER_TILES: Array<{
+  key: keyof QuestionsPageFilters['questions'];
+  label: string;
+  icon: string;
+  /** The asterisk artwork is taller than it is wide; the rest are square. */
+  iconHeight: number;
+  activeClass: string;
+}> = [
+  { key: 'mandatory', label: 'Mandatory', icon: '/assets/asterisk.png', iconHeight: 48, activeClass: 'border-red-500 bg-red-50' },
+  { key: 'answered', label: 'Answered', icon: '/assets/answered.png', iconHeight: 40, activeClass: 'border-green-500 bg-green-50' },
+  { key: 'unanswered', label: 'Unanswered', icon: '/assets/un.png', iconHeight: 40, activeClass: 'border-blue-500 bg-blue-50' },
+  { key: 'required', label: 'Required', icon: '/assets/req.png', iconHeight: 40, activeClass: 'border-gray-800 bg-gray-50' },
+  { key: 'submitted', label: 'Submitted', icon: '/assets/submitted.png', iconHeight: 40, activeClass: 'border-orange-500 bg-orange-50' },
+];
+
 const shuffleQuestionNumbers = (questionNumbers: number[]) => {
   const shuffled = [...questionNumbers];
 
@@ -119,6 +135,8 @@ function QuestionsPageContent() {
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
   const [allQuestionNumbers, setAllQuestionNumbers] = useState<number[]>([]);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  /** Key of the card whose mandatory badge was tapped, so its legend is showing. */
+  const [mandatoryLegendKey, setMandatoryLegendKey] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<QuestionSortOption>('number');
   const [randomizedSortNonce, setRandomizedSortNonce] = useState(0);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
@@ -337,6 +355,15 @@ function QuestionsPageContent() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showSortDropdown]);
+
+  // The mandatory legend is a tap-to-explain bubble; any pointer elsewhere dismisses it.
+  // The badge itself stops propagation, so this only ever fires for taps outside it.
+  useEffect(() => {
+    if (!mandatoryLegendKey) return;
+    const dismiss = () => setMandatoryLegendKey(null);
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [mandatoryLegendKey]);
 
   // Check for menu-driven filter parameter and reset fetch state.
   // useLayoutEffect blocks paint — user never sees the stale empty content
@@ -1485,18 +1512,18 @@ function QuestionsPageContent() {
       </div>
 
       {/* Main Content */}
-      <div className="px-8 py-6 max-w-6xl mx-auto">
+      <div className="px-4 py-6 max-w-6xl mx-auto sm:px-8">
         {/* Title and Ask Button */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Questions</h1>
-            <p className="text-gray-600">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold sm:text-2xl">Questions</h1>
+            <p className="text-sm text-gray-600">
               Showing {paginatedGroupedQuestions.length} of {isClientSideFiltered ? sortedGroupedQuestions.length : totalQuestionGroups} questions
             </p>
           </div>
-          <button 
+          <button
             onClick={() => setShowAskQuestionModal(true)}
-            className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium cursor-pointer hover:bg-gray-800"
+            className="shrink-0 whitespace-nowrap rounded-md bg-black px-3 py-2 text-sm font-medium text-white cursor-pointer hover:bg-gray-800 sm:px-4"
           >
             Ask a Question
           </button>
@@ -1570,7 +1597,7 @@ function QuestionsPageContent() {
                 );
               })}
             </div>
-            <span className="text-sm font-medium text-black pr-4">Times Answered</span>
+            <span className="shrink-0 pr-1 text-xs font-medium text-black sm:pr-7 sm:text-sm">Times Answered</span>
           </div>
           {paginatedGroupedQuestions
             .map(([key, group]) => {
@@ -1579,37 +1606,65 @@ function QuestionsPageContent() {
                 group.questions.some(question => question.is_answered);
               const isMandatory = group.questions.some(question => question.is_mandatory);
 
+              const cardKey = String(key);
+
               return (
                 <div
-                  key={String(key)}
+                  key={cardKey}
                   onClick={() => handleQuestionClick(group.questionNumber)}
-                  className={`relative flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                  className={`relative flex items-center justify-between gap-2 rounded-lg border px-2.5 py-3 transition-all duration-200 cursor-pointer sm:gap-3 sm:px-4 sm:py-4 ${
                     isAnswered
                       ? 'border-[#672DB7] bg-purple-50'
                       : 'border-gray-200 bg-white hover:bg-gray-50'
                   }`}
                 >
                   {isMandatory && (
-                    <div className="absolute -left-2 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm">
-                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={25} className="h-auto w-auto" />
-                    </div>
+                    // In the flow on phones — the corner badge sat on top of the question
+                    // number once the card padding shrank. From `sm` it pops back to the
+                    // card's top-left corner, where there is room for it.
+                    <button
+                      type="button"
+                      aria-label="Mandatory question"
+                      aria-expanded={mandatoryLegendKey === cardKey}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMandatoryLegendKey(prev => (prev === cardKey ? null : cardKey));
+                      }}
+                      className="z-10 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white shadow-sm sm:absolute sm:-left-2 sm:-top-1 sm:h-7 sm:w-7"
+                    >
+                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={25} className="h-4 w-auto sm:h-5" />
+                    </button>
                   )}
-                  <div className="flex-1">
+                  {isMandatory && mandatoryLegendKey === cardKey && (
+                    <span
+                      role="tooltip"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute -top-3 left-4 z-20 whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-md"
+                    >
+                      Mandatory question
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-start">
-                      <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1">
-                        <span className="text-gray-900">{group.displayName}</span>
+                      <span className="mr-1.5 text-xs text-gray-500 sm:mr-3 sm:text-sm">{group.questionNumber}.</span>
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 sm:gap-x-3 sm:gap-y-1">
+                        <span className="text-sm text-gray-900 sm:text-base">{group.displayName}</span>
                         {isAnswered && (
-                          <span className="text-[#672DB7] text-sm">✓ Answered</span>
+                          <span className="text-[#672DB7] text-xs sm:text-sm">✓ Answered</span>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-[#ECECEC] flex items-center justify-center">
-                      <span className="text-sm text-gray-700 font-medium">{answerCount}</span>
+                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                    {/* min-w + px rather than a fixed w-8: four-digit counts need the room. */}
+                    <div className="flex h-7 min-w-7 items-center justify-center rounded-full bg-[#ECECEC] px-1.5 sm:h-8 sm:min-w-8 sm:px-2">
+                      <span className="text-xs font-medium tabular-nums text-gray-700 sm:text-sm">{answerCount}</span>
                     </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {/* The whole card is the tap target on phones, so the chevron is pure
+                        decoration there — dropping it buys the count and title real width. */}
+                    <svg className="hidden h-5 w-5 text-gray-400 sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
@@ -1728,85 +1783,38 @@ function QuestionsPageContent() {
             </div>
 
             {/* Content */}
-            <div className="p-8 flex-1 overflow-y-auto">
+            <div className="p-4 flex-1 overflow-y-auto sm:p-8">
               {/* Questions Section */}
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">Questions</h3>
-                <div className="grid grid-cols-5 gap-3 max-w-xl">
-                  {/* Mandatory */}
-                  <button
-                    onClick={() => handleFilterToggle('questions', 'mandatory')}
-                    className={`relative p-1 rounded-3xl border-2 transition-colors aspect-square cursor-pointer ${
-                      pendingFilters.questions.mandatory 
-                        ? 'border-red-500 bg-red-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <Image src="/assets/asterisk.png" alt="Mandatory" width={40} height={48} className="h-auto w-auto" />
-                      <span className="text-xs font-medium text-gray-900 text-center leading-none">Mandatory</span>
-                    </div>
-                  </button>
-
-                  {/* Answered */}
-                  <button
-                    onClick={() => handleFilterToggle('questions', 'answered')}
-                    className={`flex flex-col items-center justify-center p- rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                      pendingFilters.questions.answered 
-                        ? 'border-green-500 bg-green-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <Image src="/assets/answered.png" alt="Answered" width={40} height={40} />
-                    </div>
-                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Answered</span>
-                  </button>
-
-                  {/* Unanswered */}
-                  <button
-                    onClick={() => handleFilterToggle('questions', 'unanswered')}
-                    className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 !cursor-pointer ${
-                      pendingFilters.questions.unanswered 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <Image src="/assets/un.png" alt="Unanswered" width={40} height={40} />
-                    </div>
-                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Unanswered</span>
-                  </button>
-
-                  {/* Required */}
-                  <button
-                    onClick={() => handleFilterToggle('questions', 'required')}
-                    className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                      pendingFilters.questions.required 
-                        ? 'border-gray-800 bg-gray-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <Image src="/assets/req.png" alt="Required" width={40} height={40} />
-                    </div>
-                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Required</span>
-                  </button>
-
-                  {/* Submitted */}
-                  <button
-                    onClick={() => handleFilterToggle('questions', 'submitted')}
-                    className={`flex flex-col items-center justify-center p-0 rounded-3xl border-2 transition-colors aspect-square gap-0 cursor-pointer ${
-                      pendingFilters.questions.submitted 
-                        ? 'border-orange-500 bg-orange-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <Image src="/assets/submitted.png" alt="Submitted" width={40} height={40} />
-                    </div>
-                    <span className="text-xs font-medium text-gray-900 text-center leading-none">Submitted</span>
-                  </button>
+                {/*
+                  Three columns on phones, five from `sm`. At five columns a 375px screen
+                  leaves each tile ~46px, which is narrower than the word "Unanswered" —
+                  the captions then ran past their tiles and collided with each other.
+                */}
+                <div className="grid max-w-xl grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3">
+                  {QUESTION_FILTER_TILES.map(tile => (
+                    <button
+                      key={tile.key}
+                      onClick={() => handleFilterToggle('questions', tile.key)}
+                      className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 p-1 transition-colors sm:rounded-3xl ${
+                        pendingFilters.questions[tile.key]
+                          ? tile.activeClass
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Image
+                        src={tile.icon}
+                        alt=""
+                        width={40}
+                        height={tile.iconHeight}
+                        className="h-7 w-auto sm:h-10"
+                      />
+                      <span className="w-full px-0.5 text-center text-[10px] font-medium leading-tight text-gray-900 sm:text-xs">
+                        {tile.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
