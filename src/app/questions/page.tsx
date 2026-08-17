@@ -1619,9 +1619,9 @@ function QuestionsPageContent() {
                   }`}
                 >
                   {isMandatory && (
-                    // In the flow on phones — the corner badge sat on top of the question
-                    // number once the card padding shrank. From `sm` it pops back to the
-                    // card's top-left corner, where there is room for it.
+                    // Absolutely positioned in the card's top-left corner, so it costs the
+                    // row no width. Smaller and tucked further into the corner on phones,
+                    // where the reduced card padding puts the question number closer in.
                     <button
                       type="button"
                       aria-label="Mandatory question"
@@ -1631,9 +1631,9 @@ function QuestionsPageContent() {
                         e.stopPropagation();
                         setMandatoryLegendKey(prev => (prev === cardKey ? null : cardKey));
                       }}
-                      className="z-10 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white shadow-sm sm:absolute sm:-left-2 sm:-top-1 sm:h-7 sm:w-7"
+                      className="absolute -left-1.5 -top-1.5 z-10 flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white shadow-sm sm:-left-2 sm:-top-1 sm:h-7 sm:w-7"
                     >
-                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={25} className="h-4 w-auto sm:h-5" />
+                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={25} className="h-3 w-auto sm:h-5" />
                     </button>
                   )}
                   {isMandatory && mandatoryLegendKey === cardKey && (
