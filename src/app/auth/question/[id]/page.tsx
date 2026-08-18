@@ -987,6 +987,10 @@ export default function QuestionPage() {
     searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true';
   const lookingOtaAllowed = questionAllowsLookingOta(question);
   const meOtaAllowed = Boolean(question.open_to_all_me);
+  // Mandatory questions (1–10) split into several named rows — FEMALE/MALE, ALCOHOL/
+  // TOBACCO — so each row needs its caption. Everything above 10 is a single row whose
+  // caption just repeats the heading, so the phone layout drops it.
+  const hideRowLabelOnMobile = Number(question.question_number) > 10;
 
   return (
     <OnboardingShell
@@ -1074,6 +1078,7 @@ export default function QuestionPage() {
           <div className="space-y-1 sm:space-y-3">
             <AnswerSliderRow
               label={rowLabel}
+              hideMobileRowLabel={hideRowLabelOnMobile}
               labels={scaleLabels}
               value={lookingForAnswer}
               onChange={(value) => handleSliderChange('lookingForAnswer', value)}
@@ -1110,6 +1115,7 @@ export default function QuestionPage() {
 
           <AnswerSliderRow
             label={rowLabel}
+            hideMobileRowLabel={hideRowLabelOnMobile}
             labels={scaleLabels}
             value={meAnswer}
             onChange={(value) => handleSliderChange('meAnswer', value)}
