@@ -48,8 +48,28 @@ const labelStyle = (index: number, count: number, percent: number): React.CSSPro
  * Phones only. From `sm` up the captions revert to the single unwrapped line they have
  * always been, so the desktop layout is untouched.
  */
-export const LABEL_MAX_WIDTH = 'max-w-[45%] sm:max-w-none';
+const LABEL_MAX_WIDTH_PCT = 45;
+export const LABEL_MAX_WIDTH = 'max-w-[var(--label-cap)] sm:max-w-none';
 const LABEL_CLAMP = `line-clamp-2 sm:line-clamp-none sm:whitespace-nowrap ${LABEL_MAX_WIDTH}`;
+
+/**
+ * The width cap, published as a CSS variable so the clamp above can stay one static class.
+ *
+ * Two captions centred on their own stops touch once each is as wide as the gap between
+ * them, so the cap is the smallest gap between captions that are actually showing — not the
+ * gap between stops. UNINVOLVED … RADICAL fills all five stops and gets 25%; a question
+ * whose scale only captions its two ends gets the full 45% however many stops sit between.
+ */
+const mobileLabelCapStyle = (captionPercents: number[]): React.CSSProperties => {
+  const sorted = [...captionPercents].sort((a, b) => a - b);
+  const smallestGap = sorted
+    .slice(1)
+    .reduce((gap, percent, index) => Math.min(gap, percent - sorted[index]), 100);
+
+  return {
+    '--label-cap': `${Math.min(LABEL_MAX_WIDTH_PCT, sorted.length > 1 ? smallestGap : 100)}%`,
+  } as React.CSSProperties;
+};
 
 /** Text alignment that keeps a wrapped caption stacked under its own stop. */
 const labelAlign = (index: number, count: number) => {
@@ -84,19 +104,12 @@ export function ScaleLabelStrip({
 
   if (visible.length === 0) return <div className={`h-3 sm:h-3.5 ${className}`} aria-hidden />;
 
-  // A phone gives the strip ~350px. Two- and three-caption scales (LESS/MORE, NONE/SOME/
-  // COMPLETED) have room to spare at 9px, but a five-caption scale such as UNINVOLVED …
-  // RADICAL leaves only a couple of pixels between the first two, which reads as one run-on
-  // phrase. Dropping those to 8px restores a clear gap without changing the layout. Desktop
-  // has 500px and always uses the normal size.
-  const totalChars = visible.reduce((sum, entry) => sum + entry.text.length, 0);
-  const mobileTextSize = totalChars > 24 ? 'text-[8px]' : 'text-[9px]';
-
   return (
     <div
-      className={`relative w-full leading-tight text-gray-500 transition-opacity sm:h-3.5 sm:leading-[normal] sm:text-xs ${mobileTextSize} ${
+      className={`relative w-full text-[9px] font-semibold leading-tight text-gray-500 transition-opacity sm:h-3.5 sm:text-xs sm:font-normal sm:leading-[normal] ${
         dimmed ? 'opacity-40' : ''
       } ${className}`}
+      style={mobileLabelCapStyle(visible.map(entry => entry.percent))}
     >
       {/* Captions are absolutely positioned, so they add no height of their own. On phones
           this copy of the longest one sits in the flow — same width cap, same clamp — so the
@@ -420,15 +433,19 @@ export default function AnswerSliderRow({
             five importance words at once would say nothing about what is selected. */}
         <div className="-mt-1 mb-1 sm:hidden">
           {isImportance ? (
-            <div className="relative text-[9px] leading-tight text-gray-500">
+            <div
+              className="relative text-[9px] font-semibold leading-tight text-gray-500"
+              // Only ever one caption on screen, so it gets the full allowance.
+              style={mobileLabelCapStyle([0])}
+            >
               {/* Height reserver: the caption is absolute and adds no height of its own. */}
-              <span className={`invisible block font-semibold uppercase ${LABEL_CLAMP}`} aria-hidden>
+              <span className={`invisible block uppercase ${LABEL_CLAMP}`} aria-hidden>
                 {activeLabel && !isOpenToAll ? activeLabel.toUpperCase() : '\u00A0'}
               </span>
               {activeLabel && !isOpenToAll && (
                 <span
                   key={`${displayValue}-${activeLabel}`}
-                  className={`mobile-value-label-in absolute top-0 font-semibold uppercase ${LABEL_CLAMP} ${labelAlign(
+                  className={`mobile-value-label-in absolute top-0 uppercase ${LABEL_CLAMP} ${labelAlign(
                     activeIndex,
                     getAnswerValues(labels).length
                   )}`}
