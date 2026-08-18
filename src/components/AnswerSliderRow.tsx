@@ -41,14 +41,13 @@ const labelStyle = (index: number, count: number, percent: number): React.CSSPro
 };
 
 /**
- * How wide one caption may get on a phone: 5% short of half the track, so two captions on
- * adjacent stops always keep a 10% gutter between them instead of running together. A
+ * How wide one caption may get on a phone: 55% less than half the track, so 22.5%. A
  * caption that needs more room wraps — to two lines, then it clips.
  *
  * Phones only. From `sm` up the captions revert to the single unwrapped line they have
  * always been, so the desktop layout is untouched.
  */
-const LABEL_MAX_WIDTH_PCT = 45;
+const LABEL_MAX_WIDTH_PCT = 22.5;
 export const LABEL_MAX_WIDTH = 'max-w-[var(--label-cap)] sm:max-w-none';
 const LABEL_CLAMP = `line-clamp-2 sm:line-clamp-none sm:whitespace-nowrap ${LABEL_MAX_WIDTH}`;
 
