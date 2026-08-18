@@ -989,8 +989,8 @@ export default function QuestionPage() {
   const meOtaAllowed = Boolean(question.open_to_all_me);
   // Mandatory questions (1–10) split into several named rows — FEMALE/MALE, ALCOHOL/
   // TOBACCO — so each row needs its caption. Everything above 10 is a single row whose
-  // caption just repeats the heading, so the phone layout drops it.
-  const hideRowLabelOnMobile = Number(question.question_number) > 10;
+  // caption just repeats the heading, so the row caption is dropped.
+  const hideQuestionRowLabel = Number(question.question_number) > 10;
 
   return (
     <OnboardingShell
@@ -1078,7 +1078,7 @@ export default function QuestionPage() {
           <div className="space-y-1 sm:space-y-3">
             <AnswerSliderRow
               label={rowLabel}
-              hideMobileRowLabel={hideRowLabelOnMobile}
+              hideRowLabel={hideQuestionRowLabel}
               labels={scaleLabels}
               value={lookingForAnswer}
               onChange={(value) => handleSliderChange('lookingForAnswer', value)}
@@ -1115,7 +1115,7 @@ export default function QuestionPage() {
 
           <AnswerSliderRow
             label={rowLabel}
-            hideMobileRowLabel={hideRowLabelOnMobile}
+            hideRowLabel={hideQuestionRowLabel}
             labels={scaleLabels}
             value={meAnswer}
             onChange={(value) => handleSliderChange('meAnswer', value)}
@@ -1138,7 +1138,7 @@ export default function QuestionPage() {
             value={importance.lookingFor}
             onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
             isImportance
-            hideMobileRowLabel
+            hideRowLabel
           />
         </div>
       </div>

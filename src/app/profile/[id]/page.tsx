@@ -3629,8 +3629,8 @@ export default function UserProfilePage() {
                     const isRelationship = questionNumber === 1;
                     // Mandatory questions (1–10) split into several named rows — FEMALE/MALE,
                     // HAVE/WANT — that each need their caption. Above 10 a question is one row
-                    // whose caption only repeats the heading, so the phone layout drops it.
-                    const hideRowLabelOnMobile = questionNumber > 10;
+                    // whose caption only repeats the heading, so the row caption is dropped.
+                    const hideQuestionRowLabel = questionNumber > 10;
 
                     // Icon mapping for grouped question cards
                     const editOptionIcons: Record<number, string> = {
@@ -3684,7 +3684,7 @@ export default function UserProfilePage() {
                                 <div className="space-y-1 sm:space-y-3">
                                   <AnswerSliderRow
                                     label={subRowLabel}
-                                    hideMobileRowLabel={hideRowLabelOnMobile}
+                                    hideRowLabel={hideQuestionRowLabel}
                                     labels={subScaleLabels}
                                     value={editSliderAnswers[`${subKey}_looking`] || 3}
                                     onChange={(val) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_looking`]: val }))}
@@ -3719,7 +3719,7 @@ export default function UserProfilePage() {
 
                                 <AnswerSliderRow
                                   label={subRowLabel}
-                                  hideMobileRowLabel={hideRowLabelOnMobile}
+                                  hideRowLabel={hideQuestionRowLabel}
                                   labels={subScaleLabels}
                                   value={editSliderAnswers[`${subKey}_me`] || 3}
                                   onChange={(val) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_me`]: val }))}
@@ -3741,7 +3741,7 @@ export default function UserProfilePage() {
                                   value={editImportanceValues.lookingFor}
                                   onChange={(val) => setEditImportanceValues(prev => ({ ...prev, lookingFor: val }))}
                                   isImportance
-                                  hideMobileRowLabel
+                                  hideRowLabel
                                 />
                               </div>
 
@@ -3866,7 +3866,7 @@ export default function UserProfilePage() {
                                 <AnswerSliderRow
                                   key={`looking-${question.id}`}
                                   label={label}
-                                  hideMobileRowLabel={hideRowLabelOnMobile}
+                                  hideRowLabel={hideQuestionRowLabel}
                                   labels={labels}
                                   value={editSliderAnswers[`${key}_looking`] || 3}
                                   onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_looking`]: value }))}
@@ -3906,7 +3906,7 @@ export default function UserProfilePage() {
                               <AnswerSliderRow
                                 key={question.id}
                                 label={label}
-                                hideMobileRowLabel={hideRowLabelOnMobile}
+                                hideRowLabel={hideQuestionRowLabel}
                                 labels={labels}
                                 value={editSliderAnswers[`${key}_me`] || 3}
                                 onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_me`]: value }))}
@@ -3953,7 +3953,7 @@ export default function UserProfilePage() {
                               isRelationship ? { ...prev, me: value } : { ...prev, lookingFor: value }
                             ))}
                             isImportance
-                            hideMobileRowLabel
+                            hideRowLabel
                           />
                         </div>
                         </div>
@@ -3970,8 +3970,8 @@ export default function UserProfilePage() {
                   const shareThemAnswers = canViewThemAnswers;
                   // Mandatory questions (1–10) split into several named rows — FEMALE/MALE,
                   // HAVE/WANT — that each need their caption. Above 10 a question is one row
-                  // whose caption only repeats the heading, so the phone layout drops it.
-                  const hideReadOnlyRowLabelOnMobile = Number(questionNumber) > 10;
+                  // whose caption only repeats the heading, so the row caption is dropped.
+                  const hideQuestionRowLabel = Number(questionNumber) > 10;
 
                   // Find user answers for this question
                   const answersForQuestion = userAnswers.filter(answer => {
@@ -4128,7 +4128,7 @@ export default function UserProfilePage() {
                               <AnswerSliderRow
                                 readOnly
                                 label={subQuestionRowLabel}
-                                hideMobileRowLabel={hideReadOnlyRowLabelOnMobile}
+                                hideRowLabel={hideQuestionRowLabel}
                                 labels={subQuestionLabels}
                                 value={meValue}
                                 showOta={isOpenToAllMe}
@@ -4148,7 +4148,7 @@ export default function UserProfilePage() {
                                 <AnswerSliderRow
                                   readOnly
                                   label={subQuestionRowLabel}
-                                  hideMobileRowLabel={hideReadOnlyRowLabelOnMobile}
+                                  hideRowLabel={hideQuestionRowLabel}
                                   labels={subQuestionLabels}
                                   value={lookingValue}
                                   showOta={isOpenToAllLooking}
@@ -4300,7 +4300,7 @@ export default function UserProfilePage() {
                                 key={`me-${question.id}`}
                                 readOnly
                                 label={label}
-                                hideMobileRowLabel={hideReadOnlyRowLabelOnMobile}
+                                hideRowLabel={hideQuestionRowLabel}
                                 labels={labels}
                                 value={meValue}
                                 showScaleAbove={perRowScale}
@@ -4331,7 +4331,7 @@ export default function UserProfilePage() {
                                 key={`looking-${question.id}`}
                                 readOnly
                                 label={label}
-                                hideMobileRowLabel={hideReadOnlyRowLabelOnMobile}
+                                hideRowLabel={hideQuestionRowLabel}
                                 labels={labels}
                                 value={lookingValue}
                                 showScaleAbove={perRowScale}

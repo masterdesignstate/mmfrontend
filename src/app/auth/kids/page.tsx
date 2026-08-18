@@ -358,7 +358,7 @@ export default function KidsPage() {
             value={importance.lookingFor}
             onChange={handleLookingForImportanceChange}
             isImportance
-            hideMobileRowLabel
+            hideRowLabel
           />
         </div>
       </div>

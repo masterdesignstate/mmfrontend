@@ -1241,8 +1241,8 @@ function QuestionEditPageContent() {
             label={row.label}
             // Mandatory questions split into several named rows (FEMALE/MALE, HAVE/WANT)
             // that each need their caption. Above 10 a question is a single row whose
-            // caption only repeats the heading, so the phone layout drops it.
-            hideMobileRowLabel={questionNumber > 10}
+            // caption only repeats the heading, so the row caption is dropped.
+            hideRowLabel={questionNumber > 10}
             labels={row.labels}
             showScaleAbove={perRowScale}
             value={sliderAnswers[row.stateKey] || 3}
@@ -1294,7 +1294,7 @@ function QuestionEditPageContent() {
         value={value}
         onChange={onChange}
         isImportance
-        hideMobileRowLabel
+        hideRowLabel
       />
     </div>
   );

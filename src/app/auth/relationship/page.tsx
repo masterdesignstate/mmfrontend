@@ -269,7 +269,7 @@ export default function RelationshipPage() {
             value={importance.me}
             onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
             isImportance
-            hideMobileRowLabel
+            hideRowLabel
           />
         </div>
       </div>

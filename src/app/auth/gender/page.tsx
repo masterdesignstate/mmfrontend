@@ -291,7 +291,7 @@ export default function GenderPage() {
             value={importance.lookingFor}
             onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
             isImportance
-            hideMobileRowLabel
+            hideRowLabel
           />
         </div>
       </div>

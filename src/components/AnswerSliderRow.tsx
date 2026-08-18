@@ -40,6 +40,25 @@ const labelStyle = (index: number, count: number, percent: number): React.CSSPro
   return { left: `${percent}%`, transform: 'translateX(-50%)' };
 };
 
+/**
+ * How wide one caption may get: 15% short of half the track, so two captions sitting on
+ * adjacent stops always keep a 30% gutter between them instead of running together.
+ * A caption that needs more room wraps — to two lines, then it clips.
+ */
+export const LABEL_MAX_WIDTH = 'max-w-[35%]';
+const LABEL_CLAMP = `line-clamp-2 ${LABEL_MAX_WIDTH}`;
+
+/** Text alignment that keeps a wrapped caption stacked under its own stop. */
+const labelAlign = (index: number, count: number) => {
+  if (index === 0) return 'text-left';
+  if (index === count - 1) return 'text-right';
+  return 'text-center';
+};
+
+/** The caption that will be tallest once wrapped — used to reserve the strip's height. */
+const longestText = (texts: Array<string | undefined>) =>
+  texts.reduce<string>((longest, text) => ((text || '').length > longest.length ? text || '' : longest), '');
+
 export function ScaleLabelStrip({
   labels,
   /** Fade the captions when the row accepts every answer, so they read as not in effect. */
@@ -72,14 +91,21 @@ export function ScaleLabelStrip({
 
   return (
     <div
-      className={`relative h-3 w-full text-gray-500 transition-opacity sm:h-3.5 sm:text-xs ${mobileTextSize} ${
+      className={`relative w-full leading-tight text-gray-500 transition-opacity sm:text-xs ${mobileTextSize} ${
         dimmed ? 'opacity-40' : ''
       } ${className}`}
     >
+      {/* Captions are absolutely positioned, so they add no height of their own. This copy
+          of the longest one sits in the flow — same width cap, same clamp — so the strip is
+          exactly one line tall until a caption genuinely needs a second. */}
+      <span className={`invisible block ${LABEL_CLAMP}`} aria-hidden>
+        {longestText(visible.map(entry => entry.text)).toUpperCase()}
+      </span>
+
       {visible.map(entry => (
         <span
           key={entry.value}
-          className="absolute whitespace-nowrap"
+          className={`absolute bottom-0 ${LABEL_CLAMP} ${labelAlign(entry.index, values.length)}`}
           style={labelStyle(entry.index, values.length, entry.percent)}
         >
           {entry.text.toUpperCase()}
@@ -225,8 +251,13 @@ export interface AnswerSliderRowProps extends RowControlsProps {
   readOnly?: boolean;
   /** Render the active label under the slider on `sm`+ (used by the IMPORTANCE row). */
   showActiveLabelBelow?: boolean;
-  /** Hide the row caption below the mobile slider when a surrounding section already names it. */
-  hideMobileRowLabel?: boolean;
+  /**
+   * Drop the row caption at every width — the desktop label column as well as the one under
+   * the mobile slider. For a row whose caption only repeats what the surrounding section or
+   * page heading already says: an IMPORTANCE row under an "Importance" heading, or a
+   * non-mandatory question, which is one row named after the question itself.
+   */
+  hideRowLabel?: boolean;
   /**
    * Render this row's own scale strip above its slider on `sm`+. For sections where every
    * row shares one scale, use AnswerScaleHeader once instead; this is for pages like Kids
@@ -255,7 +286,7 @@ export default function AnswerSliderRow({
   disabled = false,
   readOnly = false,
   showActiveLabelBelow = false,
-  hideMobileRowLabel = false,
+  hideRowLabel = false,
   showScaleAbove = false,
   className = '',
   ...controls
@@ -271,7 +302,7 @@ export default function AnswerSliderRow({
   const activeIndex = getAnswerValues(labels).indexOf(displayValue);
   const isOpenToAll = Boolean(controls.otaChecked && controls.showOta);
   const moveQuestionLabelLeft = Boolean(
-    !hideMobileRowLabel && !isOpenToAll && displayValue === 3 && activeLabel
+    !hideRowLabel && !isOpenToAll && displayValue === 3 && activeLabel
   );
   const hasMobileAction = Boolean(
     !readOnly && (controls.showOta || controls.showExclude || controls.showNote)
@@ -332,13 +363,17 @@ export default function AnswerSliderRow({
         showScaleAbove ? 'sm:items-end' : ''
       } ${readOnly ? READONLY_SCALE_GRID : SCALE_GRID} ${className}`}
     >
+      {/* The column is kept even when the caption is hidden, so every row in a section
+          lines its slider up at the same place. */}
       <div className="hidden min-w-0 items-baseline gap-2 sm:col-start-1 sm:row-start-1 sm:flex">
         {/* truncate is a backstop for arbitrarily long question names; every caption the
             mandatory questions produce fits the 120px column. title exposes the full text
             if one ever does clip. */}
-        <span className="truncate text-xs font-semibold text-gray-400" title={label}>
-          {label}
-        </span>
+        {!hideRowLabel && (
+          <span className="truncate text-xs font-semibold text-gray-400" title={label}>
+            {label}
+          </span>
+        )}
       </div>
 
       {readOnly ? (
@@ -366,10 +401,30 @@ export default function AnswerSliderRow({
           otaEnabled={!readOnly && Boolean(controls.showOta)}
           onOtaToggle={controls.onOtaToggle}
         />
-        <div className="relative -mt-1 mb-1 h-4 overflow-hidden text-[9px] sm:hidden">
-          {!hideMobileRowLabel && (
+        {/* Height reserver — see ScaleLabelStrip. Both captions below are absolute, so
+            without these the box would collapse. They are stacked in one grid cell rather
+            than measured as a single string, because the two carry different letter-spacing
+            and so wrap at different lengths; the cell takes whichever needs two lines. A
+            space keeps the usual one-line gap when a caption is not showing. */}
+        <div className="relative -mt-1 mb-1 grid text-[9px] leading-tight sm:hidden">
+          <span
+            className={`invisible col-start-1 row-start-1 font-semibold uppercase tracking-[0.12em] ${LABEL_CLAMP}`}
+            aria-hidden
+          >
+            {hideRowLabel ? '\u00A0' : label}
+          </span>
+          <span
+            className={`invisible col-start-1 row-start-1 font-semibold uppercase ${LABEL_CLAMP}`}
+            aria-hidden
+          >
+            {isOpenToAll || !activeLabel ? '\u00A0' : activeLabel.toUpperCase()}
+          </span>
+
+          {!hideRowLabel && (
             <span
-              className="absolute top-0 max-w-[48%] truncate font-semibold uppercase tracking-[0.12em] text-gray-400 transition-all duration-300 ease-out"
+              className={`absolute top-0 font-semibold uppercase tracking-[0.12em] text-gray-400 transition-all duration-300 ease-out ${LABEL_CLAMP} ${
+                moveQuestionLabelLeft ? 'text-left' : 'text-center'
+              }`}
               style={
                 moveQuestionLabelLeft
                   ? { left: 0, transform: 'translateX(0)' }
@@ -383,8 +438,12 @@ export default function AnswerSliderRow({
           {activeLabel && !isOpenToAll && (
             <span
               key={`${displayValue}-${activeLabel}`}
-              className="mobile-value-label-in absolute top-0 max-w-[48%] truncate whitespace-nowrap font-semibold uppercase text-[#672DB7]"
+              className={`mobile-value-label-in absolute top-0 font-semibold uppercase text-[#672DB7] ${LABEL_CLAMP} ${labelAlign(
+                activeIndex,
+                getAnswerValues(labels).length
+              )}`}
               style={labelStyle(activeIndex, getAnswerValues(labels).length, activePercent)}
+              title={activeLabel}
             >
               {activeLabel.toUpperCase()}
             </span>
@@ -394,10 +453,16 @@ export default function AnswerSliderRow({
 
       {showActiveLabelBelow && (
         <div className="hidden sm:col-start-2 sm:row-start-2 sm:block">
-          <div className="relative h-4 text-xs text-gray-500">
+          <div className="relative text-xs leading-tight text-gray-500">
+            <span className={`invisible block ${LABEL_CLAMP}`} aria-hidden>
+              {activeLabel ? activeLabel.toUpperCase() : '\u00A0'}
+            </span>
             {activeLabel && (
               <span
-                className="absolute whitespace-nowrap"
+                className={`absolute top-0 ${LABEL_CLAMP} ${labelAlign(
+                  activeIndex,
+                  getAnswerValues(labels).length
+                )}`}
                 style={labelStyle(activeIndex, getAnswerValues(labels).length, activePercent)}
               >
                 {activeLabel.toUpperCase()}

@@ -393,7 +393,7 @@ export default function HabitsPage() {
             value={importance.lookingFor}
             onChange={handleLookingForImportanceChange}
             isImportance
-            hideMobileRowLabel
+            hideRowLabel
           />
         </div>
       </div>
