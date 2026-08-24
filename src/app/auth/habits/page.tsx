@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import AnswerSliderRow from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
@@ -320,14 +320,13 @@ export default function HabitsPage() {
         )}
 
         {/* Them Section */}
-        <div className="mb-2 sm:mb-6">
-          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
+        <div className="mb-2">
+          <h3 className="-mb-2 text-center text-lg font-bold text-black">
             Them
           </h3>
 
-          <AnswerScaleHeader labels={HABITS_LABELS} showOta className="mb-2" />
 
-          <div className="space-y-1 sm:space-y-3">
+          <div className="space-y-1">
             {habitRows.map(({ key, index, label }) => (
               <AnswerSliderRow
                 key={`looking-${key}`}
@@ -346,26 +345,15 @@ export default function HabitsPage() {
               />
             ))}
 
-            <div className="hidden sm:block">
-              <AnswerSliderRow
-                label="IMPORTANCE"
-                labels={IMPORTANCE_LABELS}
-                value={importance.lookingFor}
-                onChange={handleLookingForImportanceChange}
-                isImportance
-                showActiveLabelBelow
-              />
-            </div>
           </div>
         </div>
 
         {/* Me Section */}
-        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+        <div className="mb-2 pt-1">
+          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-          <AnswerScaleHeader labels={HABITS_LABELS} showOta className="mb-2" />
 
-          <div className="space-y-1 sm:space-y-3">
+          <div className="space-y-1">
             {habitRows.map(({ key, index, label }) => (
               <AnswerSliderRow
                 key={`me-${key}`}
@@ -384,7 +372,7 @@ export default function HabitsPage() {
           </div>
         </div>
 
-        <div className="mb-2 pt-1 sm:hidden">
+        <div className="mb-2 pt-1">
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
           <AnswerSliderRow

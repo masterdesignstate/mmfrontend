@@ -16,7 +16,7 @@ import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import NoteReveal from '@/components/NoteReveal';
-import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import AnswerSliderRow from '@/components/AnswerSliderRow';
 import {
   MobileQuestionActionDock,
   MobileQuestionActionsProvider,
@@ -3630,7 +3630,6 @@ export default function UserProfilePage() {
                     // Mandatory questions (1–10) split into several named rows — FEMALE/MALE,
                     // HAVE/WANT — that each need their caption. Above 10 a question is one row
                     // whose caption only repeats the heading, so the row caption is dropped.
-                    const hideQuestionRowLabel = questionNumber > 10;
 
                     // Icon mapping for grouped question cards
                     const editOptionIcons: Record<number, string> = {
@@ -3676,15 +3675,14 @@ export default function UserProfilePage() {
                               )}
 
                               {/* THEM section (first) */}
-                              <div className="mb-2 sm:mb-6">
-                                <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl" style={{ color: '#672DB7' }}>Them</h3>
+                              <div className="mb-2">
+                                <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h3>
 
-                                <AnswerScaleHeader labels={subScaleLabels} showOta={subLookingOta} className="mb-2" />
 
-                                <div className="space-y-1 sm:space-y-3">
+                                <div className="space-y-1">
                                   <AnswerSliderRow
                                     label={subRowLabel}
-                                    hideRowLabel={hideQuestionRowLabel}
+                                    hideRowLabel
                                     labels={subScaleLabels}
                                     value={editSliderAnswers[`${subKey}_looking`] || 3}
                                     onChange={(val) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_looking`]: val }))}
@@ -3698,28 +3696,17 @@ export default function UserProfilePage() {
                                     onExcludedValuesChange={(values) => setEditExcludedValuesForKey(subKey, values, selectedSubQ)}
                                   />
 
-                                  <div className="hidden sm:block">
-                                    <AnswerSliderRow
-                                      label="IMPORTANCE"
-                                      labels={IMPORTANCE_LABELS}
-                                      value={editImportanceValues.lookingFor}
-                                      onChange={(val) => setEditImportanceValues(prev => ({ ...prev, lookingFor: val }))}
-                                      isImportance
-                                      showActiveLabelBelow
-                                    />
-                                  </div>
                                 </div>
                               </div>
 
                               {/* ME section */}
-                              <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-                                <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+                              <div className="mb-2 pt-1">
+                                <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-                                <AnswerScaleHeader labels={subScaleLabels} showOta={subMeOta} className="mb-2" />
 
                                 <AnswerSliderRow
                                   label={subRowLabel}
-                                  hideRowLabel={hideQuestionRowLabel}
+                                  hideRowLabel
                                   labels={subScaleLabels}
                                   value={editSliderAnswers[`${subKey}_me`] || 3}
                                   onChange={(val) => setEditSliderAnswers(prev => ({ ...prev, [`${subKey}_me`]: val }))}
@@ -3733,7 +3720,7 @@ export default function UserProfilePage() {
                               </div>
 
                               {/* Importance — mobile only; desktop keeps it inside the Them section. */}
-                              <div className="mb-2 pt-1 sm:hidden">
+                              <div className="mb-2 pt-1">
                                 <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
                                 <AnswerSliderRow
                                   label="IMPORTANCE"
@@ -3830,8 +3817,6 @@ export default function UserProfilePage() {
                       label: (question.question_name || 'ANSWER').toUpperCase(),
                       labels: buildQuestionScaleLabels(question, questionNumber),
                     }));
-                    const editThemOta = displayQuestionData.some(questionAllowsLookingOta);
-                    const editMeOta = displayQuestionData.some((q) => q.open_to_all_me);
 
                     return (
                       <div className="w-full overflow-x-hidden">
@@ -3856,17 +3841,16 @@ export default function UserProfilePage() {
 
                         {/* Them Section (shown for all except Q1 Relationship) */}
                         {!isRelationship && (
-                          <div className="mb-2 sm:mb-6">
-                            <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl" style={{ color: '#672DB7' }}>Them</h3>
+                          <div className="mb-2">
+                            <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h3>
 
-                            <AnswerScaleHeader labels={editRows[0]?.labels || []} showOta={editThemOta} className="mb-2" />
 
-                            <div className="space-y-1 sm:space-y-3">
+                            <div className="space-y-1">
                               {editRows.map(({ question, key, label, labels }) => (
                                 <AnswerSliderRow
                                   key={`looking-${question.id}`}
                                   label={label}
-                                  hideRowLabel={hideQuestionRowLabel}
+                                  hideRowLabel={editRows.length === 1}
                                   labels={labels}
                                   value={editSliderAnswers[`${key}_looking`] || 3}
                                   onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_looking`]: value }))}
@@ -3881,32 +3865,21 @@ export default function UserProfilePage() {
                                 />
                               ))}
 
-                              <div className="hidden sm:block">
-                                <AnswerSliderRow
-                                  label="IMPORTANCE"
-                                  labels={IMPORTANCE_LABELS}
-                                  value={editImportanceValues.lookingFor}
-                                  onChange={(value) => setEditImportanceValues(prev => ({ ...prev, lookingFor: value }))}
-                                  isImportance
-                                  showActiveLabelBelow
-                                />
-                              </div>
                             </div>
                           </div>
                         )}
 
                         {/* Me Section (no importance slider, except Q1) */}
-                        <div className={`mb-2 sm:mb-6 ${!isRelationship ? 'pt-1 sm:pt-8' : ''}`}>
-                          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+                        <div className={`mb-2 ${!isRelationship ? 'pt-1' : ''}`}>
+                          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-                          <AnswerScaleHeader labels={editRows[0]?.labels || []} showOta={editMeOta} className="mb-2" />
 
-                          <div className="space-y-1 sm:space-y-3">
+                          <div className="space-y-1">
                             {editRows.map(({ question, key, label, labels }) => (
                               <AnswerSliderRow
                                 key={question.id}
                                 label={label}
-                                hideRowLabel={hideQuestionRowLabel}
+                                hideRowLabel={editRows.length === 1}
                                 labels={labels}
                                 value={editSliderAnswers[`${key}_me`] || 3}
                                 onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_me`]: value }))}
@@ -3927,23 +3900,11 @@ export default function UserProfilePage() {
                             ))}
 
                             {/* For Q1: importance slider in Me section */}
-                            {isRelationship && (
-                              <div className="hidden sm:block">
-                                <AnswerSliderRow
-                                  label="IMPORTANCE"
-                                  labels={IMPORTANCE_LABELS}
-                                  value={editImportanceValues.me}
-                                  onChange={(value) => setEditImportanceValues(prev => ({ ...prev, me: value }))}
-                                  isImportance
-                                  showActiveLabelBelow
-                                />
-                              </div>
-                            )}
                           </div>
                         </div>
 
                         {/* Importance — mobile only; desktop keeps it inside its section. */}
-                        <div className="mb-2 pt-1 sm:hidden">
+                        <div className="mb-2 pt-1">
                           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
                           <AnswerSliderRow
                             label="IMPORTANCE"
@@ -3971,7 +3932,6 @@ export default function UserProfilePage() {
                   // Mandatory questions (1–10) split into several named rows — FEMALE/MALE,
                   // HAVE/WANT — that each need their caption. Above 10 a question is one row
                   // whose caption only repeats the heading, so the row caption is dropped.
-                  const hideQuestionRowLabel = Number(questionNumber) > 10;
 
                   // Find user answers for this question
                   const answersForQuestion = userAnswers.filter(answer => {
@@ -3981,15 +3941,13 @@ export default function UserProfilePage() {
 
                   // Special handling for Relationship question (question_number === 1) - ONLY Me section
                   if (questionNumber === 1) {
-                    const relationshipLabels = buildQuestionScaleLabels(selectedQuestionData[0], questionNumber);
 
                     return (
-                      <div className="mb-2 sm:mb-6">
-                        <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+                      <div className="mb-2">
+                        <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-                        <AnswerScaleHeader labels={relationshipLabels} readOnly className="mb-2" />
 
-                        <div className="space-y-1 sm:space-y-3">
+                        <div className="space-y-1">
                           {selectedQuestionData.map((question: any) => {
                             const answer = answersForQuestion.find(a => {
                               const questionId = typeof a.question === 'object' ? a.question.id : a.question;
@@ -4031,7 +3989,6 @@ export default function UserProfilePage() {
                             labels={IMPORTANCE_LABELS}
                             value={answersForQuestion[0]?.me_importance || 3}
                             isImportance
-                            showActiveLabelBelow
                           />
                         </div>
                       </div>
@@ -4121,14 +4078,13 @@ export default function UserProfilePage() {
                                 </div>
                               )}
 
-                              <h4 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-xl">Me</h4>
+                              <h4 className="-mb-2 text-center text-lg font-bold">Me</h4>
 
-                              <AnswerScaleHeader labels={subQuestionLabels} readOnly className="mb-2" />
 
                               <AnswerSliderRow
                                 readOnly
                                 label={subQuestionRowLabel}
-                                hideRowLabel={hideQuestionRowLabel}
+                                hideRowLabel
                                 labels={subQuestionLabels}
                                 value={meValue}
                                 showOta={isOpenToAllMe}
@@ -4140,15 +4096,14 @@ export default function UserProfilePage() {
 
                             {/* Them Section */}
                             {shareThemAnswers && isShared && (
-                              <div className="mb-2 pt-1 sm:mb-6 sm:pt-4">
-                                <h4 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-xl" style={{ color: '#672DB7' }}>Them</h4>
+                              <div className="mb-2 pt-1">
+                                <h4 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h4>
 
-                                <AnswerScaleHeader labels={subQuestionLabels} readOnly className="mb-2" />
 
                                 <AnswerSliderRow
                                   readOnly
                                   label={subQuestionRowLabel}
-                                  hideRowLabel={hideQuestionRowLabel}
+                                  hideRowLabel
                                   labels={subQuestionLabels}
                                   value={lookingValue}
                                   showOta={isOpenToAllLooking}
@@ -4259,7 +4214,6 @@ export default function UserProfilePage() {
                       }),
                     }));
                     // Kids is the one question whose two rows carry different scales.
-                    const perRowScale = isKidsQuestion;
 
                     const canShowOtaColumn = !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion;
 
@@ -4285,12 +4239,9 @@ export default function UserProfilePage() {
 
                     // Me sliders section
                     const renderMeSliders = () => (
-                      <div className={`mb-2 sm:mb-6 ${isDisabled ? 'pointer-events-none' : ''}`}>
-                        <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
-                        {!perRowScale && (
-                          <AnswerScaleHeader labels={readOnlyRows[0]?.labels || []} readOnly className="mb-2" />
-                        )}
-                        <div className="space-y-1 sm:space-y-3">
+                      <div className={`mb-2 ${isDisabled ? 'pointer-events-none' : ''}`}>
+                        <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+                        <div className="space-y-1">
                           {readOnlyRows.map(({ question, label, labels, answer }) => {
                             const isOpenToAllMe = Number(answer?.me_answer) === 6 || answer?.me_open_to_all || false;
                             const meValue = isOpenToAllMe ? 3 : (answer?.me_answer !== undefined ? Number(answer.me_answer) : 3);
@@ -4300,10 +4251,9 @@ export default function UserProfilePage() {
                                 key={`me-${question.id}`}
                                 readOnly
                                 label={label}
-                                hideRowLabel={hideQuestionRowLabel}
+                                hideRowLabel={readOnlyRows.length === 1}
                                 labels={labels}
                                 value={meValue}
-                                showScaleAbove={perRowScale}
                                 showOta={showMeOtaColumn && isOpenToAllMe}
                                 otaChecked={isOpenToAllMe}
                               />
@@ -4316,12 +4266,9 @@ export default function UserProfilePage() {
 
                     // Them sliders section
                     const renderThemSliders = () => (
-                      <div className="mb-2 sm:mb-6">
-                        <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl" style={{ color: '#672DB7' }}>Them</h3>
-                        {!perRowScale && (
-                          <AnswerScaleHeader labels={readOnlyRows[0]?.labels || []} readOnly className="mb-2" />
-                        )}
-                        <div className="space-y-1 sm:space-y-3">
+                      <div className="mb-2">
+                        <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h3>
+                        <div className="space-y-1">
                           {readOnlyRows.map(({ question, label, labels, answer }) => {
                             const isOpenToAllLooking = Number(answer?.looking_for_answer) === 6 || answer?.looking_for_open_to_all || false;
                             const lookingValue = isOpenToAllLooking ? 3 : (answer?.looking_for_answer !== undefined ? Number(answer.looking_for_answer) : 3);
@@ -4331,10 +4278,9 @@ export default function UserProfilePage() {
                                 key={`looking-${question.id}`}
                                 readOnly
                                 label={label}
-                                hideRowLabel={hideQuestionRowLabel}
+                                hideRowLabel={readOnlyRows.length === 1}
                                 labels={labels}
                                 value={lookingValue}
-                                showScaleAbove={perRowScale}
                                 showOta={showThemOtaColumn && isOpenToAllLooking}
                                 otaChecked={isOpenToAllLooking}
                               />

@@ -1658,9 +1658,19 @@ function QuestionsPageContent() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                    {/* min-w + px rather than a fixed w-8: four-digit counts need the room. */}
-                    <div className="flex h-7 min-w-7 items-center justify-center rounded-full bg-[#ECECEC] px-1.5 sm:h-8 sm:min-w-8 sm:px-2">
-                      <span className="text-xs font-medium tabular-nums text-gray-700 sm:text-sm">{answerCount}</span>
+                    {/* min-w + px rather than a fixed w-8: four-digit counts need the room.
+                        Those long counts also step the digits down a size — at the normal
+                        size they ran into the pill's rounded ends. */}
+                    <div className="flex h-7 min-w-7 items-center justify-center rounded-full bg-[#ECECEC] px-2.5 sm:h-8 sm:min-w-8 sm:px-3">
+                      <span
+                        className={`font-medium tabular-nums leading-none text-gray-700 ${
+                          String(answerCount).length > 3
+                            ? 'text-[10px] sm:text-xs'
+                            : 'text-xs sm:text-sm'
+                        }`}
+                      >
+                        {answerCount}
+                      </span>
                     </div>
                     {/* The whole card is the tap target on phones, so the chevron is pure
                         decoration there — dropping it buys the count and title real width. */}

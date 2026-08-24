@@ -7,7 +7,7 @@ import { mutate as globalMutate } from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
-import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import AnswerSliderRow from '@/components/AnswerSliderRow';
 import {
   MobileQuestionActionDock,
   MobileQuestionActionsProvider,
@@ -1200,11 +1200,6 @@ function QuestionEditPageContent() {
     rows,
     showExclude = false,
     showNote = false,
-    /** Omit for sections without an importance slider (the Me side of multi-part questions). */
-    importanceValue,
-    onImportanceChange,
-    /** True when each row carries its own scale, so there is no shared header strip. */
-    perRowScale = false,
     className = '',
   }: {
     title: string;
@@ -1212,39 +1207,27 @@ function QuestionEditPageContent() {
     rows: SliderRowSpec[];
     showExclude?: boolean;
     showNote?: boolean;
-    importanceValue?: number;
-    onImportanceChange?: (value: number) => void;
-    perRowScale?: boolean;
     className?: string;
   }) => (
-    <div className={`mb-2 sm:mb-6 ${className}`}>
+    <div className={`mb-2 ${className}`}>
       <h3
-        className={`-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl ${
+        className={`-mb-2 text-center text-lg font-bold ${
           titleColor ? 'text-black' : ''
         }`}
       >
         {title}
       </h3>
 
-      {!perRowScale && (
-        <AnswerScaleHeader
-          labels={rows[0]?.labels || DEFAULT_SCALE_LABELS}
-          showOta={rows.some(row => row.otaEnabled)}
-          className="mb-2"
-        />
-      )}
 
-      <div className="space-y-1 sm:space-y-3">
+      <div className="space-y-1">
         {rows.map(row => (
           <AnswerSliderRow
             key={`${title}-${row.stateKey}`}
             label={row.label}
-            // Mandatory questions split into several named rows (FEMALE/MALE, HAVE/WANT)
-            // that each need their caption. Above 10 a question is a single row whose
-            // caption only repeats the heading, so the row caption is dropped.
-            hideRowLabel={questionNumber > 10}
+            // Several named rows (FEMALE/MALE, HAVE/WANT) each need their caption to be
+            // told apart. A lone row is already named by the question heading above it.
+            hideRowLabel={rows.length === 1}
             labels={row.labels}
-            showScaleAbove={perRowScale}
             value={sliderAnswers[row.stateKey] || 3}
             onChange={(value) => setSliderAnswers(prev => ({ ...prev, [row.stateKey]: value }))}
             showOta={row.otaEnabled}
@@ -1265,27 +1248,15 @@ function QuestionEditPageContent() {
           />
         ))}
 
-        {importanceValue !== undefined && onImportanceChange && (
-          <div className="hidden sm:block">
-            <AnswerSliderRow
-              label="IMPORTANCE"
-              labels={IMPORTANCE_LABELS}
-              value={importanceValue}
-              onChange={onImportanceChange}
-              isImportance
-              showActiveLabelBelow
-            />
-          </div>
-        )}
       </div>
     </div>
   );
 
-  const renderMobileImportanceSection = (
+  const renderImportanceSection = (
     value: number,
     onChange: (value: number) => void
   ) => (
-    <div className="mb-2 pt-1 sm:hidden">
+    <div className="mb-2 pt-1">
       <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
       <AnswerSliderRow
@@ -1329,10 +1300,9 @@ function QuestionEditPageContent() {
                 otaEnabled: question.open_to_all_me,
               })),
               showExclude: true,
-              importanceValue: importanceValues.me,
-              onImportanceChange: (value) => setImportanceValues(prev => ({ ...prev, me: value })),
+              showNote: true,
             })}
-            {renderMobileImportanceSection(
+            {renderImportanceSection(
               importanceValues.me,
               (value) => setImportanceValues(prev => ({ ...prev, me: value }))
             )}
@@ -1367,8 +1337,6 @@ function QuestionEditPageContent() {
                 otaEnabled: questionAllowsLookingOta(question),
               })),
               showExclude: true,
-              importanceValue: importanceValues.lookingFor,
-              onImportanceChange: (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value })),
             })}
 
             {/* Me section — no importance slider, it is shared with Them. */}
@@ -1383,9 +1351,9 @@ function QuestionEditPageContent() {
                 otaEnabled: question.open_to_all_me,
               })),
               showNote: true,
-              className: 'pt-1 sm:pt-8',
+              className: 'pt-1',
             })}
-            {renderMobileImportanceSection(
+            {renderImportanceSection(
               importanceValues.lookingFor,
               (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
             )}
@@ -1397,7 +1365,6 @@ function QuestionEditPageContent() {
     // Basic multi-slider questions like Exercise/Habits/Religion (question_number === 6, 7, 8, 9, 10, etc.)
     if ([6, 7, 8, 9, 10].includes(questionNumber)) {
       const isKidsQuestion = questionNumber === 10;
-      const hasRowScaleLabels = Boolean(getScaleLabelsForQuestion(questionNumber));
 
       // For kids question, sort so Want (group_number=2) comes before Have (group_number=1)
       if (isKidsQuestion) {
@@ -1411,7 +1378,6 @@ function QuestionEditPageContent() {
             {renderSliderSection({
               title: 'Them',
               titleColor: '#672DB7',
-              perRowScale: hasRowScaleLabels,
               rows: questions.map((question) => ({
                 question,
                 storageKey: `q${question.group_number || question.id}`,
@@ -1421,14 +1387,11 @@ function QuestionEditPageContent() {
                 otaEnabled: questionAllowsLookingOta(question),
               })),
               showExclude: true,
-              importanceValue: importanceValues.lookingFor,
-              onImportanceChange: (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value })),
             })}
 
             {/* Me section — no importance slider, it is shared with Them. */}
             {renderSliderSection({
               title: 'Me',
-              perRowScale: hasRowScaleLabels,
               rows: questions.map((question) => ({
                 question,
                 storageKey: `q${question.group_number || question.id}`,
@@ -1438,9 +1401,9 @@ function QuestionEditPageContent() {
                 otaEnabled: question.open_to_all_me,
               })),
               showNote: true,
-              className: 'pt-1 sm:pt-8',
+              className: 'pt-1',
             })}
-            {renderMobileImportanceSection(
+            {renderImportanceSection(
               importanceValues.lookingFor,
               (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
             )}
@@ -1620,8 +1583,6 @@ function QuestionEditPageContent() {
                 otaEnabled: questionAllowsLookingOta(question),
               }],
               showExclude: true,
-              importanceValue: importanceValues.lookingFor,
-              onImportanceChange: (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value })),
             })}
 
             {renderSliderSection({
@@ -1635,9 +1596,9 @@ function QuestionEditPageContent() {
                 otaEnabled: question.open_to_all_me,
               }],
               showNote: true,
-              className: 'pt-1 sm:pt-8',
+              className: 'pt-1',
             })}
-            {renderMobileImportanceSection(
+            {renderImportanceSection(
               importanceValues.lookingFor,
               (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
             )}

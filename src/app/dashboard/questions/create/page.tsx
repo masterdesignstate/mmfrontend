@@ -365,7 +365,7 @@ export default function CreateQuestionPage() {
             />
           </div>
 
-          {/* Group Name Text Section */}
+          {/* Group Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Group Question
@@ -401,10 +401,10 @@ export default function CreateQuestionPage() {
           {/* Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question
+              Question Text
             </label>
             <textarea
-              aria-label="Question"
+              aria-label="Question text"
               value={question}
               onChange={(e) => handleQuestionChange(e.target.value)}
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white cursor-text resize-none ${

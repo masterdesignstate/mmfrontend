@@ -105,6 +105,22 @@ const capitalizeDropdownLabel = (label: string) =>
       `${prefix}${letter.toLocaleUpperCase()}`
     );
 
+/**
+ * All three dock chips share one shape so the rail reads as a single row of equal
+ * buttons. Each chip fills its grid column, so the widest label — "Open to All" —
+ * sets the width the other two adopt.
+ */
+const DOCK_CHIP =
+  'inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-xs font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-colors';
+
+/**
+ * One chip's share of the rail: a third of the row, whatever the row actually holds. A
+ * question with no Open to All — most of them — used to leave that column standing empty
+ * and push the other two off centre, so the rail lays out only the chips it has and centres
+ * them, while each keeps the width it would have had in a full row of three.
+ */
+const DOCK_SLOT = 'w-[calc((100%-1rem)/3)]';
+
 function MobileExclusionPicker({
   entries,
 }: {
@@ -169,7 +185,7 @@ function MobileExclusionPicker({
   };
 
   return (
-    <div ref={rootRef} className="relative flex justify-center">
+    <div ref={rootRef} className={`relative flex justify-center ${DOCK_SLOT}`}>
       <button
         type="button"
         aria-label="Choose question and excluded values"
@@ -178,13 +194,13 @@ function MobileExclusionPicker({
           if (open) close();
           else setOpen(true);
         }}
-        className={`inline-flex h-8 w-[96px] cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-colors ${
+        className={`${DOCK_CHIP} ${
           hasAnyExclusions
             ? 'border-[#672DB7] bg-[#672DB7] text-white'
             : 'border-gray-300 bg-white text-gray-700'
         }`}
       >
-        <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none">
+        <svg aria-hidden="true" className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none">
           <path
             d="M3 4.5h10M5 8h6M7 11.5h2"
             stroke="currentColor"
@@ -318,10 +334,10 @@ function MobileExclusionPicker({
 }
 
 /**
- * Mobile-only action rail. It lives between the scrolling question and the Back/Next
+ * The question action rail. It lives between the scrolling question and the Back/Next
  * footer, so the actions remain reachable without covering either the content or browser
  * controls. Open to All is intentionally explanatory rather than an input: the slider
- * thumb is the control on phones.
+ * thumb is the control.
  */
 export function MobileQuestionActionDock() {
   const { entries, activeId, questionNote } = useContext(StateContext);
@@ -358,25 +374,25 @@ export function MobileQuestionActionDock() {
 
   return (
     <aside
-      className="relative z-40 shrink-0 px-4 py-2 sm:hidden"
+      className="relative z-40 shrink-0 px-4 py-2"
       aria-label="Question actions"
     >
-      <div className="mx-auto grid max-w-sm grid-cols-3 items-center justify-items-center gap-3">
-        {otaEntries.length > 0 ? (
-          <div ref={otaHelpRef} className="relative">
+      <div className="mx-auto flex max-w-sm items-center justify-center gap-2">
+        {otaEntries.length > 0 && (
+          <div ref={otaHelpRef} className={`relative ${DOCK_SLOT}`}>
             <button
               type="button"
               aria-expanded={otaHelpOpen}
               aria-label="How to use Open to All"
               onClick={() => setOtaHelpOpen(open => !open)}
-              className={`inline-flex h-8 min-w-[112px] cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-colors ${
+              className={`${DOCK_CHIP} ${
                 hasActiveOta
                   ? 'border-[#672DB7] bg-purple-50 text-[#672DB7]'
                   : 'border-gray-300 bg-white text-gray-700'
               }`}
             >
               <span>Open to All</span>
-              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] leading-none">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none">
                 ?
               </span>
             </button>
@@ -391,17 +407,11 @@ export function MobileQuestionActionDock() {
               </div>
             )}
           </div>
-        ) : (
-          <span aria-hidden />
         )}
 
-        {excludeEntries.length > 0 ? (
-          <MobileExclusionPicker entries={excludeEntries} />
-        ) : (
-          <span aria-hidden />
-        )}
+        {excludeEntries.length > 0 && <MobileExclusionPicker entries={excludeEntries} />}
 
-        {noteEntry ? (
+        {noteEntry && (
           <NoteControl
             value={noteEntry.note || ''}
             onChange={noteEntry.onNoteChange || (() => {})}
@@ -412,10 +422,8 @@ export function MobileQuestionActionDock() {
                 ? 'Add context about this question as a whole. Who can see it is controlled by Note Visibility in Settings.'
                 : undefined
             }
-            className="[&>button]:w-[96px] [&>button]:text-xs [&>button]:shadow-[0_4px_14px_rgba(0,0,0,0.08)]"
+            className={`${DOCK_SLOT} [&>button]:h-8 [&>button]:w-full [&>button]:gap-1.5 [&>button]:whitespace-nowrap [&>button]:px-2 [&>button]:text-xs [&>button]:shadow-[0_4px_14px_rgba(0,0,0,0.08)]`}
           />
-        ) : (
-          <span aria-hidden />
         )}
       </div>
     </aside>

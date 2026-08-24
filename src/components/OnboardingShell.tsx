@@ -69,8 +69,11 @@ export default function OnboardingShell({
           )}
         </div>
 
+        {/* The last section's bottom margin sits below the content but still counts toward
+            scrollHeight, so a page that otherwise fits produced a few pixels of scroll and a
+            scrollbar that moved nothing. Drop it; the pane's own padding closes the page. */}
         <main
-          className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-6 sm:py-4 ${contentClassName}`}
+          className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 [&>*>*:last-child]:mb-0 sm:px-6 sm:py-4 ${contentClassName}`}
         >
           {children}
         </main>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import AnswerSliderRow from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
@@ -36,13 +36,6 @@ export default function RelationshipPage() {
     partner: 3
   });
 
-  const [openToAll, setOpenToAll] = useState({
-    friend: false,
-    hookup: false,
-    date: false,
-    partner: false
-  });
-
   const [importance, setImportance] = useState({
     me: 3
   });
@@ -54,8 +47,7 @@ export default function RelationshipPage() {
   });
   const [questionNote, setQuestionNote] = useState('');
 
-  const blockedExclusions = (key: RelationshipKey) =>
-    openToAll[key] ? [] : [myAnswers[key]];
+  const blockedExclusions = (key: RelationshipKey) => [myAnswers[key]];
 
   const setExcludedFor = (key: RelationshipKey, values: number[]) =>
     setExcluded(prev => ({
@@ -84,10 +76,6 @@ export default function RelationshipPage() {
 
   const handleSliderChange = (questionKey: keyof typeof myAnswers, value: number) => {
     setMyAnswers(prev => ({ ...prev, [questionKey]: value }));
-  };
-
-  const handleOpenToAllToggle = (questionKey: keyof typeof openToAll) => {
-    setOpenToAll(prev => ({ ...prev, [questionKey]: !prev[questionKey] }));
   };
 
   const handleNext = async () => {
@@ -119,18 +107,17 @@ export default function RelationshipPage() {
       const saveAnswersInBackground = async () => {
         try {
           console.log('🚀 Starting to save relationship answers to backend...');
-          console.log('📊 Current answers:', { myAnswers, openToAll, importance });
+          console.log('📊 Current answers:', { myAnswers, importance });
           
           // Prepare user answers for each relationship question
           const userAnswers = Object.entries(myAnswers).map(([questionKey, answerValue]) => {
-            const openToAllKey = questionKey as keyof typeof openToAll;
             const questionId = relationshipQuestionIds[questionKey as keyof typeof relationshipQuestionIds];
-            
+
             return {
               user_id: userId,
               question_id: questionId,
-              me_answer: openToAll[openToAllKey] ? 6 : answerValue,
-              me_open_to_all: openToAll[openToAllKey],
+              me_answer: answerValue,
+              me_open_to_all: false,
               me_importance: importance.me,
               me_share: true,
               looking_for_answer: 1,
@@ -219,12 +206,11 @@ export default function RelationshipPage() {
         )}
 
         {/* Me Section */}
-        <div className="mb-2 sm:mb-6">
-          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+        <div className="mb-2">
+          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-          <AnswerScaleHeader labels={DEFAULT_SCALE_LABELS} showOta className="mb-2" />
 
-          <div className="space-y-1 sm:space-y-3">
+          <div className="space-y-1">
             {relationshipLabels.map((label) => {
               const questionKey = label.toLowerCase() as keyof typeof myAnswers;
 
@@ -235,9 +221,6 @@ export default function RelationshipPage() {
                   labels={DEFAULT_SCALE_LABELS}
                   value={myAnswers[questionKey]}
                   onChange={(value) => handleSliderChange(questionKey, value)}
-                  showOta
-                  otaChecked={openToAll[questionKey]}
-                  onOtaToggle={() => handleOpenToAllToggle(questionKey)}
                   showExclude
                   excludedValues={excluded[questionKey]}
                   allowedExclusionValues={DEFAULT_EXCLUSION_VALUES}
@@ -247,20 +230,10 @@ export default function RelationshipPage() {
               );
             })}
 
-            <div className="hidden sm:block">
-              <AnswerSliderRow
-                label="IMPORTANCE"
-                labels={IMPORTANCE_LABELS}
-                value={importance.me}
-                onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
-                isImportance
-                showActiveLabelBelow
-              />
-            </div>
           </div>
         </div>
 
-        <div className="mb-2 pt-1 sm:hidden">
+        <div className="mb-2 pt-1">
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
           <AnswerSliderRow

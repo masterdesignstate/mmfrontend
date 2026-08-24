@@ -178,7 +178,7 @@ export default function AnswerSlider({
   return (
     // py-3 on mobile gives the 20px track a ~44px hit area without changing its look.
     <div
-      className={`relative flex w-full select-none items-center py-3 sm:py-0 ${
+      className={`relative flex w-full select-none items-center py-3 ${
         interactive ? 'cursor-pointer' : 'cursor-default'
       }`}
       style={{ touchAction: 'none', userSelect: 'none' }}
@@ -218,7 +218,7 @@ export default function AnswerSlider({
 
         {isOpenToAll && (
           <div
-            className="mobile-ota-thumb-glow pointer-events-none absolute top-1/2 z-30 h-7 w-7 -translate-y-1/2 rounded-full border border-gray-300 bg-white shadow-sm sm:hidden"
+            className="mobile-ota-thumb-glow pointer-events-none absolute top-1/2 z-30 h-7 w-7 -translate-y-1/2 rounded-full border border-gray-300 bg-white shadow-sm"
             style={{ left: `calc(100% - ${THUMB_PX}px)` }}
             aria-hidden
           />

@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import AnswerSliderRow from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import type { AnswerValueLabel } from '@/utils/answerValues';
@@ -191,20 +191,16 @@ export default function FaithQuestionPage() {
           </div>
         )}
 
-        <div className="flex flex-col sm:block">
+        <div className="flex flex-col">
         {/* Me Section */}
-        <div className="order-2 mb-2 pt-1 sm:mb-6 sm:pt-0">
-          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+        <div className="order-2 mb-2 pt-1">
+          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-          <AnswerScaleHeader
-            labels={scaleLabels}
-            showOta={Boolean(question?.open_to_all_me)}
-            className="mb-2"
-          />
 
-          <div className="space-y-1 sm:space-y-3">
+          <div className="space-y-1">
             <AnswerSliderRow
               label={(question?.question_name || 'ANSWER').toUpperCase()}
+              hideRowLabel
               labels={scaleLabels}
               value={myAnswer}
               onChange={setMyAnswer}
@@ -225,34 +221,20 @@ export default function FaithQuestionPage() {
               onNoteChange={setQuestionNote}
             />
 
-            <div className="hidden sm:block">
-              <AnswerSliderRow
-                label="IMPORTANCE"
-                labels={IMPORTANCE_LABELS}
-                value={importance.me}
-                onChange={(value) => setImportance(prev => ({ ...prev, me: value }))}
-                isImportance
-                showActiveLabelBelow
-              />
-            </div>
           </div>
         </div>
 
         {/* Them Section */}
-        <div className="order-1 mb-2 sm:mb-6 sm:pt-8">
-          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
+        <div className="order-1 mb-2">
+          <h3 className="-mb-2 text-center text-lg font-bold text-black">
             Them
           </h3>
 
-          <AnswerScaleHeader
-            labels={scaleLabels}
-            showOta={Boolean(question?.open_to_all_looking_for)}
-            className="mb-2"
-          />
 
-          <div className="space-y-1 sm:space-y-3">
+          <div className="space-y-1">
             <AnswerSliderRow
               label={(question?.question_name || 'ANSWER').toUpperCase()}
+              hideRowLabel
               labels={scaleLabels}
               value={lookingForAnswer}
               onChange={setLookingForAnswer}
@@ -261,20 +243,10 @@ export default function FaithQuestionPage() {
               onOtaToggle={() => handleOpenToAllToggle('answer1LookingOpen')}
             />
 
-            <div className="hidden sm:block">
-              <AnswerSliderRow
-                label="IMPORTANCE"
-                labels={IMPORTANCE_LABELS}
-                value={importance.lookingFor}
-                onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
-                isImportance
-                showActiveLabelBelow
-              />
-            </div>
           </div>
         </div>
 
-        <div className="order-3 mb-2 pt-1 sm:hidden">
+        <div className="order-3 mb-2 pt-1">
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
           <div className="space-y-1">

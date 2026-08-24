@@ -391,10 +391,10 @@ export default function EditQuestionPage() {
             />
           </div>
 
-          {/* Group Name Text Section */}
+          {/* Group Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Group Name Text
+              Group Question
             </label>
             <input
               type="text"
@@ -425,7 +425,7 @@ export default function EditQuestionPage() {
           {/* Question Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Question
+              Question Text
             </label>
             <textarea
               value={question}

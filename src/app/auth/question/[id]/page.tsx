@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import AnswerSliderRow, { AnswerScaleHeader } from '@/components/AnswerSliderRow';
+import AnswerSliderRow from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { getSliderLabelsForQuestion } from '@/utils/answerValues';
@@ -92,16 +92,6 @@ export default function QuestionPage() {
     (base: string) => (userId ? `${base}_${userId}` : null),
     [userId]
   );
-
-  // Hardcoded question IDs from Django database (question_number=4)
-  const educationQuestionIds = {
-    'Pre High School': '345bab19-ed6a-4d25-a871-8e13331afc68',    // Group 1: Pre High School
-    'High School': '4f5bbf05-00d1-4b75-b26d-d465ef51ddd6',        // Group 2: High School
-    'Trade': '95bffb86-6872-47d0-8a32-418cc5a26e20',              // Group 3: Trade
-    'Undergraduate': '60639d56-337e-46a0-83c7-cce8cb1676ef',      // Group 4: Undergraduate
-    'Masters': 'cc55db09-a064-4cd3-b919-77bf0c4e53b7',            // Group 5: Masters
-    'Doctorate': 'e1961280-0371-4319-81e6-0efc596b8d1d'           // Group 6: Doctorate
-  };
 
   // Hardcoded question IDs from Django database (question_number=5)
   const dietQuestionIds = {
@@ -226,22 +216,10 @@ export default function QuestionPage() {
       };
       setQuestion(hardcodedQuestion);
     } else if (questionId === 'education' && educationParam && questionNumberParam) {
-      // Create hardcoded question object for education
-      const hardcodedQuestion = {
-        id: educationQuestionIds[educationParam as keyof typeof educationQuestionIds],
-        question_name: educationParam,
-        question_number: parseInt(questionNumberParam),
-        group_name: 'Education',
-        text: `How much of ${getEducationDisplayName(educationParam)} degree have you completed?`,
-        answers: [
-          { value: '1', answer_text: 'LESS' },
-          { value: '3', answer_text: 'SOME' },
-          { value: '5', answer_text: 'MORE' }
-        ],
-        open_to_all_me: false,
-        open_to_all_looking_for: true
-      };
-      setQuestion(hardcodedQuestion);
+      // Education wording differs per level ("How much High School have you completed?"
+      // vs "How much of a Master's degree have you completed?"), so no template can
+      // stand in for it — fetch the row and show its own `text`.
+      fetchEducationQuestion(educationParam, parseInt(questionNumberParam));
     } else if (questionId === 'diet' && dietParam && questionNumberParam) {
       // Create hardcoded question object for diet
       const hardcodedQuestion = {
@@ -987,10 +965,6 @@ export default function QuestionPage() {
     searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true';
   const lookingOtaAllowed = questionAllowsLookingOta(question);
   const meOtaAllowed = Boolean(question.open_to_all_me);
-  // Mandatory questions (1–10) split into several named rows — FEMALE/MALE, ALCOHOL/
-  // TOBACCO — so each row needs its caption. Everything above 10 is a single row whose
-  // caption just repeats the heading, so the row caption is dropped.
-  const hideQuestionRowLabel = Number(question.question_number) > 10;
 
   return (
     <OnboardingShell
@@ -1018,7 +992,6 @@ export default function QuestionPage() {
           question={
             params.id === '8' ? 'How often do you practice religion?' :
             params.id === '9' ? 'How important is politics in your life?' :
-            params.id === 'education' ? 'What is your highest level of education?' :
             question?.text || 'What ethnicity do you identify with?'
           }
         >
@@ -1068,17 +1041,16 @@ export default function QuestionPage() {
         )}
 
         {/* Looking For Section */}
-        <div className="mb-2 sm:mb-6">
-          <h3 className="-mb-2 text-center text-lg font-bold text-black sm:mb-1 sm:text-2xl">
+        <div className="mb-2">
+          <h3 className="-mb-2 text-center text-lg font-bold text-black">
             Them
           </h3>
 
-          <AnswerScaleHeader labels={scaleLabels} showOta={lookingOtaAllowed} className="mb-2" />
 
-          <div className="space-y-1 sm:space-y-3">
+          <div className="space-y-1">
             <AnswerSliderRow
               label={rowLabel}
-              hideRowLabel={hideQuestionRowLabel}
+              hideRowLabel
               labels={scaleLabels}
               value={lookingForAnswer}
               onChange={(value) => handleSliderChange('lookingForAnswer', value)}
@@ -1094,28 +1066,17 @@ export default function QuestionPage() {
               }
             />
 
-            <div className="hidden sm:block">
-              <AnswerSliderRow
-                label="IMPORTANCE"
-                labels={IMPORTANCE_LABELS}
-                value={importance.lookingFor}
-                onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
-                isImportance
-                showActiveLabelBelow
-              />
-            </div>
           </div>
         </div>
 
         {/* Me Section */}
-        <div className="mb-2 pt-1 sm:mb-6 sm:pt-8">
-          <h3 className="-mb-2 text-center text-lg font-bold sm:mb-1 sm:text-2xl">Me</h3>
+        <div className="mb-2 pt-1">
+          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
 
-          <AnswerScaleHeader labels={scaleLabels} showOta={meOtaAllowed} className="mb-2" />
 
           <AnswerSliderRow
             label={rowLabel}
-            hideRowLabel={hideQuestionRowLabel}
+            hideRowLabel
             labels={scaleLabels}
             value={meAnswer}
             onChange={(value) => handleSliderChange('meAnswer', value)}
@@ -1129,7 +1090,7 @@ export default function QuestionPage() {
         </div>
 
         {/* Importance Section — mobile only; desktop keeps the existing row layout. */}
-        <div className="mb-2 pt-1 sm:hidden">
+        <div className="mb-2 pt-1">
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
           <AnswerSliderRow
