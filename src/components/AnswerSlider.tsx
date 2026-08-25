@@ -65,9 +65,6 @@ export default function AnswerSlider({
   const canToggleOta = !disabled && otaEnabled && Boolean(onOtaToggle);
   const interactive = !disabled && (!isOpenToAll || canToggleOta);
 
-  const isMobileViewport = () =>
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
-
   const updateFromClientX = useCallback(
     (clientX: number) => {
       const track = trackRef.current;
@@ -83,8 +80,7 @@ export default function AnswerSlider({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
-    const mobileOtaInteraction = canToggleOta && isMobileViewport();
-    if (isOpenToAll && !mobileOtaInteraction) return;
+    if (isOpenToAll && !canToggleOta) return;
     // Capture routes later moves here even when the pointer leaves the track. It can throw
     // for a pointer the browser no longer considers active, so the drag flag is what the
     // move handler actually keys off.
@@ -96,14 +92,14 @@ export default function AnswerSlider({
     draggingPointerRef.current = event.pointerId;
     const trackRect = trackRef.current?.getBoundingClientRect();
     const isAtFiveThumb = Boolean(
-      mobileOtaInteraction &&
+      canToggleOta &&
       !isOpenToAll &&
       displayValue === maxValue &&
       trackRect &&
       Math.abs(event.clientX - trackRect.right) <= THUMB_PX + 8
     );
     const isAtOtaThumb = Boolean(
-      mobileOtaInteraction &&
+      canToggleOta &&
       isOpenToAll &&
       trackRect &&
       Math.abs(event.clientX - trackRect.right) <= THUMB_PX + 12
