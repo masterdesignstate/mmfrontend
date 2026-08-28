@@ -158,27 +158,29 @@ export default function AddPhotoClient() {
   const canAddMore = pictures.length < MAX_USER_PICTURES;
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="w-full bg-white border-b border-gray-200">
-        <div className="flex justify-between items-center px-6 py-4">
-          <Image src="/assets/mmlogox.png" alt="Logo" width={40} height={40} className="w-10 h-10" />
-          <button className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-white sm:block sm:h-auto sm:min-h-screen sm:overflow-visible">
+      <header className="w-full shrink-0 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between px-4 py-2 sm:px-6 sm:py-4">
+          <Image src="/assets/mmlogox.png" alt="Logo" width={40} height={40} className="h-8 w-8 sm:h-10 sm:w-10" />
+          <button className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 sm:h-10 sm:w-10">
+            <svg className="h-4 w-4 text-gray-600 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         </div>
       </header>
 
-      <main className="flex flex-col items-center min-h-[calc(100vh-80px-120px)] px-6 pb-32 pt-8">
-        <div className="max-w-2xl w-full">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">Add up to {MAX_USER_PICTURES} profile photos</h1>
-          <p className="text-gray-600 mb-8 text-xl">
+      <main className="flex min-h-0 flex-1 flex-col px-3 py-2 sm:min-h-[calc(100vh-80px-120px)] sm:items-center sm:px-6 sm:pb-32 sm:pt-8">
+        <div className="flex h-full min-h-0 w-full max-w-2xl flex-col sm:block sm:h-auto">
+          <h1 className="mb-1 text-xl font-bold leading-tight text-gray-900 sm:mb-3 sm:text-3xl">
+            Add up to {MAX_USER_PICTURES} profile photos
+          </h1>
+          <p className="mb-2 text-xs leading-snug text-gray-600 sm:mb-8 sm:text-xl">
             Your first photo is your main thumbnail. You can change the order later.
           </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div className="mb-2 rounded border border-red-400 bg-red-100 p-2 text-xs text-red-700 sm:mb-4 sm:p-3 sm:text-base">
               {error}
             </div>
           )}
@@ -193,18 +195,18 @@ export default function AddPhotoClient() {
           />
 
           {/* Primary photo (large) */}
-          <div className="mb-6">
+          <div className="mb-2 min-h-0 flex-1 sm:mb-6 sm:block">
             {primary ? (
-              <div className="relative w-full h-[420px] rounded-lg overflow-hidden bg-gray-100">
+              <div className="relative h-full min-h-0 w-full overflow-hidden rounded-lg bg-gray-100 sm:h-[420px]">
                 <Image src={primary.image_url} alt="Primary photo" fill sizes="(max-width: 768px) 100vw, 672px" priority className="object-cover" />
-                <div className="absolute top-3 left-3 bg-black/70 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                <div className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
                   Primary
                 </div>
                 <button
                   type="button"
                   onClick={() => handleRemove(primary.id)}
                   disabled={busy}
-                  className="absolute top-3 right-3 w-8 h-8 bg-black/70 hover:bg-black text-white rounded-full flex items-center justify-center cursor-pointer disabled:opacity-50"
+                  className="absolute right-2 top-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-black/70 text-white hover:bg-black disabled:opacity-50 sm:right-3 sm:top-3 sm:h-8 sm:w-8"
                   title="Remove"
                   aria-label="Remove primary photo"
                 >
@@ -216,10 +218,10 @@ export default function AddPhotoClient() {
             ) : (
               <label
                 htmlFor="photo-upload"
-                className="flex flex-col items-center justify-center w-full h-[420px] rounded-lg bg-gray-100 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-50"
+                className="flex h-full min-h-0 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-400 bg-gray-100 hover:bg-gray-50 sm:h-[420px]"
               >
-                <Image src="/assets/kamm.png" alt="Camera icon" width={80} height={97} className="mb-6" />
-                <span className="px-8 py-3 bg-white border border-gray-400 rounded-md text-gray-900 text-base hover:shadow-md">
+                <Image src="/assets/kamm.png" alt="Camera icon" width={80} height={97} className="mb-2 h-auto w-12 sm:mb-6 sm:w-20" />
+                <span className="rounded-md border border-gray-400 bg-white px-4 py-2 text-sm text-gray-900 hover:shadow-md sm:px-8 sm:py-3 sm:text-base">
                   Add your first photo
                 </span>
               </label>
@@ -227,7 +229,7 @@ export default function AddPhotoClient() {
           </div>
 
           {/* Additional thumbnails grid (slots 2..5) */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid shrink-0 grid-cols-4 gap-2 sm:gap-3">
             {Array.from({ length: MAX_USER_PICTURES - 1 }).map((_, i) => {
               const pic = thumbs[i];
               if (pic) {
@@ -280,17 +282,17 @@ export default function AddPhotoClient() {
             })}
           </div>
 
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-1 shrink-0 text-xs text-gray-500 sm:mt-3 sm:text-sm">
             {pictures.length} of {MAX_USER_PICTURES} photos added
           </p>
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+      <footer className="shrink-0 border-t border-gray-200 bg-white sm:fixed sm:bottom-0 sm:left-0 sm:right-0">
         <div className="w-full h-1 bg-gray-200">
           <div className="h-full bg-black" style={{ width: '15%' }}></div>
         </div>
-        <div className="flex justify-between items-center px-6 py-4">
+        <div className="flex items-center justify-between px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:py-4">
           <button
             onClick={() => router.back()}
             className="text-gray-900 font-medium hover:text-gray-500 transition-colors cursor-pointer"
@@ -300,7 +302,7 @@ export default function AddPhotoClient() {
           <button
             onClick={handleContinue}
             disabled={pictures.length === 0 || uploading || busy}
-            className={`px-8 py-3 rounded-md font-medium transition-colors ${
+            className={`rounded-md px-6 py-2 text-sm font-medium transition-colors sm:px-8 sm:py-3 sm:text-base ${
               pictures.length > 0 && !uploading && !busy
                 ? 'bg-black text-white hover:bg-gray-800 cursor-pointer'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
