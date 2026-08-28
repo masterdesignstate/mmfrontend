@@ -129,6 +129,7 @@ function MobileExclusionPicker({
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draftValues, setDraftValues] = useState<number[]>([]);
+  const [blockedHelpValue, setBlockedHelpValue] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const selectedEntry = entries.find(entry => entry.id === selectedId);
   const selectedLabel = selectedEntry ? capitalizeDropdownLabel(selectedEntry.label) : '';
@@ -145,6 +146,7 @@ function MobileExclusionPicker({
     setOpen(false);
     setSelectedId(null);
     setDraftValues([]);
+    setBlockedHelpValue(null);
   }, []);
 
   useEffect(() => {
@@ -168,7 +170,11 @@ function MobileExclusionPicker({
   };
 
   const toggleValue = (value: number) => {
-    if (blockedValues.includes(value)) return;
+    if (blockedValues.includes(value)) {
+      setBlockedHelpValue(value);
+      return;
+    }
+    setBlockedHelpValue(null);
     setDraftValues(current =>
       current.includes(value)
         ? current.filter(item => item !== value)
@@ -192,7 +198,12 @@ function MobileExclusionPicker({
         aria-expanded={open}
         onClick={() => {
           if (open) close();
-          else setOpen(true);
+          else {
+            setOpen(true);
+            // A single-row question already tells us what Exclude refers to, so skip the
+            // otherwise-useful question chooser and go straight to its answer values.
+            if (entries.length === 1) chooseQuestion(entries[0]);
+          }
         }}
         className={`${DOCK_CHIP} ${
           hasAnyExclusions
@@ -265,16 +276,21 @@ function MobileExclusionPicker({
           ) : (
             <>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(null);
-                    setDraftValues([]);
-                  }}
-                  className="cursor-pointer rounded-lg px-1.5 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100"
-                >
-                  ‹ Back
-                </button>
+                {entries.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(null);
+                      setDraftValues([]);
+                      setBlockedHelpValue(null);
+                    }}
+                    className="cursor-pointer rounded-lg px-1.5 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100"
+                  >
+                    ‹ Back
+                  </button>
+                ) : (
+                  <span className="w-11" aria-hidden />
+                )}
                 <h3 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-gray-900">
                   {selectedLabel}
                 </h3>
@@ -288,34 +304,47 @@ function MobileExclusionPicker({
               </div>
 
               <p className="mb-3 text-xs leading-relaxed text-gray-500">
-                Exclude people whose answer to this question is one of these values.
+                People with these answers won’t appear in your results. Your own answer
+                can’t be excluded.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {allowedValues.map(value => {
                   const isBlocked = blockedValues.includes(value);
                   const isSelected = draftValues.includes(value);
                   return (
-                    <button
-                      key={value}
-                      type="button"
-                      disabled={isBlocked}
-                      title={isBlocked ? 'This is your answer' : undefined}
-                      onClick={() => toggleValue(value)}
-                      className={`h-9 w-9 cursor-pointer rounded-full border text-sm font-semibold transition-colors ${
-                        isBlocked
-                          ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
-                          : isSelected
-                            ? 'border-[#672DB7] bg-[#672DB7] text-white'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:text-[#672DB7]'
-                      }`}
-                    >
-                      {value}
-                    </button>
+                    <span key={value} className="relative">
+                      <button
+                        type="button"
+                        aria-disabled={isBlocked}
+                        aria-label={isBlocked ? `${value}. This is your answer and can’t be excluded.` : String(value)}
+                        onClick={() => toggleValue(value)}
+                        onMouseEnter={() => isBlocked && setBlockedHelpValue(value)}
+                        onMouseLeave={() => isBlocked && setBlockedHelpValue(null)}
+                        onFocus={() => isBlocked && setBlockedHelpValue(value)}
+                        onBlur={() => isBlocked && setBlockedHelpValue(null)}
+                        className={`h-9 w-9 cursor-pointer rounded-full border text-sm font-semibold transition-colors ${
+                          isBlocked
+                            ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
+                            : isSelected
+                              ? 'border-[#672DB7] bg-[#672DB7] text-white'
+                              : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:text-[#672DB7]'
+                        }`}
+                      >
+                        {value}
+                      </button>
+                      {isBlocked && blockedHelpValue === value && (
+                        <span
+                          role="tooltip"
+                          className="absolute bottom-11 left-1/2 z-[70] w-40 -translate-x-1/2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-center text-xs font-normal leading-snug text-gray-600 shadow-lg"
+                        >
+                          This is your answer and can’t be excluded.
+                        </span>
+                      )}
+                    </span>
                   );
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-                <span>{draftValues.length ? `${draftValues.length} selected` : 'None selected'}</span>
+              <div className="mt-3 flex items-center justify-end text-xs text-gray-500">
                 <button
                   type="button"
                   onClick={() => setDraftValues([])}
@@ -402,8 +431,8 @@ export function MobileQuestionActionDock() {
                 role="tooltip"
                 className="absolute bottom-10 left-0 z-50 w-64 rounded-xl border border-gray-200 bg-white p-3 text-left text-xs leading-relaxed text-gray-600 shadow-xl"
               >
-                Move an eligible slider to 5, then tap the 5 thumb again to turn on Open
-                to All. Tap the blank thumb again to turn it off.
+                Open to All applies only to Them. If you’re open to every answer, move to
+                5 and tap 5 again. Tap the blank circle again to turn it off.
               </div>
             )}
           </div>

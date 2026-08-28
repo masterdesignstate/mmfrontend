@@ -197,6 +197,20 @@ export function RowControls({
   );
 }
 
+/**
+ * A heading for a row that titles itself rather than sitting under a shared section
+ * heading — Relationship, whose four sub-questions have no Me/Them split to caption. It is
+ * the same heading the Importance section uses, so the two read as peers, and the row
+ * itself is rendered with `hideRowLabel` so the name is not also repeated in small type.
+ */
+export function RowHeading({ label }: { label: string }) {
+  return (
+    <h3 className="-mb-2 text-center text-lg font-bold">
+      {label.charAt(0).toUpperCase() + label.slice(1).toLowerCase()}
+    </h3>
+  );
+}
+
 export interface AnswerSliderRowProps extends RowControlsProps {
   /** Row caption, e.g. FEMALE, ALCOHOL, IMPORTANCE. */
   label: string;

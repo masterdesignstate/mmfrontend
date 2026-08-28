@@ -7,7 +7,7 @@ import { mutate as globalMutate } from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
-import AnswerSliderRow from '@/components/AnswerSliderRow';
+import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
 import {
   MobileQuestionActionDock,
   MobileQuestionActionsProvider,
@@ -31,6 +31,7 @@ interface Question {
   answers: AnswerValueLabel[];
   open_to_all_me: boolean;
   open_to_all_looking_for: boolean;
+  is_mandatory?: boolean;
   is_answered?: boolean;  // From backend - whether current user has answered this question
   is_required_for_match?: boolean;  // From backend - whether this question is required for matching
 }
@@ -64,9 +65,21 @@ const getScaleLabelsForQuestion = (questionNumber: number, question?: Pick<Quest
   return null;
 };
 
-const questionAllowsLookingOta = (question: Pick<Question, 'question_number' | 'open_to_all_looking_for'>) => (
-  question.open_to_all_looking_for || [2, 3, 4, 5, 6, 7, 8, 9, 10, 13].includes(question.question_number)
+const isOptionalQuestion = (
+  question: Pick<Question, 'question_number' | 'is_mandatory'>
+) => question.is_mandatory === false || question.question_number > 10;
+
+const questionAllowsLookingOta = (
+  question: Pick<Question, 'question_number' | 'open_to_all_looking_for' | 'is_mandatory'>
+) => (
+  isOptionalQuestion(question) ||
+  question.open_to_all_looking_for ||
+  [2, 3, 4, 5, 6, 7, 8, 9, 10].includes(question.question_number)
 );
+
+const questionAllowsMeOta = (
+  question: Pick<Question, 'question_number' | 'open_to_all_me' | 'is_mandatory'>
+) => !isOptionalQuestion(question) && question.open_to_all_me;
 
 const getRequiredOverrideKey = (userId: string, questionId: string) => (
   `question_required_override_${userId}_${questionId}`
@@ -718,10 +731,14 @@ function QuestionEditPageContent() {
       const key = `q${question.group_number || question.id}`;
       
       if (answer) {
-        sliders[`${key}_me`] = answer.me_answer;
-        sliders[`${key}_looking`] = answer.looking_for_answer;
-        openToAll[`${key}_me`] = answer.me_open_to_all;
-        openToAll[`${key}_looking`] = answer.looking_for_open_to_all;
+        const meIsOpen = questionAllowsMeOta(question) && answer.me_open_to_all;
+        const lookingIsOpen = questionAllowsLookingOta(question) && answer.looking_for_open_to_all;
+        sliders[`${key}_me`] = !meIsOpen && answer.me_answer === 6 ? 3 : answer.me_answer;
+        sliders[`${key}_looking`] = !lookingIsOpen && answer.looking_for_answer === 6
+          ? 3
+          : answer.looking_for_answer;
+        openToAll[`${key}_me`] = meIsOpen;
+        openToAll[`${key}_looking`] = lookingIsOpen;
         exclusions[key] = normalizeExcludedValues(
           answer.excluded_answer_values,
           getAllowedExclusionValues(question),
@@ -900,12 +917,16 @@ function QuestionEditPageContent() {
           const answerData = {
             user_id: userId,
             question_id: question.id,
-            me_answer: openToAllStates[`${key}_me`] ? 6 : sliderAnswers[`${key}_me`] || 3,
-            me_open_to_all: openToAllStates[`${key}_me`] || false,
+            me_answer: questionAllowsMeOta(question) && openToAllStates[`${key}_me`]
+              ? 6
+              : sliderAnswers[`${key}_me`] || 3,
+            me_open_to_all: questionAllowsMeOta(question) && Boolean(openToAllStates[`${key}_me`]),
             me_importance: importanceValues.me,
             me_share: isNonGroupedQuestionOver10 ? meShare : true,
-            looking_for_answer: openToAllStates[`${key}_looking`] ? 6 : sliderAnswers[`${key}_looking`] || 3,
-            looking_for_open_to_all: openToAllStates[`${key}_looking`] || false,
+            looking_for_answer: questionAllowsLookingOta(question) && openToAllStates[`${key}_looking`]
+              ? 6
+              : sliderAnswers[`${key}_looking`] || 3,
+            looking_for_open_to_all: questionAllowsLookingOta(question) && Boolean(openToAllStates[`${key}_looking`]),
             looking_for_importance: importanceValues.lookingFor,
             looking_for_share: true,
             excluded_answer_values: normalizeExcludedValues(
@@ -1200,6 +1221,8 @@ function QuestionEditPageContent() {
     rows,
     showExclude = false,
     showNote = false,
+    /** Head every row with its own section heading instead of one heading for the group. */
+    headingPerRow = false,
     className = '',
   }: {
     title: string;
@@ -1207,26 +1230,31 @@ function QuestionEditPageContent() {
     rows: SliderRowSpec[];
     showExclude?: boolean;
     showNote?: boolean;
+    headingPerRow?: boolean;
     className?: string;
   }) => (
     <div className={`mb-2 ${className}`}>
-      <h3
-        className={`-mb-2 text-center text-lg font-bold ${
-          titleColor ? 'text-black' : ''
-        }`}
-      >
-        {title}
-      </h3>
+      {!headingPerRow && (
+        <h3
+          className={`-mb-2 text-center text-lg font-bold ${
+            titleColor ? 'text-black' : ''
+          }`}
+        >
+          {title}
+        </h3>
+      )}
 
 
       <div className="space-y-1">
         {rows.map(row => (
+          <div key={`${title}-${row.stateKey}`} className={headingPerRow ? 'mb-2' : ''}>
+          {headingPerRow && <RowHeading label={row.label} />}
           <AnswerSliderRow
-            key={`${title}-${row.stateKey}`}
             label={row.label}
             // Several named rows (FEMALE/MALE, HAVE/WANT) each need their caption to be
-            // told apart. A lone row is already named by the question heading above it.
-            hideRowLabel={rows.length === 1}
+            // told apart. A lone row is already named by the question heading above it,
+            // and a self-heading row by the heading directly above it.
+            hideRowLabel={headingPerRow || rows.length === 1}
             labels={row.labels}
             value={sliderAnswers[row.stateKey] || 3}
             onChange={(value) => setSliderAnswers(prev => ({ ...prev, [row.stateKey]: value }))}
@@ -1246,6 +1274,7 @@ function QuestionEditPageContent() {
             note={answerNotes[row.storageKey] || ''}
             onNoteChange={(note) => setNoteForKey(row.storageKey, note)}
           />
+          </div>
         ))}
 
       </div>
@@ -1297,10 +1326,11 @@ function QuestionEditPageContent() {
                 stateKey: `q${question.group_number}_me`,
                 label: question.question_name.toUpperCase(),
                 labels: DEFAULT_SCALE_LABELS,
-                otaEnabled: question.open_to_all_me,
+                otaEnabled: questionAllowsMeOta(question),
               })),
               showExclude: true,
               showNote: true,
+              headingPerRow: true,
             })}
             {renderImportanceSection(
               importanceValues.me,
@@ -1348,7 +1378,7 @@ function QuestionEditPageContent() {
                 stateKey: `q${question.group_number || question.id}_me`,
                 label: question.question_name.toUpperCase(),
                 labels: DEFAULT_SCALE_LABELS,
-                otaEnabled: question.open_to_all_me,
+                otaEnabled: questionAllowsMeOta(question),
               })),
               showNote: true,
               className: 'pt-1',
@@ -1398,7 +1428,7 @@ function QuestionEditPageContent() {
                 stateKey: `q${question.group_number || question.id}_me`,
                 label: rowLabelFor(question, isKidsQuestion),
                 labels: buildRowLabels(question),
-                otaEnabled: question.open_to_all_me,
+                otaEnabled: questionAllowsMeOta(question),
               })),
               showNote: true,
               className: 'pt-1',
@@ -1593,7 +1623,7 @@ function QuestionEditPageContent() {
                 stateKey: meKey,
                 label: (question.question_name || 'ANSWER').toUpperCase(),
                 labels: scaleLabels,
-                otaEnabled: question.open_to_all_me,
+                otaEnabled: questionAllowsMeOta(question),
               }],
               showNote: true,
               className: 'pt-1',

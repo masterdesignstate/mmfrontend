@@ -26,13 +26,14 @@ export default function ExclusionControl({
   buttonLabel = 'Exclude',
   title = 'Exclude',
   ariaLabel = 'Exclude answer values',
-  helpText = 'Hide people from your results when their answer to this question is one of these values.',
+  helpText = 'People with these answers won’t appear in your results. Your own answer can’t be excluded.',
   disabled = false,
   popoverPlacement = 'below',
 }: ExclusionControlProps) {
   const [open, setOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [legendPinned, setLegendPinned] = useState(false);
+  const [blockedHelpValue, setBlockedHelpValue] = useState<number | null>(null);
   const [draftValues, setDraftValues] = useState<number[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<number[]>([]);
@@ -54,6 +55,7 @@ export default function ExclusionControl({
     setOpen(false);
     setLegendOpen(false);
     setLegendPinned(false);
+    setBlockedHelpValue(null);
   }, [blockedExclusionValues, exclusionValues, onChange]);
 
   useEffect(() => {
@@ -77,7 +79,11 @@ export default function ExclusionControl({
   }, [blockedExclusionValues, exclusionValues, open]);
 
   const toggleValue = (value: number) => {
-    if (blockedExclusionValues.includes(value)) return;
+    if (blockedExclusionValues.includes(value)) {
+      setBlockedHelpValue(value);
+      return;
+    }
+    setBlockedHelpValue(null);
     setDraftValues(prev => (
       prev.includes(value)
         ? prev.filter(item => item !== value)
@@ -188,29 +194,39 @@ export default function ExclusionControl({
               const isSelected = activeValues.includes(value);
               const isBlocked = blockedExclusionValues.includes(value);
               return (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={isBlocked}
-                  title={isBlocked ? 'This is your answer' : undefined}
-                  onClick={() => toggleValue(value)}
-                  className={`h-8 w-8 cursor-pointer rounded-full border text-sm font-semibold transition-colors ${
-                    isBlocked
-                      ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
-                      : isSelected
-                      ? 'border-[#672DB7] bg-[#672DB7] text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:text-[#672DB7]'
-                  }`}
-                >
-                  {value}
-                </button>
+                <span key={value} className="relative">
+                  <button
+                    type="button"
+                    aria-disabled={isBlocked}
+                    aria-label={isBlocked ? `${value}. This is your answer and can’t be excluded.` : String(value)}
+                    onClick={() => toggleValue(value)}
+                    onMouseEnter={() => isBlocked && setBlockedHelpValue(value)}
+                    onMouseLeave={() => isBlocked && setBlockedHelpValue(null)}
+                    onFocus={() => isBlocked && setBlockedHelpValue(value)}
+                    onBlur={() => isBlocked && setBlockedHelpValue(null)}
+                    className={`h-8 w-8 cursor-pointer rounded-full border text-sm font-semibold transition-colors ${
+                      isBlocked
+                        ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300'
+                        : isSelected
+                        ? 'border-[#672DB7] bg-[#672DB7] text-white'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:text-[#672DB7]'
+                    }`}
+                  >
+                    {value}
+                  </button>
+                  {isBlocked && blockedHelpValue === value && (
+                    <span
+                      role="tooltip"
+                      className="absolute bottom-10 left-1/2 z-[70] w-40 -translate-x-1/2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-center text-xs font-normal leading-snug text-gray-600 shadow-lg"
+                    >
+                      This is your answer and can’t be excluded.
+                    </span>
+                  )}
+                </span>
               );
             })}
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              {activeValues.length > 0 ? `${activeValues.length} selected` : 'None selected'}
-            </span>
+          <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={() => setDraftValues([])}

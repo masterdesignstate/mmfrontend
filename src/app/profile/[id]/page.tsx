@@ -16,7 +16,7 @@ import ActivityStatus from '@/components/ActivityStatus';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import NoteReveal from '@/components/NoteReveal';
-import AnswerSliderRow from '@/components/AnswerSliderRow';
+import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
 import {
   MobileQuestionActionDock,
   MobileQuestionActionsProvider,
@@ -3869,17 +3869,21 @@ export default function UserProfilePage() {
                           </div>
                         )}
 
-                        {/* Me Section (no importance slider, except Q1) */}
+                        {/* Me Section (no importance slider, except Q1). Relationship has no
+                            Them side, so its rows head themselves instead of sharing "Me". */}
                         <div className={`mb-2 ${!isRelationship ? 'pt-1' : ''}`}>
-                          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+                          {!isRelationship && (
+                            <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+                          )}
 
 
                           <div className="space-y-1">
                             {editRows.map(({ question, key, label, labels }) => (
+                              <div key={question.id} className={isRelationship ? 'mb-2' : ''}>
+                              {isRelationship && <RowHeading label={label} />}
                               <AnswerSliderRow
-                                key={question.id}
                                 label={label}
-                                hideRowLabel={editRows.length === 1}
+                                hideRowLabel={isRelationship || editRows.length === 1}
                                 labels={labels}
                                 value={editSliderAnswers[`${key}_me`] || 3}
                                 onChange={(value) => setEditSliderAnswers(prev => ({ ...prev, [`${key}_me`]: value }))}
@@ -3893,10 +3897,11 @@ export default function UserProfilePage() {
                                 allowedExclusionValues={getAllowedExclusionValues(question)}
                                 blockedExclusionValues={getEditBlockedExclusionValuesForKey(key)}
                                 onExcludedValuesChange={(values) => setEditExcludedValuesForKey(key, values, question)}
-                                showNote={!isRelationship}
+                                showNote
                                 note={editAnswerNotes[key] || ''}
                                 onNoteChange={(note) => setEditAnswerNotes(prev => ({ ...prev, [key]: note }))}
                               />
+                              </div>
                             ))}
 
                             {/* For Q1: importance slider in Me section */}
@@ -3942,50 +3947,45 @@ export default function UserProfilePage() {
                   // Special handling for Relationship question (question_number === 1) - ONLY Me section
                   if (questionNumber === 1) {
 
+                    // No Me heading: Relationship has no Them side to tell it apart from, so
+                    // each sub-question heads its own section, as Importance does below.
                     return (
-                      <div className="mb-2">
-                        <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+                      <div>
+                        {selectedQuestionData.map((question: any) => {
+                          const answer = answersForQuestion.find(a => {
+                            const questionId = typeof a.question === 'object' ? a.question.id : a.question;
+                            return questionId === question.id;
+                          });
 
+                          // me_answer 6 (or the flag) means "Open to All"; the slider then shows a
+                          // full purple track, so the value underneath only has to be in range.
+                          const rawMeAnswer = answer?.me_answer;
+                          const isOpenToAll = Number(rawMeAnswer) === 6 || answer?.me_open_to_all === true;
+                          const meValue = isOpenToAll ? 3 : (rawMeAnswer ? Number(rawMeAnswer) : 3);
+                          const rowLabel = (question.question_name || 'ANSWER').toUpperCase();
 
-                        <div className="space-y-1">
-                          {selectedQuestionData.map((question: any) => {
-                            const answer = answersForQuestion.find(a => {
-                              const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                              return questionId === question.id;
-                            });
-
-                            // me_answer 6 (or the flag) means "Open to All"; the slider then shows a
-                            // full purple track, so the value underneath only has to be in range.
-                            const rawMeAnswer = answer?.me_answer;
-                            const isOpenToAll = Number(rawMeAnswer) === 6 || answer?.me_open_to_all === true;
-                            const meValue = isOpenToAll ? 3 : (rawMeAnswer ? Number(rawMeAnswer) : 3);
-
-                            return (
+                          return (
+                            <div key={question.id} className="mb-2">
+                              <RowHeading label={rowLabel} />
                               <AnswerSliderRow
-                                key={question.id}
                                 readOnly
-                                label={(question.question_name || 'ANSWER').toUpperCase()}
+                                label={rowLabel}
+                                hideRowLabel
                                 labels={buildQuestionScaleLabels(question, questionNumber)}
                                 value={meValue}
                                 showOta={isOpenToAll}
                                 otaChecked={isOpenToAll}
                               />
-                            );
-                          })}
-
-                          {/* SHARE ANSWER Row - only for non-mandatory questions */}
-                          {questionNumber > 10 && (
-                            <div className="flex items-center justify-center gap-3 pt-1 text-xs text-gray-500 sm:justify-start sm:pl-[132px]">
-                              <span className="font-semibold text-gray-400">SHARE ANSWER</span>
-                              <span className="text-sm text-gray-600">
-                                {answersForQuestion[0]?.me_share !== false ? 'Enabled' : 'Disabled'}
-                              </span>
                             </div>
-                          )}
+                          );
+                        })}
 
+                        <div className="mb-2 pt-1">
+                          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
                           <AnswerSliderRow
                             readOnly
                             label="IMPORTANCE"
+                            hideRowLabel
                             labels={IMPORTANCE_LABELS}
                             value={answersForQuestion[0]?.me_importance || 3}
                             isImportance
@@ -4240,23 +4240,27 @@ export default function UserProfilePage() {
                     // Me sliders section
                     const renderMeSliders = () => (
                       <div className={`mb-2 ${isDisabled ? 'pointer-events-none' : ''}`}>
-                        <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+                        {!isRelationshipQuestion && (
+                          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+                        )}
                         <div className="space-y-1">
                           {readOnlyRows.map(({ question, label, labels, answer }) => {
                             const isOpenToAllMe = Number(answer?.me_answer) === 6 || answer?.me_open_to_all || false;
                             const meValue = isOpenToAllMe ? 3 : (answer?.me_answer !== undefined ? Number(answer.me_answer) : 3);
 
                             return (
-                              <AnswerSliderRow
-                                key={`me-${question.id}`}
-                                readOnly
-                                label={label}
-                                hideRowLabel={readOnlyRows.length === 1}
-                                labels={labels}
-                                value={meValue}
-                                showOta={showMeOtaColumn && isOpenToAllMe}
-                                otaChecked={isOpenToAllMe}
-                              />
+                              <div key={`me-${question.id}`} className={isRelationshipQuestion ? 'mb-2' : ''}>
+                                {isRelationshipQuestion && <RowHeading label={label} />}
+                                <AnswerSliderRow
+                                  readOnly
+                                  label={label}
+                                  hideRowLabel={isRelationshipQuestion || readOnlyRows.length === 1}
+                                  labels={labels}
+                                  value={meValue}
+                                  showOta={showMeOtaColumn && isOpenToAllMe}
+                                  otaChecked={isOpenToAllMe}
+                                />
+                              </div>
                             );
                           })}
                         </div>

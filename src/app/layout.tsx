@@ -18,6 +18,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CompatibleFirst",
   description: "Compatibility-based matchmaking with transparent, two-sided scores.",
+  icons: {
+    icon: "/assets/mmlogox.png",
+    shortcut: "/assets/mmlogox.png",
+  },
 };
 
 export default function RootLayout({

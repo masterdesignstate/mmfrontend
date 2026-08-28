@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import AnswerSliderRow from '@/components/AnswerSliderRow';
+import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
@@ -205,33 +205,30 @@ export default function RelationshipPage() {
           </div>
         )}
 
-        {/* Me Section */}
-        <div className="mb-2">
-          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+        {/* No Me heading: Relationship has no Them side to tell it apart from, so each
+            sub-question heads its own section instead, as Importance does below. */}
+        {relationshipLabels.map((label) => {
+          const questionKey = label.toLowerCase() as keyof typeof myAnswers;
 
+          return (
+            <div key={label} className="mb-2">
+              <RowHeading label={label} />
 
-          <div className="space-y-1">
-            {relationshipLabels.map((label) => {
-              const questionKey = label.toLowerCase() as keyof typeof myAnswers;
-
-              return (
-                <AnswerSliderRow
-                  key={label}
-                  label={label}
-                  labels={DEFAULT_SCALE_LABELS}
-                  value={myAnswers[questionKey]}
-                  onChange={(value) => handleSliderChange(questionKey, value)}
-                  showExclude
-                  excludedValues={excluded[questionKey]}
-                  allowedExclusionValues={DEFAULT_EXCLUSION_VALUES}
-                  blockedExclusionValues={blockedExclusions(questionKey)}
-                  onExcludedValuesChange={(values) => setExcludedFor(questionKey, values)}
-                />
-              );
-            })}
-
-          </div>
-        </div>
+              <AnswerSliderRow
+                label={label}
+                hideRowLabel
+                labels={DEFAULT_SCALE_LABELS}
+                value={myAnswers[questionKey]}
+                onChange={(value) => handleSliderChange(questionKey, value)}
+                showExclude
+                excludedValues={excluded[questionKey]}
+                allowedExclusionValues={DEFAULT_EXCLUSION_VALUES}
+                blockedExclusionValues={blockedExclusions(questionKey)}
+                onExcludedValuesChange={(values) => setExcludedFor(questionKey, values)}
+              />
+            </div>
+          );
+        })}
 
         <div className="mb-2 pt-1">
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>

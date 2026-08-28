@@ -28,9 +28,32 @@ const SCALE_TEXT_OVERRIDES: Record<string, Record<number, string>> = {
 };
 
 const questionAllowsLookingOta = (
-  question?: { question_number?: number; open_to_all_looking_for?: boolean } | null
+  question?: {
+    question_number?: number;
+    is_mandatory?: boolean;
+    open_to_all_looking_for?: boolean;
+  } | null
 ) => (
-  Boolean(question && (question.open_to_all_looking_for || Number(question.question_number) === 13))
+  Boolean(
+    question && (
+      question.is_mandatory === false ||
+      Number(question.question_number) > 10 ||
+      question.open_to_all_looking_for
+    )
+  )
+);
+
+const questionAllowsMeOta = (
+  question?: {
+    question_number?: number;
+    is_mandatory?: boolean;
+    open_to_all_me?: boolean;
+  } | null
+) => Boolean(
+  question &&
+  question.is_mandatory !== false &&
+  Number(question.question_number) <= 10 &&
+  question.open_to_all_me
 );
 
 export default function QuestionPage() {
@@ -45,6 +68,7 @@ export default function QuestionPage() {
     group_name: string;
     text: string;
     answers: AnswerValueLabel[];
+    is_mandatory?: boolean;
     open_to_all_me: boolean;
     open_to_all_looking_for: boolean;
   } | null>(null);
@@ -373,15 +397,19 @@ export default function QuestionPage() {
             return aQId === qId;
           });
           if (existing && currentFetchId === answerFetchIdRef.current) {
-            setMeAnswer(existing.me_open_to_all ? 3 : existing.me_answer || 3);
-            setLookingForAnswer(existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3);
+            const meIsOpen = questionAllowsMeOta(question) && existing.me_open_to_all;
+            const lookingIsOpen = questionAllowsLookingOta(question) && existing.looking_for_open_to_all;
+            setMeAnswer(meIsOpen || existing.me_answer === 6 ? 3 : existing.me_answer || 3);
+            setLookingForAnswer(
+              lookingIsOpen || existing.looking_for_answer === 6 ? 3 : existing.looking_for_answer || 3
+            );
             setImportance({
               me: existing.me_importance || 1,
               lookingFor: existing.looking_for_importance || 3,
             });
             setOpenToAll({
-              meOpen: existing.me_open_to_all || false,
-              lookingForOpen: existing.looking_for_open_to_all || false,
+              meOpen: meIsOpen,
+              lookingForOpen: lookingIsOpen,
             });
             setExcludedAnswerValues(normalizeExcludedValues(
               existing.excluded_answer_values,
@@ -412,7 +440,7 @@ export default function QuestionPage() {
       }
     })();
     // No cleanup — staleness is detected via the ref counter
-  }, [userId, question?.id, question?.open_to_all_looking_for, question?.question_number, initialEa, allowedExclusionValues]);
+  }, [userId, question, initialEa, allowedExclusionValues]);
 
   const fetchQuestion = async (questionId: string) => {
     setLoadingQuestion(true);
@@ -654,12 +682,14 @@ export default function QuestionPage() {
       const userAnswer = {
         user_id: userId,
         question_id: question.id,
-        me_answer: openToAll.meOpen ? 6 : meAnswer,
-        me_open_to_all: openToAll.meOpen,
+        me_answer: questionAllowsMeOta(question) && openToAll.meOpen ? 6 : meAnswer,
+        me_open_to_all: questionAllowsMeOta(question) && openToAll.meOpen,
         me_importance: importance.me,
         me_share: meShare,
-        looking_for_answer: openToAll.lookingForOpen ? 6 : lookingForAnswer,
-        looking_for_open_to_all: openToAll.lookingForOpen,
+        looking_for_answer: questionAllowsLookingOta(question) && openToAll.lookingForOpen
+          ? 6
+          : lookingForAnswer,
+        looking_for_open_to_all: questionAllowsLookingOta(question) && openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
         excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues),
@@ -964,7 +994,7 @@ export default function QuestionPage() {
   const showProgress =
     searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true';
   const lookingOtaAllowed = questionAllowsLookingOta(question);
-  const meOtaAllowed = Boolean(question.open_to_all_me);
+  const meOtaAllowed = questionAllowsMeOta(question);
 
   return (
     <OnboardingShell
