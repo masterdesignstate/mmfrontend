@@ -1247,8 +1247,8 @@ function QuestionEditPageContent() {
 
       <div className="space-y-1">
         {rows.map(row => (
-          <div key={`${title}-${row.stateKey}`} className={headingPerRow ? 'mb-2' : ''}>
-          {headingPerRow && <RowHeading label={row.label} />}
+          <div key={`${title}-${row.stateKey}`} className={headingPerRow ? 'mb-0 sm:mb-2' : ''}>
+          {headingPerRow && <RowHeading label={row.label} className="leading-6 sm:leading-7" />}
           <AnswerSliderRow
             label={row.label}
             // Several named rows (FEMALE/MALE, HAVE/WANT) each need their caption to be

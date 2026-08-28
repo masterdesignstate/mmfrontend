@@ -211,8 +211,8 @@ export default function RelationshipPage() {
           const questionKey = label.toLowerCase() as keyof typeof myAnswers;
 
           return (
-            <div key={label} className="mb-2">
-              <RowHeading label={label} />
+            <div key={label} className="mb-0 sm:mb-2">
+              <RowHeading label={label} className="leading-6 sm:leading-7" />
 
               <AnswerSliderRow
                 label={label}
@@ -230,7 +230,7 @@ export default function RelationshipPage() {
           );
         })}
 
-        <div className="mb-2 pt-1">
+        <div className="mb-2 pt-0 sm:pt-1">
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
           <AnswerSliderRow
