@@ -217,7 +217,7 @@ export default function GenderPage() {
 
         {/* Them Section */}
         <div className="mb-0 sm:mb-2">
-          <h3 className="-mb-2 text-center text-lg font-bold leading-6 text-black sm:leading-7">
+          <h3 className="mb-0 text-center text-lg font-bold text-black sm:-mb-2">
             Them
           </h3>
 
@@ -247,7 +247,7 @@ export default function GenderPage() {
 
         {/* Me Section — no OTA here: you answer for yourself. */}
         <div className="mb-0 pt-0 sm:mb-2 sm:pt-1">
-          <h3 className="-mb-2 text-center text-lg font-bold leading-6 sm:leading-7">Me</h3>
+          <h3 className="mb-0 text-center text-lg font-bold sm:-mb-2">Me</h3>
 
 
           <div className="space-y-0 sm:space-y-1">
@@ -268,7 +268,7 @@ export default function GenderPage() {
         </div>
 
         <div className="mb-2 pt-0 sm:pt-1">
-          <h3 className="-mb-2 text-center text-lg font-bold leading-6 sm:leading-7">Importance</h3>
+          <h3 className="mb-0 text-center text-lg font-bold sm:-mb-2">Importance</h3>
 
           <AnswerSliderRow
             label="IMPORTANCE"

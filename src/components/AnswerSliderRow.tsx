@@ -344,7 +344,7 @@ export default function AnswerSliderRow({
         {/* The row caption sits above the slider: the space below it belongs to the
             always-on scale captions, and a centred row name would land on the middle one. */}
         {!hideRowLabel && (
-          <div className={`${compactMobile ? 'mb-0 mt-0 sm:mb-0.5 sm:mt-1' : 'mb-0.5 mt-1'} text-center`}>
+          <div className={`${compactMobile ? 'mb-0 mt-1 sm:mb-0.5' : 'mb-0.5 mt-1'} text-center`}>
             <span
               className="mx-auto block max-w-full truncate text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-gray-400"
               title={label}
