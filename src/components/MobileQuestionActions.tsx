@@ -363,9 +363,9 @@ function MobileExclusionPicker({
 }
 
 /**
- * The question action rail. It lives between the scrolling question and the Back/Next
- * footer, so the actions remain reachable without covering either the content or browser
- * controls. Open to All is intentionally explanatory rather than an input: the slider
+ * The question action rail. On phones it has zero layout height and floats just above the
+ * Back/Next footer; only the individual chips have a surface. Wider layouts keep the
+ * original in-flow rail. Open to All is explanatory rather than an input: the slider
  * thumb is the control.
  */
 export function MobileQuestionActionDock() {
@@ -403,10 +403,10 @@ export function MobileQuestionActionDock() {
 
   return (
     <aside
-      className="relative z-40 shrink-0 px-4 py-2"
+      className="pointer-events-none relative z-40 h-0 shrink-0 px-4 sm:pointer-events-auto sm:h-auto sm:py-2"
       aria-label="Question actions"
     >
-      <div className="mx-auto flex max-w-sm items-center justify-center gap-2">
+      <div className="pointer-events-auto absolute bottom-2 left-4 right-4 mx-auto flex max-w-sm items-center justify-center gap-2 sm:static">
         {otaEntries.length > 0 && (
           <div ref={otaHelpRef} className={`relative ${DOCK_SLOT}`}>
             <button
