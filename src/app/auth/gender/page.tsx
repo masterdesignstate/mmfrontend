@@ -203,6 +203,7 @@ export default function GenderPage() {
       onNext={handleNext}
       questionNote={questionNote}
       onQuestionNoteChange={setQuestionNote}
+      contentClassName="pb-12 sm:pb-4"
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle step="2. Gender" question="What gender do you identify with?" />
@@ -215,13 +216,13 @@ export default function GenderPage() {
         )}
 
         {/* Them Section */}
-        <div className="mb-2">
-          <h3 className="-mb-2 text-center text-lg font-bold text-black">
+        <div className="mb-0 sm:mb-2">
+          <h3 className="-mb-2 text-center text-lg font-bold leading-6 text-black sm:leading-7">
             Them
           </h3>
 
 
-          <div className="space-y-1">
+          <div className="space-y-0 sm:space-y-1">
             {genderRows.map(({ key, label }) => (
               <AnswerSliderRow
                 key={`looking-${key}`}
@@ -237,6 +238,7 @@ export default function GenderPage() {
                 allowedExclusionValues={DEFAULT_EXCLUSION_VALUES}
                 blockedExclusionValues={blockedExclusions(key)}
                 onExcludedValuesChange={(values) => setExcludedFor(key, values)}
+                compactMobile
               />
             ))}
 
@@ -244,11 +246,11 @@ export default function GenderPage() {
         </div>
 
         {/* Me Section — no OTA here: you answer for yourself. */}
-        <div className="mb-2 pt-1">
-          <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
+        <div className="mb-0 pt-0 sm:mb-2 sm:pt-1">
+          <h3 className="-mb-2 text-center text-lg font-bold leading-6 sm:leading-7">Me</h3>
 
 
-          <div className="space-y-1">
+          <div className="space-y-0 sm:space-y-1">
             {genderRows.map(({ key, label }, index) => (
               <AnswerSliderRow
                 key={`me-${key}`}
@@ -259,13 +261,14 @@ export default function GenderPage() {
                 showNote={index === 0}
                 note={questionNote}
                 onNoteChange={setQuestionNote}
+                compactMobile
               />
             ))}
           </div>
         </div>
 
-        <div className="mb-2 pt-1">
-          <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
+        <div className="mb-2 pt-0 sm:pt-1">
+          <h3 className="-mb-2 text-center text-lg font-bold leading-6 sm:leading-7">Importance</h3>
 
           <AnswerSliderRow
             label="IMPORTANCE"
@@ -274,6 +277,7 @@ export default function GenderPage() {
             onChange={(value) => handleSliderChange('importance', 'lookingFor', value)}
             isImportance
             hideRowLabel
+            compactMobile
           />
         </div>
       </div>

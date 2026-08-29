@@ -231,6 +231,8 @@ export interface AnswerSliderRowProps extends RowControlsProps {
    * non-mandatory question, which is one row named after the question itself.
    */
   hideRowLabel?: boolean;
+  /** Tighten only the caption spacing around the row on phones; the slider hit area stays 44px. */
+  compactMobile?: boolean;
   className?: string;
 }
 
@@ -260,6 +262,7 @@ export default function AnswerSliderRow({
   disabled = false,
   readOnly = false,
   hideRowLabel = false,
+  compactMobile = false,
   className = '',
   ...controls
 }: AnswerSliderRowProps) {
@@ -341,7 +344,7 @@ export default function AnswerSliderRow({
         {/* The row caption sits above the slider: the space below it belongs to the
             always-on scale captions, and a centred row name would land on the middle one. */}
         {!hideRowLabel && (
-          <div className="mb-0.5 mt-1 text-center">
+          <div className={`${compactMobile ? 'mb-0 mt-0 sm:mb-0.5 sm:mt-1' : 'mb-0.5 mt-1'} text-center`}>
             <span
               className="mx-auto block max-w-full truncate text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] text-gray-400"
               title={label}
@@ -364,7 +367,7 @@ export default function AnswerSliderRow({
         {/* Scale captions live under the slider. Every caption is on at all times for a
             question row; an IMPORTANCE row shows only the chosen rung, since five importance
             words at once would say nothing about what is selected. */}
-        <div className="-mt-1 mb-1">
+        <div className={compactMobile ? '-mt-2 mb-0 sm:-mt-1 sm:mb-1' : '-mt-1 mb-1'}>
           {isImportance ? (
             <div
               className="relative text-[9px] font-semibold leading-tight text-gray-500"
