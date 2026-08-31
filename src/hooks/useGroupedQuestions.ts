@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import useSWR from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
+import { GROUPED_QUESTION_NUMBERS } from '@/constants/mandatoryQuestions';
 
 interface GroupedQuestion {
   id: string;
@@ -27,7 +28,8 @@ const groupedQuestionsFetcher = async (url: string): Promise<GroupedQuestion[]> 
 
 export function useGroupedQuestions() {
   // Single request for all four question numbers (backend supports getlist('question_number'))
-  const url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3&question_number=4&question_number=5&question_number=11&page_size=100`;
+  const groupedParams = GROUPED_QUESTION_NUMBERS.map(n => `question_number=${n}`).join('&');
+  const url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${groupedParams}&page_size=100`;
 
   const { data, error, isLoading } = useSWR(url, groupedQuestionsFetcher, {
     dedupingInterval: 300000,

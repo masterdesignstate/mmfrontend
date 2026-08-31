@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { EDUCATION, ETHNICITY, getNextOnboardingRoute, getOnboardingProgressPercent, getPreviousOnboardingRoute } from '@/constants/mandatoryQuestions';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
@@ -126,7 +127,7 @@ export default function EthnicityPage() {
         console.log('🚀 Starting to fetch ethnicity questions from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=3`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${ETHNICITY}`;
           console.log('🌐 Fetching from URL:', apiUrl);
           
           const response = await fetch(apiUrl);
@@ -171,7 +172,7 @@ export default function EthnicityPage() {
     // Fetch education questions in the background
     if (userId && educationQuestions.length === 0) {
       try {
-        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=4`;
+        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${EDUCATION}`;
         const response = await fetch(apiUrl);
         
         if (response.ok) {
@@ -233,7 +234,7 @@ export default function EthnicityPage() {
     const params = new URLSearchParams({ 
       user_id: userId,
       ethnicity: ethnicity,
-      question_number: '3' // Ethnicity questions are question_number=3
+      question_number: String(ETHNICITY)
     });
     
     // Navigate to the existing single question page
@@ -271,7 +272,7 @@ export default function EthnicityPage() {
 
       // Track question 3 as answered for introcard routing
       try {
-        const key = `onboarding_answered_numbers_${userId}`;
+        const key = `onboarding_answered_numbers_v2_${userId}`;
         const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
         if (!existing.includes(3)) { existing.push(3); localStorage.setItem(key, JSON.stringify(existing)); }
       } catch {}
@@ -287,8 +288,8 @@ export default function EthnicityPage() {
         console.log('📋 Passing pre-loaded education questions to education page');
       }
       
-      posthog.capture('onboarding_step_completed', { step: 'ethnicity', question_number: 3 });
-      router.push(`/auth/education?${params.toString()}`);
+      posthog.capture('onboarding_step_completed', { step: 'ethnicity', question_number: ETHNICITY });
+      router.push(`${getNextOnboardingRoute(ETHNICITY)}?${params.toString()}`);
     } catch (error) {
       console.error('Error checking ethnicity answers:', error);
       setError('Failed to check ethnicity answers');
@@ -367,21 +368,20 @@ export default function EthnicityPage() {
     const params = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/gender?${params.toString()}`);
+    router.push(`${getPreviousOnboardingRoute(ETHNICITY)}?${params.toString()}`);
   };
 
   return (
     <OnboardingShell
-      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : 30}
+      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : getOnboardingProgressPercent(ETHNICITY)}
       onBack={handleBack}
       onNext={handleNext}
       nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
       loadingLabel="Saving..."
       loading={loading}
-      contentClassName="flex flex-col justify-center"
     >
         <div className="mx-auto w-full max-w-2xl">
-          <OnboardingTitle step="3. Ethnicity" question={`What ethnicity do you identify with?`} />
+          <OnboardingTitle step={`${ETHNICITY}. Ethnicity`} question={`What ethnicity do you identify with?`} />
 
 
 

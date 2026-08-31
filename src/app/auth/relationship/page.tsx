@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { RELATIONSHIP, getNextOnboardingRoute, getOnboardingProgressPercent } from '@/constants/mandatoryQuestions';
 import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
@@ -95,13 +96,13 @@ export default function RelationshipPage() {
       
       // Track question 1 as answered for introcard routing
       try {
-        const key = `onboarding_answered_numbers_${userId}`;
+        const key = `onboarding_answered_numbers_v2_${userId}`;
         const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
         if (!existing.includes(1)) { existing.push(1); localStorage.setItem(key, JSON.stringify(existing)); }
       } catch {}
 
-      posthog.capture('onboarding_step_completed', { step: 'relationship', question_number: 1 });
-      router.push(`/auth/gender?${params.toString()}`);
+      posthog.capture('onboarding_step_completed', { step: 'relationship', question_number: RELATIONSHIP });
+      router.push(`${getNextOnboardingRoute(RELATIONSHIP)}?${params.toString()}`);
 
       // Save answers to backend in the background (don't wait for response)
       const saveAnswersInBackground = async () => {
@@ -187,7 +188,7 @@ export default function RelationshipPage() {
 
   return (
     <OnboardingShell
-      progressPercent={30}
+      progressPercent={getOnboardingProgressPercent(RELATIONSHIP)}
       onBack={handleBack}
       onNext={handleNext}
       loadingLabel="Saving..."
@@ -196,7 +197,7 @@ export default function RelationshipPage() {
       onQuestionNoteChange={setQuestionNote}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
-        <OnboardingTitle step="1. Relationship" question="What relationship are you looking for?" />
+        <OnboardingTitle step={`${RELATIONSHIP}. Relationship`} question="What relationship are you looking for?" />
 
         {/* Error Message */}
         {error && (

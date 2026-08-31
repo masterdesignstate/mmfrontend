@@ -6,6 +6,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
+import { isMandatoryQuestionNumber } from '@/constants/mandatoryQuestions';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
@@ -1118,8 +1119,8 @@ function QuestionsPageContent() {
         // Sort by question number ascending (numerical order)
         // But prioritize mandatory questions (1-10) to appear first
         sorted = entries.sort((a, b) => {
-          const aIsMandatory = a[1].questions[0]?.is_mandatory && a[1].questionNumber <= 10;
-          const bIsMandatory = b[1].questions[0]?.is_mandatory && b[1].questionNumber <= 10;
+          const aIsMandatory = a[1].questions[0]?.is_mandatory && isMandatoryQuestionNumber(a[1].questionNumber);
+          const bIsMandatory = b[1].questions[0]?.is_mandatory && isMandatoryQuestionNumber(b[1].questionNumber);
           
           // Mandatory questions come first
           if (aIsMandatory && !bIsMandatory) return -1;
@@ -1131,8 +1132,8 @@ function QuestionsPageContent() {
         break;
       default:
         sorted = entries.sort((a, b) => {
-          const aIsMandatory = a[1].questions[0]?.is_mandatory && a[1].questionNumber <= 10;
-          const bIsMandatory = b[1].questions[0]?.is_mandatory && b[1].questionNumber <= 10;
+          const aIsMandatory = a[1].questions[0]?.is_mandatory && isMandatoryQuestionNumber(a[1].questionNumber);
+          const bIsMandatory = b[1].questions[0]?.is_mandatory && isMandatoryQuestionNumber(b[1].questionNumber);
           
           if (aIsMandatory && !bIsMandatory) return -1;
           if (!aIsMandatory && bIsMandatory) return 1;

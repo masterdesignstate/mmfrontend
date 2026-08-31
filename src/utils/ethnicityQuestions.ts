@@ -1,3 +1,5 @@
+import { ETHNICITY } from '@/constants/mandatoryQuestions';
+
 export const HAWAIIAN_ETHNICITY_QUESTION_ID = '2ef95f1a-3b2f-48f5-adb6-1c31d89ed904';
 export const DUPLICATE_OTHER_ETHNICITY_QUESTION_ID = '14f4f27b-0e50-4b4a-8172-5d9e6a6eb39d';
 
@@ -16,7 +18,7 @@ type AnswerWithQuestion<TQuestion extends EthnicityQuestionLike = EthnicityQuest
 const OTHER_ETHNICITY_TEXT = 'How strongly do you identify as another ethnicity?';
 
 function isEthnicityQuestion(question: EthnicityQuestionLike, questionNumber?: number): boolean {
-  return questionNumber === 3 || question.question_number === 3;
+  return questionNumber === ETHNICITY || question.question_number === ETHNICITY;
 }
 
 function isHawaiianQuestion(question: EthnicityQuestionLike): boolean {
@@ -62,7 +64,7 @@ export function normalizeEthnicityQuestions<T extends EthnicityQuestionLike>(
     })
     .map((question) => normalizeEthnicityQuestion(question));
 
-  if (questionNumber === 3) {
+  if (questionNumber === ETHNICITY) {
     return [...normalizedQuestions].sort((a, b) => (a.group_number || 0) - (b.group_number || 0));
   }
 

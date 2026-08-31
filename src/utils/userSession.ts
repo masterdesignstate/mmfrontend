@@ -54,6 +54,8 @@ export function clearStoredIdentity(): void {
     window.localStorage.removeItem('is_admin');
     window.localStorage.removeItem('user_email');
     if (userId) {
+      window.localStorage.removeItem(`onboarding_answered_numbers_v2_${userId}`);
+      // Pre-split key, written when the mandatory block was numbered 1-10.
       window.localStorage.removeItem(`onboarding_answered_numbers_${userId}`);
       window.localStorage.removeItem(`answered_questions_${userId}`);
       window.localStorage.removeItem(`mandatory_questions_complete_${userId}`);

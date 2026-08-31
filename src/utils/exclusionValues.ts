@@ -1,3 +1,16 @@
+import {
+  ALCOHOL,
+  CIGARETTES,
+  EDUCATION,
+  ETHNICITY,
+  FAITH,
+  FEMALE,
+  HAVE_KIDS,
+  MALE,
+  RELIGION,
+  VAPE,
+} from '@/constants/mandatoryQuestions';
+
 export interface ExclusionQuestion {
   question_number?: number | null;
   group_number?: number | null;
@@ -11,6 +24,13 @@ export interface ExclusionQuestion {
 }
 
 export const DEFAULT_EXCLUSION_VALUES = [1, 2, 3, 4, 5];
+export const EDUCATION_EXCLUSION_VALUES = [1, 3, 5];
+export const HAVE_KIDS_EXCLUSION_VALUES = [1, 5];
+
+// Exclusions are scale-based for these even where the answer UI is grouped.
+const FULL_SCALE_EXCLUSION_NUMBERS = new Set<number>([
+  FEMALE, MALE, ETHNICITY, ALCOHOL, CIGARETTES, VAPE, RELIGION, FAITH,
+]);
 
 const uniqueSortedValues = (values: number[]) =>
   Array.from(new Set(values)).sort((a, b) => a - b);
@@ -27,17 +47,12 @@ const parsedAnswerValues = (question?: ExclusionQuestion | null) => {
 
 export const getAllowedExclusionValues = (question?: ExclusionQuestion | null): number[] => {
   const questionNumber = Number(question?.question_number);
-  const groupNumber = Number(question?.group_number);
-  const questionName = (question?.question_name || '').trim().toLowerCase();
 
-  // Exclusions are scale-based for these questions even when the answer UI is grouped.
-  if ([2, 3, 7, 8, 11].includes(questionNumber)) return DEFAULT_EXCLUSION_VALUES;
+  if (FULL_SCALE_EXCLUSION_NUMBERS.has(questionNumber)) return DEFAULT_EXCLUSION_VALUES;
 
-  if (questionNumber === 4) return [1, 3, 5];
+  if (questionNumber === EDUCATION) return EDUCATION_EXCLUSION_VALUES;
 
-  if (questionNumber === 10 && (groupNumber === 1 || questionName === 'have')) {
-    return [1, 5];
-  }
+  if (questionNumber === HAVE_KIDS) return HAVE_KIDS_EXCLUSION_VALUES;
 
   const answerValues = parsedAnswerValues(question);
   if (answerValues.length > 0) return answerValues;

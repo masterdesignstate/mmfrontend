@@ -1,10 +1,14 @@
+import { FAITH } from '@/constants/mandatoryQuestions';
+
 export interface AnswerValueLabel {
   value: string | number;
   answer_text?: string | null;
 }
 
 export const DEFAULT_ANSWER_VALUES = [1, 2, 3, 4, 5];
-const FULL_SCALE_QUESTION_NUMBERS = new Set([11]);
+
+// Faith stores only the values its sub-questions use, but the slider still shows five stops.
+const FULL_SCALE_QUESTION_NUMBERS = new Set([FAITH]);
 
 const uniqueSortedValues = (values: number[]) =>
   Array.from(new Set(values)).sort((a, b) => a - b);

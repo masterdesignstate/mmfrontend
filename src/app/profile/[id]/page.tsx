@@ -29,6 +29,27 @@ import { isOverLimit } from '@/utils/textLimits';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues, type ExclusionQuestion } from '@/utils/exclusionValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
+import {
+  ALCOHOL,
+  FEMALE,
+  GROUPED_QUESTION_NUMBERS,
+  MALE,
+  RELATIONSHIP,
+  isMandatoryQuestionNumber,
+  isOptionalQuestionNumber,
+  CIGARETTES,
+  DIET,
+  EDUCATION,
+  ETHNICITY,
+  EXERCISE,
+  FAITH,
+  HAVE_KIDS,
+  IDEOLOGY,
+  POLITICS,
+  RELIGION,
+  VAPE,
+  WANT_KIDS,
+} from '@/constants/mandatoryQuestions';
 import posthog from 'posthog-js';
 
 // Types for user profile and answers
@@ -91,7 +112,10 @@ interface ProfileIcon {
 type ProfileContentTab = 'profile' | 'posts' | 'comments';
 
 const questionAllowsLookingOta = (question: Pick<ExclusionQuestion, 'question_number' | 'open_to_all_looking_for'>) => (
-  question.open_to_all_looking_for || [13].includes(Number(question.question_number))
+  // Every mandatory question but Relationship has a "Them" side that can be open to all.
+  question.open_to_all_looking_for ||
+  (isMandatoryQuestionNumber(question.question_number) &&
+    Number(question.question_number) !== RELATIONSHIP)
 );
 
 const getDietIcon = (dietName: string): string => {
@@ -390,7 +414,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     const fetchGroupedQuestions = async () => {
       try {
-        const questionNumbers = [3, 4, 5, 11];
+        const questionNumbers = GROUPED_QUESTION_NUMBERS;
         const allQuestions: Array<{ id: string; question_name: string; question_number: number; group_number?: number }> = [];
         for (const qNum of questionNumbers) {
           const res = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${qNum}&page_size=50`, {
@@ -938,20 +962,17 @@ export default function UserProfilePage() {
     if (!answer) return null;
 
     // For kids questions, use predefined labels
-    if (questionNumber === 10) {
-      if (groupNumber === 1) {
-        // Have kids question
-        const haveLabels = { 1: "Don't Have", 5: "Have" };
-        return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
-      } else if (groupNumber === 2) {
-        // Want kids question
-        const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
-        return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
-      }
+    if (questionNumber === HAVE_KIDS) {
+      const haveLabels = { 1: "Don't Have", 5: "Have" };
+      return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
+    }
+    if (questionNumber === WANT_KIDS) {
+      const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
+      return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
     }
 
-    // For politics question (question 9)
-    if (questionNumber === 9) {
+    // For politics question
+    if (questionNumber === POLITICS) {
       const politicsLabels = { 1: "Uninvolved", 2: "Observant", 3: "Active", 4: "Fervent", 5: "Radical" };
       return politicsLabels[answer[answerType] as keyof typeof politicsLabels] || null;
     }
@@ -975,10 +996,10 @@ export default function UserProfilePage() {
     );
   };
 
-  // Helper function to get ranked ideology questions (question_number === 12)
+  // Helper function to get ranked ideology questions
   // Returns them sorted by: 1) highest value, 2) answered first (lowest group_number as tie-breaker)
   const getRankedIdeologyQuestions = () => {
-    const ideologyAnswers = userAnswers.filter(a => a.question.question_number === 12);
+    const ideologyAnswers = userAnswers.filter(a => a.question.question_number === IDEOLOGY);
     if (ideologyAnswers.length === 0) return [];
 
     // Sort by highest me_answer value first, then by group_number (answered first) as tie-breaker
@@ -1010,8 +1031,8 @@ export default function UserProfilePage() {
   const getProfileIcons = (): ProfileIcon[] => {
     const icons: ProfileIcon[] = [];
 
-    // Exercise icon (question_number === 6)
-    const exerciseValue = getAnswerValue(6);
+    // Exercise icon
+    const exerciseValue = getAnswerValue(EXERCISE);
     if (exerciseValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Very often' };
       icons.push({
@@ -1022,9 +1043,9 @@ export default function UserProfilePage() {
       });
     }
 
-    // Education icon (question_number === 4, highest value)
-    const educationAnswer = getHighestAnswer(4);
-    const educationAnswerCount = userAnswers.filter(a => a.question.question_number === 4).length;
+    // Education icon (highest value)
+    const educationAnswer = getHighestAnswer(EDUCATION);
+    const educationAnswerCount = userAnswers.filter(a => a.question.question_number === EDUCATION).length;
     if (educationAnswer && !(educationAnswerCount === 1 && educationAnswer.me_answer === 1)) {
       const educationLabel = educationAnswer.question.question_name || '';
       icons.push({
@@ -1035,8 +1056,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Alcohol icon (question_number === 7, group_number === 1)
-    const alcoholValue = getAnswerValue(7, 1);
+    // Alcohol icon
+    const alcoholValue = getAnswerValue(ALCOHOL);
     if (alcoholValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
@@ -1047,8 +1068,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Diet icon (question_number === 5) - check all diet answers
-    const dietAnswers = userAnswers.filter(a => a.question.question_number === 5);
+    // Diet icon - check all diet answers
+    const dietAnswers = userAnswers.filter(a => a.question.question_number === DIET);
     if (dietAnswers.length > 0) {
       // Get the answer with the highest value (most strongly identified with)
       const highestDietAnswer = dietAnswers.reduce((prev, curr) =>
@@ -1057,7 +1078,7 @@ export default function UserProfilePage() {
 
       if (highestDietAnswer.me_answer > 1) {
         const dietLabel = highestDietAnswer.question.question_name || '';
-        const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
+        const allDietQuestions = groupedQuestions.filter(q => q.question_number === DIET);
 
         icons.push({
           image: getDietIcon(dietLabel),
@@ -1078,8 +1099,8 @@ export default function UserProfilePage() {
       }
     }
 
-    // Smoking icon (question_number === 7, group_number === 2)
-    const smokingValue = getAnswerValue(7, 2);
+    // Smoking icon
+    const smokingValue = getAnswerValue(CIGARETTES);
     if (smokingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
@@ -1090,8 +1111,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Vaping icon (question_number === 7, group_number === 3)
-    const vapingValue = getAnswerValue(7, 3);
+    // Vaping icon
+    const vapingValue = getAnswerValue(VAPE);
     if (vapingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
@@ -1102,8 +1123,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Have Children icon (question_number === 10, group_number === 1)
-    const haveChildrenLabel = getAnswerLabel(10, 1);
+    // Have Children icon
+    const haveChildrenLabel = getAnswerLabel(HAVE_KIDS);
     if (haveChildrenLabel) {
       icons.push({
         image: '/assets/pacifier.png',
@@ -1113,8 +1134,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Want Children icon (question_number === 10, group_number === 2)
-    const wantChildrenLabel = getAnswerLabel(10, 2);
+    // Want Children icon
+    const wantChildrenLabel = getAnswerLabel(WANT_KIDS);
     if (wantChildrenLabel) {
       icons.push({
         image: '/assets/pacifier.png',
@@ -1130,8 +1151,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Politics icon (question_number === 9)
-    const politicsValue = getAnswerValue(9);
+    // Politics icon
+    const politicsValue = getAnswerValue(POLITICS);
     if (politicsValue) {
       const politicsLabels = {
         1: 'Uninvolved',
@@ -1151,8 +1172,8 @@ export default function UserProfilePage() {
       }
     }
 
-    // Ethnicity icon (question_number === 3)
-    const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === 3);
+    // Ethnicity icon
+    const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === ETHNICITY);
     if (ethnicityAnswers.length > 0 && !(ethnicityAnswers.length === 1 && ethnicityAnswers[0].me_answer === 1)) {
       // Get the answer with the highest value (most strongly identified with)
       const highestEthnicityAnswer = ethnicityAnswers.reduce((prev, curr) =>
@@ -1169,8 +1190,8 @@ export default function UserProfilePage() {
       });
     }
 
-    // Religion icon (question_number === 8)
-    const religionValue = getAnswerValue(8);
+    // Religion icon
+    const religionValue = getAnswerValue(RELIGION);
     if (religionValue) {
       const religionLabels = {
         1: 'Never',
@@ -1190,18 +1211,18 @@ export default function UserProfilePage() {
       }
     }
 
-    // Faith icon (question_number === 11, highest value)
-    const faithAnswerCount = userAnswers.filter(a => a.question.question_number === 11).length;
-    const faithAnswer = getHighestAnswer(11);
+    // Faith icon (highest value)
+    const faithAnswerCount = userAnswers.filter(a => a.question.question_number === FAITH).length;
+    const faithAnswer = getHighestAnswer(FAITH);
     if (faithAnswer && !(faithAnswerCount === 1 && faithAnswer.me_answer === 1)) {
-      const allFaithQuestions = groupedQuestions.filter(q => q.question_number === 11);
+      const allFaithQuestions = groupedQuestions.filter(q => q.question_number === FAITH);
       icons.push({
         image: '/assets/prayin.png',
         label: faithAnswer.question.question_name || '',
         show: true,
         options: allFaithQuestions.length > 0
           ? allFaithQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : userAnswers.filter(a => a.question.question_number === 11).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
+          : userAnswers.filter(a => a.question.question_number === FAITH).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
       });
     }
 
@@ -2161,7 +2182,7 @@ export default function UserProfilePage() {
     const answerPayloads: any[] = [];
     for (const question of questionsToSave) {
       const key = `q${question.group_number || question.id}`;
-      const isNonGrouped = questionNumber > 10 && question.question_type !== 'grouped';
+      const isNonGrouped = isOptionalQuestionNumber(questionNumber) && question.question_type !== 'grouped';
 
       answerPayloads.push({
         user_id: currentUserId,
@@ -3301,9 +3322,9 @@ export default function UserProfilePage() {
                 <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
                 <div className="flex-1">
                   <SliderComponent
-                    value={getAnswerValue(2, 2) || 3}
+                    value={getAnswerValue(FEMALE) || 3}
                     onChange={() => {}}
-                    isOpenToAll={getAnswerValue(2, 2) === 6}
+                    isOpenToAll={getAnswerValue(FEMALE) === 6}
                   />
                 </div>
               </div>
@@ -3311,9 +3332,9 @@ export default function UserProfilePage() {
                 <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
                 <div className="flex-1">
                   <SliderComponent
-                    value={getAnswerValue(2, 1) || 3}
+                    value={getAnswerValue(MALE) || 3}
                     onChange={() => {}}
-                    isOpenToAll={getAnswerValue(2, 1) === 6}
+                    isOpenToAll={getAnswerValue(MALE) === 6}
                   />
                 </div>
               </div>
@@ -3332,9 +3353,9 @@ export default function UserProfilePage() {
                 <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
                 <div className="flex-1">
                   <SliderComponent
-                    value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
+                    value={getAnswerValue(FEMALE, undefined, 'looking_for_answer') || 3}
                     onChange={() => {}}
-                    isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
+                    isOpenToAll={getAnswerValue(FEMALE, undefined, 'looking_for_answer') === 6}
                   />
                 </div>
               </div>
@@ -3342,9 +3363,9 @@ export default function UserProfilePage() {
                 <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
                 <div className="flex-1">
                   <SliderComponent
-                    value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
+                    value={getAnswerValue(MALE, undefined, 'looking_for_answer') || 3}
                     onChange={() => {}}
-                    isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
+                    isOpenToAll={getAnswerValue(MALE, undefined, 'looking_for_answer') === 6}
                   />
                 </div>
               </div>
@@ -3626,16 +3647,17 @@ export default function UserProfilePage() {
                   {(() => {
                     const questionNumber = selectedQuestionNumber;
                     const isGrouped = selectedQuestionData.length > 0 && selectedQuestionData[0].question_type === 'grouped';
-                    const isRelationship = questionNumber === 1;
-                    // Mandatory questions (1–10) split into several named rows — FEMALE/MALE,
-                    // HAVE/WANT — that each need their caption. Above 10 a question is one row
-                    // whose caption only repeats the heading, so the row caption is dropped.
+                    const isRelationship = questionNumber === RELATIONSHIP;
+                    // Relationship is the one question left with several named rows, so it
+                    // keeps its row captions. Everywhere else a question is a single row
+                    // whose caption would only repeat the heading, so it is dropped.
 
                     // Icon mapping for grouped question cards
                     const editOptionIcons: Record<number, string> = {
-                      3: '/assets/ethn.png', 4: '/assets/cpx.png', 5: '/assets/lf2.png',
-                      7: '/assets/hands.png', 8: '/assets/prayin.png', 9: '/assets/politics.png',
-                      10: '/assets/pacifier.png', 11: '/assets/prayin.png', 12: '/assets/ethn.png'
+                      [ETHNICITY]: '/assets/ethn.png', [EDUCATION]: '/assets/cpx.png', [DIET]: '/assets/lf2.png',
+                      [ALCOHOL]: '/assets/hands.png', [RELIGION]: '/assets/prayin.png', [POLITICS]: '/assets/politics.png',
+                      [WANT_KIDS]: '/assets/pacifier.png', [HAVE_KIDS]: '/assets/pacifier.png',
+                      [FAITH]: '/assets/prayin.png', [IDEOLOGY]: '/assets/ethn.png'
                     };
 
                     // Grouped questions: show card list or sub-question slider
@@ -3657,7 +3679,7 @@ export default function UserProfilePage() {
                               <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto min-w-0">
 
                               {/* Share/Required toggles for non-mandatory grouped questions > 10 */}
-                              {questionNumber > 10 && (
+                              {isOptionalQuestionNumber(questionNumber) && (
                                 <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
                                   <div className="flex items-center gap-3">
                                     <button type="button" onClick={() => setEditMeRequired(!editMeRequired)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeRequired ? '#000000' : '#ADADAD' }}>
@@ -3808,9 +3830,7 @@ export default function UserProfilePage() {
                     }
 
                     // Slider-based questions
-                    const displayQuestionData = questionNumber === 2
-                      ? [...selectedQuestionData].sort((a, b) => (b.group_number || 0) - (a.group_number || 0))
-                      : selectedQuestionData;
+                    const displayQuestionData = selectedQuestionData;
                     const editRows = displayQuestionData.map((question) => ({
                       question,
                       key: `q${question.group_number || question.id}`,
@@ -3822,7 +3842,7 @@ export default function UserProfilePage() {
                       <div className="w-full overflow-x-hidden">
                         <div className="w-full max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px] mx-auto min-w-0">
                         {/* Share/Required toggles for non-mandatory questions > 10 */}
-                        {questionNumber > 10 && displayQuestionData[0]?.question_type !== 'grouped' && (
+                        {isOptionalQuestionNumber(questionNumber) && displayQuestionData[0]?.question_type !== 'grouped' && (
                           <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mb-6">
                             <div className="flex items-center gap-3">
                               <button type="button" onClick={() => setEditMeRequired(!editMeRequired)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer" style={{ backgroundColor: editMeRequired ? '#000000' : '#ADADAD' }}>
@@ -3944,8 +3964,8 @@ export default function UserProfilePage() {
                     return selectedQuestionData.some(q => q.id === questionId);
                   });
 
-                  // Special handling for Relationship question (question_number === 1) - ONLY Me section
-                  if (questionNumber === 1) {
+                  // Special handling for Relationship - ONLY Me section
+                  if (questionNumber === RELATIONSHIP) {
 
                     // No Me heading: Relationship has no Them side to tell it apart from, so
                     // each sub-question heads its own section, as Importance does below.
@@ -4054,7 +4074,7 @@ export default function UserProfilePage() {
                               <h3 className="text-2xl font-bold text-center mb-1">{selectedQuestion.question_name}</h3>
 
                               {/* Switches for non-mandatory questions - above Me title */}
-                              {questionNumber > 10 && (
+                              {isOptionalQuestionNumber(questionNumber) && (
                                 <div className="mx-auto mt-4 mb-4 flex w-full min-w-0 items-center justify-between gap-2">
                                   {/* Required For Match - Left */}
                                   <div className="flex items-center gap-3">
@@ -4177,14 +4197,8 @@ export default function UserProfilePage() {
                   } else {
                     // For slider questions, show Me and Them sections
                     // Gender (question 2) and Kids (question 10) should NEVER show OTA switches
-                    const isRelationshipQuestion = questionNumber === 1;
-                    const isGenderQuestion = questionNumber === 2;
-                    const isKidsQuestion = questionNumber === 10;
-                    const isExerciseQuestion = questionNumber === 6;
-                    const isHabitsQuestion = questionNumber === 7;
-                    const displayQuestionData = isGenderQuestion
-                      ? [...selectedQuestionData].sort((a, b) => (b.group_number || 0) - (a.group_number || 0))
-                      : selectedQuestionData;
+                    const isRelationshipQuestion = questionNumber === RELATIONSHIP;
+                    const displayQuestionData = selectedQuestionData;
                     
                     // Check if all answers are shared (for non-grouped questions, check each answer)
                     // Default to true if me_share is not set (undefined/null)
@@ -4204,18 +4218,17 @@ export default function UserProfilePage() {
                     // in step and both use the same scale captions as the editor.
                     const readOnlyRows = displayQuestionData.map((question) => ({
                       question,
-                      label: isKidsQuestion
-                        ? (question.group_number === 1 ? 'HAVE' : 'WANT')
-                        : (question.question_name || 'ANSWER').toUpperCase(),
+                      label: (question.question_name || 'ANSWER').toUpperCase(),
                       labels: buildQuestionScaleLabels(question, questionNumber),
                       answer: answersForQuestion.find((a: any) => {
                         const questionId = typeof a.question === 'object' ? a.question.id : a.question;
                         return questionId === question.id;
                       }),
                     }));
-                    // Kids is the one question whose two rows carry different scales.
 
-                    const canShowOtaColumn = !isGenderQuestion && !isKidsQuestion && !isHabitsQuestion && !isExerciseQuestion;
+                    // Mandatory questions answer on a fixed scale, so there is nothing to
+                    // be "open to all" about on the Me side.
+                    const canShowOtaColumn = !isMandatoryQuestionNumber(questionNumber);
 
                     // Helper: compute hasAnyOTA for Me
                     const meHasAnyOTA = displayQuestionData.some((question) => {

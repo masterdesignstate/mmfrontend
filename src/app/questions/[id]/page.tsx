@@ -5,6 +5,26 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { mutate as globalMutate } from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import {
+  ALCOHOL,
+  CIGARETTES,
+  DIET,
+  EDUCATION,
+  ETHNICITY,
+  EXERCISE,
+  HAVE_KIDS,
+  MANDATORY_QUESTION_PROMPTS,
+  MANDATORY_QUESTION_TITLES,
+  POLITICS,
+  RELATIONSHIP,
+  RELIGION,
+  GROUPED_MANDATORY_NUMBERS,
+  SINGLE_SLIDER_QUESTION_NUMBERS,
+  VAPE,
+  WANT_KIDS,
+  isMandatoryQuestionNumber,
+  isOptionalQuestionNumber,
+} from '@/constants/mandatoryQuestions';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
@@ -56,25 +76,27 @@ const POLITICS_SCALE_LABELS = ['UNINVOLVED', 'OBSERVANT', 'ACTIVE', 'FERVENT', '
 const WANT_KIDS_SCALE_LABELS = ["DON'T WANT", 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
 const HAVE_KIDS_SCALE_LABELS = ["DON'T HAVE", 'HAVE'];
 
-const getScaleLabelsForQuestion = (questionNumber: number, question?: Pick<Question, 'group_number'>) => {
-  if ([6, 7, 8].includes(questionNumber)) return FREQUENCY_SCALE_LABELS;
-  if (questionNumber === 9) return POLITICS_SCALE_LABELS;
-  if (questionNumber === 10) {
-    return question?.group_number === 1 ? HAVE_KIDS_SCALE_LABELS : WANT_KIDS_SCALE_LABELS;
+const getScaleLabelsForQuestion = (questionNumber: number) => {
+  if ([EXERCISE, ALCOHOL, CIGARETTES, VAPE, RELIGION].includes(questionNumber)) {
+    return FREQUENCY_SCALE_LABELS;
   }
+  if (questionNumber === POLITICS) return POLITICS_SCALE_LABELS;
+  if (questionNumber === WANT_KIDS) return WANT_KIDS_SCALE_LABELS;
+  if (questionNumber === HAVE_KIDS) return HAVE_KIDS_SCALE_LABELS;
   return null;
 };
 
 const isOptionalQuestion = (
   question: Pick<Question, 'question_number' | 'is_mandatory'>
-) => question.is_mandatory === false || question.question_number > 10;
+) => question.is_mandatory === false || isOptionalQuestionNumber(question.question_number);
 
 const questionAllowsLookingOta = (
   question: Pick<Question, 'question_number' | 'open_to_all_looking_for' | 'is_mandatory'>
 ) => (
   isOptionalQuestion(question) ||
   question.open_to_all_looking_for ||
-  [2, 3, 4, 5, 6, 7, 8, 9, 10].includes(question.question_number)
+  // Every mandatory question but Relationship, which has no "Them" side.
+  (isMandatoryQuestionNumber(question.question_number) && question.question_number !== RELATIONSHIP)
 );
 
 const questionAllowsMeOta = (
@@ -605,31 +627,8 @@ function QuestionEditPageContent() {
 
   // Static importance labels for importance sliders
   // Question display names
-  const questionTitles: Record<number, string> = {
-    1: 'Relationship',
-    2: 'Gender',
-    3: 'Ethnicity',
-    4: 'Education',
-    5: 'Diet',
-    6: 'Exercise',
-    7: 'Habits',
-    8: 'Politics',
-    9: 'Faith',
-    10: 'Kids'
-  };
-
-  const questionTexts: Record<number, string> = {
-    1: 'What relationship are you looking for?',
-    2: 'What gender do you identify with?',
-    3: 'What ethnicity do you identify with?',
-    4: 'What is your highest level of education?',
-    5: 'Which diet best describes you?',
-    6: 'How often do you exercise?',
-    7: 'How often do you engage in these habits?',
-    8: 'How important is religion in your life?',
-    9: 'How important is politics in your life?',
-    10: 'What are your thoughts on kids?'
-  };
+  const questionTitles = MANDATORY_QUESTION_TITLES;
+  const questionTexts = MANDATORY_QUESTION_PROMPTS;
 
   // Cycle loading text
   useEffect(() => {
@@ -697,7 +696,7 @@ function QuestionEditPageContent() {
         // Per-user required: user-facing switch must reflect UserRequiredQuestion only.
         // Question.is_required_for_match is an admin/default flag and should not re-enable
         // a non-mandatory question after the user turns this switch off.
-        if (questionsList.length > 0 && questionNumber > 10 && questionsList[0].question_type !== 'grouped') {
+        if (questionsList.length > 0 && isOptionalQuestionNumber(questionNumber) && questionsList[0].question_type !== 'grouped') {
           const firstQId = questionsList[0].id;
           const override = storedUserId
             ? sessionStorage.getItem(getRequiredOverrideKey(storedUserId, firstQId))
@@ -751,8 +750,8 @@ function QuestionEditPageContent() {
           lookingFor: answer.looking_for_importance || 3
         });
         
-        // Initialize meShare for non-grouped questions > 10
-        if (question.question_number > 10 && question.question_type !== 'grouped') {
+        // Initialize meShare for non-grouped optional questions
+        if (isOptionalQuestionNumber(question.question_number) && question.question_type !== 'grouped') {
           setMeShare(answer.me_share !== false); // Default to true if not set
         }
       } else {
@@ -771,8 +770,8 @@ function QuestionEditPageContent() {
     setExcludedAnswerValues(exclusions);
     setAnswerNotes(notes);
     
-    // For single-choice questions (3, 4, 5)
-    if ([3, 4, 5].includes(questionNumber) && answers.length > 0) {
+    // For single-choice questions (the grouped pickers)
+    if (GROUPED_MANDATORY_NUMBERS.includes(questionNumber) && answers.length > 0) {
       const highestAnswer = answers.reduce((prev, curr) => 
         curr.me_answer > prev.me_answer ? curr : prev
       );
@@ -818,18 +817,14 @@ function QuestionEditPageContent() {
 
     // Map question numbers to their page routes (for special named routes like ethnicity, education, diet)
     const namedRoutes: Record<number, string> = {
-      3: 'ethnicity',
-      4: 'education',
-      5: 'diet'
+      [ETHNICITY]: 'ethnicity',
+      [EDUCATION]: 'education',
+      [DIET]: 'diet',
     };
 
     // For ethnicity/education/diet, also set the selection parameter
-    if (questionNumber === 3) {
-      params.set('ethnicity', question.question_name);
-    } else if (questionNumber === 4) {
-      params.set('education', question.question_name);
-    } else if (questionNumber === 5) {
-      params.set('diet', question.question_name);
+    if (namedRoutes[questionNumber]) {
+      params.set(namedRoutes[questionNumber], question.question_name);
     }
 
     // Use named route if available, otherwise use question number
@@ -900,10 +895,10 @@ function QuestionEditPageContent() {
       
       localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
       const updates: Promise<Response>[] = [];
-      const isNonGroupedQuestionOver10 = questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped';
+      const isNonGroupedQuestionOver10 = isOptionalQuestionNumber(questionNumber) && questions.length > 0 && questions[0].question_type !== 'grouped';
 
-      if ([1, 2, 6, 7, 8, 9, 10].includes(questionNumber) || (questionNumber > 10 && questions.length > 0 && questions[0].question_type !== 'grouped')) {
-        // Slider-based questions (including non-grouped questions > 10)
+      if ([RELATIONSHIP, ...SINGLE_SLIDER_QUESTION_NUMBERS].includes(questionNumber as never) || isNonGroupedQuestionOver10) {
+        // Slider-based questions (including non-grouped optional questions)
         for (const question of questions) {
           const key = `q${question.group_number || question.id}`;
           const existingAnswer = existingAnswers.find(a => {
@@ -1020,7 +1015,7 @@ function QuestionEditPageContent() {
             );
           }
         }
-      } else if ([3, 4, 5].includes(questionNumber)) {
+      } else if (GROUPED_MANDATORY_NUMBERS.includes(questionNumber)) {
         // Single-choice questions
         const selectedQuestion = questions.find(q => q.question_name === selectedOption);
         if (!selectedQuestion) {
@@ -1182,7 +1177,7 @@ function QuestionEditPageContent() {
    * answer texts. A two-caption scale (e.g. "have kids") yields a two-stop slider.
    */
   const buildRowLabels = (question: Question): AnswerValueLabel[] => {
-    const captions = getScaleLabelsForQuestion(questionNumber, question);
+    const captions = getScaleLabelsForQuestion(questionNumber);
     const valueLabels = getSliderLabelsForQuestion(question.question_number, question.answers);
 
     if (!captions) return valueLabels.length > 0 ? valueLabels : DEFAULT_SCALE_LABELS;
@@ -1198,11 +1193,8 @@ function QuestionEditPageContent() {
   };
 
   /** The Kids question labels its two parts HAVE / WANT rather than by question name. */
-  const rowLabelFor = (question: Question, isKidsQuestion: boolean) => {
-    if (isKidsQuestion && question.group_number === 1) return 'HAVE';
-    if (isKidsQuestion && question.group_number === 2) return 'WANT';
-    return (question.question_name || 'ANSWER').toUpperCase();
-  };
+  const rowLabelFor = (question: Question) =>
+    (question.question_name || 'ANSWER').toUpperCase();
 
   type SliderRowSpec = {
     question: Question;
@@ -1310,8 +1302,8 @@ function QuestionEditPageContent() {
   const renderQuestionTemplate = () => {
     if (!questions || questions.length === 0) return null;
 
-    // Special handling for Relationship question (question_number === 1) - ONLY Me section, no "Looking For"
-    if (questionNumber === 1) {
+    // Special handling for Relationship - ONLY Me section, no "Looking For"
+    if (questionNumber === RELATIONSHIP) {
       const relationshipHasOta = questions.some(q => q.open_to_all_me);
       const relationshipGridClass = 'grid items-center justify-center grid-cols-[114px_260px_144px] gap-x-2 gap-y-3 lg:grid-cols-[108px_500px_144px] lg:gap-x-5 lg:gap-y-3';
 
@@ -1348,59 +1340,10 @@ function QuestionEditPageContent() {
   const renderQuestionContent = () => {
     if (!questions || questions.length === 0) return null;
 
-    // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
-    if (questionNumber === 2) {
-      const genderQuestions = [...questions].sort((a, b) => (b.group_number || 0) - (a.group_number || 0));
-
-      return (
-        sliderSectionShell(
-          <>
-            {renderSliderSection({
-              title: 'Them',
-              titleColor: '#672DB7',
-              rows: genderQuestions.map((question) => ({
-                question,
-                storageKey: `q${question.group_number || question.id}`,
-                stateKey: `q${question.group_number || question.id}_looking`,
-                label: question.question_name.toUpperCase(),
-                labels: DEFAULT_SCALE_LABELS,
-                otaEnabled: questionAllowsLookingOta(question),
-              })),
-              showExclude: true,
-            })}
-
-            {/* Me section — no importance slider, it is shared with Them. */}
-            {renderSliderSection({
-              title: 'Me',
-              rows: genderQuestions.map((question) => ({
-                question,
-                storageKey: `q${question.group_number || question.id}`,
-                stateKey: `q${question.group_number || question.id}_me`,
-                label: question.question_name.toUpperCase(),
-                labels: DEFAULT_SCALE_LABELS,
-                otaEnabled: questionAllowsMeOta(question),
-              })),
-              showNote: true,
-              className: 'pt-1',
-            })}
-            {renderImportanceSection(
-              importanceValues.lookingFor,
-              (value) => setImportanceValues(prev => ({ ...prev, lookingFor: value }))
-            )}
-          </>
-        )
-      );
-    }
-
-    // Basic multi-slider questions like Exercise/Habits/Religion (question_number === 6, 7, 8, 9, 10, etc.)
-    if ([6, 7, 8, 9, 10].includes(questionNumber)) {
-      const isKidsQuestion = questionNumber === 10;
-
-      // For kids question, sort so Want (group_number=2) comes before Have (group_number=1)
-      if (isKidsQuestion) {
-        questions.sort((a, b) => (b.group_number || 0) - (a.group_number || 0));
-      }
-
+    // Single-slider mandatory questions (Female, Male, Exercise, the three habits, Religion,
+    // Politics and the two kids questions). Each is its own question now, so the slider row
+    // needs no label of its own — the heading above it already names it.
+    if (SINGLE_SLIDER_QUESTION_NUMBERS.includes(questionNumber as never)) {
       // Show "Them" first, then "Me" (like onboarding) — responsive container and grids for small/medium devices
       return (
         sliderSectionShell(
@@ -1412,7 +1355,7 @@ function QuestionEditPageContent() {
                 question,
                 storageKey: `q${question.group_number || question.id}`,
                 stateKey: `q${question.group_number || question.id}_looking`,
-                label: rowLabelFor(question, isKidsQuestion),
+                label: rowLabelFor(question),
                 labels: buildRowLabels(question),
                 otaEnabled: questionAllowsLookingOta(question),
               })),
@@ -1426,7 +1369,7 @@ function QuestionEditPageContent() {
                 question,
                 storageKey: `q${question.group_number || question.id}`,
                 stateKey: `q${question.group_number || question.id}_me`,
-                label: rowLabelFor(question, isKidsQuestion),
+                label: rowLabelFor(question),
                 labels: buildRowLabels(question),
                 otaEnabled: questionAllowsMeOta(question),
               })),
@@ -1576,10 +1519,10 @@ function QuestionEditPageContent() {
     }
 
     // Basic single questions (non-grouped questions > 10) - render with Me and Them sliders
-    // Check if this is NOT a grouped question and question_number > 10
+    // Check if this is NOT a grouped question and the number is optional
     const isBasicSingleQuestion = questions.length > 0 && 
                                    questions[0].question_type !== 'grouped' && 
-                                   questionNumber > 10;
+                                   isOptionalQuestionNumber(questionNumber);
     
     if (isBasicSingleQuestion && questions.length === 1) {
       const question = questions[0];
@@ -1756,28 +1699,28 @@ function QuestionEditPageContent() {
       </div>
 
       {/* Main Content */}
-      <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden flex flex-col justify-center ${questionNumber === 1 ? 'px-2 sm:px-6 py-1.5' : 'px-3 sm:px-6 py-2 sm:py-4'}`}>
+      <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden flex flex-col justify-center ${questionNumber === RELATIONSHIP ? 'px-2 sm:px-6 py-1.5' : 'px-3 sm:px-6 py-2 sm:py-4'}`}>
         <div className={`w-full min-w-0 mx-auto ${
-          questionNumber === 1
+          questionNumber === RELATIONSHIP
             ? 'max-w-[calc(100vw-1rem)] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]'
-            : [2, 6, 7, 8, 9, 10].includes(questionNumber) || questionNumber > 10
+            : SINGLE_SLIDER_QUESTION_NUMBERS.includes(questionNumber as never) || isOptionalQuestionNumber(questionNumber)
               ? 'max-w-[95vw] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]'
               : 'max-w-4xl'
         }`}>
           {/* Title — responsive typography for small/medium/large */}
-          <div className={`text-center ${questionNumber === 1 ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
+          <div className={`text-center ${questionNumber === RELATIONSHIP ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
             <div className="inline-block w-full max-w-full px-0 sm:px-1">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2 break-words">
                 {questionNumber}. {questions && questions.length > 0 ? (
                   questions[0].group_name ? questions[0].group_name :
-                  (questionNumber <= 10
+                  (isMandatoryQuestionNumber(questionNumber)
                     ? (questions[0].question_name || questionTitles[questionNumber])
                     : questions[0].text)
                 ) : questionTitles[questionNumber]}
             </h1>
               
-              {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
-              {questionNumber > 10 && questions && questions.length > 0 && questions[0].question_type !== 'grouped' && (
+              {/* Share Answer and Required switches — optional questions only. */}
+              {isOptionalQuestionNumber(questionNumber) && questions && questions.length > 0 && questions[0].question_type !== 'grouped' && (
                 <div className="flex flex-wrap items-center justify-center sm:justify-between gap-3 sm:gap-4 w-full mt-3 sm:mt-4">
                   {/* Required For Match - Left */}
                   <div className="flex items-center gap-3">
@@ -1813,10 +1756,10 @@ function QuestionEditPageContent() {
                 </div>
               )}
             </div>
-            <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black break-words ${questionNumber === 1 ? 'mb-3 sm:mb-4' : 'mb-3 sm:mb-8 lg:mb-12'}`}>
+            <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black break-words ${questionNumber === RELATIONSHIP ? 'mb-3 sm:mb-4' : 'mb-3 sm:mb-8 lg:mb-12'}`}>
               {questions && questions.length > 0 ? (
                 questions[0].group_name_text ||
-                (questionNumber <= 10 ? questionTexts[questionNumber] : '')
+                (isMandatoryQuestionNumber(questionNumber) ? questionTexts[questionNumber] : '')
               ) : questionTexts[questionNumber]}
             </p>
           </div>
@@ -1867,7 +1810,7 @@ function QuestionEditPageContent() {
             ) : (
               <>
                 {/* Undo button - only for non-mandatory questions that have been answered */}
-                {questionNumber > 10 && existingAnswers.length > 0 && (
+                {isOptionalQuestionNumber(questionNumber) && existingAnswers.length > 0 && (
                   <button
                     onClick={handleUndoAnswer}
                     disabled={saving}

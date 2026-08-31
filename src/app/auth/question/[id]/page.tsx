@@ -9,22 +9,37 @@ import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabel
 import { getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
+import {
+  DIET,
+  EDUCATION,
+  ETHNICITY,
+  getNextOnboardingRoute,
+  getOnboardingProgressPercent,
+  getOnboardingStep,
+  getPreviousOnboardingRoute,
+  isMandatoryQuestionNumber,
+  isOptionalQuestionNumber,
+} from '@/constants/mandatoryQuestions';
 import posthog from 'posthog-js';
 
 /**
- * Scale captions this page overrides per route. When a route appears here only the listed
+ * Scale captions the grouped routes override. When a route appears here only the listed
  * values get a caption; anything else on the scale renders blank, matching the labels the
- * page showed before the shared slider row replaced them.
+ * page showed before the shared slider row replaced them. The numbered mandatory steps
+ * carry their own labels in ONBOARDING_STEPS instead.
  */
-const FREQUENCY_SCALE = { 1: 'NEVER', 2: 'RARELY', 3: 'SOMETIMES', 4: 'REGULARLY', 5: 'DAILY' };
 const SCALE_TEXT_OVERRIDES: Record<string, Record<number, string>> = {
   ethnicity: { 1: 'LESS', 5: 'MORE' },
   education: { 1: 'NONE', 3: 'SOME', 5: 'COMPLETED' },
   diet: { 1: 'NO', 5: 'YES' },
-  '6': FREQUENCY_SCALE,
-  '7': FREQUENCY_SCALE,
-  '8': FREQUENCY_SCALE,
-  '9': { 1: 'UNINVOLVED', 2: 'OBSERVANT', 3: 'ACTIVE', 4: 'FERVENT', 5: 'RADICAL' },
+};
+
+/** The route id for a numbered onboarding step, or null for the grouped/by-id routes. */
+const onboardingStepFromRoute = (routeId: string) => {
+  const number = Number(routeId);
+  if (!Number.isInteger(number)) return undefined;
+  const step = getOnboardingStep(number);
+  return step?.question ? step : undefined;
 };
 
 const questionAllowsLookingOta = (
@@ -37,7 +52,7 @@ const questionAllowsLookingOta = (
   Boolean(
     question && (
       question.is_mandatory === false ||
-      Number(question.question_number) > 10 ||
+      isOptionalQuestionNumber(question.question_number) ||
       question.open_to_all_looking_for
     )
   )
@@ -52,7 +67,7 @@ const questionAllowsMeOta = (
 ) => Boolean(
   question &&
   question.is_mandatory !== false &&
-  Number(question.question_number) <= 10 &&
+  isMandatoryQuestionNumber(question.question_number) &&
   question.open_to_all_me
 );
 
@@ -107,6 +122,12 @@ export default function QuestionPage() {
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
 
+  /** Set when this route is one of the numbered mandatory steps (`/auth/question/8`). */
+  const onboardingStep = useMemo(
+    () => onboardingStepFromRoute(String(params.id)),
+    [params.id]
+  );
+
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [error, setError] = useState<string>('');
@@ -117,16 +138,13 @@ export default function QuestionPage() {
     [userId]
   );
 
-  // Hardcoded question IDs from Django database (question_number=5)
+  // Hardcoded question IDs from Django database (Diet)
   const dietQuestionIds = {
     'Omnivore': '88c5d527-5b04-4227-8b94-e2e8537c5ad1',        // Group 1: Omnivore
     'Pescatarian': 'f0634c01-0941-4ae6-bfa8-24268b40d7f0',     // Group 2: Pescatarian
     'Vegetarian': 'cbb8c995-a0f2-4311-af82-daff06435e84',       // Group 3: Vegetarian
     'Vegan': '5dde9565-3ee5-4910-837c-ee92212db90a'             // Group 4: Vegan
   };
-
-  // Hardcoded question ID from Django database (question_number=6)
-  const exerciseQuestionId = '69340c6a-ab20-441c-b3d6-5564d9808998';
 
   // Helper function to get education display name
   const getEducationDisplayName = (education: string): string => {
@@ -150,6 +168,10 @@ export default function QuestionPage() {
   // each row's slider so positions always agree.
   const scaleLabels: AnswerValueLabel[] = useMemo(() => {
     const routeId = String(params.id);
+
+    const step = onboardingStepFromRoute(routeId);
+    if (step?.question) return step.question.labels;
+
     const valueLabels =
       routeId === 'diet'
         ? [{ value: '1', answer_text: 'NO' }, { value: '5', answer_text: 'YES' }]
@@ -166,26 +188,12 @@ export default function QuestionPage() {
     }));
   }, [params.id, question]);
 
-  
-  // For habits page (question 7) - 3 questions + importance
-  const [habitsQuestions, setHabitsQuestions] = useState<Array<{
-    id: string;
-    question_name: string;
-    question_number: number;
-    group_number?: number;
-    group_name: string;
-    text: string;
-    answers: Array<{ value: string; answer_text: string }>;
-    open_to_all_me: boolean;
-    open_to_all_looking_for: boolean;
-  }>>([]);
 
   useEffect(() => {
     const userIdParam = searchParams.get('user_id');
     const ethnicityParam = searchParams.get('ethnicity');
     const educationParam = searchParams.get('education');
     const dietParam = searchParams.get('diet');
-    const nextQuestionParam = searchParams.get('next_question');
     const questionNumberParam = searchParams.get('question_number');
     const questionDataParam = searchParams.get('question_data');
     const contextParam = searchParams.get('context');
@@ -203,7 +211,7 @@ export default function QuestionPage() {
 
     // Handle special case for ethnicity questions - HARDCODED DATA
     if (questionId === 'ethnicity' && ethnicityParam && questionNumberParam) {
-      // Hardcoded question IDs from Django database (question_number=3)
+      // Hardcoded question IDs from Django database (Ethnicity)
       const questionIds = {
         White: 'ee193abd-92ab-4808-8d18-40eef117142c',        // Group 1: White
         Black: '99b0deb7-8d11-4e89-8b08-e48bb7cffa9a',        // Group 2: Black
@@ -230,7 +238,7 @@ export default function QuestionPage() {
       const hardcodedQuestion = {
         id: questionIds[ethnicityParam as keyof typeof questionIds],
         question_name: ethnicityParam,
-        question_number: 3,
+        question_number: ETHNICITY,
         group_number: Object.keys(questionIds).indexOf(ethnicityParam) + 1,
         group_name: 'Ethnicity',
         text: `How strongly do you identify as ${getEthnicityDisplayName(ethnicityParam).toLowerCase()}?`,
@@ -269,76 +277,29 @@ export default function QuestionPage() {
         setMeAnswer(5);
         setLookingForAnswer(5);
       }
-    } else if (questionId === '6') {
-      // Create hardcoded question object for exercise
-      const hardcodedQuestion = {
-        id: exerciseQuestionId,
-        question_name: 'Exercise',
-        question_number: 6,
-        group_name: 'Exercise',
-        text: 'How frequently do you exercise?',
-        answers: [
-          { value: '1', answer_text: 'Never' },
-          { value: '2', answer_text: 'Rarely' },
-          { value: '3', answer_text: 'Sometimes' },
-          { value: '4', answer_text: 'Regularly' },
-          { value: '5', answer_text: 'Daily' }
-        ],
+    } else if (onboardingStep) {
+      // Every numbered mandatory step renders from ONBOARDING_STEPS so the page paints
+      // without waiting on the API. One unlabelled slider per section, same as each other.
+      setQuestion({
+        id: onboardingStep.question!.id,
+        question_name: onboardingStep.label,
+        question_number: onboardingStep.number,
+        group_name: onboardingStep.label,
+        text: onboardingStep.prompt,
+        answers: onboardingStep.question!.labels.map(label => ({
+          value: String(label.value),
+          answer_text: label.answer_text || '',
+        })),
         open_to_all_me: false,
-        open_to_all_looking_for: true
-      };
-      setQuestion(hardcodedQuestion);
-    } else if (questionId === '8') {
-      // Create hardcoded question object for religion
-      const hardcodedQuestion = {
-        id: '66545c20-b2df-4e26-80fc-756a54cd51f3',
-        question_name: 'Religion',
-        question_number: 8,
-        group_name: 'Religion',
-        text: 'How often do you practice religion?',
-        answers: [
-          { value: '1', answer_text: 'Never' },
-          { value: '2', answer_text: 'Rarely' },
-          { value: '3', answer_text: 'Sometimes' },
-          { value: '4', answer_text: 'Regularly' },
-          { value: '5', answer_text: 'Daily' }
-        ],
-        open_to_all_me: false,
-        open_to_all_looking_for: true
-      };
-      setQuestion(hardcodedQuestion);
-    } else if (questionId === '9') {
-      // Create hardcoded question object for politics
-      const hardcodedQuestion = {
-        id: 'dde017cd-7065-4ac0-9413-cac7e155e93e',
-        question_name: 'Politics',
-        question_number: 9,
-        group_name: 'Politics',
-        text: 'How important is politics in your life?',
-        answers: [
-          { value: '1', answer_text: 'Uninvolved' },
-          { value: '2', answer_text: 'Observant' },
-          { value: '3', answer_text: 'Active' },
-          { value: '4', answer_text: 'Fervent' },
-          { value: '5', answer_text: 'Radical' }
-        ],
-        open_to_all_me: false,
-        open_to_all_looking_for: true
-      };
-      setQuestion(hardcodedQuestion);
-    } else if (questionId === 'next-question' && nextQuestionParam && questionNumberParam) {
-      // Use passed question data if available, otherwise fetch
-      if (questionDataParam) {
-        try {
-          const parsedQuestionData = JSON.parse(questionDataParam);
-          setQuestion(parsedQuestionData);
-        } catch (error) {
-          fetchNextQuestion(nextQuestionParam, parseInt(questionNumberParam));
-        }
-      } else {
-        fetchNextQuestion(nextQuestionParam, parseInt(questionNumberParam));
+        open_to_all_looking_for: true,
+      });
+
+      const defaultAnswer = onboardingStep.question!.defaultAnswer;
+      if (defaultAnswer && !initialEa) {
+        setMeAnswer(defaultAnswer);
+        setLookingForAnswer(defaultAnswer);
       }
-    } else if (questionId && questionId !== 'ethnicity' && questionId !== 'education' && questionId !== 'diet' && questionId !== '6' && questionId !== '8' && questionId !== '9' && questionId !== 'next-question') {
+    } else if (questionId && questionId !== 'ethnicity' && questionId !== 'education' && questionId !== 'diet') {
       // Use passed question data if available, otherwise fetch the specific question by ID
       if (questionDataParam) {
         try {
@@ -356,13 +317,6 @@ export default function QuestionPage() {
   useEffect(() => {
     setExcludedAnswerValues(prev => normalizeExcludedValues(prev, allowedExclusionValues, blockedExclusionValues));
   }, [allowedExclusionValues, blockedExclusionValues]);
-
-  // Fetch habits questions in background when userId is available
-  useEffect(() => {
-    if (userId) {
-      fetchHabitsQuestions();
-    }
-  }, [userId]);
 
   // Load existing answer and "required for me" when userId and question are set.
   // Uses a ref-based counter instead of cleanup-based cancelled flag to survive
@@ -556,92 +510,9 @@ export default function QuestionPage() {
     }
   };
 
-  const fetchNextQuestion = async (nextQuestion: string, questionNumber: number) => {
-    setLoadingQuestion(true);
-    try {
-      // Fetch all next questions and find the specific one
-      const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
-      const response = await fetch(apiUrl);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.results && data.results.length > 0) {
-          // Find the specific next question by matching the question name exactly
-          const specificQuestion = data.results.find((q: { question_name: string }) => 
-            q.question_name === nextQuestion
-          );
-          
-          if (specificQuestion) {
-            setQuestion(specificQuestion);
-          } else {
-            setError(`No next question found for ${nextQuestion}`);
-          }
-        } else {
-          setError(`No next question ${questionNumber} found`);
-        }
-      } else {
-        setError('Failed to load next question');
-      }
-    } catch (error: unknown) {
-      setError('Failed to load next question');
-    } finally {
-      setLoadingQuestion(false);
-    }
-  };
-
-  const fetchHabitsQuestions = async () => {
-    // Fetch habits questions in the background
-    if (userId && habitsQuestions.length === 0) {
-      try {
-        const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=7`;
-        const response = await fetch(apiUrl);
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Sort questions by group_number
-          const sortedHabitsQuestions = (data.results || []).sort((a: typeof habitsQuestions[0], b: typeof habitsQuestions[0]) => {
-            const groupA = a.group_number || 0;
-            const groupB = b.group_number || 0;
-            return groupA - groupB;
-          });
-          
-          setHabitsQuestions(sortedHabitsQuestions);
-        }
-      } catch (error: unknown) {
-        // Silently fail - habits page will fetch normally if needed
-      }
-    }
-  };
-
   const getProgressPercentage = () => {
     if (!question) return 60; // default fallback
-    
-    // Progressive onboarding steps:
-    // Relationship (1): 10%
-    // Gender (2): 20%
-    // Ethnicity (3): 30%
-    // Education (4): 40%
-    // Diet (5): 50%
-    // Exercise (6): 60%
-    // Habits (7): 70%
-    // Religion (8): 80%
-    // Politics (9): 90%
-    // Kids (10): 100%
-    
-    const progressMap: { [key: number]: number } = {
-      1: 10,  // Relationship
-      2: 20,  // Gender
-      3: 30,  // Ethnicity
-      4: 40,  // Education
-      5: 50,  // Diet
-      6: 60,  // Exercise
-      7: 70,  // Habits
-      8: 80,  // Religion
-      9: 90,  // Politics
-      10: 100 // Kids
-    };
-    
-    return progressMap[question.question_number] || 60;
+    return getOnboardingProgressPercent(question.question_number) || 60;
   };
 
   const handleSliderChange = (section: 'meAnswer' | 'lookingForAnswer' | 'importance', value: number) => {
@@ -716,17 +587,7 @@ export default function QuestionPage() {
         }
       };
 
-      if (params.id === 'ethnicity') {
-        saveAnswerInBackground();
-      } else if (params.id === 'education') {
-        saveAnswerInBackground();
-      } else if (params.id === 'diet') {
-        saveAnswerInBackground();
-      } else if (params.id === '6') {
-        saveAnswerInBackground();
-      } else if (params.id === '8') {
-        saveAnswerInBackground();
-      } else if (params.id === '9') {
+      if (params.id === 'ethnicity' || params.id === 'education' || params.id === 'diet' || onboardingStep) {
         saveAnswerInBackground();
       } else {
         // For other questions, save synchronously as before
@@ -839,59 +700,35 @@ export default function QuestionPage() {
             user_id: userId
           });
           router.push(`/auth/diet?${params.toString()}`);
-        } else if (params.id === '6') {
-          // Track question 6 as answered for introcard routing
+        } else if (onboardingStep) {
+          // Track the number as answered so the introcard can resume mid-flow.
           try {
-            const lsKey = `onboarding_answered_numbers_${userId}`;
+            const lsKey = `onboarding_answered_numbers_v2_${userId}`;
             const existing: number[] = JSON.parse(localStorage.getItem(lsKey) || '[]');
-            if (!existing.includes(6)) { existing.push(6); localStorage.setItem(lsKey, JSON.stringify(existing)); }
+            if (!existing.includes(onboardingStep.number)) {
+              existing.push(onboardingStep.number);
+              localStorage.setItem(lsKey, JSON.stringify(existing));
+            }
           } catch {}
 
-          // Navigate to habits page (next in onboarding flow)
-          posthog.capture('onboarding_step_completed', { step: 'exercise', question_number: 6 });
-          const params = new URLSearchParams({
-            user_id: userId
-          });
-          router.push(`/auth/habits?${params.toString()}`);
-        } else if (params.id === '8') {
-          // Track question 8 as answered for introcard routing
-          try {
-            const lsKey = `onboarding_answered_numbers_${userId}`;
-            const existing: number[] = JSON.parse(localStorage.getItem(lsKey) || '[]');
-            if (!existing.includes(8)) { existing.push(8); localStorage.setItem(lsKey, JSON.stringify(existing)); }
-          } catch {}
-
-          // Navigate to politics page (next in onboarding flow)
-          posthog.capture('onboarding_step_completed', { step: 'religion', question_number: 8 });
-          const params = new URLSearchParams({
-            user_id: userId
-          });
-          router.push(`/auth/question/9?${params.toString()}`);
-        } else if (params.id === '9') {
-          // Track question 9 as answered for introcard routing
-          try {
-            const lsKey = `onboarding_answered_numbers_${userId}`;
-            const existing: number[] = JSON.parse(localStorage.getItem(lsKey) || '[]');
-            if (!existing.includes(9)) { existing.push(9); localStorage.setItem(lsKey, JSON.stringify(existing)); }
-          } catch {}
-
-          // Navigate to kids page (next in onboarding flow)
-          posthog.capture('onboarding_step_completed', { step: 'politics', question_number: 9 });
-          const params = new URLSearchParams({
-            user_id: userId
-          });
-          router.push(`/auth/kids?${params.toString()}`);
-        } else if (params.id === 'next-question') {
-          const params = new URLSearchParams({
-            user_id: userId
+          posthog.capture('onboarding_step_completed', {
+            step: onboardingStep.label.toLowerCase(),
+            question_number: onboardingStep.number,
           });
 
-          // If we have habits questions loaded, pass them to avoid re-fetching
-          if (habitsQuestions.length > 0) {
-            params.set('questions', JSON.stringify(habitsQuestions));
+          const nextParams = new URLSearchParams({ user_id: userId });
+          const nextRoute = getNextOnboardingRoute(onboardingStep.number);
+
+          if (nextRoute) {
+            router.push(`${nextRoute}?${nextParams.toString()}`);
+          } else {
+            // Last mandatory step: unlock the gated pages and hand off to the profile.
+            sessionStorage.setItem('show_loading_page', 'true');
+            localStorage.setItem(`mandatory_questions_complete_${userId}`, 'true');
+            localStorage.removeItem('mandatory_questions_complete');
+            posthog.capture('onboarding_completed');
+            router.push(`/profile?${nextParams.toString()}`);
           }
-
-          router.push(`/auth/habits?${params.toString()}`);
         } else {
           router.push('/dashboard');
         }
@@ -937,19 +774,16 @@ export default function QuestionPage() {
         refresh: 'true'  // Add refresh parameter to trigger answered questions check
       });
 
-      if (params.id === 'next-question' || params.id === '6') {
-        // Question 6 (exercise) goes back to question 5 (diet)
-        router.push(`/auth/diet?${urlParams.toString()}`);
+      const previousRoute = onboardingStep
+        ? getPreviousOnboardingRoute(onboardingStep.number)
+        : null;
+
+      if (previousRoute) {
+        router.push(`${previousRoute}?${urlParams.toString()}`);
       } else if (params.id === 'diet') {
         router.push(`/auth/education?${urlParams.toString()}`);
       } else if (params.id === 'education') {
         router.push(`/auth/ethnicity?${urlParams.toString()}`);
-      } else if (params.id === '8') {
-        // Question 8 (religion) goes back to question 7 (habits)
-        router.push(`/auth/habits?${urlParams.toString()}`);
-      } else if (params.id === '9') {
-        // Question 9 (politics) goes back to question 8 (religion)
-        router.push(`/auth/question/8?${urlParams.toString()}`);
       } else {
         router.push(`/auth/ethnicity?${urlParams.toString()}`);
       }
@@ -987,8 +821,6 @@ export default function QuestionPage() {
     params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) :
     params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
     params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
-    params.id === '8' ? 'RELIGION' :
-    params.id === '9' ? 'LEFT' :
     (question?.question_name || 'ANSWER').toUpperCase();
 
   const showProgress =
@@ -1010,23 +842,16 @@ export default function QuestionPage() {
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
         <OnboardingTitle
           step={
-            params.id === 'ethnicity' ? `${question?.question_number || 3}. Ethnicity` :
-            params.id === 'education' ? '4. Education' :
-            params.id === 'diet' ? `${question?.question_number || 5}. Diet` :
-            params.id === '6' ? '6. Exercise' :
-            params.id === '8' ? '8. Religion' :
-            params.id === '9' ? '9. Politics' :
-            params.id === 'next-question' ? `${question?.question_number || 6}. ${question?.question_name || 'Next Question'}` :
+            onboardingStep ? `${onboardingStep.number}. ${onboardingStep.label}` :
+            params.id === 'ethnicity' ? `${question?.question_number || ETHNICITY}. Ethnicity` :
+            params.id === 'education' ? `${EDUCATION}. Education` :
+            params.id === 'diet' ? `${question?.question_number || DIET}. Diet` :
             question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'
           }
-          question={
-            params.id === '8' ? 'How often do you practice religion?' :
-            params.id === '9' ? 'How important is politics in your life?' :
-            question?.text || 'What ethnicity do you identify with?'
-          }
+          question={question?.text || 'What ethnicity do you identify with?'}
         >
-          {/* Share Answer and Required switches - Only show for non-mandatory questions (question_number > 10) */}
-          {question && question.question_number > 10 && (
+          {/* Share Answer and Required switches — optional questions only. */}
+          {question && isOptionalQuestionNumber(question.question_number) && (
             <div className="mb-4 flex w-full items-center justify-between gap-3 sm:mb-8">
               {/* Required For Match - Left */}
               <div className="flex items-center gap-2 sm:gap-3">

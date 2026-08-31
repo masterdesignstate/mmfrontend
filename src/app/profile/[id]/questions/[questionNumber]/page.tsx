@@ -4,6 +4,25 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import {
+  ALCOHOL,
+  CIGARETTES,
+  DIET,
+  EDUCATION,
+  ETHNICITY,
+  EXERCISE,
+  FAITH,
+  HAVE_KIDS,
+  IDEOLOGY,
+  MANDATORY_QUESTION_PROMPTS,
+  MANDATORY_QUESTION_TITLES,
+  POLITICS,
+  RELATIONSHIP,
+  RELIGION,
+  SINGLE_SLIDER_QUESTION_NUMBERS,
+  VAPE,
+  WANT_KIDS,
+} from '@/constants/mandatoryQuestions';
 import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
@@ -78,12 +97,13 @@ const POLITICS_SCALE_LABELS = ['UNINVOLVED', 'OBSERVANT', 'ACTIVE', 'FERVENT', '
 const WANT_KIDS_SCALE_LABELS = ["DON'T WANT", 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
 const HAVE_KIDS_SCALE_LABELS = ["DON'T HAVE", 'HAVE'];
 
-const getScaleLabelsForQuestion = (questionNumber: number, question?: Pick<Question, 'group_number'>) => {
-  if ([6, 7, 8].includes(questionNumber)) return FREQUENCY_SCALE_LABELS;
-  if (questionNumber === 9) return POLITICS_SCALE_LABELS;
-  if (questionNumber === 10) {
-    return question?.group_number === 1 ? HAVE_KIDS_SCALE_LABELS : WANT_KIDS_SCALE_LABELS;
+const getScaleLabelsForQuestion = (questionNumber: number) => {
+  if ([EXERCISE, ALCOHOL, CIGARETTES, VAPE, RELIGION].includes(questionNumber)) {
+    return FREQUENCY_SCALE_LABELS;
   }
+  if (questionNumber === POLITICS) return POLITICS_SCALE_LABELS;
+  if (questionNumber === WANT_KIDS) return WANT_KIDS_SCALE_LABELS;
+  if (questionNumber === HAVE_KIDS) return HAVE_KIDS_SCALE_LABELS;
   return null;
 };
 
@@ -242,8 +262,8 @@ export default function ReadOnlyQuestionViewPage() {
       );
     }
 
-    // Special handling for Relationship question (question_number === 1) - ONLY Me section
-    if (questionNumber === 1) {
+    // Special handling for Relationship - ONLY Me section
+    if (questionNumber === RELATIONSHIP) {
       return (
         <div className="mb-6">
           <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
@@ -329,163 +349,19 @@ export default function ReadOnlyQuestionViewPage() {
       );
     }
 
-    // Gender question (question_number === 2) - "Them" first with importance, then "Me" without importance
-    if (questionNumber === 2) {
-      const genderQuestions = [...questions].sort((a, b) => (b.group_number || 0) - (a.group_number || 0));
-
-      return (
-        <div>
-          {/* Them Section */}
-          {canShowThem && (
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
-
-              <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                <div></div>
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>LESS</span>
-                  <span>MORE</span>
-                </div>
-                <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                  {questions.some(q => q.open_to_all_looking_for) ? 'OTA' : ''}
-                </div>
-              </div>
-
-              <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                {genderQuestions.map((question) => {
-                  const answer = userAnswers.find(a => {
-                    const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                    return questionId === question.id;
-                  });
-                  const lookingValue = answer?.looking_for_answer || 3;
-                  const lookingOpenToAll = answer?.looking_for_open_to_all || false;
-
-                  return (
-                    <React.Fragment key={`looking-${question.id}`}>
-                      <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                      <div className="relative">
-                        <ReadOnlySliderComponent
-                          value={lookingValue}
-                          isOpenToAll={lookingOpenToAll}
-                          labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
-                        />
-                      </div>
-                      <div>
-                        {question.open_to_all_looking_for ? (
-                          <div className="flex items-center">
-                            <div className={`block w-11 h-6 rounded-full ${lookingOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                              <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${lookingOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-11 h-6"></div>
-                        )}
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
-
-                {/* IMPORTANCE Slider Row */}
-                <div className="text-xs font-semibold text-gray-400">IMPORTANCE</div>
-                <div className="relative">
-                  <ReadOnlySliderComponent
-                    value={userAnswers[0]?.looking_for_importance || 3}
-                    isOpenToAll={false}
-                    isImportance={true}
-                    labels={IMPORTANCE_LABELS}
-                  />
-                </div>
-                <div className="w-11 h-6"></div>
-              </div>
-
-              {/* Importance labels */}
-              <div className="grid items-center justify-center mx-auto max-w-fit mt-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-                <div></div>
-                <div className="relative text-xs text-gray-500" style={{ width: '500px' }}>
-                  {(() => {
-                    const importance = userAnswers[0]?.looking_for_importance || 3;
-                    const positions: Record<number, { left: string; label: string }> = {
-                      1: { left: '14px', label: 'TRIVIAL' },
-                      2: { left: '25%', label: 'MINOR' },
-                      3: { left: '50%', label: 'AVERAGE' },
-                      4: { left: '75%', label: 'SIGNIFICANT' },
-                      5: { left: 'calc(100% - 14px)', label: 'ESSENTIAL' }
-                    };
-                    const pos = positions[importance];
-                    return pos ? <span className="absolute" style={{ left: pos.left, transform: 'translateX(-50%)' }}>{pos.label}</span> : null;
-                  })()}
-                </div>
-                <div></div>
-              </div>
-            </div>
-          )}
-
-          {/* Me Section */}
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1">Me</h3>
-
-            <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              <div></div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>LESS</span>
-                <span>MORE</span>
-              </div>
-              <div className="text-xs text-gray-500 text-center" style={{ marginLeft: '-15px' }}>
-                {questions.some(q => q.open_to_all_me) ? 'OTA' : ''}
-              </div>
-            </div>
-
-            <div className="grid items-center justify-center mx-auto max-w-fit" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
-              {genderQuestions.map((question) => {
-                const answer = userAnswers.find(a => {
-                  const questionId = typeof a.question === 'object' ? a.question.id : a.question;
-                  return questionId === question.id;
-                });
-                const meValue = answer?.me_answer || 3;
-                const meOpenToAll = answer?.me_open_to_all || false;
-
-                return (
-                  <React.Fragment key={`me-${question.id}`}>
-                    <div className="text-xs font-semibold text-gray-400">{question.question_name.toUpperCase()}</div>
-                    <div className="relative">
-                      <ReadOnlySliderComponent
-                        value={meValue}
-                        isOpenToAll={meOpenToAll}
-                        labels={getSliderLabelsForQuestion(question.question_number, question.answers)}
-                      />
-                    </div>
-                    <div>
-                      {question.open_to_all_me ? (
-                        <div className="flex items-center">
-                          <div className={`block w-11 h-6 rounded-full ${meOpenToAll ? 'bg-[#672DB7]' : 'bg-[#ADADAD]'}`}>
-                            <div className={`dot absolute left-0.5 top-0.5 w-5 h-5 rounded-full transition ${meOpenToAll ? 'transform translate-x-5 bg-white' : 'bg-white'}`}></div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-11 h-6"></div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     // Grouped questions - show cards
     if ((questions[0]?.question_type as Question['question_type']) === 'grouped') {
       const optionIcons: Record<number, string> = {
-        3: '/assets/ethn.png',
-        4: '/assets/cpx.png',
-        5: '/assets/lf2.png',
-        7: '/assets/hands.png',
-        8: '/assets/prayin.png',
-        9: '/assets/politics.png',
-        10: '/assets/pacifier.png',
-        11: '/assets/prayin.png',
-        12: '/assets/ethn.png'
+        [ETHNICITY]: '/assets/ethn.png',
+        [EDUCATION]: '/assets/cpx.png',
+        [DIET]: '/assets/lf2.png',
+        [ALCOHOL]: '/assets/hands.png',
+        [RELIGION]: '/assets/prayin.png',
+        [POLITICS]: '/assets/politics.png',
+        [WANT_KIDS]: '/assets/pacifier.png',
+        [HAVE_KIDS]: '/assets/pacifier.png',
+        [FAITH]: '/assets/prayin.png',
+        [IDEOLOGY]: '/assets/ethn.png',
       };
 
       return (
@@ -525,9 +401,9 @@ export default function ReadOnlyQuestionViewPage() {
       );
     }
 
-    // Basic multi-slider questions like Exercise/Habits/Religion (question_number === 6, 7, 8, 9, 10, etc.)
-    if ([6, 7, 8, 9, 10].includes(questionNumber)) {
-      const isKidsQuestion = questionNumber === 10;
+    // Single-slider mandatory questions (Female, Male, Exercise, the three habits,
+    // Religion, Politics and the two kids questions).
+    if (SINGLE_SLIDER_QUESTION_NUMBERS.includes(questionNumber as never)) {
       const hasRowScaleLabels = Boolean(getScaleLabelsForQuestion(questionNumber));
 
       // Show "Them" first, then "Me" (like onboarding)
@@ -559,15 +435,8 @@ export default function ReadOnlyQuestionViewPage() {
                 });
                 const lookingValue = answer?.looking_for_answer || 3;
                 const lookingOpenToAll = answer?.looking_for_open_to_all || false;
-                const scaleLabels = getScaleLabelsForQuestion(questionNumber, question);
-
-                // For Kids question, use WANT/HAVE labels
-                let label = (question.question_name || 'ANSWER').toUpperCase();
-                if (isKidsQuestion && question.group_number === 1) {
-                  label = 'HAVE';
-                } else if (isKidsQuestion && question.group_number === 2) {
-                  label = 'WANT';
-                }
+                const scaleLabels = getScaleLabelsForQuestion(questionNumber);
+                const label = (question.question_name || 'ANSWER').toUpperCase();
 
                 return (
                   <React.Fragment key={`looking-${question.id}`}>
@@ -660,15 +529,8 @@ export default function ReadOnlyQuestionViewPage() {
                 });
                 const meValue = answer?.me_answer || 3;
                 const meOpenToAll = answer?.me_open_to_all || false;
-                const scaleLabels = getScaleLabelsForQuestion(questionNumber, question);
-
-                // For Kids question, use WANT/HAVE labels
-                let label = (question.question_name || 'ANSWER').toUpperCase();
-                if (isKidsQuestion && question.group_number === 1) {
-                  label = 'HAVE';
-                } else if (isKidsQuestion && question.group_number === 2) {
-                  label = 'WANT';
-                }
+                const scaleLabels = getScaleLabelsForQuestion(questionNumber);
+                const label = (question.question_name || 'ANSWER').toUpperCase();
 
                 return (
                   <React.Fragment key={`me-${question.id}`}>
@@ -709,15 +571,16 @@ export default function ReadOnlyQuestionViewPage() {
     // Grouped questions - show cards
     if ((questions[0]?.question_type as Question['question_type']) === 'grouped') {
       const optionIcons: Record<number, string> = {
-        3: '/assets/ethn.png',
-        4: '/assets/cpx.png',
-        5: '/assets/lf2.png',
-        7: '/assets/hands.png',
-        8: '/assets/prayin.png',
-        9: '/assets/politics.png',
-        10: '/assets/pacifier.png',
-        11: '/assets/prayin.png',
-        12: '/assets/ethn.png'
+        [ETHNICITY]: '/assets/ethn.png',
+        [EDUCATION]: '/assets/cpx.png',
+        [DIET]: '/assets/lf2.png',
+        [ALCOHOL]: '/assets/hands.png',
+        [RELIGION]: '/assets/prayin.png',
+        [POLITICS]: '/assets/politics.png',
+        [WANT_KIDS]: '/assets/pacifier.png',
+        [HAVE_KIDS]: '/assets/pacifier.png',
+        [FAITH]: '/assets/prayin.png',
+        [IDEOLOGY]: '/assets/ethn.png',
       };
 
       return (
@@ -891,31 +754,8 @@ export default function ReadOnlyQuestionViewPage() {
     );
   }
 
-  const questionTitles: Record<number, string> = {
-    1: 'Relationship',
-    2: 'Gender',
-    3: 'Ethnicity',
-    4: 'Education',
-    5: 'Diet',
-    6: 'Exercise',
-    7: 'Habits',
-    8: 'Religion',
-    9: 'Politics',
-    10: 'Kids'
-  };
-
-  const questionTexts: Record<number, string> = {
-    1: 'What relationship are you looking for?',
-    2: 'What gender do you identify with?',
-    3: 'What ethnicity do you identify with?',
-    4: 'What is your highest level of education?',
-    5: 'Which diet best describes you?',
-    6: 'How often do you exercise?',
-    7: 'How often do you engage in these habits?',
-    8: 'How important is religion in your life?',
-    9: 'How important is politics in your life?',
-    10: 'What are your thoughts on kids?'
-  };
+  const questionTitles = MANDATORY_QUESTION_TITLES;
+  const questionTexts = MANDATORY_QUESTION_PROMPTS;
 
   return (
     <div className="min-h-screen bg-white">

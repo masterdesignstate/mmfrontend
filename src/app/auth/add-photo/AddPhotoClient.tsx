@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { FEMALE, MALE, RELATIONSHIP } from '@/constants/mandatoryQuestions';
 import { apiService, MAX_USER_PICTURES, type UserPicture } from '@/services/api';
 import { clearStoredIdentity, isMissingUserError, resolveOnboardingUserId } from '@/utils/userSession';
 import posthog from 'posthog-js';
@@ -61,7 +62,8 @@ export default function AddPhotoClient() {
     if (questionsParam) {
       try { setQuestions(JSON.parse(questionsParam)); return; } catch { /* noop */ }
     }
-    fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1&question_number=2`)
+    const prefetchParams = [RELATIONSHIP, FEMALE, MALE].map(n => `question_number=${n}`).join('&');
+    fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${prefetchParams}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.results) setQuestions(d.results); })
       .catch(() => { /* noop */ });

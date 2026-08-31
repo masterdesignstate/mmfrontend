@@ -17,6 +17,23 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUserAnswers } from '@/hooks/useUserAnswers';
 import { useGroupedQuestions } from '@/hooks/useGroupedQuestions';
 import { normalizeEthnicityQuestionName } from '@/utils/ethnicityQuestions';
+import {
+  ALCOHOL,
+  FEMALE,
+  MALE,
+  CIGARETTES,
+  DIET,
+  EDUCATION,
+  ETHNICITY,
+  EXERCISE,
+  FAITH,
+  HAVE_KIDS,
+  IDEOLOGY,
+  POLITICS,
+  RELIGION,
+  VAPE,
+  WANT_KIDS,
+} from '@/constants/mandatoryQuestions';
 
 // Types for user profile and answers
 interface UserProfile {
@@ -193,20 +210,17 @@ export default function ProfilePage() {
     if (!answer) return null;
 
     // For kids questions, use predefined labels
-    if (questionNumber === 10) {
-      if (groupNumber === 1) {
-        // Have kids question
-        const haveLabels = { 1: "Don't Have", 5: "Have" };
-        return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
-      } else if (groupNumber === 2) {
-        // Want kids question
-        const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
-        return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
-      }
+    if (questionNumber === HAVE_KIDS) {
+      const haveLabels = { 1: "Don't Have", 5: "Have" };
+      return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
+    }
+    if (questionNumber === WANT_KIDS) {
+      const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
+      return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
     }
 
-    // For politics question (question 9)
-    if (questionNumber === 9) {
+    // For politics question
+    if (questionNumber === POLITICS) {
       const politicsLabels = { 1: "Uninvolved", 2: "Observant", 3: "Active", 4: "Fervent", 5: "Radical" };
       return politicsLabels[answer[answerType] as keyof typeof politicsLabels] || null;
     }
@@ -230,10 +244,10 @@ export default function ProfilePage() {
     );
   };
 
-  // Helper function to get ranked ideology questions (question_number === 12)
+  // Helper function to get ranked ideology questions
   // Returns them sorted by: 1) highest value, 2) answered first (lowest group_number as tie-breaker)
   const getRankedIdeologyQuestions = () => {
-    const ideologyAnswers = userAnswers.filter(a => a.question.question_number === 12);
+    const ideologyAnswers = userAnswers.filter(a => a.question.question_number === IDEOLOGY);
     if (ideologyAnswers.length === 0) return [];
 
     // Sort by highest me_answer value first, then by group_number (answered first) as tie-breaker
@@ -265,8 +279,8 @@ export default function ProfilePage() {
   const getProfileIcons = (): ProfileIcon[] => {
     const icons: ProfileIcon[] = [];
 
-    // Exercise icon (question_number === 6)
-    const exerciseValue = getAnswerValue(6);
+    // Exercise icon
+    const exerciseValue = getAnswerValue(EXERCISE);
     if (exerciseValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Very often' };
       icons.push({
@@ -277,8 +291,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Education icon (question_number === 4, highest value)
-    const educationAnswer = getHighestAnswer(4);
+    // Education icon (highest value)
+    const educationAnswer = getHighestAnswer(EDUCATION);
     if (educationAnswer) {
       icons.push({
         image: '/assets/cap.png',
@@ -288,8 +302,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Alcohol icon (question_number === 7, group_number === 1)
-    const alcoholValue = getAnswerValue(7, 1);
+    // Alcohol icon
+    const alcoholValue = getAnswerValue(ALCOHOL);
     if (alcoholValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
@@ -300,8 +314,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Diet icon (question_number === 5) - check all diet answers
-    const dietAnswers = userAnswers.filter(a => a.question.question_number === 5);
+    // Diet icon - check all diet answers
+    const dietAnswers = userAnswers.filter(a => a.question.question_number === DIET);
 
     if (dietAnswers.length > 0) {
       // Get the answer with the highest value (most strongly identified with)
@@ -311,7 +325,7 @@ export default function ProfilePage() {
 
       if (highestDietAnswer.me_answer > 1) {
         const dietLabel = highestDietAnswer.question.question_name || '';
-        const allDietQuestions = groupedQuestions.filter(q => q.question_number === 5);
+        const allDietQuestions = groupedQuestions.filter(q => q.question_number === DIET);
 
         icons.push({
           image: getDietIcon(dietLabel),
@@ -332,8 +346,8 @@ export default function ProfilePage() {
       }
     }
 
-    // Smoking icon (question_number === 7, group_number === 2)
-    const smokingValue = getAnswerValue(7, 2);
+    // Smoking icon
+    const smokingValue = getAnswerValue(CIGARETTES);
     if (smokingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
@@ -344,8 +358,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Vaping icon (question_number === 7, group_number === 3)
-    const vapingValue = getAnswerValue(7, 3);
+    // Vaping icon
+    const vapingValue = getAnswerValue(VAPE);
     if (vapingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
@@ -356,8 +370,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Have Children icon (question_number === 10, group_number === 1)
-    const haveChildrenLabel = getAnswerLabel(10, 1);
+    // Have Children icon
+    const haveChildrenLabel = getAnswerLabel(HAVE_KIDS);
     if (haveChildrenLabel) {
       icons.push({
         image: '/assets/pacifier.png',
@@ -367,8 +381,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Want Children icon (question_number === 10, group_number === 2)
-    const wantChildrenLabel = getAnswerLabel(10, 2);
+    // Want Children icon
+    const wantChildrenLabel = getAnswerLabel(WANT_KIDS);
     if (wantChildrenLabel) {
       icons.push({
         image: '/assets/pacifier.png',
@@ -384,8 +398,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Politics icon (question_number === 9)
-    const politicsValue = getAnswerValue(9);
+    // Politics icon
+    const politicsValue = getAnswerValue(POLITICS);
     if (politicsValue) {
       const politicsLabels = {
         1: 'Uninvolved',
@@ -405,8 +419,8 @@ export default function ProfilePage() {
       }
     }
 
-    // Ethnicity icon (question_number === 3)
-    const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === 3);
+    // Ethnicity icon
+    const ethnicityAnswers = userAnswers.filter(a => a.question.question_number === ETHNICITY);
     if (ethnicityAnswers.length > 0) {
       // Get the answer with the highest value (most strongly identified with)
       const highestEthnicityAnswer = ethnicityAnswers.reduce((prev, curr) =>
@@ -423,8 +437,8 @@ export default function ProfilePage() {
       });
     }
 
-    // Religion icon (question_number === 8)
-    const religionValue = getAnswerValue(8);
+    // Religion icon
+    const religionValue = getAnswerValue(RELIGION);
     if (religionValue) {
       const religionLabels = {
         1: 'Never',
@@ -444,17 +458,17 @@ export default function ProfilePage() {
       }
     }
 
-    // Faith icon (question_number === 11, highest value)
-    const faithAnswer = getHighestAnswer(11);
+    // Faith icon (highest value)
+    const faithAnswer = getHighestAnswer(FAITH);
     if (faithAnswer) {
-      const allFaithQuestions = groupedQuestions.filter(q => q.question_number === 11);
+      const allFaithQuestions = groupedQuestions.filter(q => q.question_number === FAITH);
       icons.push({
         image: '/assets/prayin.png',
         label: faithAnswer.question.question_name || '',
         show: true,
         options: allFaithQuestions.length > 0
           ? allFaithQuestions.map(q => ({ value: q.id, label: q.question_name || '' }))
-          : userAnswers.filter(a => a.question.question_number === 11).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
+          : userAnswers.filter(a => a.question.question_number === FAITH).map(a => ({ value: String(a.me_answer), label: a.question.question_name || '' }))
       });
     }
 
@@ -924,9 +938,9 @@ export default function ProfilePage() {
                   <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(2, 2) || 3}
+                      value={getAnswerValue(FEMALE) || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 2) === 6}
+                      isOpenToAll={getAnswerValue(FEMALE) === 6}
                     />
                   </div>
                 </div>
@@ -934,9 +948,9 @@ export default function ProfilePage() {
                   <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(2, 1) || 3}
+                      value={getAnswerValue(MALE) || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 1) === 6}
+                      isOpenToAll={getAnswerValue(MALE) === 6}
                     />
                   </div>
                 </div>
@@ -955,9 +969,9 @@ export default function ProfilePage() {
                   <div className="text-xs font-semibold text-gray-400 w-20">FEMALE</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(2, 2, 'looking_for_answer') || 3}
+                      value={getAnswerValue(FEMALE, undefined, 'looking_for_answer') || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 2, 'looking_for_answer') === 6}
+                      isOpenToAll={getAnswerValue(FEMALE, undefined, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>
@@ -965,9 +979,9 @@ export default function ProfilePage() {
                   <div className="text-xs font-semibold text-gray-400 w-20">MALE</div>
                   <div className="flex-1">
                     <SliderComponent
-                      value={getAnswerValue(2, 1, 'looking_for_answer') || 3}
+                      value={getAnswerValue(MALE, undefined, 'looking_for_answer') || 3}
                       onChange={() => {}}
-                      isOpenToAll={getAnswerValue(2, 1, 'looking_for_answer') === 6}
+                      isOpenToAll={getAnswerValue(MALE, undefined, 'looking_for_answer') === 6}
                     />
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { EDUCATION, getNextOnboardingRoute, getOnboardingProgressPercent, getPreviousOnboardingRoute } from '@/constants/mandatoryQuestions';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import posthog from 'posthog-js';
 
@@ -30,7 +31,7 @@ export default function EducationPage() {
     { value: 'Pre High School', label: 'Pre High School', icon: '/assets/edu.png' }
   ];
 
-  // Hardcoded question IDs from Django database (question_number=4)
+  // Hardcoded question IDs from Django database (Education)
   const questionIds = {
     'Pre High School': '345bab19-ed6a-4d25-a871-8e13331afc68',    // Group 1: Pre High School
     'High School': '4f5bbf05-00d1-4b75-b26d-d465ef51ddd6',        // Group 2: High School
@@ -142,7 +143,7 @@ export default function EducationPage() {
     const params = new URLSearchParams({
       user_id: userId,
       education: education,
-      question_number: '4' // Education questions are question_number=4
+      question_number: String(EDUCATION)
     });
     
     router.push(`/auth/question/education?${params.toString()}`);
@@ -182,13 +183,13 @@ export default function EducationPage() {
       
       // Track question 4 as answered for introcard routing
       try {
-        const key = `onboarding_answered_numbers_${userId}`;
+        const key = `onboarding_answered_numbers_v2_${userId}`;
         const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
         if (!existing.includes(4)) { existing.push(4); localStorage.setItem(key, JSON.stringify(existing)); }
       } catch {}
 
-      posthog.capture('onboarding_step_completed', { step: 'education', question_number: 4 });
-      router.push(`/auth/diet?${params.toString()}`);
+      posthog.capture('onboarding_step_completed', { step: 'education', question_number: EDUCATION });
+      router.push(`${getNextOnboardingRoute(EDUCATION)}?${params.toString()}`);
     } catch (error) {
       console.error('Error checking education answers:', error);
       setError('Failed to check education answers');
@@ -253,21 +254,20 @@ export default function EducationPage() {
     const params = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/ethnicity?${params.toString()}`);
+    router.push(`${getPreviousOnboardingRoute(EDUCATION)}?${params.toString()}`);
   };
 
   return (
     <OnboardingShell
-      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : 40}
+      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : getOnboardingProgressPercent(EDUCATION)}
       onBack={handleBack}
       onNext={handleNext}
       nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
       loadingLabel="Saving..."
       loading={loading}
-      contentClassName="flex flex-col justify-center"
     >
         <div className="mx-auto w-full max-w-2xl">
-          <OnboardingTitle step="4. Education" question={`What is your highest level of education?`} />
+          <OnboardingTitle step={`${EDUCATION}. Education`} question={`What is your highest level of education?`} />
 
           {/* Error Message */}
           {error && (

@@ -1,5 +1,17 @@
 import { DEFAULT_SCALE_LABELS } from '@/constants/answerLabels';
 import {
+  ALCOHOL,
+  CIGARETTES,
+  EDUCATION,
+  DIET,
+  EXERCISE,
+  HAVE_KIDS,
+  POLITICS,
+  RELIGION,
+  VAPE,
+  WANT_KIDS,
+} from '@/constants/mandatoryQuestions';
+import {
   getAnswerValues,
   getSliderLabelsForQuestion,
   type AnswerValueLabel,
@@ -19,21 +31,22 @@ const FREQUENCY_CAPTIONS: Record<number, string> = {
  * keeps its three stops instead of being stretched to five.
  */
 const CAPTIONS_BY_QUESTION: Record<number, Record<number, string>> = {
-  4: { 1: 'NONE', 3: 'SOME', 5: 'COMPLETED' },
-  5: { 1: 'NO', 5: 'YES' },
-  6: FREQUENCY_CAPTIONS,
-  7: FREQUENCY_CAPTIONS,
-  8: FREQUENCY_CAPTIONS,
-  9: { 1: 'UNINVOLVED', 2: 'OBSERVANT', 3: 'ACTIVE', 4: 'FERVENT', 5: 'RADICAL' },
-};
-
-const HAVE_KIDS_CAPTIONS: Record<number, string> = { 1: "DON'T HAVE", 5: 'HAVE' };
-const WANT_KIDS_CAPTIONS: Record<number, string> = {
-  1: "DON'T WANT",
-  2: 'DOUBTFUL',
-  3: 'UNSURE',
-  4: 'EVENTUALLY',
-  5: 'WANT',
+  [EDUCATION]: { 1: 'NONE', 3: 'SOME', 5: 'COMPLETED' },
+  [DIET]: { 1: 'NO', 5: 'YES' },
+  [EXERCISE]: FREQUENCY_CAPTIONS,
+  [ALCOHOL]: FREQUENCY_CAPTIONS,
+  [CIGARETTES]: FREQUENCY_CAPTIONS,
+  [VAPE]: FREQUENCY_CAPTIONS,
+  [RELIGION]: FREQUENCY_CAPTIONS,
+  [POLITICS]: { 1: 'UNINVOLVED', 2: 'OBSERVANT', 3: 'ACTIVE', 4: 'FERVENT', 5: 'RADICAL' },
+  [HAVE_KIDS]: { 1: "DON'T HAVE", 5: 'HAVE' },
+  [WANT_KIDS]: {
+    1: "DON'T WANT",
+    2: 'DOUBTFUL',
+    3: 'UNSURE',
+    4: 'EVENTUALLY',
+    5: 'WANT',
+  },
 };
 
 interface ScaleQuestion {
@@ -60,10 +73,8 @@ export const buildQuestionScaleLabels = (
   );
   const base = valueLabels.length > 0 ? valueLabels : DEFAULT_SCALE_LABELS;
 
-  const captions =
-    number === 10
-      ? (question?.group_number === 1 ? HAVE_KIDS_CAPTIONS : WANT_KIDS_CAPTIONS)
-      : CAPTIONS_BY_QUESTION[number];
+  // Have Kids and Want Kids are separate questions now, so the number alone picks the scale.
+  const captions = CAPTIONS_BY_QUESTION[number];
 
   if (!captions) {
     // No override: keep whatever the question shipped, falling back to LESS/MORE when it

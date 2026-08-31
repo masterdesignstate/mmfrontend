@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { FAITH, LAST_MANDATORY_QUESTION_NUMBER, ONBOARDING_ROUTES } from '@/constants/mandatoryQuestions';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import posthog from 'posthog-js';
 
@@ -99,7 +100,7 @@ export default function FaithPage() {
         console.log('🚀 Starting to fetch question 11 from backend...');
         setLoadingQuestions(true);
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=11`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${FAITH}`;
           console.log('🌐 Fetching from URL:', apiUrl);
           
           const response = await fetch(apiUrl);
@@ -275,7 +276,7 @@ export default function FaithPage() {
         user_id: userId
       });
       
-      posthog.capture('onboarding_step_completed', { step: 'faith', question_number: 11 });
+      posthog.capture('onboarding_step_completed', { step: 'faith', question_number: FAITH });
       router.push(`/dashboard?${params.toString()}`);
     } catch (error) {
       console.error('Error checking faith answers:', error);
@@ -289,7 +290,8 @@ export default function FaithPage() {
     const params = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/question/10?${params.toString()}`);
+    // Faith follows the mandatory flow, so Back lands on its final step.
+    router.push(`${ONBOARDING_ROUTES[LAST_MANDATORY_QUESTION_NUMBER]}?${params.toString()}`);
   };
 
   const handleLoadMore = () => {
@@ -304,10 +306,9 @@ export default function FaithPage() {
       nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
       loadingLabel="Checking..."
       loading={loading}
-      contentClassName="flex flex-col justify-center"
     >
         <div className="mx-auto w-full max-w-3xl">
-          <OnboardingTitle step="11. Faith" question="What faith do you identify with?" />
+          <OnboardingTitle step={`${FAITH}. Faith`} question="What faith do you identify with?" />
 
           {/* Loading Questions */}
           {loadingQuestions && (

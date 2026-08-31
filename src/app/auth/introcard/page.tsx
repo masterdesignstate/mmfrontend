@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { ONBOARDING_ROUTES, ONBOARDING_STEPS, RELATIONSHIP } from '@/constants/mandatoryQuestions';
 import OnboardingShell from '@/components/OnboardingShell';
 
 export default function IntroCardPage() {
@@ -24,21 +25,9 @@ export default function IntroCardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // Question number → route mapping for mandatory questions
-  const QUESTION_ROUTES: Record<number, string> = {
-    1: '/auth/relationship',
-    2: '/auth/gender',
-    3: '/auth/ethnicity',
-    4: '/auth/education',
-    5: '/auth/diet',
-    6: '/auth/question/6',
-    7: '/auth/habits',
-    8: '/auth/question/8',
-    9: '/auth/question/9',
-    10: '/auth/kids',
-  };
-
-  const getLocalKey = (uid: string) => `onboarding_answered_numbers_${uid}`;
+  // `_v2_` because the mandatory block was renumbered from 1-10 to 1-14; a stale list
+  // of old numbers would resume onboarding at the wrong step.
+  const getLocalKey = (uid: string) => `onboarding_answered_numbers_v2_${uid}`;
 
   const getLocalAnswered = (uid: string): number[] => {
     try {
@@ -130,7 +119,7 @@ export default function IntroCardPage() {
     const fetchRelationshipQuestions = async () => {
       if (userId && questions.length === 0) {
         try {
-          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=1`;
+          const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${RELATIONSHIP}`;
           const response = await fetch(apiUrl);
           if (response.ok) {
             const data = await response.json();
@@ -160,19 +149,19 @@ export default function IntroCardPage() {
       const freshLocal = getLocalAnswered(userId);
       const freshSet = new Set<number>([...answeredNumbers, ...freshLocal]);
 
-      const allMandatoryNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-      const nextUnanswered = allMandatoryNumbers.find(qn => !freshSet.has(qn));
+      const nextUnanswered = ONBOARDING_STEPS
+        .map(step => step.number)
+        .find(qn => !freshSet.has(qn));
 
       const params = new URLSearchParams({ user_id: userId });
 
       if (!nextUnanswered) {
         router.push('/feed');
-      } else if (nextUnanswered === 1) {
+      } else if (nextUnanswered === RELATIONSHIP) {
         params.set('questions', JSON.stringify(questions));
         router.push(`/auth/relationship?${params.toString()}`);
       } else {
-        const route = QUESTION_ROUTES[nextUnanswered];
-        router.push(`${route}?${params.toString()}`);
+        router.push(`${ONBOARDING_ROUTES[nextUnanswered]}?${params.toString()}`);
       }
     } catch (error) {
       console.error('Error navigating:', error);
@@ -194,7 +183,6 @@ export default function IntroCardPage() {
       onBack={handleBack}
       onNext={handleNext}
       loading={loading}
-      contentClassName="flex flex-col justify-center"
     >
       {/* Centered content */}
       <div className="mx-auto w-full max-w-xl">

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { DIET, getNextOnboardingRoute, getOnboardingProgressPercent, getPreviousOnboardingRoute } from '@/constants/mandatoryQuestions';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import posthog from 'posthog-js';
 
@@ -26,7 +27,7 @@ export default function DietPage() {
     { value: 'Omnivore', label: 'Omnivore', icon: '/assets/diet.png' }
   ];
 
-  // Hardcoded question IDs from Django database (question_number=5)
+  // Hardcoded question IDs from Django database (Diet)
   const questionIds = {
     'Omnivore': '88c5d527-5b04-4227-8b94-e2e8537c5ad1',        // Group 1: Omnivore
     'Pescatarian': 'f0634c01-0941-4ae6-bfa8-24268b40d7f0',     // Group 2: Pescatarian
@@ -119,7 +120,7 @@ export default function DietPage() {
     const params = new URLSearchParams({
       user_id: userId,
       diet: diet,
-      question_number: '5' // Diet questions are question_number=5
+      question_number: String(DIET)
     });
     
     router.push(`/auth/question/diet?${params.toString()}`);
@@ -152,7 +153,7 @@ export default function DietPage() {
 
       // Track question 5 as answered for introcard routing
       try {
-        const key = `onboarding_answered_numbers_${userId}`;
+        const key = `onboarding_answered_numbers_v2_${userId}`;
         const existing: number[] = JSON.parse(localStorage.getItem(key) || '[]');
         if (!existing.includes(5)) { existing.push(5); localStorage.setItem(key, JSON.stringify(existing)); }
       } catch {}
@@ -162,8 +163,8 @@ export default function DietPage() {
         user_id: userId
       });
 
-      posthog.capture('onboarding_step_completed', { step: 'diet', question_number: 5 });
-      router.push(`/auth/question/6?${params.toString()}`);
+      posthog.capture('onboarding_step_completed', { step: 'diet', question_number: DIET });
+      router.push(`${getNextOnboardingRoute(DIET)}?${params.toString()}`);
     } catch (error) {
       console.error('Error checking diet answers:', error);
       setError('Failed to check diet answers');
@@ -178,21 +179,20 @@ export default function DietPage() {
     const params = new URLSearchParams({ 
       user_id: userId
     });
-    router.push(`/auth/education?${params.toString()}`);
+    router.push(`${getPreviousOnboardingRoute(DIET)}?${params.toString()}`);
   };
 
   return (
     <OnboardingShell
-      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : 50}
+      progressPercent={searchParams.get('from_questions_page') === 'true' ? null : getOnboardingProgressPercent(DIET)}
       onBack={handleBack}
       onNext={handleNext}
       nextLabel={searchParams.get('from_questions_page') === 'true' ? 'Save' : 'Next'}
       loadingLabel="Saving..."
       loading={loading}
-      contentClassName="flex flex-col justify-center"
     >
         <div className="mx-auto w-full max-w-2xl">
-          <OnboardingTitle step="5. Diet" question={`Which diet best describes you?`} />
+          <OnboardingTitle step={`${DIET}. Diet`} question={`Which diet best describes you?`} />
 
           {/* Error Message */}
           {error && (
