@@ -10,6 +10,7 @@ import {
   RELIGION,
   VAPE,
   WANT_KIDS,
+  WANT_KIDS_SCALE_CAPTIONS,
 } from '@/constants/mandatoryQuestions';
 import {
   getAnswerValues,
@@ -40,13 +41,7 @@ const CAPTIONS_BY_QUESTION: Record<number, Record<number, string>> = {
   [RELIGION]: FREQUENCY_CAPTIONS,
   [POLITICS]: { 1: 'UNINVOLVED', 2: 'OBSERVANT', 3: 'ACTIVE', 4: 'FERVENT', 5: 'RADICAL' },
   [HAVE_KIDS]: { 1: "DON'T HAVE", 5: 'HAVE' },
-  [WANT_KIDS]: {
-    1: "DON'T WANT",
-    2: 'DOUBTFUL',
-    3: 'UNSURE',
-    4: 'EVENTUALLY',
-    5: 'WANT',
-  },
+  [WANT_KIDS]: WANT_KIDS_SCALE_CAPTIONS,
 };
 
 interface ScaleQuestion {

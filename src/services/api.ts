@@ -176,6 +176,13 @@ export interface FeedActivity {
   kind: 'bio_updated' | 'photo_added' | 'question_answered';
   payload: Record<string, unknown>;
   created_at: string;
+  /**
+   * Set when the backend rolled a run of this person's activity into one entry — e.g. the
+   * fourteen answers a new signup produces during onboarding. Absent for a single entry.
+   */
+  group_count?: number;
+  /** The first few payloads of the group; `group_count` is the true total. */
+  group_payloads?: Array<Record<string, unknown>>;
 }
 
 export type FeedAudience = 'all' | 'matches' | 'approved' | 'liked';

@@ -911,7 +911,11 @@ export default function EditProfilePage() {
       )}
 
       {/* Header - centered logo with profile back navigation */}
-      <div className="relative flex items-center justify-center p-4 border-b border-gray-200">
+      {/* z-50 on the header itself: the menu below sits in a `-translate-y-1/2` box, and a
+          transform opens a stacking context that traps the menu's own z-index inside it. The
+          photo cards come later in the tree, so without this the dropdown paints underneath
+          them. */}
+      <div className="relative z-50 flex items-center justify-center p-4 border-b border-gray-200">
         <button
           type="button"
           onClick={() => router.push('/profile')}

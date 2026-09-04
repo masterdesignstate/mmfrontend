@@ -69,7 +69,9 @@ export default function ProfileDetailsPage() {
   const formatHistoryStatus = (history: UserRestrictionHistory) => {
     if (!history.ended_at && history.end_reason === 'active') return 'Active';
     if (history.end_reason === 'expired') return 'Expired';
-    if (history.end_reason === 'removed') return 'Removed';
+    // "Lifted", not "Removed": the restriction was lifted, but "Removed" reads as though
+    // the user had been removed. Not "Active" either — that already means still restricted.
+    if (history.end_reason === 'removed') return 'Lifted';
     if (history.end_reason === 'replaced') return 'Replaced';
     return history.end_reason || 'Ended';
   };
@@ -78,7 +80,7 @@ export default function ProfileDetailsPage() {
     const status = formatHistoryStatus(history);
     if (status === 'Active') return 'bg-orange-100 text-orange-800';
     if (status === 'Expired') return 'bg-blue-100 text-blue-800';
-    if (status === 'Removed') return 'bg-gray-100 text-gray-800';
+    if (status === 'Lifted') return 'bg-gray-100 text-gray-800';
     if (status === 'Replaced') return 'bg-purple-100 text-purple-800';
     return 'bg-gray-100 text-gray-800';
   };

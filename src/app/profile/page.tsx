@@ -10,7 +10,8 @@ import { apiService, type UserProfilePrompt } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
-import ActivityStatus from '@/components/ActivityStatus';
+import ProfileStatsRow from '@/components/ProfileStatsRow';
+import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -33,6 +34,7 @@ import {
   RELIGION,
   VAPE,
   WANT_KIDS,
+  WANT_KIDS_ANSWER_LABELS,
 } from '@/constants/mandatoryQuestions';
 
 // Types for user profile and answers
@@ -68,6 +70,14 @@ interface UserAnswer {
 }
 
 interface ProfileIcon {
+  /**
+   * The question this chip stands for. Chips are pushed in whatever order the checks below
+   * happen to run, so they are sorted by this before rendering — the row then reads in the
+   * same order as the questions themselves. It also keys the chips, which the array index
+   * cannot: icons are pushed conditionally, so an index points at a different question
+   * once any earlier chip appears or disappears.
+   */
+  questionNumber: number;
   image: string;
   label: string;
   show: boolean;
@@ -106,7 +116,12 @@ export default function ProfilePage() {
     console.log(`⏱️ [Profile ${elapsed}ms] ${label}`, extra ?? '');
   }, []);
 
-  const [expandedIconIndex, setExpandedIconIndex] = useState<number | null>(null);
+  // Keyed by question number: chips are pushed conditionally, so an array index points
+  // at a different question as soon as an earlier chip appears or disappears.
+  const [expandedIconQuestion, setExpandedIconQuestion] = useState<number | null>(null);
+  const iconPanelRef = useRef<HTMLDivElement>(null);
+  const closeExpandedIcon = useCallback(() => setExpandedIconQuestion(null), []);
+  useDismissOnOutside(iconPanelRef, expandedIconQuestion !== null, closeExpandedIcon);
 
   // Resolve user ID from URL param or localStorage
   const [userId, setUserId] = useState<string | null>(null);
@@ -215,8 +230,7 @@ export default function ProfilePage() {
       return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
     }
     if (questionNumber === WANT_KIDS) {
-      const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
-      return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
+      return WANT_KIDS_ANSWER_LABELS[answer[answerType] as number] || null;
     }
 
     // For politics question
@@ -261,20 +275,6 @@ export default function ProfilePage() {
     });
   };
 
-  // Helper function to format height from centimeters to feet and inches
-  const formatHeight = (heightCm: number | null | undefined): string => {
-    if (!heightCm) return `5'-3"`;
-    
-    // Convert cm to inches
-    const totalInches = Math.round(heightCm / 2.54);
-    
-    // Calculate feet and inches
-    const feet = Math.floor(totalInches / 12);
-    const inches = totalInches % 12;
-    
-    return `${feet}'-${inches}"`;
-  };
-
   // Generate profile icons based on user answers
   const getProfileIcons = (): ProfileIcon[] => {
     const icons: ProfileIcon[] = [];
@@ -284,6 +284,7 @@ export default function ProfilePage() {
     if (exerciseValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Very often' };
       icons.push({
+        questionNumber: EXERCISE,
         image: '/assets/exercise.png',
         label: labels[exerciseValue as keyof typeof labels] || '',
         show: true,
@@ -295,6 +296,7 @@ export default function ProfilePage() {
     const educationAnswer = getHighestAnswer(EDUCATION);
     if (educationAnswer) {
       icons.push({
+        questionNumber: EDUCATION,
         image: '/assets/cap.png',
         label: educationAnswer.question.question_name || '',
         show: true,
@@ -307,6 +309,7 @@ export default function ProfilePage() {
     if (alcoholValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
+        questionNumber: ALCOHOL,
         image: '/assets/drink.png',
         label: labels[alcoholValue as keyof typeof labels] || '',
         show: true,
@@ -328,6 +331,7 @@ export default function ProfilePage() {
         const allDietQuestions = groupedQuestions.filter(q => q.question_number === DIET);
 
         icons.push({
+          questionNumber: DIET,
           image: getDietIcon(dietLabel),
           label: dietLabel,
           show: true,
@@ -351,6 +355,7 @@ export default function ProfilePage() {
     if (smokingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
+        questionNumber: CIGARETTES,
         image: '/assets/smk.png',
         label: labels[smokingValue as keyof typeof labels] || '',
         show: true,
@@ -363,6 +368,7 @@ export default function ProfilePage() {
     if (vapingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
+        questionNumber: VAPE,
         image: '/assets/vape.png',
         label: labels[vapingValue as keyof typeof labels] || '',
         show: true,
@@ -374,6 +380,7 @@ export default function ProfilePage() {
     const haveChildrenLabel = getAnswerLabel(HAVE_KIDS);
     if (haveChildrenLabel) {
       icons.push({
+        questionNumber: HAVE_KIDS,
         image: '/assets/pacifier.png',
         label: haveChildrenLabel,
         show: true,
@@ -385,16 +392,11 @@ export default function ProfilePage() {
     const wantChildrenLabel = getAnswerLabel(WANT_KIDS);
     if (wantChildrenLabel) {
       icons.push({
+        questionNumber: WANT_KIDS,
         image: '/assets/pacifier.png',
         label: wantChildrenLabel,
         show: true,
-        options: [
-          { value: '1', label: "Don't Want" },
-          { value: '2', label: 'Doubtful' },
-          { value: '3', label: 'Unsure' },
-          { value: '4', label: 'Eventually' },
-          { value: '5', label: 'Want' }
-        ]
+        options: Object.entries(WANT_KIDS_ANSWER_LABELS).map(([value, label]) => ({ value, label }))
       });
     }
 
@@ -411,6 +413,7 @@ export default function ProfilePage() {
       const label = politicsLabels[politicsValue as keyof typeof politicsLabels];
       if (label) {
         icons.push({
+        questionNumber: POLITICS,
           image: '/assets/politics.png',
           label: label,
           show: true,
@@ -430,6 +433,7 @@ export default function ProfilePage() {
       const ethnicityLabel = normalizeEthnicityQuestionName(highestEthnicityAnswer.question.question_name) || '';
 
       icons.push({
+        questionNumber: ETHNICITY,
         image: '/assets/globex.png',
         label: ethnicityLabel,
         show: true,
@@ -450,6 +454,7 @@ export default function ProfilePage() {
       const label = religionLabels[religionValue as keyof typeof religionLabels];
       if (label) {
         icons.push({
+        questionNumber: RELIGION,
           image: '/assets/prayin.png',
           label: label,
           show: true,
@@ -463,6 +468,7 @@ export default function ProfilePage() {
     if (faithAnswer) {
       const allFaithQuestions = groupedQuestions.filter(q => q.question_number === FAITH);
       icons.push({
+        questionNumber: FAITH,
         image: '/assets/prayin.png',
         label: faithAnswer.question.question_name || '',
         show: true,
@@ -472,7 +478,10 @@ export default function ProfilePage() {
       });
     }
 
-    return icons.filter(icon => icon.show);
+    // Question order, not push order: the checks above run in an arbitrary sequence.
+    return icons
+      .filter(icon => icon.show)
+      .sort((a, b) => a.questionNumber - b.questionNumber);
   };
 
   // Slider component copied from gender page with smaller size for profile
@@ -734,6 +743,7 @@ export default function ProfilePage() {
   if (!user) return null;
 
   const profileIcons = getProfileIcons();
+  const expandedIcon = profileIcons.find(icon => icon.questionNumber === expandedIconQuestion) ?? null;
   // Get the first name only (text before first space)
   const fullName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.username;
   const displayName = fullName.split(' ')[0]; // Take only the first part before space
@@ -742,7 +752,7 @@ export default function ProfilePage() {
     <ProtectedPageGate checkOnboarding={false}>
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center">
           <NavLogo />
         </div>
@@ -795,41 +805,24 @@ export default function ProfilePage() {
           </div>
 
           {/* Section 1 — Identity row (From / Live / Height / Activity) */}
-          <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="text-center">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</h3>
-                <p className="mt-1 text-sm font-medium text-gray-900">{user.from_location || 'Austin'}</p>
-              </div>
-              <div className="text-center">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live</h3>
-                <p className="mt-1 text-sm font-medium text-gray-900">{user.live || 'Austin'}</p>
-              </div>
-              <div className="text-center">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Height</h3>
-                <p className="mt-1 text-sm font-medium text-gray-900">{formatHeight(user.height)}</p>
-              </div>
-              <div className="text-center">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activity</h3>
-                <div className="mt-1 flex items-center justify-center">
-                  <ActivityStatus
-                    isOnline={user.is_online || false}
-                    lastActive={user.last_active}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <ProfileStatsRow
+            fromLocation={user.from_location}
+            live={user.live}
+            heightCm={user.height}
+            isOnline={user.is_online}
+            lastActive={user.last_active}
+          />
 
           {/* Section 2 — Profile icons */}
           {profileIcons.length > 0 && (
-            <div className="w-full max-w-xl mx-auto mb-4">
+            <div className="w-full max-w-xl mx-auto mb-4" ref={iconPanelRef}>
               <div className="flex flex-wrap gap-2 justify-center">
-                {profileIcons.map((icon, index) => (
+                {profileIcons.map((icon) => (
                   <div
-                    key={index}
+                    key={icon.questionNumber}
                     className={`flex items-center bg-white ring-1 ring-gray-200 shadow-sm rounded-full pl-2 pr-3 py-1.5 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
-                    onClick={() => icon.options.length > 0 && setExpandedIconIndex(expandedIconIndex === index ? null : index)}
+                    onClick={() => icon.options.length > 0 &&
+                    setExpandedIconQuestion(expandedIconQuestion === icon.questionNumber ? null : icon.questionNumber)}
                   >
                     <div className="w-5 h-5 mr-1.5 relative">
                       <Image
@@ -842,7 +835,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <span className="text-sm font-medium text-gray-900">{icon.label}</span>
-                    {expandedIconIndex === index && icon.options.length > 0 && (
+                    {expandedIconQuestion === icon.questionNumber && icon.options.length > 0 && (
                       <svg
                         className="w-4 h-4 ml-1 text-gray-500 rotate-180"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -855,14 +848,14 @@ export default function ProfilePage() {
               </div>
 
               {/* Expanded dropdown for selected icon */}
-              {expandedIconIndex !== null && (profileIcons[expandedIconIndex]?.options?.length ?? 0) > 0 && (
+              {expandedIcon && expandedIcon.options.length > 0 && (
                 <div className="mt-3 bg-white ring-1 ring-gray-200 shadow-sm rounded-2xl p-4">
                   <div className="space-y-2">
-                    {profileIcons[expandedIconIndex].options.map((option, optIndex) => (
+                    {expandedIcon.options.map((option, optIndex) => (
                       <div key={optIndex} className="flex items-center gap-3 py-1">
                         <div className="w-6 h-6 relative flex-shrink-0">
                           <Image
-                            src={option.image || profileIcons[expandedIconIndex].image}
+                            src={option.image || expandedIcon.image}
                             alt={option.label}
                             width={24}
                             height={24}
@@ -882,10 +875,10 @@ export default function ProfilePage() {
           {requiredQuestionsCount !== undefined && (
             <div className="w-full max-w-xl mx-auto mb-4">
               <div className="flex gap-3">
-                {/* Total Questions Answered */}
+                {/* Total Questions */}
                 <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                   <div className="text-sm font-normal text-black capitalize mb-2">
-                    Total Questions Answered
+                    Total Questions
                   </div>
                   <div className="flex items-baseline">
                     <span className="text-3xl font-black text-[#672DB7]">

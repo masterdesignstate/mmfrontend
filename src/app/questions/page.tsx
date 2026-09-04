@@ -6,12 +6,13 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
-import { isMandatoryQuestionNumber } from '@/constants/mandatoryQuestions';
+import { isMandatoryQuestionNumber, MANDATORY_QUESTION_PROMPTS } from '@/constants/mandatoryQuestions';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { useQuestionMetadata } from '@/hooks/useQuestionMetadata';
 import { useAnsweredQuestions } from '@/hooks/useAnsweredQuestions';
+import { useSubmittedQuestions } from '@/hooks/useSubmittedQuestions';
 
 interface Question {
   id: string;
@@ -179,17 +180,28 @@ function QuestionsPageContent() {
 
   // SWR hook — lightweight answered-question-numbers fetch (must be before filterPending)
   const { answeredQuestionNumbers, answeredLoading } = useAnsweredQuestions(userId || null);
+  const { submittedQuestionNumbers } = useSubmittedQuestions(userId || null);
 
-  // Compute whether filter is active and data isn't ready (checked during render)
+  // Answered/unanswered are the only filters with a dedicated fetch of their own, so they
+  // are the only ones whose data can still be in flight.
   const filterActive = activeFilters.questions.answered || activeFilters.questions.unanswered;
   const filterPending = filterActive && (answeredLoading || !filterFetchDone.current);
+
+  // Every filter, not just those two. `fetchQuestionsForCurrentPage` deliberately leaves
+  // `filteredQuestions` empty whenever any filter is on, so an empty list is the normal
+  // state under a filter rather than a sign the fetch is still running. Testing only
+  // answered/unanswered here left "Submitted" permanently matching the "still loading"
+  // condition below, and the spinner never cleared.
+  const anyQuestionFilterActive =
+    Object.values(activeFilters.questions).some(Boolean) ||
+    Object.values(activeFilters.tags).some(Boolean);
 
   // Show loader when per-page questions haven't been fetched yet even though
   // SWR metadata has loaded.  This closes the gap where `loading` becomes false
   // (SWR cache hit) but `fetchQuestionsForCurrentPage` hasn't completed yet.
   // Also catches the gap where questions are fetched but filteredQuestions hasn't
   // been populated yet (the display chain uses filteredQuestions, not questions).
-  const awaitingPageFetch = !loading && !searchTerm.trim() && !filterActive &&
+  const awaitingPageFetch = !loading && !searchTerm.trim() && !anyQuestionFilterActive &&
     (filteredQuestions.length === 0 && totalQuestionGroups > 0);
 
   // Cycle loading text while questions are loading
@@ -483,7 +495,10 @@ function QuestionsPageContent() {
       });
 
       setQuestions(pageQuestions);
-      lastFetchedQuestionNumbersRef.current = pageKey;
+      // Never cache an empty page as "already fetched". The retry below keys off `questions`
+      // being empty, so caching the key here left the page permanently unable to refetch —
+      // the filter stayed stuck until a full re-login cleared the state.
+      lastFetchedQuestionNumbersRef.current = pageQuestions.length > 0 ? pageKey : '';
       // Only set filteredQuestions if no filters are active
       // Otherwise, let the filter effects handle filteredQuestions
       const hasAnyFilters = Object.values(activeFilters.questions).some(filter => filter) ||
@@ -498,6 +513,8 @@ function QuestionsPageContent() {
       });
     } catch (error) {
       console.error('Error fetching questions for page:', error);
+      // Drop the cached key so the next attempt is allowed to retry this page.
+      lastFetchedQuestionNumbersRef.current = '';
       setError('Failed to load questions');
     }
   }, [allQuestionNumbers, currentPage, sortOption, answerCounts, activeFilters, randomizedQuestionNumbers, timingLog]);
@@ -717,7 +734,13 @@ function QuestionsPageContent() {
       return questionGroup[0].is_required_for_match || false;
     };
 
+    const submittedSet = new Set(submittedQuestionNumbers);
+
     const isQuestionSubmitted = (questionNumber: number): boolean => {
+      // Prefer the whole-account set: a question submitted by the user is a match whether or
+      // not it happens to sit on the page currently loaded.
+      if (submittedSet.has(questionNumber)) return true;
+
       const questionGroup = allGroupedQuestions[questionNumber];
       if (!questionGroup || questionGroup.length === 0) return false;
       // Use the backend-computed field if available
@@ -738,8 +761,12 @@ function QuestionsPageContent() {
     
     // If filtering by answered/unanswered, we should check ALL question numbers, not just loaded ones
     // Otherwise, we can only filter the loaded questions
-    const questionNumbersToCheck = (activeFilters.questions.answered || activeFilters.questions.unanswered)
-      ? allQuestionNumbers 
+    const questionNumbersToCheck = (
+      activeFilters.questions.answered ||
+      activeFilters.questions.unanswered ||
+      activeFilters.questions.submitted
+    )
+      ? allQuestionNumbers
       : questionNumbers;
     
     const filtered = questionNumbersToCheck.filter(questionNumber => {
@@ -821,7 +848,7 @@ function QuestionsPageContent() {
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
-    }, [activeFilters, questions, answeredQuestionNumbers, allQuestionNumbers]);
+    }, [activeFilters, questions, answeredQuestionNumbers, submittedQuestionNumbers, allQuestionNumbers]);
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
@@ -1027,19 +1054,9 @@ function QuestionsPageContent() {
     setShowSortDropdown(false);
   };
 
-  // Question display names for the list (matching the actual onboarding page titles)
-  const questionDisplayNames = React.useMemo((): Record<number, string> => ({
-    1: 'What relationship are you looking for?',
-    2: 'What gender do you identify with?',
-    3: 'What ethnicity do you identify with?',
-    4: 'What is your highest level of education?',
-    5: 'Which diet best describes you?',
-    6: 'How often do you exercise?',
-    7: 'How often do you engage in these habits?',
-    8: 'How important is religion in your life?',
-    9: 'How important is politics in your life?',
-    10: 'What are your thoughts on kids?'
-  }), []);
+  // These titles used to be written out here against the pre-split numbering (3 = ethnicity,
+  // 7 = habits, 10 = kids), so after the renumber every grouped row showed a neighbouring
+  // question's wording. Read them from the canonical prompts instead.
 
   // Group questions intelligently based on question_type
   const groupedQuestions = React.useMemo(() => {
@@ -1072,7 +1089,7 @@ function QuestionsPageContent() {
         if (!grouped[key]) {
           // Use group_name_text if available, otherwise use the first question's text
           const displayText = question.group_name_text ||
-                              (searchActive ? '' : questionDisplayNames[question.question_number]) ||
+                              (searchActive ? '' : MANDATORY_QUESTION_PROMPTS[question.question_number]) ||
                               question.text;
           grouped[key] = {
             questions: [],
@@ -1086,7 +1103,7 @@ function QuestionsPageContent() {
     });
 
     return grouped;
-  }, [filteredQuestions, questionDisplayNames, answerCounts, allQuestionNumbers, searchTerm]);
+  }, [filteredQuestions, answerCounts, allQuestionNumbers, searchTerm]);
 
   // Sort the grouped questions based on selected sort option
   // Simple approach: just use question_number from database, no complex calculations
@@ -1146,10 +1163,7 @@ function QuestionsPageContent() {
   }, [groupedQuestions, sortOption, randomizedQuestionRank]);
 
   // Calculate pagination for filtered results (when using client-side filters)
-  const isClientSideFiltered = searchTerm.trim().length > 0 ||
-                               activeFilters.questions.answered || activeFilters.questions.unanswered ||
-                                activeFilters.questions.required || activeFilters.questions.mandatory ||
-                                activeFilters.questions.submitted || Object.values(activeFilters.tags).some(Boolean);
+  const isClientSideFiltered = searchTerm.trim().length > 0 || anyQuestionFilterActive;
   const filteredTotalPages = isClientSideFiltered
     ? Math.ceil(sortedGroupedQuestions.length / ROWS_PER_PAGE)
     : totalPages;
@@ -1884,8 +1898,8 @@ function QuestionsPageContent() {
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
           onClick={() => setShowAskQuestionModal(false)}
         >
-          <div 
-            className="bg-white rounded-2xl shadow-lg p-0 w-full max-w-xl mx-4"
+          <div
+            className="bg-white rounded-2xl shadow-lg p-0 w-full max-w-xl mx-4 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1902,9 +1916,12 @@ function QuestionsPageContent() {
             </div>
 
             {/* Content */}
-            <div className="p-8">
+            {/* The inner box used to be a hard 500px inside an mx-4 shell, which is ~343px wide
+                on a 375px phone — the form overflowed and was clipped. Cap it instead of
+                fixing it, and drop the padding down a step on small screens. */}
+            <div className="p-4 sm:p-8">
               <div className="flex items-center justify-center">
-                <div style={{ width: '500px' }}>
+                <div className="w-full max-w-[500px]">
                   <p className="text-gray-600 text-sm mb-6">
                     Submit a question that reflects what you care about — serious or silly, it&apos;s up to you.
                   </p>

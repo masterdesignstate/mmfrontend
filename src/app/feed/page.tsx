@@ -280,20 +280,52 @@ function PostComposer({ viewerId, onPosted }: { viewerId: string; onPosted: (p: 
 // =================== Activity card ===================
 function ActivityCard({ item }: { item: FeedItem }) {
   const a = item.activity!;
+  // A rolled-up run of this person's activity — see `group_count` on FeedActivity.
+  const count = a.group_count ?? 1;
+  const grouped = count > 1;
+  const payloads = grouped && a.group_payloads?.length ? a.group_payloads : [a.payload];
+
   let body: React.ReactNode = null;
   let verb = '';
   if (a.kind === 'bio_updated') {
-    verb = 'updated their bio';
+    verb = grouped ? `updated their bio ${count} times` : 'updated their bio';
     const snippet = String((a.payload as { snippet?: string }).snippet || '');
     if (snippet) body = <blockquote className="mt-1.5 text-sm text-gray-600 italic border-l-2 border-purple-200 pl-3">“{snippet}”</blockquote>;
   } else if (a.kind === 'photo_added') {
-    verb = 'added a new photo';
-    const url = String((a.payload as { image_url?: string }).image_url || '');
-    if (url) body = <div className="mt-2 relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100"><Image src={url} alt="New photo" fill className="object-cover" /></div>;
+    verb = grouped ? `added ${count} new photos` : 'added a new photo';
+    const urls = payloads
+      .map(payload => String((payload as { image_url?: string }).image_url || ''))
+      .filter(Boolean);
+    if (urls.length) {
+      body = (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {urls.map(url => (
+            <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+              <Image src={url} alt="New photo" fill className="object-cover" />
+            </div>
+          ))}
+        </div>
+      );
+    }
   } else if (a.kind === 'question_answered') {
-    verb = 'answered a question';
-    const text = String((a.payload as { question_text?: string }).question_text || '');
-    if (text) body = <blockquote className="mt-1.5 text-sm text-gray-600 italic border-l-2 border-purple-200 pl-3">{text}</blockquote>;
+    verb = grouped ? `answered ${count} questions` : 'answered a question';
+    const texts = payloads
+      .map(payload => String((payload as { question_text?: string }).question_text || ''))
+      .filter(Boolean);
+    if (texts.length) {
+      // Only the first few payloads travel from the server; say how many are left over.
+      const remaining = count - texts.length;
+      body = (
+        <div className="mt-1.5 border-l-2 border-purple-200 pl-3">
+          {texts.map((text, index) => (
+            <blockquote key={`${text}-${index}`} className="text-sm text-gray-600 italic">{text}</blockquote>
+          ))}
+          {remaining > 0 && (
+            <p className="mt-1 text-xs text-gray-400">and {remaining} more</p>
+          )}
+        </div>
+      );
+    }
   }
   return (
     <article className="bg-gray-50/70 rounded-xl ring-1 ring-gray-200 p-3 mb-4">

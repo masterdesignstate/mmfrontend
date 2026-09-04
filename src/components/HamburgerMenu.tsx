@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { preload } from 'swr';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import NotificationBell from './NotificationBell';
 import ChatBell from './ChatBell';
+import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 
 const defaultFetcher = (url: string) => fetch(url, { headers: { 'Content-Type': 'application/json' } }).then(r => r.json());
 const answersFetcher = (url: string) => fetch(url, { headers: { 'Content-Type': 'application/json' } }).then(r => r.json()).then(d => d.results || []);
@@ -20,6 +21,10 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string>('');
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const closeMenu = useCallback(() => setShowMenu(false), []);
+  useDismissOnOutside(menuRef, showMenu, closeMenu);
 
   // Get user ID from localStorage
   useEffect(() => {
@@ -77,9 +82,11 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
       )}
 
       {/* Hamburger Menu Button — smaller on medium and below */}
-      <div className="relative z-[100]">
+      <div className="relative z-[100]" ref={menuRef}>
         <button
           className="p-1.5 md:p-2 cursor-pointer"
+          aria-expanded={showMenu}
+          aria-label="Menu"
           onClick={() => setShowMenu(!showMenu)}
         >
           <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

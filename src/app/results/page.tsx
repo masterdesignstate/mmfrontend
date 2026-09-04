@@ -10,6 +10,7 @@ import { apiService, MAX_LIKE_NOTE_CHARS, type ApiUser, type CompatibilityResult
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import CharCounter from '@/components/CharCounter';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import InfoTip from '@/components/InfoTip';
 import NavLogo from '@/components/NavLogo';
 import MatchCelebration from '@/components/MatchCelebration';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
@@ -27,6 +28,10 @@ interface ResultProfile {
   status: 'approved' | 'liked' | 'matched';
   isLiked: boolean;
   isMatched: boolean;
+  /** They liked the viewer — true whether or not the viewer has liked them back. */
+  likedMe?: boolean;
+  /** They approved the viewer. */
+  approvedMe?: boolean;
   tags: string[]; // Add tags to the interface
 }
 
@@ -200,6 +205,51 @@ const generateDummyProfiles = (): ResultProfile[] => {
 };
 
 // Card Progress Border Component
+/**
+ * The ring colour for each card state, and the words that go with it.
+ *
+ * Kept together so the legend below the search bar cannot drift from the rings it explains —
+ * the colours previously had no explanation anywhere in the UI at all.
+ */
+const CARD_VARIANTS = {
+  default: {
+    label: 'Standard',
+    description: 'Overall compatibility',
+    swatch: '#672DB7',
+    stops: ['#A855F7', '#8B5CF6', '#7C3AED', '#672DB7', '#5B21B6'],
+  },
+  complete: {
+    label: 'Complete',
+    description: 'Answered your required questions',
+    swatch: '#2563EB',
+    stops: ['#60A5FA', '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF'],
+  },
+  pending: {
+    label: 'Pending',
+    description: 'Still missing some required questions',
+    swatch: '#F97316',
+    stops: ['#FDBA74', '#FB923C', '#F97316', '#EA580C', '#C2410C'],
+  },
+} as const;
+
+type CardVariant = keyof typeof CARD_VARIANTS;
+
+/** Explains what the ring colours mean, in the order a profile moves through them. */
+const ResultsLegend = () => (
+  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 px-4 pb-3 text-xs text-gray-600">
+    {(['default', 'complete', 'pending'] as CardVariant[]).map(variant => (
+      <span key={variant} className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: CARD_VARIANTS[variant].swatch }}
+        />
+        <span className="font-medium text-gray-800">{CARD_VARIANTS[variant].label}</span>
+        <span className="hidden sm:inline text-gray-500">— {CARD_VARIANTS[variant].description}</span>
+      </span>
+    ))}
+  </div>
+);
+
 const CardWithProgressBorder = ({
   percentage,
   variant = 'default',
@@ -212,12 +262,7 @@ const CardWithProgressBorder = ({
   const borderWidth = 4; // Slightly thicker border
   // Conic-gradient stops for each variant. Curve (0.9 / 1.8 / 2.7 / 3.6) is shared
   // so the progress sweep looks identical regardless of color.
-  const stops =
-    variant === 'pending'
-      ? ['#FDBA74', '#FB923C', '#F97316', '#EA580C', '#C2410C']
-      : variant === 'complete'
-        ? ['#60A5FA', '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF']
-        : ['#A855F7', '#8B5CF6', '#7C3AED', '#672DB7', '#5B21B6'];
+  const stops = CARD_VARIANTS[variant].stops;
   const gradient = `conic-gradient(from -90deg,
             ${stops[0]} 0deg,
             ${stops[1]} ${percentage * 0.9}deg,
@@ -422,40 +467,47 @@ function ResultsPageContent() {
     return [];
   };
 
+  // Everything other people have tagged the viewer with, in one request. Replaces a
+  // per-card reverse lookup that only ran once the viewer had already liked someone, so
+  // incoming interest was invisible until it was reciprocated.
+  const fetchIncomingTags = async (currentUserId: string): Promise<Record<string, string[]>> => {
+    try {
+      const response = await fetch(
+        `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/incoming_tags/?user_id=${currentUserId}`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      if (!response.ok) return {};
+      const data = await response.json();
+      return (data.tags_by_user || {}) as Record<string, string[]>;
+    } catch {
+      return {};
+    }
+  };
+
   // Fetch tags for multiple users in parallel
   const fetchTagsForProfiles = async (profilesToTag: ResultProfile[]): Promise<ResultProfile[]> => {
     const currentUserId = localStorage.getItem('user_id');
     if (!currentUserId) return profilesToTag;
 
     try {
+      const incoming = await fetchIncomingTags(currentUserId);
+
       const tagPromises = profilesToTag.map(async (profile) => {
         const tags = await fetchUserTags(profile.user.id);
         const normalizedTags = tags.map(t => t.toLowerCase());
         const hasLike = normalizedTags.includes('like');
 
-        let isMatched = false;
-        if (hasLike) {
-          // Inline reverse-direction check (avoids second API call through checkForMatch)
-          try {
-            const theirResp = await fetch(
-              `${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/user_tags/?user_id=${profile.user.id}&result_user_id=${currentUserId}`,
-              { headers: { 'Content-Type': 'application/json' } }
-            );
-            if (theirResp.ok) {
-              const theirData = await theirResp.json();
-              const theirTags = (theirData.tags || []).map((t: string) => t.toLowerCase());
-              isMatched = theirTags.includes('like');
-            }
-          } catch {
-            // Silently fail match check
-          }
-        }
+        const theirTags = (incoming[profile.user.id] || []).map(tag => tag.toLowerCase());
+        const likedMe = theirTags.includes('like');
+        const approvedMe = theirTags.includes('approve');
 
         return {
           ...profile,
           tags,
           isLiked: hasLike,
-          isMatched
+          isMatched: hasLike && likedMe,
+          likedMe,
+          approvedMe,
         };
       });
 
@@ -1650,13 +1702,13 @@ function ResultsPageContent() {
                 placeholder={searchField === 'name' ? 'Search by Name' : searchField === 'username' ? 'Search by Username' : searchField === 'live' ? 'Search by Location' : 'Search by Bio'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full min-w-0 sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 md:pr-20 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-full md:rounded-l-full md:rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
+                className="w-full min-w-0 sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-l-full rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
               />
               {/* Search Field Dropdown Button - visible on md+ screens */}
-              <div className="hidden md:block relative" ref={searchFieldDropdownRef}>
+              <div className="relative shrink-0" ref={searchFieldDropdownRef}>
                 <button
                   onClick={() => setShowSearchFieldDropdown(!showSearchFieldDropdown)}
-                  className="h-full px-3 sm:px-4 py-2 sm:py-3 border border-l-0 border-gray-300 rounded-r-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-1 relative shadow-sm"
+                  className="h-full px-2.5 sm:px-4 py-2 sm:py-3 border border-l-0 border-gray-300 rounded-r-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-1 relative shadow-sm whitespace-nowrap"
                 >
                   <span className="text-xs sm:text-sm">
                     {searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'Bio'}
@@ -2014,6 +2066,8 @@ function ResultsPageContent() {
             <div className="text-gray-500">Searching...</div>
           </div>
         ) : (
+          <>
+          <ResultsLegend />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {sortedProfiles.slice(0, visibleCount).map((profile, index) => {
               // Get the appropriate compatibility score based on selected type
@@ -2129,6 +2183,28 @@ function ResultsPageContent() {
                         </button>
                       </div>
 
+                      {/* Incoming interest, top-right. Only worth showing before it is
+                          reciprocated — once matched, the status glyph already says so. */}
+                      {!profile.isMatched && (profile.likedMe || profile.approvedMe) && (
+                        <div
+                          className="absolute top-0 right-0 z-20 flex h-7 items-center gap-1 rounded-bl-xl bg-white/25 px-2 text-white backdrop-blur-md shadow-[inset_1px_-1px_0_0_rgba(255,255,255,0.28)]"
+                          title={profile.likedMe ? 'They liked you' : 'They approved you'}
+                        >
+                          {profile.likedMe ? (
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                              <path d="M12 21s-6.7-4.35-9.33-8.02C.9 10.4 1.6 6.9 4.3 5.6a5 5 0 0 1 5.9 1.2L12 8.6l1.8-1.8a5 5 0 0 1 5.9-1.2c2.7 1.3 3.4 4.8 1.63 7.38C18.7 16.65 12 21 12 21z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          <span className="text-[9px] font-bold uppercase tracking-wide [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)] sm:text-[10px]">
+                            {profile.likedMe ? 'Liked you' : 'Approved you'}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Profile Image */}
                       <div className="relative aspect-square bg-gray-200">
                         <Image
@@ -2169,6 +2245,7 @@ function ResultsPageContent() {
               );
             })}
           </div>
+          </>
         )}
 
         {/* Show More Button - hide when searching or during initial load */}
@@ -2279,25 +2356,19 @@ function ResultsPageContent() {
                       </svg>
                     </span>
                     <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Compatibility Type</h3>
-                    <div className="relative group">
-                      <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
-                        <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
-                      </div>
-                      <div className="absolute left-0 top-6 hidden w-64 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 sm:block">
-                        <div className="space-y-2">
-                          <div>
-                            <span className="font-semibold">My Preferences:</span> How well they match what you&apos;re looking for
-                          </div>
-                          <div>
-                            <span className="font-semibold">Their Preferences:</span> How well you match what they&apos;re looking for
-                          </div>
-                          <div>
-                            <span className="font-semibold">Overall:</span> The combined score of both compatibilities
-                          </div>
+                    <InfoTip label="About compatibility types">
+                      <div className="space-y-2">
+                        <div>
+                          <span className="font-semibold">My Preferences:</span> How well they match what you&apos;re looking for
                         </div>
-                        <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        <div>
+                          <span className="font-semibold">Their Preferences:</span> How well you match what they&apos;re looking for
+                        </div>
+                        <div>
+                          <span className="font-semibold">Overall:</span> The combined score of both compatibilities
+                        </div>
                       </div>
-                    </div>
+                    </InfoTip>
                   </div>
                   <div className="grid grid-cols-[0.7fr_1fr_1.15fr] items-stretch bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
                     <button
@@ -2347,15 +2418,9 @@ function ResultsPageContent() {
                         </svg>
                       </span>
                       <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
-                      <div className="relative group">
-                        <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
-                          <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
-                        </div>
-                        <div className="absolute left-0 top-6 hidden w-64 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 sm:block">
-                          When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
-                          <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                        </div>
-                      </div>
+                      <InfoTip label="About required questions">
+                        When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
+                      </InfoTip>
                     </div>
                     <button
                       type="button"

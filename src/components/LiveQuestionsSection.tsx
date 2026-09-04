@@ -217,7 +217,7 @@ export default function LiveQuestionsSection() {
           onClick={() => setShowAskQuestionModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-lg p-0 w-full max-w-xl mx-4"
+            className="bg-white rounded-2xl shadow-lg p-0 w-full max-w-xl mx-4 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -234,9 +234,12 @@ export default function LiveQuestionsSection() {
             </div>
 
             {/* Content */}
-            <div className="p-8">
+            {/* The inner box used to be a hard 500px inside an mx-4 shell, which is ~343px wide
+                on a 375px phone — the form overflowed and was clipped. Cap it instead of
+                fixing it, and drop the padding down a step on small screens. */}
+            <div className="p-4 sm:p-8">
               <div className="flex items-center justify-center">
-                <div style={{ width: '500px' }}>
+                <div className="w-full max-w-[500px]">
                   <p className="text-gray-600 text-sm mb-6">
                     Submit a question that reflects what you care about — serious or silly, it&apos;s up to you.
                   </p>

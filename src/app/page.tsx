@@ -138,7 +138,6 @@ const faqs = [
 ];
 
 export default function LandingPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     posthog.capture('landing_page_viewed');
@@ -154,7 +153,9 @@ export default function LandingPage() {
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5" aria-label="CompatibleFirst home">
             <Image src="/assets/mmlogox.png" alt="" width={38} height={38} priority className="h-9 w-9 object-contain" />
-            <Wordmark className="text-[17px]" />
+            {/* Mark only on a phone: the wordmark plus both auth buttons do not fit across
+                375px, and the buttons are what a signed-out visitor actually needs. */}
+            <Wordmark className="hidden text-[17px] sm:inline" />
           </Link>
 
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#5F5967] md:flex" aria-label="Main navigation">
@@ -164,54 +165,28 @@ export default function LandingPage() {
             <a href="#faq" className="transition-colors hover:text-[#18151D]">FAQ</a>
           </nav>
 
-          <div className="hidden items-center gap-2.5 md:flex">
+          {/* Log in and Get started are the only two things a signed-out visitor needs, so they
+              stay on the bar at every width rather than hiding behind a menu on a phone. The
+              nav links below are in-page anchors, reachable by scrolling. */}
+          <div className="flex items-center gap-1 sm:gap-2.5">
             <Link
               href="/auth/login"
-              className="rounded-full px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/[0.04]"
+              className="whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold transition-colors hover:bg-black/[0.04] sm:px-4 sm:py-2.5"
               onClick={() => trackCta('log_in', 'header')}
             >
               Log in
             </Link>
             <Link
               href="/auth/register"
-              className="rounded-full bg-[#18151D] px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
+              className="whitespace-nowrap rounded-full bg-[#18151D] px-3.5 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 sm:px-5 sm:py-2.5"
               onClick={() => trackCta('get_started', 'header')}
             >
               Get started
             </Link>
           </div>
 
-          <button
-            type="button"
-            className="grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-white md:hidden"
-            aria-label="Toggle menu"
-            aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((open) => !open)}
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={mobileOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 7h16M4 12h16M4 17h16'} />
-            </svg>
-          </button>
         </div>
 
-        {mobileOpen && (
-          <div className="border-t border-black/[0.06] bg-[#FCFBFD] px-5 pb-5 pt-3 md:hidden">
-            <nav className="space-y-1 text-sm font-medium" aria-label="Mobile navigation">
-              {[
-                ['#features', 'Features'],
-                ['#questions', 'Questions'],
-                ['#how-it-works', 'How it works'],
-                ['#faq', 'FAQ'],
-              ].map(([href, label]) => (
-                <a key={href} href={href} className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]" onClick={() => setMobileOpen(false)}>{label}</a>
-              ))}
-            </nav>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Link href="/auth/login" className="rounded-full border border-black/10 bg-white px-4 py-3 text-center text-sm font-semibold">Log in</Link>
-              <Link href="/auth/register" className="rounded-full bg-[#18151D] px-4 py-3 text-center text-sm font-semibold text-white">Get started</Link>
-            </div>
-          </div>
-        )}
       </header>
 
       <main>

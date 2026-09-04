@@ -7,13 +7,8 @@ import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import {
   ALCOHOL,
   CIGARETTES,
-  DIET,
-  EDUCATION,
-  ETHNICITY,
   EXERCISE,
-  FAITH,
   HAVE_KIDS,
-  IDEOLOGY,
   MANDATORY_QUESTION_PROMPTS,
   MANDATORY_QUESTION_TITLES,
   POLITICS,
@@ -22,7 +17,10 @@ import {
   SINGLE_SLIDER_QUESTION_NUMBERS,
   VAPE,
   WANT_KIDS,
+  WANT_KIDS_LABELS,
 } from '@/constants/mandatoryQuestions';
+import { getQuestionOptionIcon } from '@/constants/questionIcons';
+import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
 import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { normalizeEthnicityAnswers, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
@@ -94,7 +92,7 @@ const IMPORTANCE_LABELS = [
 
 const FREQUENCY_SCALE_LABELS = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
 const POLITICS_SCALE_LABELS = ['UNINVOLVED', 'OBSERVANT', 'ACTIVE', 'FERVENT', 'RADICAL'];
-const WANT_KIDS_SCALE_LABELS = ["DON'T WANT", 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
+const WANT_KIDS_SCALE_LABELS = WANT_KIDS_LABELS.map(label => label.answer_text ?? '');
 const HAVE_KIDS_SCALE_LABELS = ["DON'T HAVE", 'HAVE'];
 
 const getScaleLabelsForQuestion = (questionNumber: number) => {
@@ -351,19 +349,6 @@ export default function ReadOnlyQuestionViewPage() {
 
     // Grouped questions - show cards
     if ((questions[0]?.question_type as Question['question_type']) === 'grouped') {
-      const optionIcons: Record<number, string> = {
-        [ETHNICITY]: '/assets/ethn.png',
-        [EDUCATION]: '/assets/cpx.png',
-        [DIET]: '/assets/lf2.png',
-        [ALCOHOL]: '/assets/hands.png',
-        [RELIGION]: '/assets/prayin.png',
-        [POLITICS]: '/assets/politics.png',
-        [WANT_KIDS]: '/assets/pacifier.png',
-        [HAVE_KIDS]: '/assets/pacifier.png',
-        [FAITH]: '/assets/prayin.png',
-        [IDEOLOGY]: '/assets/ethn.png',
-      };
-
       return (
         <div className="max-w-2xl mx-auto">
           <div className="space-y-3">
@@ -384,7 +369,7 @@ export default function ReadOnlyQuestionViewPage() {
                   }`}
                 >
                   <Image
-                    src={optionIcons[questionNumber] || '/assets/ethn.png'}
+                    src={getQuestionOptionIcon(questionNumber)}
                     alt=""
                     width={24}
                     height={24}
@@ -570,19 +555,6 @@ export default function ReadOnlyQuestionViewPage() {
 
     // Grouped questions - show cards
     if ((questions[0]?.question_type as Question['question_type']) === 'grouped') {
-      const optionIcons: Record<number, string> = {
-        [ETHNICITY]: '/assets/ethn.png',
-        [EDUCATION]: '/assets/cpx.png',
-        [DIET]: '/assets/lf2.png',
-        [ALCOHOL]: '/assets/hands.png',
-        [RELIGION]: '/assets/prayin.png',
-        [POLITICS]: '/assets/politics.png',
-        [WANT_KIDS]: '/assets/pacifier.png',
-        [HAVE_KIDS]: '/assets/pacifier.png',
-        [FAITH]: '/assets/prayin.png',
-        [IDEOLOGY]: '/assets/ethn.png',
-      };
-
       return (
         <div className="max-w-2xl mx-auto">
           <div className="space-y-3">
@@ -603,7 +575,7 @@ export default function ReadOnlyQuestionViewPage() {
                   }`}
                 >
                   <Image
-                    src={optionIcons[questionNumber] || '/assets/ethn.png'}
+                    src={getQuestionOptionIcon(questionNumber)}
                     alt=""
                     width={24}
                     height={24}
@@ -781,10 +753,10 @@ export default function ReadOnlyQuestionViewPage() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-black mb-2">
-              {questionNumber}. {questions && questions.length > 0 && questions[0].group_name ? questions[0].group_name : questionTitles[questionNumber]}
+              {getQuestionHeading(questionNumber, questions?.[0])}
             </h1>
             <p className="text-3xl font-bold text-black mb-12">
-              {questions && questions.length > 0 && questions[0].group_name_text ? questions[0].group_name_text : questionTexts[questionNumber]}
+              {getQuestionSubtitle(questionNumber, questions?.[0])}
             </p>
           </div>
 

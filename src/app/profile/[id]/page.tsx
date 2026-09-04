@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -11,8 +11,9 @@ import { apiService, MAX_LIKE_NOTE_CHARS, type FeedVisibility, type Post, type P
 import CharCounter from '@/components/CharCounter';
 import FeedPostCard, { DEFAULT_AVATAR, formatRelative } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import InfoTip from '@/components/InfoTip';
 import MatchCelebration from '@/components/MatchCelebration';
-import ActivityStatus from '@/components/ActivityStatus';
+import ProfileStatsRow from '@/components/ProfileStatsRow';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import NoteReveal from '@/components/NoteReveal';
@@ -49,7 +50,11 @@ import {
   RELIGION,
   VAPE,
   WANT_KIDS,
+  WANT_KIDS_ANSWER_LABELS,
+  MANDATORY_QUESTION_PROMPTS,
 } from '@/constants/mandatoryQuestions';
+import { getQuestionOptionIcon } from '@/constants/questionIcons';
+import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 import posthog from 'posthog-js';
 
 // Types for user profile and answers
@@ -103,6 +108,14 @@ interface UserAnswer {
 }
 
 interface ProfileIcon {
+  /**
+   * The question this chip stands for. Chips are pushed in whatever order the checks below
+   * happen to run, so they are sorted by this before rendering — the row then reads in the
+   * same order as the questions themselves. It also keys the chips, which the array index
+   * cannot: icons are pushed conditionally, so an index points at a different question
+   * once any earlier chip appears or disappears.
+   */
+  questionNumber: number;
   image: string;
   label: string;
   show: boolean;
@@ -321,7 +334,12 @@ export default function UserProfilePage() {
   const [editError, setEditError] = useState('');
   const [isAnsweringPending, setIsAnsweringPending] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
-  const [expandedIconIndex, setExpandedIconIndex] = useState<number | null>(null);
+  // Keyed by question number: chips are pushed conditionally, so an array index points
+  // at a different question as soon as an earlier chip appears or disappears.
+  const [expandedIconQuestion, setExpandedIconQuestion] = useState<number | null>(null);
+  const iconPanelRef = useRef<HTMLDivElement>(null);
+  const closeExpandedIcon = useCallback(() => setExpandedIconQuestion(null), []);
+  useDismissOnOutside(iconPanelRef, expandedIconQuestion !== null, closeExpandedIcon);
   const [groupedQuestions, setGroupedQuestions] = useState<Array<{ id: string; question_name: string; question_number: number; group_number?: number }>>([]);
 
   // Fetch all questions for grouped categories (ethnicity=3, education=4, diet=5, faith=11)
@@ -622,7 +640,17 @@ export default function UserProfilePage() {
           const wave1 = await Promise.all(wave1Promises);
           const [userResponse, questionsResponse, answersP1Response] = wave1;
 
-          if (!userResponse.ok) throw new Error('User not found');
+          if (!userResponse.ok) {
+            // Every non-OK response used to surface as "User not found", so an expired
+            // session or a server error both read as a profile that does not exist.
+            if (userResponse.status === 404) {
+              throw new Error('Profile not found');
+            }
+            if (userResponse.status === 401 || userResponse.status === 403) {
+              throw new Error('Your session has expired. Please log in again.');
+            }
+            throw new Error('Could not load this profile. Please try again.');
+          }
           if (!questionsResponse.ok) throw new Error('Failed to fetch questions');
           if (!answersP1Response.ok) throw new Error('Failed to fetch user answers');
 
@@ -967,8 +995,7 @@ export default function UserProfilePage() {
       return haveLabels[answer[answerType] as keyof typeof haveLabels] || "Don't Have";
     }
     if (questionNumber === WANT_KIDS) {
-      const wantLabels = { 1: "Don't Want", 2: "Doubtful", 3: "Unsure", 4: "Eventually", 5: "Want" };
-      return wantLabels[answer[answerType] as keyof typeof wantLabels] || null;
+      return WANT_KIDS_ANSWER_LABELS[answer[answerType] as number] || null;
     }
 
     // For politics question
@@ -1013,20 +1040,6 @@ export default function UserProfilePage() {
     });
   };
 
-  // Helper function to format height from centimeters to feet and inches
-  const formatHeight = (heightCm: number | null | undefined): string => {
-    if (!heightCm) return `5'-3"`;
-
-    // Convert cm to inches
-    const totalInches = Math.round(heightCm / 2.54);
-
-    // Calculate feet and inches
-    const feet = Math.floor(totalInches / 12);
-    const inches = totalInches % 12;
-
-    return `${feet}'-${inches}"`;
-  };
-
   // Generate profile icons based on user answers
   const getProfileIcons = (): ProfileIcon[] => {
     const icons: ProfileIcon[] = [];
@@ -1036,6 +1049,7 @@ export default function UserProfilePage() {
     if (exerciseValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Very often' };
       icons.push({
+        questionNumber: EXERCISE,
         image: '/assets/exercise.png',
         label: labels[exerciseValue as keyof typeof labels] || '',
         show: true,
@@ -1049,6 +1063,7 @@ export default function UserProfilePage() {
     if (educationAnswer && !(educationAnswerCount === 1 && educationAnswer.me_answer === 1)) {
       const educationLabel = educationAnswer.question.question_name || '';
       icons.push({
+        questionNumber: EDUCATION,
         image: '/assets/cap.png',
         label: educationAnswer.me_answer === 3 ? `Some ${educationLabel}` : educationLabel,
         show: true,
@@ -1061,6 +1076,7 @@ export default function UserProfilePage() {
     if (alcoholValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
+        questionNumber: ALCOHOL,
         image: '/assets/drink.png',
         label: labels[alcoholValue as keyof typeof labels] || '',
         show: true,
@@ -1081,6 +1097,7 @@ export default function UserProfilePage() {
         const allDietQuestions = groupedQuestions.filter(q => q.question_number === DIET);
 
         icons.push({
+          questionNumber: DIET,
           image: getDietIcon(dietLabel),
           label: dietLabel,
           show: true,
@@ -1104,6 +1121,7 @@ export default function UserProfilePage() {
     if (smokingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
+        questionNumber: CIGARETTES,
         image: '/assets/smk.png',
         label: labels[smokingValue as keyof typeof labels] || '',
         show: true,
@@ -1116,6 +1134,7 @@ export default function UserProfilePage() {
     if (vapingValue) {
       const labels = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Regularly', 5: 'Very often' };
       icons.push({
+        questionNumber: VAPE,
         image: '/assets/vape.png',
         label: labels[vapingValue as keyof typeof labels] || '',
         show: true,
@@ -1127,6 +1146,7 @@ export default function UserProfilePage() {
     const haveChildrenLabel = getAnswerLabel(HAVE_KIDS);
     if (haveChildrenLabel) {
       icons.push({
+        questionNumber: HAVE_KIDS,
         image: '/assets/pacifier.png',
         label: haveChildrenLabel,
         show: true,
@@ -1138,16 +1158,11 @@ export default function UserProfilePage() {
     const wantChildrenLabel = getAnswerLabel(WANT_KIDS);
     if (wantChildrenLabel) {
       icons.push({
+        questionNumber: WANT_KIDS,
         image: '/assets/pacifier.png',
         label: wantChildrenLabel,
         show: true,
-        options: [
-          { value: '1', label: "Don't Want" },
-          { value: '2', label: 'Doubtful' },
-          { value: '3', label: 'Unsure' },
-          { value: '4', label: 'Eventually' },
-          { value: '5', label: 'Want' }
-        ]
+        options: Object.entries(WANT_KIDS_ANSWER_LABELS).map(([value, label]) => ({ value, label }))
       });
     }
 
@@ -1164,6 +1179,7 @@ export default function UserProfilePage() {
       const label = politicsLabels[politicsValue as keyof typeof politicsLabels];
       if (label) {
         icons.push({
+        questionNumber: POLITICS,
           image: '/assets/politics.png',
           label: label,
           show: true,
@@ -1183,6 +1199,7 @@ export default function UserProfilePage() {
       const ethnicityLabel = normalizeEthnicityQuestionName(highestEthnicityAnswer.question.question_name) || '';
 
       icons.push({
+        questionNumber: ETHNICITY,
         image: '/assets/globex.png',
         label: highestEthnicityAnswer.me_answer === 3 ? `Some ${ethnicityLabel}` : ethnicityLabel,
         show: true,
@@ -1203,6 +1220,7 @@ export default function UserProfilePage() {
       const label = religionLabels[religionValue as keyof typeof religionLabels];
       if (label) {
         icons.push({
+        questionNumber: RELIGION,
           image: '/assets/prayin.png',
           label: label,
           show: true,
@@ -1217,6 +1235,7 @@ export default function UserProfilePage() {
     if (faithAnswer && !(faithAnswerCount === 1 && faithAnswer.me_answer === 1)) {
       const allFaithQuestions = groupedQuestions.filter(q => q.question_number === FAITH);
       icons.push({
+        questionNumber: FAITH,
         image: '/assets/prayin.png',
         label: faithAnswer.question.question_name || '',
         show: true,
@@ -1226,7 +1245,10 @@ export default function UserProfilePage() {
       });
     }
 
-    return icons.filter(icon => icon.show);
+    // Question order, not push order: the checks above run in an arbitrary sequence.
+    return icons
+      .filter(icon => icon.show)
+      .sort((a, b) => a.questionNumber - b.questionNumber);
   };
 
   // No longer needed - we go straight to note popup
@@ -1573,19 +1595,9 @@ export default function UserProfilePage() {
     );
   };
 
-  // Question display names mapping (matching questions page)
-  const questionDisplayNames: Record<number, string> = {
-    1: 'What relationship are you looking for?',
-    2: 'What gender do you identify with?',
-    3: 'What ethnicity do you identify with?',
-    4: 'What is your highest level of education?',
-    5: 'Which diet best describes you?',
-    6: 'How often do you exercise?',
-    7: 'How often do you engage in these habits?',
-    8: 'How important is religion in your life?',
-    9: 'How important is politics in your life?',
-    10: 'What are your thoughts on kids?'
-  };
+  // Written out against the pre-split numbering until now (3 = ethnicity, 7 = habits,
+  // 10 = kids), so after the renumber these labelled the wrong questions. The canonical
+  // prompts are keyed by the current numbers.
 
   // Group questions for modal display (matching questions page logic)
   // Must be called before any early returns to satisfy Rules of Hooks
@@ -1685,7 +1697,7 @@ export default function UserProfilePage() {
         if (!grouped[key]) {
           // Use group_name_text if available, otherwise use predefined mapping, otherwise use question text
           const displayText = firstQuestion.group_name_text ||
-                           questionDisplayNames[questionNumber] ||
+                           MANDATORY_QUESTION_PROMPTS[questionNumber] ||
                            firstQuestion.text;
           grouped[key] = {
             questions: [],
@@ -1713,7 +1725,7 @@ export default function UserProfilePage() {
     return Object.entries(grouped).sort((a, b) => 
       a[1].questionNumber - b[1].questionNumber
     );
-  }, [userAnswers, allQuestions, questionDisplayNames]);
+  }, [userAnswers, allQuestions]);
 
   // Questions the profile user hasn't answered from my required set ("Their Pending")
   const theirPendingQuestions = useMemo(() => {
@@ -1809,7 +1821,7 @@ export default function UserProfilePage() {
 
         const key = `pending_${pendingType}_${questionNumber}_${qId}`;
         const displayName = ['four', 'grouped', 'double', 'triple'].includes(questionType)
-          ? (question.group_name_text || questionDisplayNames[questionNumber] || question.text)
+          ? (question.group_name_text || MANDATORY_QUESTION_PROMPTS[questionNumber] || question.text)
           : question.text;
 
         groups.push([key, {
@@ -1828,7 +1840,7 @@ export default function UserProfilePage() {
     createPendingGroups(myPendingQuestions, 'my');
 
     return groups;
-  }, [theirPendingQuestions, myPendingQuestions, allQuestions, groupedQuestionsForModal, questionDisplayNames]);
+  }, [theirPendingQuestions, myPendingQuestions, allQuestions, groupedQuestionsForModal]);
 
   // Filter and sort grouped questions for modal
   const filteredAndSortedQuestions = useMemo(() => {
@@ -2419,6 +2431,7 @@ export default function UserProfilePage() {
   if (!user) return null;
 
   const profileIcons = getProfileIcons();
+  const expandedIcon = profileIcons.find(icon => icon.questionNumber === expandedIconQuestion) ?? null;
   // Get the first name only
   const displayName = user.first_name || user.username;
 
@@ -2828,7 +2841,7 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b border-gray-200">
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur flex items-center gap-2 p-3 border-b border-gray-200">
         <div className="w-9 shrink-0">
           <button onClick={() => router.back()} className="flex items-center">
             <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2979,43 +2992,24 @@ export default function UserProfilePage() {
         </div>
 
         {/* Section 1 — Identity row (From / Live / Height / Activity) */}
-        <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm">
-          {/* Two columns on a phone: four 65px tracks cannot hold values like
-              "Brownsville" or "10 months ago", which then spill past the card edge. */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4 sm:gap-3">
-            <div className="min-w-0 text-center">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</h3>
-              <p className="mt-1 truncate text-sm font-medium text-gray-900">{user.from_location || 'Austin'}</p>
-            </div>
-            <div className="min-w-0 text-center">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live</h3>
-              <p className="mt-1 truncate text-sm font-medium text-gray-900">{user.live || 'Austin'}</p>
-            </div>
-            <div className="min-w-0 text-center">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Height</h3>
-              <p className="mt-1 truncate text-sm font-medium text-gray-900">{formatHeight(user.height)}</p>
-            </div>
-            <div className="min-w-0 text-center">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activity</h3>
-              <div className="mt-1 flex min-w-0 items-center justify-center">
-                <ActivityStatus
-                  isOnline={user.is_online || false}
-                  lastActive={user.last_active}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <ProfileStatsRow
+          fromLocation={user.from_location}
+          live={user.live}
+          heightCm={user.height}
+          isOnline={user.is_online}
+          lastActive={user.last_active}
+        />
 
         {/* Section 2 — Profile icons (no outer card; chips inherit the section-card look) */}
         {profileIcons.length > 0 && (
-          <div className="w-full max-w-xl mx-auto mb-4">
+          <div className="w-full max-w-xl mx-auto mb-4" ref={iconPanelRef}>
             <div className="flex flex-wrap gap-2 justify-center">
-              {profileIcons.map((icon, index) => (
+              {profileIcons.map((icon) => (
                 <div
-                  key={index}
+                  key={icon.questionNumber}
                   className={`flex items-center bg-white ring-1 ring-gray-200 shadow-sm rounded-full pl-2 pr-3 py-1.5 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
-                  onClick={() => icon.options.length > 0 && setExpandedIconIndex(expandedIconIndex === index ? null : index)}
+                  onClick={() => icon.options.length > 0 &&
+                    setExpandedIconQuestion(expandedIconQuestion === icon.questionNumber ? null : icon.questionNumber)}
                 >
                   <div className="w-5 h-5 mr-1.5 relative">
                     <Image
@@ -3028,7 +3022,7 @@ export default function UserProfilePage() {
                     />
                   </div>
                   <span className="text-sm font-medium text-gray-900">{icon.label}</span>
-                  {expandedIconIndex === index && icon.options.length > 0 && (
+                  {expandedIconQuestion === icon.questionNumber && icon.options.length > 0 && (
                     <svg
                       className="w-4 h-4 ml-1 text-gray-500 rotate-180"
                       fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -3041,14 +3035,14 @@ export default function UserProfilePage() {
             </div>
 
             {/* Expanded dropdown for selected icon */}
-            {expandedIconIndex !== null && profileIcons[expandedIconIndex]?.options?.length > 0 && (
+            {expandedIcon && expandedIcon.options.length > 0 && (
               <div className="mt-3 bg-white ring-1 ring-gray-200 shadow-sm rounded-2xl p-4">
                 <div className="space-y-2">
-                  {profileIcons[expandedIconIndex].options.map((option, optIndex) => (
+                  {expandedIcon.options.map((option, optIndex) => (
                     <div key={optIndex} className="flex items-center gap-3 py-1">
                       <div className="w-6 h-6 relative flex-shrink-0">
                         <Image
-                          src={option.image || profileIcons[expandedIconIndex].image}
+                          src={option.image || expandedIcon.image}
                           alt={option.label}
                           width={24}
                           height={24}
@@ -3071,12 +3065,12 @@ export default function UserProfilePage() {
         {/* Section 3 — Compatibility cards + Required */}
         {compatibility && (
           <div className="w-full max-w-xl mx-auto mb-4">
-            {/* Total Questions Answered, Mutual Questions Answered */}
+            {/* Total / Mutual / Required question counts */}
             <div className="flex gap-3 mb-3">
-              {/* Total Questions Answered */}
+              {/* Total Questions */}
               <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                 <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
-                  Total Questions Answered
+                  Total Questions
                 </div>
                 <div className="flex items-baseline">
                   <span className="text-3xl font-black text-[#672DB7]">
@@ -3085,14 +3079,27 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
-              {/* Mutual Questions Answered */}
+              {/* Mutual Questions */}
               <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
                 <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
-                  Mutual Questions Answered
+                  Mutual Questions
                 </div>
                 <div className="flex items-baseline">
                   <span className="text-3xl font-black text-[#672DB7]">
                     {totalMutualQuestionsAnswered}
+                  </span>
+                </div>
+              </div>
+
+              {/* Required Questions — how many this profile marked required, matching the
+                  same count shown on your own profile. */}
+              <div className="bg-white ring-1 ring-gray-200 shadow-sm rounded-xl px-3 py-2 flex-1">
+                <div className="text-xs font-normal text-black capitalize mb-2 sm:text-sm">
+                  Required Questions
+                </div>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-black text-[#672DB7]">
+                    {profileUserRequiredQuestionIds.size}
                   </span>
                 </div>
               </div>
@@ -3164,15 +3171,9 @@ export default function UserProfilePage() {
                     </svg>
                   </span>
                   <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
-                  <div className="relative group">
-                    <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-help">
-                      <span className="text-[11px] font-semibold text-[#672DB7] leading-none">?</span>
-                    </div>
-                    <div className="absolute left-0 top-6 hidden w-64 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 sm:block">
-                      When enabled, this shows required compatibility and completeness based on required questions.
-                      <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                    </div>
-                  </div>
+                  <InfoTip label="About required questions">
+                    When enabled, this shows required compatibility and completeness based on required questions.
+                  </InfoTip>
                 </div>
                 <button
                   type="button"
@@ -3652,14 +3653,6 @@ export default function UserProfilePage() {
                     // keeps its row captions. Everywhere else a question is a single row
                     // whose caption would only repeat the heading, so it is dropped.
 
-                    // Icon mapping for grouped question cards
-                    const editOptionIcons: Record<number, string> = {
-                      [ETHNICITY]: '/assets/ethn.png', [EDUCATION]: '/assets/cpx.png', [DIET]: '/assets/lf2.png',
-                      [ALCOHOL]: '/assets/hands.png', [RELIGION]: '/assets/prayin.png', [POLITICS]: '/assets/politics.png',
-                      [WANT_KIDS]: '/assets/pacifier.png', [HAVE_KIDS]: '/assets/pacifier.png',
-                      [FAITH]: '/assets/prayin.png', [IDEOLOGY]: '/assets/ethn.png'
-                    };
-
                     // Grouped questions: show card list or sub-question slider
                     if (isGrouped) {
                       // If a sub-question is selected, show its editable slider
@@ -3805,7 +3798,7 @@ export default function UserProfilePage() {
 	                                >
                                   <div className="flex items-center space-x-3">
                                     <Image
-                                      src={editOptionIcons[questionNumber] || '/assets/ethn.png'}
+                                      src={getQuestionOptionIcon(questionNumber)}
                                       alt="Question icon"
                                       width={24}
                                       height={24}
@@ -4017,12 +4010,6 @@ export default function UserProfilePage() {
 
                   // Render based on question type
                   if (questionType === 'grouped') {
-                    const optionIcons: Record<number, string> = {
-                      3: '/assets/ethn.png', 4: '/assets/cpx.png', 5: '/assets/lf2.png',
-                      7: '/assets/hands.png', 8: '/assets/prayin.png', 9: '/assets/politics.png',
-                      10: '/assets/pacifier.png', 11: '/assets/prayin.png', 12: '/assets/ethn.png'
-                    };
-
                     // If a specific grouped question is selected, show its slider
                     if (selectedGroupedQuestionId) {
                       const selectedQuestion = selectedQuestionData.find(q => q.id === selectedGroupedQuestionId);
@@ -4172,7 +4159,7 @@ export default function UserProfilePage() {
                               >
                                 <div className="flex items-center space-x-3">
                                   <Image
-                                    src={optionIcons[questionNumber] || '/assets/ethn.png'}
+                                    src={getQuestionOptionIcon(questionNumber)}
                                     alt="Question icon"
                                     width={24}
                                     height={24}

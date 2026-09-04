@@ -56,6 +56,30 @@ export const SINGLE_SLIDER_QUESTION_NUMBERS = [
   FEMALE, MALE, EXERCISE, ALCOHOL, CIGARETTES, VAPE, RELIGION, POLITICS, WANT_KIDS, HAVE_KIDS,
 ] as const;
 
+/**
+ * Want Kids captions, in one place.
+ *
+ * The wording lived in eight separate literals — two slider scales, two profile chip option
+ * lists, two answer-label lookups, the onboarding step and the caption map — so renaming the
+ * middle value meant finding all eight. Everything derives from here now.
+ */
+export const WANT_KIDS_ANSWER_LABELS: Record<number, string> = {
+  1: "Don't Want",
+  2: 'Doubtful',
+  3: 'Open to Both',
+  4: 'Eventually',
+  5: 'Want',
+};
+
+/** The same captions upper-cased, which is how slider scales render them. */
+export const WANT_KIDS_SCALE_CAPTIONS: Record<number, string> = Object.fromEntries(
+  Object.entries(WANT_KIDS_ANSWER_LABELS).map(([value, label]) => [Number(value), label.toUpperCase()])
+);
+
+export const WANT_KIDS_LABELS: AnswerValueLabel[] = Object.entries(WANT_KIDS_ANSWER_LABELS).map(
+  ([value, label]) => ({ value, answer_text: label.toUpperCase() })
+);
+
 const FREQUENCY_LABELS: AnswerValueLabel[] = [
   { value: '1', answer_text: 'NEVER' },
   { value: '2', answer_text: 'RARELY' },
@@ -209,13 +233,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     route: questionRoute(WANT_KIDS),
     question: {
       id: 'b3d3b8c8-f1ef-43ce-8e36-1b78b75848c6',
-      labels: [
-        { value: '1', answer_text: "DON'T WANT" },
-        { value: '2', answer_text: 'DOUBTFUL' },
-        { value: '3', answer_text: 'UNSURE' },
-        { value: '4', answer_text: 'EVENTUALLY' },
-        { value: '5', answer_text: 'WANT' },
-      ],
+      labels: WANT_KIDS_LABELS,
     },
   },
   {

@@ -24,7 +24,10 @@ import {
   WANT_KIDS,
   isMandatoryQuestionNumber,
   isOptionalQuestionNumber,
+  WANT_KIDS_LABELS,
 } from '@/constants/mandatoryQuestions';
+import { getQuestionOptionIcon } from '@/constants/questionIcons';
+import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
@@ -73,7 +76,7 @@ interface UserAnswer {
 
 const FREQUENCY_SCALE_LABELS = ['NEVER', 'RARELY', 'SOMETIMES', 'REGULARLY', 'DAILY'];
 const POLITICS_SCALE_LABELS = ['UNINVOLVED', 'OBSERVANT', 'ACTIVE', 'FERVENT', 'RADICAL'];
-const WANT_KIDS_SCALE_LABELS = ["DON'T WANT", 'DOUBTFUL', 'UNSURE', 'EVENTUALLY', 'WANT'];
+const WANT_KIDS_SCALE_LABELS = WANT_KIDS_LABELS.map(label => label.answer_text ?? '');
 const HAVE_KIDS_SCALE_LABELS = ["DON'T HAVE", 'HAVE'];
 
 const getScaleLabelsForQuestion = (questionNumber: number) => {
@@ -1465,14 +1468,6 @@ function QuestionEditPageContent() {
     // Check if this is a grouped question type
     const isGroupedQuestion = questions.length > 0 && questions[0].question_type === 'grouped';
     if (isGroupedQuestion) {
-      const optionIcons: Record<number, string> = {
-        3: '/assets/ethn.png',
-        4: '/assets/cpx.png',
-        5: '/assets/lf2.png',
-        11: '/assets/prayin.png',  // Faith icon
-        12: '/assets/ethn.png'  // Ideology icon (using ethn as placeholder)
-      };
-
       return (
         <div className="max-w-2xl mx-auto">
           <div className="space-y-3">
@@ -1497,7 +1492,7 @@ function QuestionEditPageContent() {
                 >
                   <div className="flex items-center space-x-3">
                     <Image
-                      src={optionIcons[questionNumber]}
+                      src={getQuestionOptionIcon(questionNumber)}
                       alt=""
                       width={24}
                       height={24}
@@ -1711,12 +1706,7 @@ function QuestionEditPageContent() {
           <div className={`text-center ${questionNumber === RELATIONSHIP ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
             <div className="inline-block w-full max-w-full px-0 sm:px-1">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2 break-words">
-                {questionNumber}. {questions && questions.length > 0 ? (
-                  questions[0].group_name ? questions[0].group_name :
-                  (isMandatoryQuestionNumber(questionNumber)
-                    ? (questions[0].question_name || questionTitles[questionNumber])
-                    : questions[0].text)
-                ) : questionTitles[questionNumber]}
+                {getQuestionHeading(questionNumber, questions?.[0])}
             </h1>
               
               {/* Share Answer and Required switches — optional questions only. */}
@@ -1757,10 +1747,7 @@ function QuestionEditPageContent() {
               )}
             </div>
             <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl font-bold text-black break-words ${questionNumber === RELATIONSHIP ? 'mb-3 sm:mb-4' : 'mb-3 sm:mb-8 lg:mb-12'}`}>
-              {questions && questions.length > 0 ? (
-                questions[0].group_name_text ||
-                (isMandatoryQuestionNumber(questionNumber) ? questionTexts[questionNumber] : '')
-              ) : questionTexts[questionNumber]}
+              {getQuestionSubtitle(questionNumber, questions?.[0])}
             </p>
           </div>
 
