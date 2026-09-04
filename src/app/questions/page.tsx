@@ -180,7 +180,7 @@ function QuestionsPageContent() {
 
   // SWR hook — lightweight answered-question-numbers fetch (must be before filterPending)
   const { answeredQuestionNumbers, answeredLoading } = useAnsweredQuestions(userId || null);
-  const { submittedQuestionNumbers } = useSubmittedQuestions(userId || null);
+  const { submittedQuestions, submittedQuestionNumbers } = useSubmittedQuestions<Question>(userId || null);
 
   // Answered/unanswered are the only filters with a dedicated fetch of their own, so they
   // are the only ones whose data can still be in flight.
@@ -761,12 +761,15 @@ function QuestionsPageContent() {
     
     // If filtering by answered/unanswered, we should check ALL question numbers, not just loaded ones
     // Otherwise, we can only filter the loaded questions
-    const questionNumbersToCheck = (
+    const widenToAllQuestions =
       activeFilters.questions.answered ||
       activeFilters.questions.unanswered ||
-      activeFilters.questions.submitted
-    )
-      ? allQuestionNumbers
+      activeFilters.questions.submitted;
+
+    // Union in the submitted numbers explicitly: `allQuestionNumbers` comes from cached
+    // question metadata, which can still be missing a question approved moments ago.
+    const questionNumbersToCheck = widenToAllQuestions
+      ? Array.from(new Set([...allQuestionNumbers, ...submittedQuestionNumbers]))
       : questionNumbers;
     
     const filtered = questionNumbersToCheck.filter(questionNumber => {
@@ -834,8 +837,20 @@ function QuestionsPageContent() {
       return passesQuestionFilters && passesTagFilters;
     });
     
-    // Update filteredQuestions with the actual question data
-    const filteredQuestionData = questions.filter(q => 
+    // Update filteredQuestions with the actual question data.
+    // `questions` holds only the current page, so a submitted question living on any other
+    // page matched by number above but had no row to render — which is why the filter came
+    // back empty. Add the account-wide submitted rows to the pool.
+    const questionPool = activeFilters.questions.submitted
+      ? [
+          ...questions,
+          ...submittedQuestions.filter(
+            submitted => !questions.some(loaded => loaded.id === submitted.id)
+          ),
+        ]
+      : questions;
+
+    const filteredQuestionData = questionPool.filter(q =>
       filtered.includes(q.question_number)
     );
     
@@ -848,7 +863,7 @@ function QuestionsPageContent() {
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
-    }, [activeFilters, questions, answeredQuestionNumbers, submittedQuestionNumbers, allQuestionNumbers]);
+    }, [activeFilters, questions, answeredQuestionNumbers, submittedQuestions, submittedQuestionNumbers, allQuestionNumbers]);
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {

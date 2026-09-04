@@ -1705,12 +1705,14 @@ function ResultsPageContent() {
                 className="w-full min-w-0 sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-l-full rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
               />
               {/* Search Field Dropdown Button - visible on md+ screens */}
-              <div className="relative shrink-0" ref={searchFieldDropdownRef}>
+              <div className="relative shrink-0 self-stretch" ref={searchFieldDropdownRef}>
                 <button
                   onClick={() => setShowSearchFieldDropdown(!showSearchFieldDropdown)}
-                  className="h-full px-2.5 sm:px-4 py-2 sm:py-3 border border-l-0 border-gray-300 rounded-r-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-1 relative shadow-sm whitespace-nowrap"
+                  aria-expanded={showSearchFieldDropdown}
+                  aria-label={`Search field: ${searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'Bio'}. Change it.`}
+                  className="h-full px-2 sm:px-4 border border-l-0 border-gray-300 rounded-r-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-0.5 sm:gap-1 relative shadow-sm whitespace-nowrap"
                 >
-                  <span className="text-xs sm:text-sm">
+                  <span className="hidden sm:inline text-xs sm:text-sm">
                     {searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'Bio'}
                   </span>
                   <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1781,7 +1783,7 @@ function ResultsPageContent() {
 
             <button
               onClick={() => setShowFilterModal(true)}
-              className={`ml-2 shrink-0 sm:ml-4 inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
+              className={`ml-1.5 shrink-0 sm:ml-4 inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
                 showFiltersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
               }`}
             >
@@ -1796,11 +1798,11 @@ function ResultsPageContent() {
               </span>
             </button>
 
-            <div className="relative ml-2 shrink-0">
+            <div className="relative ml-1.5 shrink-0 sm:ml-2">
               <button
                 ref={sortButtonRef}
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
               >
                 <svg className="w-4 h-4 inline text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
@@ -2410,22 +2412,22 @@ function ResultsPageContent() {
                 {/* Required Section — grouped card */}
                 <div className="mb-8 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
                       <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </span>
-                      <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
-                      <InfoTip label="About required questions">
+                      <h4 className="text-sm sm:text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
+                      <InfoTip label="About required questions" align="right">
                         When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
                       </InfoTip>
                     </div>
                     <button
                       type="button"
                       onClick={toggleRequiredOnly}
-                      className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
                       style={{ backgroundColor: pendingFilters.requiredOnly ? '#672DB7' : '#ADADAD' }}
                       aria-pressed={pendingFilters.requiredOnly}
                     >
@@ -2477,13 +2479,13 @@ function ResultsPageContent() {
                             key={tag}
                             type="button"
                             onClick={() => handleFilterTagToggle(tag)}
-                            className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                            className={`group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1.5 pr-3 sm:pr-4 py-1.5 rounded-full whitespace-nowrap text-[11px] sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
                               active
                                 ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
                                 : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
                             }`}
                           >
-                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                            <span className={`flex shrink-0 items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-white transition-all ${
                               active
                                 ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
                                 : 'bg-purple-200'
@@ -2492,7 +2494,7 @@ function ResultsPageContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
                               </svg>
                             </span>
-                            <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
+                            <span className={`truncate ${active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}`}>
                               {getFilterTagLabel(tag)}
                             </span>
                           </button>

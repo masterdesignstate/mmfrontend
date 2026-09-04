@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 
 interface InfoTipProps {
@@ -42,14 +42,66 @@ export default function InfoTip({
   placement = 'bottom',
   trigger,
   triggerClassName = '',
-  panelClassName = 'w-64',
+  // Narrower on a phone: a 256px panel anchored near either screen edge still ran off it.
+  panelClassName = 'w-56 sm:w-64',
 }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [offsetX, setOffsetX] = useState(0);
+
   const close = useCallback(() => setOpen(false), []);
   useDismissOnOutside(wrapperRef, open, close);
+
+  /**
+   * Nudge the panel back on screen after it opens.
+   *
+   * A fixed-width panel anchored to a trigger near either screen edge runs off it — left
+   * anchoring overflows on the right, right anchoring on the left — and which one happens
+   * depends on where the trigger lands, which changes with the copy around it. Rather than
+   * hand-pick an alignment per tooltip, measure once and correct.
+   *
+   * Uses margin rather than transform so it composes with the centred alignment, which
+   * already owns `translate-x`.
+   */
+  useLayoutEffect(() => {
+    if (!open) {
+      setOffsetX(0);
+      return;
+    }
+
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const margin = 8;
+
+    // What actually clips the panel is the nearest ancestor that hides overflow — inside a
+    // modal that is the dialog body, not the window. Clamping to the viewport alone left the
+    // panel cut off by the modal's own edge.
+    let minLeft = margin;
+    let maxRight = window.innerWidth - margin;
+    for (let el = panel.parentElement; el && el !== document.body; el = el.parentElement) {
+      const { overflowX } = getComputedStyle(el);
+      if (overflowX !== 'visible') {
+        const bounds = el.getBoundingClientRect();
+        minLeft = Math.max(minLeft, bounds.left + margin);
+        maxRight = Math.min(maxRight, bounds.right - margin);
+        break;
+      }
+    }
+
+    // Measured in useLayoutEffect, which runs after the panel is in the DOM but before
+    // paint, so the correction lands without a visible jump. No rAF: it never fires in a
+    // background tab, which left the panel uncorrected.
+    const rect = panel.getBoundingClientRect();
+    let delta = 0;
+    if (rect.right > maxRight) delta = maxRight - rect.right;
+    if (rect.left + delta < minLeft) delta = minLeft - rect.left;
+
+    setOffsetX(delta);
+  }, [open]);
 
   const alignClasses =
     align === 'right' ? 'right-0' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-0';
@@ -78,6 +130,8 @@ export default function InfoTip({
       {open && (
         <div
           id={panelId}
+          ref={panelRef}
+          style={offsetX ? { marginLeft: offsetX } : undefined}
           role="dialog"
           className={`absolute ${placementClasses} ${alignClasses} ${panelClassName} max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50`}
         >
