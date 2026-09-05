@@ -278,8 +278,11 @@ function PostComposer({ viewerId, onPosted }: { viewerId: string; onPosted: (p: 
 }
 
 // =================== Activity card ===================
+const COLLAPSED_GROUP_ITEMS = 3;
+
 function ActivityCard({ item }: { item: FeedItem }) {
   const a = item.activity!;
+  const [expanded, setExpanded] = useState(false);
   // A rolled-up run of this person's activity — see `group_count` on FeedActivity.
   const count = a.group_count ?? 1;
   const grouped = count > 1;
@@ -313,15 +316,39 @@ function ActivityCard({ item }: { item: FeedItem }) {
       .map(payload => String((payload as { question_text?: string }).question_text || ''))
       .filter(Boolean);
     if (texts.length) {
-      // Only the first few payloads travel from the server; say how many are left over.
-      const remaining = count - texts.length;
+      // Collapsed by default so one person's burst stays one card's worth of space.
+      const shown = grouped && !expanded ? texts.slice(0, COLLAPSED_GROUP_ITEMS) : texts;
+      // The server sends only the first N payloads, so past that we can only give a count.
+      const beyondWhatWeHave = count - texts.length;
+      const hiddenWhenCollapsed = count - shown.length;
+
       body = (
         <div className="mt-1.5 border-l-2 border-purple-200 pl-3">
-          {texts.map((text, index) => (
+          {shown.map((text, index) => (
             <blockquote key={`${text}-${index}`} className="text-sm text-gray-600 italic">{text}</blockquote>
           ))}
-          {remaining > 0 && (
-            <p className="mt-1 text-xs text-gray-400">and {remaining} more</p>
+          {grouped && hiddenWhenCollapsed > 0 && !expanded && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="mt-1 text-xs font-medium text-purple-700 hover:text-purple-900 hover:underline"
+            >
+              Show all {count} questions
+            </button>
+          )}
+          {grouped && expanded && (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="text-xs font-medium text-purple-700 hover:text-purple-900 hover:underline"
+              >
+                Show less
+              </button>
+              {beyondWhatWeHave > 0 && (
+                <span className="text-xs text-gray-400">and {beyondWhatWeHave} more</span>
+              )}
+            </div>
           )}
         </div>
       );
