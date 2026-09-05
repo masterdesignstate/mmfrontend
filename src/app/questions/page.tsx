@@ -974,33 +974,57 @@ function QuestionsPageContent() {
       try {
         // filterFetchDone ref is false — filterPending keeps the loader showing
 
-        // Fetch ALL matching questions (not paginated)
-        const questionNumberParams = matchingQuestionNumbers.map(num => `question_number=${num}`).join('&');
-        let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=500`;
-
-        // Fetch all pages if paginated
-        let allQuestions: Question[] = [];
-        let hasMore = true;
-        let pageNum = 1;
-
-        while (hasMore && pageNum <= 5) { // Safety limit of 5 pages
-          const response = await fetch(url, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          const data = await response.json();
-          const results = data.results || [];
-          allQuestions = [...allQuestions, ...results];
-
-          if (data.next) {
-            url = data.next;
-            pageNum++;
-          } else {
-            hasMore = false;
-          }
+        // One `question_number=` per match, sent in chunks.
+        //
+        // This list is nearly every question for the "Unanswered" filter — ~1,000 numbers on
+        // a new account, which built a 20,000-character URL. The router rejects anything past
+        // roughly 4KB before it reaches Django, and because the rejection carries no CORS
+        // headers the browser reported it as a CORS failure rather than a 400, which is why
+        // it surfaced as a bare "Failed to load filtered questions".
+        //
+        // 150 numbers is about 3KB, leaving room for longer question numbers over time.
+        const NUMBERS_PER_REQUEST = 150;
+        const chunks: number[][] = [];
+        for (let i = 0; i < matchingQuestionNumbers.length; i += NUMBERS_PER_REQUEST) {
+          chunks.push(matchingQuestionNumbers.slice(i, i + NUMBERS_PER_REQUEST));
         }
+
+        // In parallel: seven sequential round trips is a visible stall on the filter.
+        const chunkResults = await Promise.all(
+          chunks.map(async chunk => {
+            const questionNumberParams = chunk.map(num => `question_number=${num}`).join('&');
+            let url = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${questionNumberParams}&page_size=500`;
+
+            const collected: Question[] = [];
+            let hasMore = true;
+            let pageNum = 1;
+
+            while (hasMore && pageNum <= 5) { // Safety limit of 5 pages
+              const response = await fetch(url, {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (!response.ok) {
+                throw new Error(`Questions request failed: ${response.status}`);
+              }
+
+              const data = await response.json();
+              collected.push(...(data.results || []));
+
+              if (data.next) {
+                url = data.next;
+                pageNum++;
+              } else {
+                hasMore = false;
+              }
+            }
+            return collected;
+          })
+        );
+
+        const allQuestions: Question[] = chunkResults.flat();
 
         // Sort by question_number and group_number
         allQuestions.sort((a, b) => {

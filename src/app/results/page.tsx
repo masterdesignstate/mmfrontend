@@ -160,9 +160,11 @@ const CARD_VARIANTS = {
 type CardVariant = keyof typeof CARD_VARIANTS;
 
 /** Explains what the ring colours mean, in the order a profile moves through them. */
-const ResultsLegend = () => (
+const LEGEND_ORDER: CardVariant[] = ['default', 'complete', 'pending'];
+
+const ResultsLegend = ({ variants }: { variants: CardVariant[] }) => (
   <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 px-4 pb-3 text-xs text-gray-600">
-    {(['default', 'complete', 'pending'] as CardVariant[]).map(variant => (
+    {LEGEND_ORDER.filter(variant => variants.includes(variant)).map(variant => (
       <span key={variant} className="inline-flex items-center gap-1.5">
         <span
           className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
@@ -174,6 +176,40 @@ const ResultsLegend = () => (
     ))}
   </div>
 );
+
+interface VariantContext {
+  appliedTags: string[];
+  appliedRequiredOnly: boolean;
+  appliedRequiredScope: 'my' | 'their';
+}
+
+/**
+ * Which ring a card gets. Lifted out of the render so the legend can be built from the same
+ * rule — otherwise the two could disagree about what is on screen.
+ *
+ * Required scope active = the required filter or any Required/Pending tag is applied.
+ * Within scope: missing required -> 'pending' (orange); otherwise -> 'complete' (blue).
+ * Outside scope -> 'default' (purple).
+ */
+const getCardVariant = (
+  profile: Pick<ResultProfile, 'missingRequired' | 'theirMissingRequired'>,
+  { appliedTags, appliedRequiredOnly, appliedRequiredScope }: VariantContext
+): CardVariant => {
+  const hasPendingTag = appliedTags.includes('Pending');
+  const hasRequiredTag = appliedTags.includes('Required');
+  const hasTheirPendingTag = appliedTags.includes('Their Pending');
+  const hasTheirRequiredTag = appliedTags.includes('Their Required');
+  const scopeMissing = appliedRequiredScope === 'their' ? profile.theirMissingRequired : profile.missingRequired;
+
+  const isPending =
+    hasPendingTag ||
+    hasTheirPendingTag ||
+    (appliedRequiredOnly && scopeMissing && !hasRequiredTag && !hasTheirRequiredTag);
+  const inRequiredScope =
+    appliedRequiredOnly || hasRequiredTag || hasPendingTag || hasTheirRequiredTag || hasTheirPendingTag;
+
+  return isPending ? 'pending' : inRequiredScope ? 'complete' : 'default';
+};
 
 const CardWithProgressBorder = ({
   percentage,
@@ -243,6 +279,7 @@ function ResultsPageContent() {
   const [showApprovalPopup, setShowApprovalPopup] = useState(false);
   const [popupUserName, setPopupUserName] = useState('');
   const [sortedProfiles, setSortedProfiles] = useState<ResultProfile[]>([]);
+
   const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showMatchCelebration, setShowMatchCelebration] = useState(false);
@@ -280,6 +317,25 @@ function ResultsPageContent() {
   // Updated only when new results arrive — prevents card colors flipping before data refreshes.
   const [appliedRequiredOnly, setAppliedRequiredOnly] = useState<boolean>(false);
   const [appliedRequiredScope, setAppliedRequiredScope] = useState<'my' | 'their'>('my');
+  /**
+   * Which ring colours are actually on screen, and whether explaining them earns its space.
+   *
+   * A legend for three states is noise when every card is the same colour. It appears only
+   * when there is something to tell apart — two or more states — or when the single state on
+   * screen is one the user would not otherwise recognise (Complete or Pending). An all-purple
+   * page, the default view, needs no key.
+   */
+  const legendVariants = React.useMemo(() => {
+    const visible = sortedProfiles.slice(0, visibleCount);
+    if (visible.length === 0) return [];
+    const present = new Set<CardVariant>(
+      visible.map(profile =>
+        getCardVariant(profile, { appliedTags, appliedRequiredOnly, appliedRequiredScope })
+      )
+    );
+    if (present.size === 1 && present.has('default')) return [];
+    return Array.from(present);
+  }, [sortedProfiles, visibleCount, appliedTags, appliedRequiredOnly, appliedRequiredScope]);
   // Snapshots for the sort/filter pipeline so the visible cards don't reorder or
   // get distance-filtered until the newly-fetched profiles arrive.
   const [appliedDistance, setAppliedDistance] = useState<{ min: number; max: number }>(() => {
@@ -1835,10 +1891,10 @@ function ResultsPageContent() {
                 <button
                   type="button"
                   onClick={() => setShowFilterModal(true)}
-                  className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                  className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
                 >
-                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <span className="flex shrink-0 items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                    <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
                     </svg>
                   </span>
@@ -1854,10 +1910,10 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <span className="flex shrink-0 items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                  <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </span>
@@ -1872,10 +1928,10 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <span className="flex shrink-0 items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                  <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19l9-9M7.5 7.5h.01M16.5 16.5h.01M6.6 4h10.8a2.6 2.6 0 012.6 2.6v10.8a2.6 2.6 0 01-2.6 2.6H6.6A2.6 2.6 0 014 17.4V6.6A2.6 2.6 0 016.6 4z" />
                   </svg>
                 </span>
@@ -1890,10 +1946,10 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <span className="flex shrink-0 items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                  <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -1909,10 +1965,10 @@ function ResultsPageContent() {
               <button
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <span className="flex shrink-0 items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                  <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </span>
@@ -1928,10 +1984,10 @@ function ResultsPageContent() {
                 key={tag}
                 type="button"
                 onClick={() => setShowFilterModal(true)}
-                className="group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
+                className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
               >
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <span className="flex shrink-0 items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                  <svg className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
                   </svg>
                 </span>
@@ -2003,7 +2059,7 @@ function ResultsPageContent() {
           </div>
         ) : (
           <>
-          <ResultsLegend />
+          {legendVariants.length > 0 && <ResultsLegend variants={legendVariants} />}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {sortedProfiles.slice(0, visibleCount).map((profile, index) => {
               // Get the appropriate compatibility score based on selected type
@@ -2028,17 +2084,11 @@ function ResultsPageContent() {
               const hasRequiredTagApplied = appliedTags.includes('Required');
               const hasTheirPendingTagApplied = appliedTags.includes('Their Pending');
               const hasTheirRequiredTagApplied = appliedTags.includes('Their Required');
-              const scopeMissing = appliedRequiredScope === 'their' ? profile.theirMissingRequired : profile.missingRequired;
-              const isPending = hasPendingTagApplied || hasTheirPendingTagApplied || (appliedRequiredOnly && scopeMissing && !hasRequiredTagApplied && !hasTheirRequiredTagApplied);
-              // Required scope active = the required filter or any Required/Pending tag is applied.
-              // Within scope: missing required → 'pending' (orange); otherwise → 'complete' (blue).
-              // Outside scope → 'default' (purple).
-              const inRequiredScope = appliedRequiredOnly || hasRequiredTagApplied || hasPendingTagApplied || hasTheirRequiredTagApplied || hasTheirPendingTagApplied;
-              const cardVariant: 'default' | 'pending' | 'complete' = isPending
-                ? 'pending'
-                : inRequiredScope
-                  ? 'complete'
-                  : 'default';
+              const cardVariant = getCardVariant(profile, {
+                appliedTags,
+                appliedRequiredOnly,
+                appliedRequiredScope,
+              });
 
               // When requiredOnly is enabled, show required compatibility if available
               // Use appliedTags / appliedRequired* snapshots so the displayed colors and scores
@@ -2483,7 +2533,7 @@ function ResultsPageContent() {
                         key={tag}
                         type="button"
                         onClick={() => handleFilterTagToggle(tag)}
-                        className={`group relative inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                        className={`group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
                           active
                             ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
                             : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
