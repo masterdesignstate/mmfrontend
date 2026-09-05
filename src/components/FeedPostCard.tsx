@@ -141,7 +141,7 @@ function RevisionsModal({ post, viewerId, onClose }: { post: Post; viewerId: str
     apiService.getPostRevisions(post.id, viewerId).then((r) => { setRevs(r); setLoading(false); }).catch(() => setLoading(false));
   }, [post.id, viewerId]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">Edit history</h3>

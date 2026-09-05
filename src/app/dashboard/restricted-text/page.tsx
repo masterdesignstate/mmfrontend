@@ -244,7 +244,7 @@ export default function RestrictedTextPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4" role="presentation">
           <form onSubmit={saveWord} role="dialog" aria-modal="true" aria-labelledby="word-form-title" className="w-full max-w-md space-y-5 rounded-xl bg-white p-6 shadow-xl">
             <h2 id="word-form-title" className="text-xl font-semibold text-gray-900">{editing ? 'Edit restricted word' : 'Add restricted word'}</h2>
             <div>
@@ -272,7 +272,7 @@ export default function RestrictedTextPage() {
       )}
 
       {deleting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4" role="presentation">
           <div role="alertdialog" aria-modal="true" aria-labelledby="delete-word-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h2 id="delete-word-title" className="text-xl font-semibold text-gray-900">Delete restricted word?</h2>
             <p className="mt-3 text-gray-600">“{deleting.word}” will no longer be checked by the content filter.</p>

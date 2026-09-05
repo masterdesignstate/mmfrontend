@@ -99,7 +99,7 @@ export default function NoteControl({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
           onClick={close}
           role="dialog"
           aria-modal="true"

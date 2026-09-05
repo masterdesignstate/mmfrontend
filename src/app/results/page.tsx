@@ -2258,7 +2258,7 @@ function ResultsPageContent() {
       {/* Filter Modal */}
       {showFilterModal && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-[200]"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
           onClick={() => { if (!isApplyingFilters) setShowFilterModal(false); }}
         >
@@ -2580,7 +2580,7 @@ function ResultsPageContent() {
       {/* Approval Required Popup */}
       {showApprovalPopup && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-[200]"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
           onClick={() => setShowApprovalPopup(false)}
         >
@@ -2614,7 +2614,7 @@ function ResultsPageContent() {
       {/* Send Note Popup */}
       {showNotePopup && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-[200]"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
           onClick={() => {
             setShowNotePopup(false);

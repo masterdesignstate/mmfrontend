@@ -529,7 +529,7 @@ export default function ReportedUsersPage() {
 
       {/* Action Modal */}
       {showActionModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowActionModal(false)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setShowActionModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-center mb-5">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
