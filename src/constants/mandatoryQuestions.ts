@@ -66,7 +66,7 @@ export const SINGLE_SLIDER_QUESTION_NUMBERS = [
 export const WANT_KIDS_ANSWER_LABELS: Record<number, string> = {
   1: "Don't Want",
   2: 'Doubtful',
-  3: 'Open to Both',
+  3: 'Open',
   4: 'Eventually',
   5: 'Want',
 };
