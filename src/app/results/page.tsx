@@ -128,81 +128,6 @@ const normalizeExclusiveRequiredTags = (tags: string[]) => {
 };
 
 // Generate dummy profiles (fallback only)
-const generateDummyProfiles = (): ResultProfile[] => {
-  const names = ['Amber', 'Sarah', 'Emily', 'Jessica', 'Ashley', 'Megan', 'Rachel', 'Lauren', 'Brittany', 'Taylor',
-                  'Madison', 'Olivia', 'Emma', 'Sophia', 'Isabella', 'Charlotte', 'Amelia', 'Harper', 'Evelyn', 'Abigail'];
-  const locations = ['Austin, TX', 'Dallas, TX', 'Houston, TX', 'San Antonio, TX', 'Fort Worth, TX'];
-  const girlImages = [
-    'IMG_0369.PNG',
-    'IMG_0412.JPG',
-    'IMG_0422.PNG',
-    'IMG_0426.JPG',
-    'IMG_0432.JPG',
-    'IMG_0459.JPG',
-    'IMG_0501.JPG',
-    'IMG_0533.JPG',
-    'IMG_0550.JPG',
-    'IMG_9894.JPG'
-  ];
-  const profiles: ResultProfile[] = [];
-
-  for (let i = 0; i < 30; i++) {
-    let status: 'approved' | 'liked' | 'matched';
-    let isLiked = false;
-    let isMatched = false;
-
-    // Mix of different states to match the image
-    if (i === 0 || i === 3) {
-      // Show checkmark (matched state with purple heart)
-      status = 'matched';
-      isLiked = true;
-      isMatched = true;
-    } else if (i === 1 || i === 4) {
-      // Show red heart (liked)
-      status = 'liked';
-      isLiked = true;
-      isMatched = false;
-    } else {
-      // Show purple outline heart (approved)
-      status = 'approved';
-      isLiked = false;
-      isMatched = false;
-    }
-
-    const name = names[i % names.length];
-    const age = 23 + (i % 10);
-    const compatibilityScore = 65 + (i * 5) % 35;
-
-    profiles.push({
-      id: `profile-${i}`,
-      user: {
-        id: `profile-${i}`,
-        username: name.toLowerCase(),
-        first_name: name,
-        last_name: '',
-        email: `${name.toLowerCase()}@example.com`,
-        age: age,
-        city: locations[i % locations.length],
-        profile_photo: `/assets/girls/${girlImages[i % girlImages.length]}`,
-        bio: `Hi, I'm ${name}!`
-      },
-      compatibility: {
-        overall_compatibility: compatibilityScore,
-        compatible_with_me: compatibilityScore + Math.random() * 10 - 5,
-        im_compatible_with: compatibilityScore + Math.random() * 10 - 5,
-        mutual_questions_count: Math.floor(Math.random() * 20) + 10
-      },
-      compatibilityNonRequired: undefined,
-      missingRequired: false,
-      status,
-      isLiked,
-      isMatched,
-      tags: [], // Add empty tags array for dummy profiles
-    });
-  }
-
-  return profiles;
-};
 
 // Card Progress Border Component
 /**
@@ -674,11 +599,18 @@ function ResultsPageContent() {
 
     } catch (error) {
       console.error('Error fetching compatible users:', error);
-      setError('Failed to load compatible users. Please try again.');
-
-      // Fallback to dummy data if API fails
+      // No placeholder profiles here. This used to fall back to a generated list whose ids
+      // were strings like "profile-0"; the grid looked normal, the error below never showed
+      // (it only renders when the list is empty), and tapping one asked the API for a user
+      // that does not exist — which surfaced as "Profile not found" after a long wait.
+      const status = (error as { status?: number })?.status;
+      setError(
+        status === 401 || status === 403
+          ? 'Your session has expired. Please log in again.'
+          : 'Failed to load compatible users. Please try again.'
+      );
       if (page === 1) {
-        setProfiles(generateDummyProfiles());
+        setProfiles([]);
       }
     } finally {
       setLoading(false);
@@ -1684,7 +1616,9 @@ function ResultsPageContent() {
       {/* Header — logo and menu sit in flow rather than absolutely positioned, so the
           search row can never grow underneath them on a narrow screen. */}
       <div className="relative flex items-center gap-2 p-3 sm:gap-4 sm:p-4 border-b border-gray-200">
-        <div className="shrink-0">
+        {/* Hidden on a phone: the row needs the ~40px more than it needs a second brand mark,
+            and without it the longer placeholders ("Search by Location") were clipped. */}
+        <div className="hidden shrink-0 sm:block">
           <NavLogo />
         </div>
 
@@ -1783,7 +1717,7 @@ function ResultsPageContent() {
 
             <button
               onClick={() => setShowFilterModal(true)}
-              className={`ml-1.5 shrink-0 sm:ml-4 inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
+              className={`ml-1.5 shrink-0 sm:ml-4 inline-flex items-center justify-center h-[38px] w-[38px] sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
                 showFiltersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
               }`}
             >
@@ -1802,7 +1736,7 @@ function ResultsPageContent() {
               <button
                 ref={sortButtonRef}
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                className="inline-flex items-center justify-center h-[38px] w-[38px] sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
               >
                 <svg className="w-4 h-4 inline text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />

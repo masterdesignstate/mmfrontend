@@ -13,6 +13,7 @@ import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { useQuestionMetadata } from '@/hooks/useQuestionMetadata';
 import { useAnsweredQuestions } from '@/hooks/useAnsweredQuestions';
 import { useSubmittedQuestions } from '@/hooks/useSubmittedQuestions';
+import { useQuestionSet } from '@/hooks/useQuestionSet';
 
 interface Question {
   id: string;
@@ -181,6 +182,11 @@ function QuestionsPageContent() {
   // SWR hook — lightweight answered-question-numbers fetch (must be before filterPending)
   const { answeredQuestionNumbers, answeredLoading } = useAnsweredQuestions(userId || null);
   const { submittedQuestions, submittedQuestionNumbers } = useSubmittedQuestions<Question>(userId || null);
+  // Fetched whole rather than read off the current page, which only ever holds ten numbers.
+  const { questions: mandatoryQuestions, questionNumbers: mandatoryQuestionNumbers } =
+    useQuestionSet<Question>(activeFilters.questions.mandatory ? 'is_mandatory=true' : null);
+  const { questions: requiredFlagQuestions, questionNumbers: requiredFlagQuestionNumbers } =
+    useQuestionSet<Question>(activeFilters.questions.required ? 'is_required_for_match=true' : null);
 
   // Answered/unanswered are the only filters with a dedicated fetch of their own, so they
   // are the only ones whose data can still be in flight.
@@ -712,7 +718,11 @@ function QuestionsPageContent() {
     const questionNumbers = Object.keys(allGroupedQuestions).map(Number);
     
     // Helper functions for filtering
+    const mandatorySet = new Set(mandatoryQuestionNumbers);
+    const requiredFlagSet = new Set(requiredFlagQuestionNumbers);
+
     const isQuestionMandatory = (questionNumber: number): boolean => {
+      if (mandatorySet.has(questionNumber)) return true;
       const questionGroup = allGroupedQuestions[questionNumber];
       if (!questionGroup || questionGroup.length === 0) return false;
       return questionGroup[0].is_mandatory || false;
@@ -729,6 +739,7 @@ function QuestionsPageContent() {
     };
 
     const isQuestionRequired = (questionNumber: number): boolean => {
+      if (requiredFlagSet.has(questionNumber)) return true;
       const questionGroup = allGroupedQuestions[questionNumber];
       if (!questionGroup || questionGroup.length === 0) return false;
       return questionGroup[0].is_required_for_match || false;
@@ -761,15 +772,25 @@ function QuestionsPageContent() {
     
     // If filtering by answered/unanswered, we should check ALL question numbers, not just loaded ones
     // Otherwise, we can only filter the loaded questions
+    // Every filter that is answered from a whole-account set rather than the loaded page.
+    // Without this the page's ten numbers were the only candidates, so "Mandatory" reported
+    // 10 of 14 and "Required" 10 of 15.
     const widenToAllQuestions =
       activeFilters.questions.answered ||
       activeFilters.questions.unanswered ||
-      activeFilters.questions.submitted;
+      activeFilters.questions.submitted ||
+      activeFilters.questions.mandatory ||
+      activeFilters.questions.required;
 
-    // Union in the submitted numbers explicitly: `allQuestionNumbers` comes from cached
+    // Union the fetched numbers in explicitly: `allQuestionNumbers` comes from cached
     // question metadata, which can still be missing a question approved moments ago.
     const questionNumbersToCheck = widenToAllQuestions
-      ? Array.from(new Set([...allQuestionNumbers, ...submittedQuestionNumbers]))
+      ? Array.from(new Set([
+          ...allQuestionNumbers,
+          ...submittedQuestionNumbers,
+          ...mandatoryQuestionNumbers,
+          ...requiredFlagQuestionNumbers,
+        ]))
       : questionNumbers;
     
     const filtered = questionNumbersToCheck.filter(questionNumber => {
@@ -841,13 +862,16 @@ function QuestionsPageContent() {
     // `questions` holds only the current page, so a submitted question living on any other
     // page matched by number above but had no row to render — which is why the filter came
     // back empty. Add the account-wide submitted rows to the pool.
-    const questionPool = activeFilters.questions.submitted
-      ? [
-          ...questions,
-          ...submittedQuestions.filter(
-            submitted => !questions.some(loaded => loaded.id === submitted.id)
-          ),
-        ]
+    // A number can only render if its Question row is on hand, and `questions` holds just the
+    // current page — so fold in the rows fetched for whichever filters are on.
+    const extraRows = [
+      ...(activeFilters.questions.submitted ? submittedQuestions : []),
+      ...(activeFilters.questions.mandatory ? mandatoryQuestions : []),
+      ...(activeFilters.questions.required ? requiredFlagQuestions : []),
+    ];
+    const seenIds = new Set(questions.map(q => q.id));
+    const questionPool = extraRows.length
+      ? [...questions, ...extraRows.filter(row => !seenIds.has(row.id) && seenIds.add(row.id))]
       : questions;
 
     const filteredQuestionData = questionPool.filter(q =>
@@ -863,7 +887,9 @@ function QuestionsPageContent() {
       setCurrentPage(1);
     }
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
-    }, [activeFilters, questions, answeredQuestionNumbers, submittedQuestions, submittedQuestionNumbers, allQuestionNumbers]);
+    }, [activeFilters, questions, answeredQuestionNumbers, submittedQuestions, submittedQuestionNumbers,
+        mandatoryQuestions, mandatoryQuestionNumbers, requiredFlagQuestions, requiredFlagQuestionNumbers,
+        allQuestionNumbers]);
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
