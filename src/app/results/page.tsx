@@ -2439,8 +2439,8 @@ function ResultsPageContent() {
 
                   {/* Scope picker (only when Required is on) */}
                   {pendingFilters.requiredOnly && (
-                    <div className="mb-4">
-                      <div className="inline-flex items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200 w-full">
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="inline-flex min-w-0 flex-1 items-center bg-white rounded-lg p-1.5 ring-1 ring-purple-200">
                         <button
                           type="button"
                           onClick={() => handleRequiredScopeChange('my')}
@@ -2464,13 +2464,12 @@ function ResultsPageContent() {
                           Their Required
                         </button>
                       </div>
-                      {/* One line under the picker beats a second tooltip: it names the scope
-                          that is actually selected, and changes as the user switches. */}
-                      <p className="mt-2 text-xs text-purple-900/55" aria-live="polite">
-                        {(pendingFilters.requiredScope ?? 'my') === 'their'
-                          ? 'Results are based on their required questions.'
-                          : 'Results are based on your required questions.'}
-                      </p>
+                      <InfoTip label="About My Required and Their Required" align="right">
+                        <div className="space-y-2">
+                          <div><span className="font-semibold">My Required:</span> Results are based on your required questions.</div>
+                          <div><span className="font-semibold">Their Required:</span> Results are based on their required questions.</div>
+                        </div>
+                      </InfoTip>
                     </div>
                   )}
 
