@@ -96,11 +96,11 @@ const HeartGlyph = ({
 const ResultStatusGlyph = ({ status }: { status: ResultStatusKind }) => {
   switch (status) {
     case 'matched':
-      return <HeartGlyph filled className="h-6 w-6 text-[#672DB7] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
+      return <HeartGlyph filled className="h-5 w-5 sm:h-6 sm:w-6 text-[#672DB7] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
     case 'liked':
-      return <HeartGlyph filled className="h-6 w-6 text-[#EF4444] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
+      return <HeartGlyph filled className="h-5 w-5 sm:h-6 sm:w-6 text-[#EF4444] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
     case 'approved':
-      return <HeartGlyph filled={false} className="h-6 w-6 text-[#EF4444] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
+      return <HeartGlyph filled={false} className="h-5 w-5 sm:h-6 sm:w-6 text-[#EF4444] drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]" />;
     default:
       return (
         <Image
@@ -108,7 +108,7 @@ const ResultStatusGlyph = ({ status }: { status: ResultStatusKind }) => {
           alt=""
           width={25}
           height={23}
-          className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)]"
+          className="h-[18px] w-auto drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)] sm:h-[23px]"
         />
       );
   }
@@ -2173,7 +2173,7 @@ function ResultsPageContent() {
                           disabled={heartDisabled}
                           title={heartDisabled ? "Answer their required questions to like" : undefined}
                           aria-label={heartDisabled ? "Answer their required questions to like" : statusLabel}
-                          className={`flex h-10 min-w-10 items-center justify-center rounded-br-xl bg-white/25 px-2.5 py-1.5 text-white backdrop-blur-md shadow-[inset_-1px_-1px_0_0_rgba(255,255,255,0.28)] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                          className={`flex h-8 min-w-8 items-center justify-center rounded-br-xl bg-white/25 px-2 py-1 text-white backdrop-blur-md sm:h-10 sm:min-w-10 sm:px-2.5 sm:py-1.5 shadow-[inset_-1px_-1px_0_0_rgba(255,255,255,0.28)] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
                             heartDisabled
                               ? 'cursor-not-allowed opacity-55'
                               : 'cursor-pointer hover:bg-white/35 active:scale-95'
@@ -2187,18 +2187,9 @@ function ResultsPageContent() {
                           reciprocated — once matched, the status glyph already says so. */}
                       {!profile.isMatched && (profile.likedMe || profile.approvedMe) && (
                         <div
-                          className="absolute top-0 right-0 z-20 flex h-7 items-center gap-1 rounded-bl-xl bg-white/25 px-2 text-white backdrop-blur-md shadow-[inset_1px_-1px_0_0_rgba(255,255,255,0.28)]"
+                          className="absolute top-0 right-0 z-20 flex h-6 items-center rounded-bl-xl bg-white/25 px-1.5 text-white backdrop-blur-md shadow-[inset_1px_-1px_0_0_rgba(255,255,255,0.28)] sm:h-7 sm:px-2"
                           title={profile.likedMe ? 'They liked you' : 'They approved you'}
                         >
-                          {profile.likedMe ? (
-                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                              <path d="M12 21s-6.7-4.35-9.33-8.02C.9 10.4 1.6 6.9 4.3 5.6a5 5 0 0 1 5.9 1.2L12 8.6l1.8-1.8a5 5 0 0 1 5.9-1.2c2.7 1.3 3.4 4.8 1.63 7.38C18.7 16.65 12 21 12 21z" />
-                            </svg>
-                          ) : (
-                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
                           <span className="text-[9px] font-bold uppercase tracking-wide [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)] sm:text-[10px]">
                             {profile.likedMe ? 'Liked you' : 'Approved you'}
                           </span>
