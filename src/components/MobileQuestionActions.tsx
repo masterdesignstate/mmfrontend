@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import NoteControl from '@/components/NoteControl';
+import { TIP_PANEL_CLASSES, tipArrowClasses } from '@/components/InfoTip';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 
 export interface MobileQuestionActionEntry {
@@ -335,9 +336,10 @@ function MobileExclusionPicker({
                       {isBlocked && blockedHelpValue === value && (
                         <span
                           role="tooltip"
-                          className="absolute bottom-11 left-1/2 z-[70] w-40 -translate-x-1/2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-center text-xs font-normal leading-snug text-gray-600 shadow-lg"
+                          className={`absolute bottom-11 left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES}`}
                         >
                           This is your answer and can’t be excluded.
+                          <span className={tipArrowClasses('bottom', 'center')} />
                         </span>
                       )}
                     </span>
@@ -429,10 +431,11 @@ export function MobileQuestionActionDock() {
             {otaHelpOpen && (
               <div
                 role="tooltip"
-                className="absolute bottom-10 left-0 z-50 w-64 rounded-xl border border-gray-200 bg-white p-3 text-left text-xs leading-relaxed text-gray-600 shadow-xl"
+                className={`absolute bottom-10 left-0 z-50 w-64 text-left ${TIP_PANEL_CLASSES}`}
               >
                 Open to All applies only to Them. If you’re open to every answer, move to
                 5 and tap 5 again. Tap the blank circle again to turn it off.
+                <span className={tipArrowClasses('bottom', 'left')} />
               </div>
             )}
           </div>

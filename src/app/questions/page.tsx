@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { TIP_PANEL_CLASSES, tipArrowClasses } from '@/components/InfoTip';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
@@ -1721,9 +1722,10 @@ function QuestionsPageContent() {
                       role="tooltip"
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute -top-3 left-4 z-20 whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-md"
+                      className={`absolute -top-9 left-2 z-20 whitespace-nowrap ${TIP_PANEL_CLASSES}`}
                     >
                       Mandatory question
+                      <span className={tipArrowClasses('bottom', 'left')} />
                     </span>
                   )}
                   <div className="min-w-0 flex-1">

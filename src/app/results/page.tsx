@@ -145,13 +145,13 @@ const CARD_VARIANTS = {
   },
   complete: {
     label: 'Complete',
-    description: 'Answered your required questions',
+    description: 'Answered all required questions',
     swatch: '#2563EB',
     stops: ['#60A5FA', '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF'],
   },
   pending: {
     label: 'Pending',
-    description: 'Still missing some required questions',
+    description: 'Has not answered all required questions',
     swatch: '#F97316',
     stops: ['#FDBA74', '#FB923C', '#F97316', '#EA580C', '#C2410C'],
   },
@@ -159,22 +159,38 @@ const CARD_VARIANTS = {
 
 type CardVariant = keyof typeof CARD_VARIANTS;
 
-/** Explains what the ring colours mean, in the order a profile moves through them. */
-const LEGEND_ORDER: CardVariant[] = ['default', 'complete', 'pending'];
+/** A small coloured dot, used wherever a tooltip names a ring colour. */
+const RingDot = ({ variant }: { variant: CardVariant }) => (
+  <span
+    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+    style={{ backgroundColor: CARD_VARIANTS[variant].swatch }}
+    aria-hidden="true"
+  />
+);
 
-const ResultsLegend = ({ variants }: { variants: CardVariant[] }) => (
-  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 px-4 pb-3 text-xs text-gray-600">
-    {LEGEND_ORDER.filter(variant => variants.includes(variant)).map(variant => (
-      <span key={variant} className="inline-flex items-center gap-1.5">
-        <span
-          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: CARD_VARIANTS[variant].swatch }}
-        />
-        <span className="font-medium text-gray-800">{CARD_VARIANTS[variant].label}</span>
-        <span className="hidden sm:inline text-gray-500">— {CARD_VARIANTS[variant].description}</span>
-      </span>
-    ))}
-  </div>
+/**
+ * Explains the blue and orange rings without a legend row: a single "?" bubble in the
+ * filter-chip row, the same trigger used for every other explanation on the site. The
+ * earlier row of swatches under the search bar read as extra chrome and did not match.
+ */
+const RingKeyTip = ({ variants }: { variants: CardVariant[] }) => (
+  <InfoTip label="What the ring colours mean" align="right">
+    <div className="space-y-2">
+      {(['complete', 'pending'] as const)
+        .filter(variant => variants.includes(variant))
+        .map(variant => (
+          <div key={variant} className="flex items-start gap-2">
+            <span className="mt-1 flex shrink-0">
+              <RingDot variant={variant} />
+            </span>
+            <span>
+              <span className="font-semibold">{CARD_VARIANTS[variant].label}:</span>{' '}
+              {CARD_VARIANTS[variant].description}
+            </span>
+          </div>
+        ))}
+    </div>
+  </InfoTip>
 );
 
 interface VariantContext {
@@ -320,12 +336,10 @@ function ResultsPageContent() {
   /**
    * Which ring colours are actually on screen, and whether explaining them earns its space.
    *
-   * A legend for three states is noise when every card is the same colour. It appears only
-   * when there is something to tell apart — two or more states — or when the single state on
-   * screen is one the user would not otherwise recognise (Complete or Pending). An all-purple
-   * page, the default view, needs no key.
+   * The ring key appears only when a colour the user would not otherwise recognise is on
+   * screen (Complete or Pending). An all-purple page, the default view, needs no key.
    */
-  const legendVariants = React.useMemo(() => {
+  const ringKeyVariants = React.useMemo(() => {
     const visible = sortedProfiles.slice(0, visibleCount);
     if (visible.length === 0) return [];
     const present = new Set<CardVariant>(
@@ -1996,6 +2010,7 @@ function ResultsPageContent() {
                 </span>
               </button>
             ))}
+            {ringKeyVariants.length > 0 && <RingKeyTip variants={ringKeyVariants} />}
           </div>
         )}
 
@@ -2059,7 +2074,6 @@ function ResultsPageContent() {
           </div>
         ) : (
           <>
-          {legendVariants.length > 0 && <ResultsLegend variants={legendVariants} />}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {sortedProfiles.slice(0, visibleCount).map((profile, index) => {
               // Get the appropriate compatibility score based on selected type
@@ -2345,13 +2359,13 @@ function ResultsPageContent() {
                     <InfoTip label="About compatibility types">
                       <div className="space-y-2">
                         <div>
+                          <span className="font-semibold">Overall (default):</span> The combined score of both compatibilities
+                        </div>
+                        <div>
                           <span className="font-semibold">My Preferences:</span> How well they match what you&apos;re looking for
                         </div>
                         <div>
                           <span className="font-semibold">Their Preferences:</span> How well you match what they&apos;re looking for
-                        </div>
-                        <div>
-                          <span className="font-semibold">Overall:</span> The combined score of both compatibilities
                         </div>
                       </div>
                     </InfoTip>
@@ -2405,7 +2419,17 @@ function ResultsPageContent() {
                       </span>
                       <h4 className="text-sm sm:text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
                       <InfoTip label="About required questions" align="right">
-                        When enabled, users missing your required questions appear as Pending and are moved below users who answered them.
+                        <div className="space-y-2">
+                          <div>Show compatibility based on required questions only. People are split into two groups:</div>
+                          <div className="flex items-start gap-2">
+                            <span className="mt-1 flex shrink-0"><RingDot variant="complete" /></span>
+                            <span><span className="font-semibold">Complete:</span> answered all required questions</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="mt-1 flex shrink-0"><RingDot variant="pending" /></span>
+                            <span><span className="font-semibold">Pending:</span> has not answered all required questions</span>
+                          </div>
+                        </div>
                       </InfoTip>
                     </div>
                     <button
@@ -2429,7 +2453,7 @@ function ResultsPageContent() {
                         <button
                           type="button"
                           onClick={() => handleRequiredScopeChange('my')}
-                          className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                          className={`flex-1 min-w-0 px-2 sm:px-6 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
                             (pendingFilters.requiredScope ?? 'my') === 'my'
                               ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
                               : 'text-purple-900 hover:bg-purple-50'
@@ -2440,7 +2464,7 @@ function ResultsPageContent() {
                         <button
                           type="button"
                           onClick={() => handleRequiredScopeChange('their')}
-                          className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                          className={`flex-1 min-w-0 px-2 sm:px-6 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
                             (pendingFilters.requiredScope ?? 'my') === 'their'
                               ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
                               : 'text-purple-900 hover:bg-purple-50'
@@ -2449,12 +2473,29 @@ function ResultsPageContent() {
                           Their Required
                         </button>
                       </div>
+                      {/* One line under the picker beats a second tooltip: it names the scope
+                          that is actually selected, and changes as the user switches. */}
+                      <p className="mt-2 text-xs text-purple-900/55" aria-live="polite">
+                        {(pendingFilters.requiredScope ?? 'my') === 'their'
+                          ? 'Results are based on their required questions.'
+                          : 'Results are based on your required questions.'}
+                      </p>
                     </div>
                   )}
 
                   {/* Required-related tag chips */}
                   <div>
-                    <p className="mb-2 text-xs font-semibold text-purple-900/55">Show only:</p>
+                    <div className="mb-2 flex items-center gap-2">
+                      <p className="text-xs font-semibold text-purple-900/55">Show only:</p>
+                      <InfoTip label="About the Show only groups" align="left" placement="top" panelClassName="w-64 sm:w-72">
+                        <div className="space-y-2">
+                          <div><span className="font-semibold">{REQUIRED_TAG_LABELS.Required}:</span> Users who have answered all your required questions.</div>
+                          <div><span className="font-semibold">{REQUIRED_TAG_LABELS.Pending}:</span> Users who have not answered all your required questions.</div>
+                          <div><span className="font-semibold">{REQUIRED_TAG_LABELS['Their Required']}:</span> Users for whom you have answered all their required questions.</div>
+                          <div><span className="font-semibold">{REQUIRED_TAG_LABELS['Their Pending']}:</span> Users for whom you have not answered all their required questions.</div>
+                        </div>
+                      </InfoTip>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {['Required', 'Pending', 'Their Required', 'Their Pending'].map((tag) => {
                         const active = pendingFilters.tags.includes(tag);

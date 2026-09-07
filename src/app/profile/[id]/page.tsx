@@ -3197,7 +3197,7 @@ export default function UserProfilePage() {
                     <button
                       type="button"
                       onClick={() => setRequiredScope('my')}
-                      className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                      className={`flex-1 min-w-0 px-2 sm:px-6 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
                         requiredScope === 'my'
                           ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
                           : 'text-purple-900 hover:bg-purple-50'
@@ -3208,7 +3208,7 @@ export default function UserProfilePage() {
                     <button
                       type="button"
                       onClick={() => setRequiredScope('their')}
-                      className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                      className={`flex-1 min-w-0 px-2 sm:px-6 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
                         requiredScope === 'their'
                           ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-sm'
                           : 'text-purple-900 hover:bg-purple-50'

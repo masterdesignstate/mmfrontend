@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TIP_PANEL_CLASSES, tipArrowClasses } from '@/components/InfoTip';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 
 interface ExclusionControlProps {
@@ -217,9 +218,10 @@ export default function ExclusionControl({
                   {isBlocked && blockedHelpValue === value && (
                     <span
                       role="tooltip"
-                      className="absolute bottom-10 left-1/2 z-[70] w-40 -translate-x-1/2 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-center text-xs font-normal leading-snug text-gray-600 shadow-lg"
+                      className={`absolute bottom-10 left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES}`}
                     >
                       This is your answer and can’t be excluded.
+                      <span className={tipArrowClasses('bottom', 'center')} />
                     </span>
                   )}
                 </span>

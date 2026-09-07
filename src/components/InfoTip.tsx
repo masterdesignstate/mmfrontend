@@ -25,6 +25,20 @@ const DEFAULT_TRIGGER_CLASSES =
   'w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center cursor-pointer hover:bg-purple-200';
 
 /**
+ * The one tooltip look used everywhere on the site: dark panel, small white text.
+ *
+ * Exported so the few tooltips that cannot be an InfoTip (hover hints on disabled controls,
+ * where a click would do nothing) still match it instead of drifting into their own style.
+ */
+export const TIP_PANEL_CLASSES = 'p-3 bg-gray-900 text-white text-xs leading-relaxed rounded-lg shadow-lg';
+
+/** Marker for the `TIP_PANEL_CLASSES` panel. `side` is the edge the arrow sits on. */
+export const tipArrowClasses = (side: 'top' | 'bottom', align: 'left' | 'center' | 'right' = 'left') =>
+  `absolute ${side === 'top' ? '-top-1' : '-bottom-1'} ${
+    align === 'right' ? 'right-2' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-2'
+  } w-2 h-2 bg-gray-900 rotate-45`;
+
+/**
  * The little "?" (or any trigger) that explains a control.
  *
  * Replaces a hover-only pattern that was unusable on a phone: the panel revealed on
@@ -106,9 +120,6 @@ export default function InfoTip({
   const alignClasses =
     align === 'right' ? 'right-0' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-0';
   const placementClasses = placement === 'top' ? 'bottom-full mb-2' : 'top-6';
-  const arrowSide = placement === 'top' ? '-bottom-1' : '-top-1';
-  const arrowAlign =
-    align === 'right' ? 'right-2' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-2';
 
   return (
     <div className={`relative inline-flex ${className}`} ref={wrapperRef}>
@@ -133,10 +144,10 @@ export default function InfoTip({
           ref={panelRef}
           style={offsetX ? { marginLeft: offsetX } : undefined}
           role="dialog"
-          className={`absolute ${placementClasses} ${alignClasses} ${panelClassName} max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50`}
+          className={`absolute ${placementClasses} ${alignClasses} ${panelClassName} max-w-[calc(100vw-2rem)] ${TIP_PANEL_CLASSES} z-50`}
         >
           {children}
-          <div className={`absolute ${arrowSide} ${arrowAlign} w-2 h-2 bg-gray-900 rotate-45`} />
+          <div className={tipArrowClasses(placement === 'top' ? 'bottom' : 'top', align)} />
         </div>
       )}
     </div>
