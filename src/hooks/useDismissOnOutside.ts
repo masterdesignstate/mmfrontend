@@ -9,11 +9,12 @@ import { useEffect, type RefObject } from 'react';
  *
  * @param ref     wrapper around both the trigger and the panel, so clicking the trigger
  *                again is left to its own toggle instead of being treated as "outside".
+ *                Pass several refs when the panel is portaled away from its trigger.
  * @param isOpen  skip the listeners entirely while the popover is closed.
  * @param onClose called when the user clicks away or presses Escape.
  */
 export function useDismissOnOutside(
-  ref: RefObject<HTMLElement | null>,
+  ref: RefObject<HTMLElement | null> | RefObject<HTMLElement | null>[],
   isOpen: boolean,
   onClose: () => void
 ) {
@@ -22,9 +23,10 @@ export function useDismissOnOutside(
 
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
-      if (target && ref.current && !ref.current.contains(target)) {
-        onClose();
-      }
+      if (!target) return;
+      const refs = Array.isArray(ref) ? ref : [ref];
+      const inside = refs.some(r => r.current?.contains(target));
+      if (!inside) onClose();
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -1,6 +1,15 @@
 'use client';
 
-import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 
 interface InfoTipProps {
@@ -9,9 +18,9 @@ interface InfoTipProps {
   /** What the trigger announces to a screen reader, e.g. "About compatibility types". */
   label: string;
   className?: string;
-  /** Horizontal anchor; use `right` where a left-anchored panel would run off-screen. */
+  /** Horizontal anchor relative to the trigger. */
   align?: 'left' | 'right' | 'center';
-  /** Which side of the trigger the panel sits on. */
+  /** Preferred side of the trigger; flipped automatically when that side has no room. */
   placement?: 'top' | 'bottom';
   /** Replaces the default "?" bubble — pass an icon or a chip. */
   trigger?: ReactNode;
@@ -38,15 +47,32 @@ export const tipArrowClasses = (side: 'top' | 'bottom', align: 'left' | 'center'
     align === 'right' ? 'right-2' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-2'
   } w-2 h-2 bg-gray-900 rotate-45`;
 
+/** Gap between trigger and panel, and the minimum distance kept from every screen edge. */
+const GAP = 8;
+const EDGE = 8;
+const ARROW = 8;
+
+interface PanelPosition {
+  top: number;
+  left: number;
+  /** Which side of the trigger the panel ended up on after flipping. */
+  side: 'top' | 'bottom';
+  /** Arrow x within the panel, so it keeps pointing at the trigger after clamping. */
+  arrowLeft: number;
+  /** Cap when neither side has enough room; the panel then scrolls internally. */
+  maxHeight?: number;
+}
+
 /**
  * The little "?" (or any trigger) that explains a control.
  *
- * Replaces a hover-only pattern that was unusable on a phone: the panel revealed on
- * `group-hover`, which a touch screen never fires, and some copies were additionally
- * `hidden … sm:block` so they did not exist below 640px at all. The trigger was a plain
- * `<div>`, so it could not be reached by keyboard either.
+ * Opens on click or tap, closes on an outside tap or Escape, and is a real button — a hover
+ * panel never appears on a phone and a `<div>` trigger cannot be reached by keyboard.
  *
- * This opens on click or tap, closes on an outside tap or Escape, and is a real button.
+ * The panel is portaled to `document.body` and positioned against the viewport. The earlier
+ * version sat inside the trigger's own ancestors, and inside the filter modal that meant the
+ * scrolling body: on a phone the panel was cut off at the modal's edge, and no amount of
+ * nudging fixes that from inside a clipping container.
  */
 export default function InfoTip({
   children,
@@ -56,74 +82,89 @@ export default function InfoTip({
   placement = 'bottom',
   trigger,
   triggerClassName = '',
-  // Narrower on a phone: a 256px panel anchored near either screen edge still ran off it.
   panelClassName = 'w-56 sm:w-64',
 }: InfoTipProps) {
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<PanelPosition | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
 
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [offsetX, setOffsetX] = useState(0);
-
   const close = useCallback(() => setOpen(false), []);
-  useDismissOnOutside(wrapperRef, open, close);
+  useDismissOnOutside([triggerRef, panelRef], open, close);
 
   /**
-   * Nudge the panel back on screen after it opens.
+   * Place the panel next to the trigger, then keep it fully on screen.
    *
-   * A fixed-width panel anchored to a trigger near either screen edge runs off it — left
-   * anchoring overflows on the right, right anchoring on the left — and which one happens
-   * depends on where the trigger lands, which changes with the copy around it. Rather than
-   * hand-pick an alignment per tooltip, measure once and correct.
-   *
-   * Uses margin rather than transform so it composes with the centred alignment, which
-   * already owns `translate-x`.
+   * Runs in useLayoutEffect so the first paint already has the corrected position, and
+   * re-runs on scroll and resize while open so the panel stays anchored to its trigger
+   * (the modal body scrolls independently of the page, so scroll is listened to in the
+   * capture phase to catch it).
    */
   useLayoutEffect(() => {
     if (!open) {
-      setOffsetX(0);
+      setPosition(null);
       return;
     }
 
-    const panel = panelRef.current;
-    if (!panel) return;
+    const measure = () => {
+      const triggerEl = triggerRef.current;
+      const panel = panelRef.current;
+      if (!triggerEl || !panel) return;
 
-    const margin = 8;
+      const t = triggerEl.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const panelWidth = panel.offsetWidth;
+      const panelHeight = panel.scrollHeight;
 
-    // What actually clips the panel is the nearest ancestor that hides overflow — inside a
-    // modal that is the dialog body, not the window. Clamping to the viewport alone left the
-    // panel cut off by the modal's own edge.
-    let minLeft = margin;
-    let maxRight = window.innerWidth - margin;
-    for (let el = panel.parentElement; el && el !== document.body; el = el.parentElement) {
-      const { overflowX } = getComputedStyle(el);
-      if (overflowX !== 'visible') {
-        const bounds = el.getBoundingClientRect();
-        minLeft = Math.max(minLeft, bounds.left + margin);
-        maxRight = Math.min(maxRight, bounds.right - margin);
-        break;
+      // Horizontal: honour the requested alignment, then clamp to the screen.
+      let left =
+        align === 'right' ? t.right - panelWidth : align === 'center' ? t.left + t.width / 2 - panelWidth / 2 : t.left;
+      left = Math.min(Math.max(left, EDGE), Math.max(EDGE, vw - EDGE - panelWidth));
+
+      // Vertical: prefer the requested side, flip if it does not fit, and as a last resort
+      // take whichever side is taller and let the panel scroll.
+      const roomBelow = vh - EDGE - (t.bottom + GAP);
+      const roomAbove = t.top - GAP - EDGE;
+      let side: 'top' | 'bottom' = placement;
+      const fits = (s: 'top' | 'bottom') => (s === 'bottom' ? roomBelow : roomAbove) >= panelHeight;
+      if (!fits(side)) {
+        const other: 'top' | 'bottom' = side === 'bottom' ? 'top' : 'bottom';
+        if (fits(other)) side = other;
+        else side = roomBelow >= roomAbove ? 'bottom' : 'top';
       }
-    }
+      const room = side === 'bottom' ? roomBelow : roomAbove;
+      const maxHeight = panelHeight > room ? Math.max(room, 80) : undefined;
+      const height = Math.min(panelHeight, maxHeight ?? panelHeight);
+      const top = side === 'bottom' ? t.bottom + GAP : t.top - GAP - height;
 
-    // Measured in useLayoutEffect, which runs after the panel is in the DOM but before
-    // paint, so the correction lands without a visible jump. No rAF: it never fires in a
-    // background tab, which left the panel uncorrected.
-    const rect = panel.getBoundingClientRect();
-    let delta = 0;
-    if (rect.right > maxRight) delta = maxRight - rect.right;
-    if (rect.left + delta < minLeft) delta = minLeft - rect.left;
+      const arrowLeft = Math.min(
+        Math.max(t.left + t.width / 2 - left - ARROW / 2, ARROW),
+        panelWidth - ARROW * 2
+      );
 
-    setOffsetX(delta);
-  }, [open]);
+      setPosition({ top, left, side, arrowLeft, maxHeight });
+    };
 
-  const alignClasses =
-    align === 'right' ? 'right-0' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-0';
-  const placementClasses = placement === 'top' ? 'bottom-full mb-2' : 'top-6';
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [open, align, placement]);
+
+  const panelStyle: CSSProperties = position
+    ? { top: position.top, left: position.left, maxHeight: position.maxHeight }
+    : // Measured off-screen on the first pass so the panel's size is known before it is placed.
+      { top: 0, left: 0, visibility: 'hidden' };
 
   return (
-    <div className={`relative inline-flex ${className}`} ref={wrapperRef}>
+    <div className={`relative inline-flex ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(current => !current)}
         aria-expanded={open}
@@ -138,18 +179,29 @@ export default function InfoTip({
         )}
       </button>
 
-      {open && (
-        <div
-          id={panelId}
-          ref={panelRef}
-          style={offsetX ? { marginLeft: offsetX } : undefined}
-          role="dialog"
-          className={`absolute ${placementClasses} ${alignClasses} ${panelClassName} max-w-[calc(100vw-2rem)] ${TIP_PANEL_CLASSES} z-50`}
-        >
-          {children}
-          <div className={tipArrowClasses(placement === 'top' ? 'bottom' : 'top', align)} />
-        </div>
-      )}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            id={panelId}
+            ref={panelRef}
+            role="dialog"
+            style={panelStyle}
+            // Above the modals (z-[200]) that most triggers live in.
+            className={`fixed z-[300] ${panelClassName} max-w-[calc(100vw-1rem)] ${TIP_PANEL_CLASSES} ${
+              position?.maxHeight ? 'overflow-y-auto' : ''
+            }`}
+          >
+            {children}
+            {position && !position.maxHeight && (
+              <div
+                className={`absolute ${position.side === 'bottom' ? '-top-1' : '-bottom-1'} w-2 h-2 bg-gray-900 rotate-45`}
+                style={{ left: position.arrowLeft }}
+              />
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
