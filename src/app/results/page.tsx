@@ -2411,14 +2411,16 @@ function ResultsPageContent() {
                       <h4 className="text-sm sm:text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
                       <InfoTip label="About required questions" align="right">
                         <div className="space-y-2">
-                          <div>Show compatibility based on required questions only. People are split into two groups:</div>
-                          <div className="flex items-start gap-2">
-                            <span className="mt-1 flex shrink-0"><RingDot variant="complete" /></span>
-                            <span><span className="font-semibold">Complete:</span> answered all required questions</span>
+                          <div>Show compatibility based on required questions only.</div>
+                          <div>
+                            <span className="font-semibold">My Required:</span> Results are based on your required questions.
                           </div>
-                          <div className="flex items-start gap-2">
-                            <span className="mt-1 flex shrink-0"><RingDot variant="pending" /></span>
-                            <span><span className="font-semibold">Pending:</span> has not answered all required questions</span>
+                          <div>
+                            <span className="font-semibold">Their Required:</span> Results are based on their required questions.
+                          </div>
+                          <div className="flex items-center gap-3 pt-1 text-white/80">
+                            <span className="inline-flex items-center gap-1.5"><RingDot variant="complete" /> Complete</span>
+                            <span className="inline-flex items-center gap-1.5"><RingDot variant="pending" /> Pending</span>
                           </div>
                         </div>
                       </InfoTip>
@@ -2464,13 +2466,6 @@ function ResultsPageContent() {
                           Their Required
                         </button>
                       </div>
-                      {/* One line under the picker beats a second tooltip: it names the scope
-                          that is actually selected, and changes as the user switches. */}
-                      <p className="mt-2 text-xs text-purple-900/55" aria-live="polite">
-                        {(pendingFilters.requiredScope ?? 'my') === 'their'
-                          ? 'Results are based on their required questions.'
-                          : 'Results are based on your required questions.'}
-                      </p>
                     </div>
                   )}
 
