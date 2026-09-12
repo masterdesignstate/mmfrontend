@@ -1041,12 +1041,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-4 mb-2">
                   <div className="w-20 shrink-0" />
-                  <div className="relative flex-1 text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500" style={{ height: '14px' }}>
-                    <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                    <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                    <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                    <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                    <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                  {/* Several ideology rows share one 1–5 scale, so the ends read Less/More like
+                      the sliders above rather than naming each stop. */}
+                  <div className="flex flex-1 justify-between text-xs text-gray-500">
+                    <span>LESS</span>
+                    <span>MORE</span>
                   </div>
                 </div>
                 <div className="space-y-3">

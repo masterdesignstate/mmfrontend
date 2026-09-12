@@ -66,11 +66,13 @@ export default function ProfileDetailsPage() {
     return `${history.duration_days} day${history.duration_days === 1 ? '' : 's'}`;
   };
 
+  // Each row's state is the restriction's, not the user's — a lifted restriction leaves the
+  // user Active. "In Effect" rather than "Active" so the two never read as the same thing.
   const formatHistoryStatus = (history: UserRestrictionHistory) => {
-    if (!history.ended_at && history.end_reason === 'active') return 'Active';
+    if (!history.ended_at && history.end_reason === 'active') return 'In Effect';
     if (history.end_reason === 'expired') return 'Expired';
     // "Lifted", not "Removed": the restriction was lifted, but "Removed" reads as though
-    // the user had been removed. Not "Active" either — that already means still restricted.
+    // the user had been removed.
     if (history.end_reason === 'removed') return 'Lifted';
     if (history.end_reason === 'replaced') return 'Replaced';
     return history.end_reason || 'Ended';
@@ -78,7 +80,7 @@ export default function ProfileDetailsPage() {
 
   const historyStatusClass = (history: UserRestrictionHistory) => {
     const status = formatHistoryStatus(history);
-    if (status === 'Active') return 'bg-orange-100 text-orange-800';
+    if (status === 'In Effect') return 'bg-orange-100 text-orange-800';
     if (status === 'Expired') return 'bg-blue-100 text-blue-800';
     if (status === 'Lifted') return 'bg-gray-100 text-gray-800';
     if (status === 'Replaced') return 'bg-purple-100 text-purple-800';
@@ -316,7 +318,7 @@ export default function ProfileDetailsPage() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Restriction Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                     </tr>
                   </thead>
@@ -390,12 +392,14 @@ export default function ProfileDetailsPage() {
                   <span className="font-semibold text-sm">{user.city}</span>
                 </div>
               )}
-              {user.is_banned && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status</span>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Status</span>
+                {user.is_banned ? (
                   <span className="font-semibold text-red-600">Restricted</span>
-                </div>
-              )}
+                ) : (
+                  <span className="font-semibold text-green-700">Active</span>
+                )}
+              </div>
             </div>
           </div>
 

@@ -3172,7 +3172,7 @@ export default function UserProfilePage() {
                   </span>
                   <h4 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Required Questions</h4>
                   <InfoTip label="About required questions">
-                    When enabled, this shows required compatibility and completeness based on required questions.
+                    Show compatibility based on required questions only.
                   </InfoTip>
                 </div>
                 <button
@@ -3217,6 +3217,12 @@ export default function UserProfilePage() {
                       Their Required
                     </button>
                   </div>
+                  {/* Same explanation as the results filter panel's My / Their Required picker. */}
+                  <p className="mt-2 px-1 text-xs text-purple-900/60">
+                    {requiredScope === 'my'
+                      ? 'Compatibility is based on your required questions.'
+                      : 'Compatibility is based on their required questions.'}
+                  </p>
                 </div>
               )}
 
@@ -3433,12 +3439,11 @@ export default function UserProfilePage() {
               </div>
               <div className="flex items-center gap-4 mb-2">
                 <div className="w-20 shrink-0" />
-                <div className="relative flex-1 text-[7px] min-[390px]:text-[8px] sm:text-[10px] md:text-xs text-gray-500" style={{ height: '14px' }}>
-                  <span className="absolute whitespace-nowrap" style={{ left: '14px', transform: 'translateX(-50%)' }}>UNINVOLVED</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: '25%', transform: 'translateX(-50%)' }}>OBSERVANT</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>ACTIVE</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: '75%', transform: 'translateX(-50%)' }}>FERVENT</span>
-                  <span className="absolute whitespace-nowrap" style={{ left: 'calc(100% - 14px)', transform: 'translateX(-50%)' }}>RADICAL</span>
+                {/* Several ideology rows share one 1–5 scale, so the ends read Less/More like
+                    the sliders above rather than naming each stop. */}
+                <div className="flex flex-1 justify-between text-xs text-gray-500">
+                  <span>LESS</span>
+                  <span>MORE</span>
                 </div>
               </div>
               <div className="space-y-3">

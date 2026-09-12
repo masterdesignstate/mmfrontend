@@ -7,9 +7,9 @@ import { useEffect, useState } from 'react';
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: 'fas fa-chart-bar' },
-  { name: 'List of Profiles', href: '/dashboard/profiles', icon: 'fas fa-users' },
+  { name: 'Profile List', href: '/dashboard/profiles', icon: 'fas fa-users' },
   { name: 'Profile', href: '/dashboard/profile', icon: 'fas fa-user' },
-  { name: 'List of Questions', href: '/dashboard/questions', icon: 'fas fa-question-circle' },
+  { name: 'Question List', href: '/dashboard/questions', icon: 'fas fa-question-circle' },
   { name: 'Question', href: '/dashboard/question', icon: 'fas fa-question' },
   { name: 'Create Question', href: '/dashboard/questions/create', icon: 'fas fa-plus-circle' },
   { name: 'Individual Calculation', href: '/dashboard/calculation', icon: 'fas fa-calculator' },

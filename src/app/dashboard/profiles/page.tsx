@@ -90,7 +90,7 @@ export default function ProfilesPage() {
             : user.restriction_type === 'temporary' ? 'Restricted'
             : user.is_banned ? 'Banned'
             : user.has_pending_reports ? 'Pending'
-            : 'None',
+            : 'Active',
           restrictionReason: user.restriction_reason || undefined,
           restrictionReasonDetail: user.restriction_reason_detail || undefined
         };
@@ -356,7 +356,7 @@ export default function ProfilesPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] bg-white cursor-pointer text-gray-900"
             >
               <option value="All">All</option>
-              <option value="None">None</option>
+              <option value="Active">Active</option>
               <option value="Banned">Banned</option>
               <option value="Restricted">Restricted</option>
               <option value="Pending">Pending</option>
@@ -531,7 +531,7 @@ export default function ProfilesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      profile.restrictionType === 'None'
+                      profile.restrictionType === 'Active'
                         ? 'bg-green-100 text-green-800'
                         : profile.restrictionType === 'Banned'
                         ? 'bg-red-100 text-red-800'
@@ -541,7 +541,7 @@ export default function ProfilesPage() {
                     }`}>
                       {profile.restrictionType}
                     </span>
-                    {profile.restrictionReason && profile.restrictionType !== 'None' && (
+                    {profile.restrictionReason && profile.restrictionType !== 'Active' && (
                       <span className="ml-1">
                         <ReasonChip reason={profile.restrictionReason} description={profile.restrictionReasonDetail} />
                       </span>
@@ -549,7 +549,7 @@ export default function ProfilesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-3">
-                      {profile.restrictionType === 'None' || profile.restrictionType === 'Pending' ? (
+                      {profile.restrictionType === 'Active' || profile.restrictionType === 'Pending' ? (
                         <button
                           onClick={() => router.push(`/dashboard/profiles/${profile.id}`)}
                           className="text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
@@ -558,7 +558,7 @@ export default function ProfilesPage() {
                           <i className="fas fa-eye"></i>
                         </button>
                       ) : null}
-                      {profile.restrictionType !== 'None' && (
+                      {profile.restrictionType !== 'Active' && (
                         <button
                           onClick={() => handleAction('remove_restriction', profile)}
                           className="text-gray-600 hover:text-gray-800 transition-colors duration-200 cursor-pointer"

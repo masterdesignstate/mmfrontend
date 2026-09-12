@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CharCounter from '@/components/CharCounter';
-import FeedPostCard, { DEFAULT_AVATAR, formatRelative, visibilityLabel } from '@/components/FeedPostCard';
+import FeedPostCard, { DEFAULT_AVATAR, feedAuthorName, formatRelative, visibilityLabel } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
@@ -310,10 +310,25 @@ function ActivityCard({ item }: { item: FeedItem }) {
         </div>
       );
     }
+  } else if (a.kind === 'primary_photo_changed') {
+    // A run of changes still ends on a single photo, so only the latest one is shown.
+    verb = 'changed their profile photo';
+    const url = String((a.payload as { image_url?: string }).image_url || '');
+    if (url) {
+      body = (
+        <div className="mt-2 relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+          <Image src={url} alt="New profile photo" fill className="object-cover" />
+        </div>
+      );
+    }
   } else if (a.kind === 'question_answered') {
     verb = grouped ? `answered ${count} questions` : 'answered a question';
     const texts = payloads
-      .map(payload => String((payload as { question_text?: string }).question_text || ''))
+      .map(payload => {
+        const { question_text, question_number } = payload as { question_text?: string; question_number?: number | null };
+        if (!question_text) return '';
+        return question_number ? `${question_number}. ${question_text}` : question_text;
+      })
       .filter(Boolean);
     if (texts.length) {
       // Collapsed by default so one person's burst stays one card's worth of space.
@@ -363,7 +378,7 @@ function ActivityCard({ item }: { item: FeedItem }) {
         <div className="flex-1 min-w-0">
           <div className="text-sm text-gray-700">
             <Link href={`/profile/${a.user.id}`} className="font-semibold text-gray-900 hover:underline">
-              {a.user.first_name || a.user.username}
+              {feedAuthorName(a.user)}
             </Link>{' '}
             <span>{verb}</span>
             <span className="text-gray-400 ml-2 text-xs">{formatRelative(a.created_at)}</span>

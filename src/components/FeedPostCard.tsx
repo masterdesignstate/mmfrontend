@@ -6,7 +6,7 @@ import Link from 'next/link';
 import CharCounter from '@/components/CharCounter';
 import { renderWithHashtags } from '@/utils/hashtags';
 import { isOverLimit, overLimitMessage } from '@/utils/textLimits';
-import { apiService, MAX_POST_CHARS, MAX_POST_COMMENT_CHARS, type Post, type PostComment, type PostRevision, type PostVisibility } from '@/services/api';
+import { apiService, MAX_POST_CHARS, MAX_POST_COMMENT_CHARS, type FeedAuthor, type Post, type PostComment, type PostRevision, type PostVisibility } from '@/services/api';
 
 const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; description: string }[] = [
   { value: 'all', label: 'Everyone', description: 'Anyone can see this post.' },
@@ -31,7 +31,15 @@ export function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export const visibilityLabel = (v: PostVisibility) => VISIBILITY_OPTIONS.find(o => o.value === v)?.label ?? 'Everyone';
+/** "Maria G." — the last-name initial tells apart people who share a first name. */
+export function feedAuthorName(author: Pick<FeedAuthor, 'first_name' | 'last_name' | 'username'>): string {
+  const first = author.first_name?.trim();
+  if (!first) return author.username;
+  const initial = author.last_name?.trim().charAt(0).toUpperCase();
+  return initial ? `${first} ${initial}.` : first;
+}
+
+export const visibilityLabel =(v: PostVisibility) => VISIBILITY_OPTIONS.find(o => o.value === v)?.label ?? 'Everyone';
 
 function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
   const [comments, setComments] = useState<PostComment[]>([]);
@@ -90,7 +98,7 @@ function CommentThread({ post, viewerId }: { post: Post; viewerId: string }) {
                 <div className="flex-1">
                   <div className="text-xs">
                     <Link href={`/profile/${c.author.id}`} className="font-semibold text-gray-900 hover:underline">
-                      {c.author.first_name || c.author.username}
+                      {feedAuthorName(c.author)}
                     </Link>
                     <span className="text-gray-400 ml-2">{formatRelative(c.created_at)}</span>
                     {c.author.id === viewerId && (
@@ -251,7 +259,7 @@ export default function FeedPostCard({
           </Link>
           <div className="min-w-0">
             <Link href={`/profile/${post.author.id}`} className="block font-semibold text-gray-900 truncate hover:underline">
-              {post.author.first_name || post.author.username}
+              {feedAuthorName(post.author)}
             </Link>
             <div className="text-xs text-gray-500">
               {formatRelative(post.created_at)}

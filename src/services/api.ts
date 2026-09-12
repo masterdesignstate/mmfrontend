@@ -170,10 +170,12 @@ export interface PostRevision {
   edited_at: string;
 }
 
+export type FeedActivityKind = 'bio_updated' | 'photo_added' | 'primary_photo_changed' | 'question_answered';
+
 export interface FeedActivity {
   id: string;
   user: FeedAuthor;
-  kind: 'bio_updated' | 'photo_added' | 'question_answered';
+  kind: FeedActivityKind;
   payload: Record<string, unknown>;
   created_at: string;
   /**
@@ -188,7 +190,7 @@ export interface FeedActivity {
 export type FeedAudience = 'all' | 'matches' | 'approved' | 'liked';
 
 export interface FeedItem {
-  kind: 'post' | 'bio_updated' | 'photo_added' | 'question_answered';
+  kind: 'post' | FeedActivityKind;
   created_at: string;
   post?: Post;
   activity?: FeedActivity;

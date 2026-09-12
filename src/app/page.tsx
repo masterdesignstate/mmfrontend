@@ -137,7 +137,15 @@ const faqs = [
   },
 ];
 
+const sectionLinks = [
+  ['#features', 'Features'],
+  ['#questions', 'Questions'],
+  ['#how-it-works', 'How it works'],
+  ['#faq', 'FAQ'],
+];
+
 export default function LandingPage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     posthog.capture('landing_page_viewed');
@@ -153,21 +161,19 @@ export default function LandingPage() {
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5" aria-label="CompatibleFirst home">
             <Image src="/assets/mmlogox.png" alt="" width={38} height={38} priority className="h-9 w-9 object-contain" />
-            {/* Mark only on a phone: the wordmark plus both auth buttons do not fit across
-                375px, and the buttons are what a signed-out visitor actually needs. */}
-            <Wordmark className="hidden text-[17px] sm:inline" />
+            {/* Hidden only on the narrowest phones, where the wordmark, Log in and the menu
+                button do not fit on one bar. */}
+            <Wordmark className="hidden text-[17px] min-[360px]:inline" />
           </Link>
 
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#5F5967] md:flex" aria-label="Main navigation">
-            <a href="#features" className="transition-colors hover:text-[#18151D]">Features</a>
-            <a href="#questions" className="transition-colors hover:text-[#18151D]">Questions</a>
-            <a href="#how-it-works" className="transition-colors hover:text-[#18151D]">How it works</a>
-            <a href="#faq" className="transition-colors hover:text-[#18151D]">FAQ</a>
+            {sectionLinks.map(([href, label]) => (
+              <a key={href} href={href} className="transition-colors hover:text-[#18151D]">{label}</a>
+            ))}
           </nav>
 
-          {/* Log in and Get started are the only two things a signed-out visitor needs, so they
-              stay on the bar at every width rather than hiding behind a menu on a phone. The
-              nav links below are in-page anchors, reachable by scrolling. */}
+          {/* Below md the section links move into the menu, and Get started leaves the bar —
+              the hero's own Get started sits directly underneath it. */}
           <div className="flex items-center gap-1 sm:gap-2.5">
             <Link
               href="/auth/login"
@@ -178,15 +184,39 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/auth/register"
-              className="whitespace-nowrap rounded-full bg-[#18151D] px-3.5 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 sm:px-5 sm:py-2.5"
+              className="hidden whitespace-nowrap rounded-full bg-[#18151D] px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 md:inline-flex"
               onClick={() => trackCta('get_started', 'header')}
             >
               Get started
             </Link>
+            <button
+              type="button"
+              className="grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-white md:hidden"
+              aria-label="Toggle menu"
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((open) => !open)}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={mobileOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 7h16M4 12h16M4 17h16'} />
+              </svg>
+            </button>
           </div>
-
         </div>
 
+        {mobileOpen && (
+          <div className="border-t border-black/[0.06] bg-[#FCFBFD] px-5 pb-5 pt-3 md:hidden">
+            <nav className="space-y-1 text-sm font-medium" aria-label="Mobile navigation">
+              {sectionLinks.map(([href, label]) => (
+                <a key={href} href={href} className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]" onClick={() => setMobileOpen(false)}>{label}</a>
+              ))}
+            </nav>
+            <nav className="mt-2 space-y-1 border-t border-black/[0.06] pt-2 text-sm text-[#6B6571]" aria-label="More links">
+              <Link href="/privacy" className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]">Privacy</Link>
+              <Link href="/terms" className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]">Terms</Link>
+              <a href="mailto:hello@matchmatical.com" className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]">Contact</a>
+            </nav>
+          </div>
+        )}
       </header>
 
       <main>
@@ -347,9 +377,7 @@ export default function LandingPage() {
               <Wordmark />
             </Link>
             <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#6B6571]" aria-label="Footer navigation">
-              <a href="#features" className="hover:text-[#672DB7]">Features</a>
-              <a href="#questions" className="hover:text-[#672DB7]">Questions</a>
-              <a href="#how-it-works" className="hover:text-[#672DB7]">How it works</a>
+              <a href="#faq" className="hover:text-[#672DB7]">FAQ</a>
               <Link href="/privacy" className="hover:text-[#672DB7]">Privacy</Link>
               <Link href="/terms" className="hover:text-[#672DB7]">Terms</Link>
               <a href="mailto:hello@matchmatical.com" className="hover:text-[#672DB7]">Contact</a>
