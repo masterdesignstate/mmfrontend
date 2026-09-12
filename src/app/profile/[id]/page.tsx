@@ -3253,17 +3253,21 @@ export default function UserProfilePage() {
                     return (
                       <div
                         key={t.label}
-                        className={`relative rounded-xl px-4 py-3 ring-1 transition-all duration-200 bg-white ring-purple-300 ${
+                        className={`relative rounded-xl px-1.5 py-3 ring-1 transition-all duration-200 bg-white ring-purple-300 min-[360px]:px-2.5 sm:px-4 ${
                           t.isActive ? 'shadow-sm' : ''
                         }`}
                       >
-                        <div className="flex min-w-0 items-center gap-2 mb-2">
-                          <span className="flex shrink-0 items-center justify-center w-6 h-6 rounded-full text-white transition-all bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                        {/* Always one line. The page's 24px padding and the card's 20px leave a tile
+                            ~110px wide on a 320px phone, so below sm the check, gap and padding shrink,
+                            and under 360px the check drops to 14px and the label to 10.5px, leaving
+                            "Their Required" room beside the check. */}
+                        <div className="mb-2 flex min-w-0 items-center gap-1 sm:gap-2">
+                          <span className="flex shrink-0 items-center justify-center w-3.5 h-3.5 rounded-full text-white transition-all bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)] min-[360px]:w-4 min-[360px]:h-4 sm:w-6 sm:h-6">
+                            <svg className="w-2 h-2 min-[360px]:w-2.5 min-[360px]:h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </span>
-                          <span className="min-w-0 truncate text-xs font-semibold text-[#672DB7] sm:text-sm">
+                          <span className="min-w-0 whitespace-nowrap text-[10.5px] font-semibold text-[#672DB7] min-[360px]:text-xs sm:text-sm">
                             {t.label}
                           </span>
                         </div>
