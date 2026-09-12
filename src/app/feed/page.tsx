@@ -6,6 +6,7 @@ import Link from 'next/link';
 import CharCounter from '@/components/CharCounter';
 import FeedPostCard, { DEFAULT_AVATAR, feedAuthorName, formatRelative, visibilityLabel } from '@/components/FeedPostCard';
 import HamburgerMenu from '@/components/HamburgerMenu';
+import HeartLoader from '@/components/HeartLoader';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { uploadToAzureBlob } from '@/utils/azureUpload';
@@ -556,7 +557,7 @@ function FeedPageContent() {
         {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
 
         {loading && items.length === 0 ? (
-          <div className="text-center text-gray-500 py-10">Loading…</div>
+          <HeartLoader texts={['Loading your feed...', 'Catching up on posts...', 'Almost ready...']} fullScreen={false} />
         ) : items.length === 0 ? (
           <div className="text-center text-gray-500 py-10">Nothing here yet.</div>
         ) : (
