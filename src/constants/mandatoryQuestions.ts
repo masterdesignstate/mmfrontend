@@ -6,8 +6,9 @@ import { DEFAULT_SCALE_LABELS } from '@/constants/answerLabels';
  *
  * Gender, Habits and Kids used to pack two or three sub-questions behind a single
  * `question_number`, which forced the onboarding page to label every slider row. They are
- * now standalone questions, so the mandatory block runs 1..14 and optional questions start
- * at 15. Import from here rather than writing the literals — the numbers appear in routing,
+ * now standalone questions. Faith and Ideology were optional until September 2026, when they
+ * joined the mandatory block, so it runs 1..16 and optional questions start at 17.
+ * Import from here rather than writing the literals — the numbers appear in routing,
  * scale captions, exclusion rules and profile icons, and they are easy to miss one at a time.
  *
  * Mirrors `mmbackend/api/mandatory_questions.py`; keep the two in step.
@@ -26,13 +27,11 @@ export const RELIGION = 11;
 export const POLITICS = 12;
 export const WANT_KIDS = 13;
 export const HAVE_KIDS = 14;
-
-export const LAST_MANDATORY_QUESTION_NUMBER = HAVE_KIDS;
-export const FIRST_OPTIONAL_QUESTION_NUMBER = LAST_MANDATORY_QUESTION_NUMBER + 1;
-
-/** Optional questions that still carry per-number behaviour. */
 export const FAITH = 15;
 export const IDEOLOGY = 16;
+
+export const LAST_MANDATORY_QUESTION_NUMBER = IDEOLOGY;
+export const FIRST_OPTIONAL_QUESTION_NUMBER = LAST_MANDATORY_QUESTION_NUMBER + 1;
 
 export const isMandatoryQuestionNumber = (questionNumber?: number | null): boolean => {
   const number = Number(questionNumber);
@@ -45,12 +44,12 @@ export const isOptionalQuestionNumber = (questionNumber?: number | null): boolea
 /** Questions whose answers are a set of sub-questions sharing one number. */
 export const GROUPED_QUESTION_NUMBERS = [ETHNICITY, EDUCATION, DIET, FAITH] as const;
 
-/** The mandatory ones among them — answered by picking a card, not by moving a slider. */
-export const GROUPED_MANDATORY_NUMBERS: number[] = [ETHNICITY, EDUCATION, DIET];
+/** The mandatory grouped questions — answered by picking a card, not by moving a slider. */
+export const GROUPED_MANDATORY_NUMBERS: number[] = [ETHNICITY, EDUCATION, DIET, FAITH, IDEOLOGY];
 
 /**
  * Mandatory questions rendered as a single unlabelled slider per section — everything
- * except Relationship (four rows) and the three grouped pickers.
+ * except Relationship (four rows) and the grouped pickers.
  */
 export const SINGLE_SLIDER_QUESTION_NUMBERS = [
   FEMALE, MALE, EXERCISE, ALCOHOL, CIGARETTES, VAPE, RELIGION, POLITICS, WANT_KIDS, HAVE_KIDS,
@@ -251,6 +250,18 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
       defaultAnswer: 5,
     },
   },
+  {
+    number: FAITH,
+    label: 'Faith',
+    prompt: 'What faith do you identify with?',
+    route: '/auth/faith',
+  },
+  {
+    number: IDEOLOGY,
+    label: 'Ideology',
+    prompt: 'What ideology do you identify with?',
+    route: '/auth/ideology',
+  },
 ];
 
 const STEPS_BY_NUMBER = new Map(ONBOARDING_STEPS.map(step => [step.number, step]));
@@ -284,7 +295,7 @@ export const getPreviousOnboardingRoute = (questionNumber: number): string | nul
   return ONBOARDING_STEPS[index - 1].route;
 };
 
-/** Progress bar fill for a step, 1..14 mapped across the full bar. */
+/** Progress bar fill for a step, the whole mandatory block mapped across the full bar. */
 export const getOnboardingProgressPercent = (questionNumber?: number | null): number => {
   const index = ONBOARDING_STEPS.findIndex(step => step.number === Number(questionNumber));
   if (index < 0) return 0;
