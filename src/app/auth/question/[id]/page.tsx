@@ -13,10 +13,12 @@ import {
   DIET,
   EDUCATION,
   ETHNICITY,
+  FAITH,
   getNextOnboardingRoute,
   getOnboardingProgressPercent,
   getOnboardingStep,
   getPreviousOnboardingRoute,
+  IDEOLOGY,
   isMandatoryQuestionNumber,
   isOptionalQuestionNumber,
 } from '@/constants/mandatoryQuestions';
@@ -32,6 +34,18 @@ const SCALE_TEXT_OVERRIDES: Record<string, Record<number, string>> = {
   ethnicity: { 1: 'LESS', 5: 'MORE' },
   education: { 1: 'NONE', 3: 'SOME', 5: 'COMPLETED' },
   diet: { 1: 'NO', 5: 'YES' },
+  faith: { 1: 'LESS', 5: 'MORE' },
+  ideology: { 1: 'LESS', 5: 'MORE' },
+};
+
+/**
+ * Faith and Ideology use this page the way Ethnicity and Education do, with one shape between
+ * them: the option arrives as `?faith=Christian` / `?ideology=Left`, its row is fetched by name
+ * (the wording differs per option), and Save records it and returns to the option list.
+ */
+const GROUPED_OPTION_ROUTES: Record<string, { questionNumber: number; label: string; picker: string; storageKey: string }> = {
+  faith: { questionNumber: FAITH, label: 'Faith', picker: '/auth/faith', storageKey: 'answeredFaiths' },
+  ideology: { questionNumber: IDEOLOGY, label: 'Ideology', picker: '/auth/ideology', storageKey: 'answeredIdeologies' },
 };
 
 /** The route id for a numbered onboarding step, or null for the grouped/by-id routes. */
@@ -277,6 +291,8 @@ export default function QuestionPage() {
         setMeAnswer(5);
         setLookingForAnswer(5);
       }
+    } else if (GROUPED_OPTION_ROUTES[questionId] && searchParams.get(questionId)) {
+      fetchGroupedOption(searchParams.get(questionId)!, GROUPED_OPTION_ROUTES[questionId].questionNumber);
     } else if (onboardingStep) {
       // Every numbered mandatory step renders from ONBOARDING_STEPS so the page paints
       // without waiting on the API. One unlabelled slider per section, same as each other.
@@ -299,7 +315,7 @@ export default function QuestionPage() {
         setMeAnswer(defaultAnswer);
         setLookingForAnswer(defaultAnswer);
       }
-    } else if (questionId && questionId !== 'ethnicity' && questionId !== 'education' && questionId !== 'diet') {
+    } else if (questionId && questionId !== 'ethnicity' && questionId !== 'education' && questionId !== 'diet' && !GROUPED_OPTION_ROUTES[questionId]) {
       // Use passed question data if available, otherwise fetch the specific question by ID
       if (questionDataParam) {
         try {
@@ -510,6 +526,30 @@ export default function QuestionPage() {
     }
   };
 
+  const fetchGroupedOption = async (optionName: string, questionNumber: number) => {
+    setLoadingQuestion(true);
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`);
+      if (response.ok) {
+        const data = await response.json();
+        const specificQuestion = (data.results || []).find((q: { question_name: string }) =>
+          q.question_name === optionName
+        );
+        if (specificQuestion) {
+          setQuestion(specificQuestion);
+        } else {
+          setError(`No question found for ${optionName}`);
+        }
+      } else {
+        setError('Failed to load question');
+      }
+    } catch {
+      setError('Failed to load question');
+    } finally {
+      setLoadingQuestion(false);
+    }
+  };
+
   const getProgressPercentage = () => {
     if (!question) return 60; // default fallback
     return getOnboardingProgressPercent(question.question_number) || 60;
@@ -587,7 +627,7 @@ export default function QuestionPage() {
         }
       };
 
-      if (params.id === 'ethnicity' || params.id === 'education' || params.id === 'diet' || onboardingStep) {
+      if (params.id === 'ethnicity' || params.id === 'education' || params.id === 'diet' || GROUPED_OPTION_ROUTES[String(params.id)] || onboardingStep) {
         saveAnswerInBackground();
       } else {
         // For other questions, save synchronously as before
@@ -700,6 +740,24 @@ export default function QuestionPage() {
             user_id: userId
           });
           router.push(`/auth/diet?${params.toString()}`);
+        } else if (GROUPED_OPTION_ROUTES[String(params.id)]) {
+          // Save the answered option to localStorage for immediate UI feedback
+          const route = GROUPED_OPTION_ROUTES[String(params.id)];
+          const answeredKey = getUserStorageKey(route.storageKey);
+          const optionName = searchParams.get(String(params.id));
+          if (answeredKey && optionName) {
+            let answeredOptions: string[] = [];
+            try {
+              answeredOptions = JSON.parse(localStorage.getItem(answeredKey) || '[]');
+            } catch {
+              answeredOptions = [];
+            }
+            if (!answeredOptions.includes(optionName)) {
+              localStorage.setItem(answeredKey, JSON.stringify([...answeredOptions, optionName]));
+            }
+          }
+
+          router.push(`${route.picker}?${new URLSearchParams({ user_id: userId }).toString()}`);
         } else if (onboardingStep) {
           // Track the number as answered so the introcard can resume mid-flow.
           try {
@@ -780,6 +838,8 @@ export default function QuestionPage() {
 
       if (previousRoute) {
         router.push(`${previousRoute}?${urlParams.toString()}`);
+      } else if (GROUPED_OPTION_ROUTES[String(params.id)]) {
+        router.push(`${GROUPED_OPTION_ROUTES[String(params.id)].picker}?${urlParams.toString()}`);
       } else if (params.id === 'diet') {
         router.push(`/auth/education?${urlParams.toString()}`);
       } else if (params.id === 'education') {
@@ -821,6 +881,7 @@ export default function QuestionPage() {
     params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) :
     params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
     params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
+    GROUPED_OPTION_ROUTES[String(params.id)] ? (searchParams.get(String(params.id)) || question?.question_name || 'ANSWER').toUpperCase() :
     (question?.question_name || 'ANSWER').toUpperCase();
 
   const showProgress =
@@ -846,6 +907,7 @@ export default function QuestionPage() {
             params.id === 'ethnicity' ? `${question?.question_number || ETHNICITY}. Ethnicity` :
             params.id === 'education' ? `${EDUCATION}. Education` :
             params.id === 'diet' ? `${question?.question_number || DIET}. Diet` :
+            GROUPED_OPTION_ROUTES[String(params.id)] ? `${GROUPED_OPTION_ROUTES[String(params.id)].questionNumber}. ${GROUPED_OPTION_ROUTES[String(params.id)].label}` :
             question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'
           }
           question={question?.text || 'What ethnicity do you identify with?'}

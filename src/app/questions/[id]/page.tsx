@@ -12,7 +12,9 @@ import {
   EDUCATION,
   ETHNICITY,
   EXERCISE,
+  FAITH,
   HAVE_KIDS,
+  IDEOLOGY,
   MANDATORY_QUESTION_PROMPTS,
   MANDATORY_QUESTION_TITLES,
   POLITICS,
@@ -823,9 +825,11 @@ function QuestionEditPageContent() {
       [ETHNICITY]: 'ethnicity',
       [EDUCATION]: 'education',
       [DIET]: 'diet',
+      [FAITH]: 'faith',
+      [IDEOLOGY]: 'ideology',
     };
 
-    // For ethnicity/education/diet, also set the selection parameter
+    // For the named routes, also set the selection parameter
     if (namedRoutes[questionNumber]) {
       params.set(namedRoutes[questionNumber], question.question_name);
     }
