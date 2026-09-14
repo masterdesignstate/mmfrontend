@@ -41,6 +41,12 @@ export default function DashboardLayout({
     setAccessChecked(true);
   }, [router]);
 
+  // The mobile drawer covers the page, so close it as soon as another page is on screen —
+  // including back/forward navigation, not just taps on its own links.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
   const handleLogout = () => {
     // Clear ALL user-related data on logout
     localStorage.removeItem('user_id');
@@ -114,6 +120,8 @@ export default function DashboardLayout({
             {/* Hamburger Menu (Mobile) */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Menu"
+              aria-expanded={sidebarOpen}
               className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,6 +143,9 @@ export default function DashboardLayout({
                   <Link
                     key={item.name}
                     href={item.href}
+                    // Close right away rather than waiting for the route to change; tapping the
+                    // page you are already on changes nothing and would leave the drawer open.
+                    onClick={() => setSidebarOpen(false)}
                     className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${
                       isActive
                         ? 'bg-[#672DB7] text-white'
