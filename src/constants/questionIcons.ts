@@ -31,8 +31,10 @@ export const QUESTION_OPTION_ICONS: Record<number, string> = {
   [POLITICS]: '/assets/politics.png',
   [WANT_KIDS]: '/assets/pacifier.png',
   [HAVE_KIDS]: '/assets/pacifier.png',
-  [FAITH]: '/assets/prayin.png',
-  [IDEOLOGY]: '/assets/ethn.png',
+  // Line icons, like Ethnicity/Education/Diet above — not the 3D chip artwork. Cropped square
+  // to the drawing so they fill the 24px icon box the way Education's cap does.
+  [FAITH]: '/assets/praying-hands.png',
+  [IDEOLOGY]: '/assets/capitol.png',
 };
 
 export const DEFAULT_QUESTION_OPTION_ICON = '/assets/ethn.png';
