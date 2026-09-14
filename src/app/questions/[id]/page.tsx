@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { mutate as globalMutate } from 'swr';
@@ -32,6 +32,7 @@ import { getQuestionOptionIcon } from '@/constants/questionIcons';
 import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
 import {
   MobileQuestionActionDock,
@@ -629,6 +630,13 @@ function QuestionEditPageContent() {
   const [showAllGroupedOptions, setShowAllGroupedOptions] = useState(false);
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
+  // The Required switch as it loaded, for "Reset to default".
+  const initialRequiredRef = useRef(false);
+  // Split Save button: the chevron opens Reset / Clear.
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
+  const saveMenuRef = useRef<HTMLDivElement>(null);
+  const closeSaveMenu = useCallback(() => setShowSaveMenu(false), []);
+  useDismissOnOutside(saveMenuRef, showSaveMenu, closeSaveMenu);
 
   // Static importance labels for importance sliders
   // Question display names
@@ -706,7 +714,9 @@ function QuestionEditPageContent() {
           const override = storedUserId
             ? sessionStorage.getItem(getRequiredOverrideKey(storedUserId, firstQId))
             : null;
-          setMeRequired(override === null ? requiredQuestionIds.includes(firstQId) : override === 'true');
+          const loadedRequired = override === null ? requiredQuestionIds.includes(firstQId) : override === 'true';
+          initialRequiredRef.current = loadedRequired;
+          setMeRequired(loadedRequired);
         }
         }
       } catch (error) {
@@ -725,6 +735,11 @@ function QuestionEditPageContent() {
     const openToAll: Record<string, boolean> = {};
     const exclusions: Record<string, number[]> = {};
     const notes: Record<string, string> = {};
+
+    // Defaults first, so replaying this for "Reset to default" also undoes edits to fields
+    // an unanswered question never sets below.
+    setImportanceValues({ me: 3, lookingFor: 3 });
+    setMeShare(true);
 
     questions.forEach(question => {
       // Handle both cases: answer.question as object or as string
@@ -785,6 +800,8 @@ function QuestionEditPageContent() {
       if (question) {
         setSelectedOption(question.question_name);
       }
+    } else {
+      setSelectedOption('');
     }
   };
 
@@ -842,7 +859,17 @@ function QuestionEditPageContent() {
     router.push(fullUrl);
   };
 
+  /** Put the form back as it was when this page loaded. Nothing is saved or deleted. */
+  const handleResetToDefault = () => {
+    setShowSaveMenu(false);
+    initializeAnswerState(questions, existingAnswers);
+    setSelectedOptions([]);
+    setMeRequired(initialRequiredRef.current);
+    setError('');
+  };
+
   const handleUndoAnswer = async () => {
+    setShowSaveMenu(false);
     if (!confirm('Are you sure you want to clear your answer to this question? This will remove all your responses.')) return;
 
     setSaving(true);
@@ -1799,25 +1826,38 @@ function QuestionEditPageContent() {
                 Sign Up to Save
               </button>
             ) : (
-              <>
-                {/* Undo button - only for non-mandatory questions that have been answered */}
-                {isOptionalQuestionNumber(questionNumber) && existingAnswers.length > 0 && (
-                  <button
-                    onClick={handleUndoAnswer}
-                    disabled={saving}
-                    className={`px-4 py-3 rounded-md font-medium transition-colors cursor-pointer ${
-                      !saving
-                        ? 'border border-red-300 text-red-500 hover:bg-red-50'
-                        : 'border border-gray-200 text-gray-400 !cursor-not-allowed'
-                    }`}
-                  >
-                    Clear Answer
-                  </button>
-                )}
+              // Split button: the chevron opens Reset (always) and Clear (optional questions
+              // that have an answer); the main segment saves.
+              <div className="relative flex" ref={saveMenuRef}>
                 <button
+                  type="button"
+                  onClick={() => setShowSaveMenu(open => !open)}
+                  disabled={saving}
+                  aria-label="More save options"
+                  aria-haspopup="menu"
+                  aria-expanded={showSaveMenu}
+                  className={`flex items-center justify-center px-3 py-3 rounded-l-md border-r transition-colors cursor-pointer ${
+                    !saving
+                      ? 'bg-black text-white border-white/25 hover:bg-gray-800'
+                      : 'bg-gray-300 text-gray-500 border-gray-400/40 !cursor-not-allowed'
+                  }`}
+                >
+                  <svg
+                    className={`w-4 h-4 transition-transform ${showSaveMenu ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className={`px-8 py-3 rounded-md font-medium transition-colors cursor-pointer ${
+                  className={`px-8 py-3 rounded-r-md font-medium transition-colors cursor-pointer ${
                     !saving
                       ? 'bg-black text-white hover:bg-gray-800'
                       : 'bg-gray-300 text-gray-500 !cursor-not-allowed'
@@ -1825,7 +1865,35 @@ function QuestionEditPageContent() {
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>
-              </>
+
+                {showSaveMenu && (
+                  <div
+                    role="menu"
+                    className="absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleResetToDefault}
+                      className="block w-full px-4 py-2.5 text-left hover:bg-gray-50 cursor-pointer"
+                    >
+                      <span className="block text-sm font-medium text-gray-900">Reset to default</span>
+                      <span className="block text-xs text-gray-500">Undo your edits since you opened this question</span>
+                    </button>
+                    {isOptionalQuestionNumber(questionNumber) && existingAnswers.length > 0 && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleUndoAnswer}
+                        className="block w-full border-t border-gray-100 px-4 py-2.5 text-left hover:bg-red-50 cursor-pointer"
+                      >
+                        <span className="block text-sm font-medium text-red-600">Clear answer</span>
+                        <span className="block text-xs text-red-500/80">Remove your answer as if you never answered</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
