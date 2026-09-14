@@ -169,12 +169,12 @@ const RingDot = ({ variant }: { variant: CardVariant }) => (
 );
 
 /**
- * Explains the blue and orange rings without a legend row: a single "?" bubble in the
- * filter-chip row, the same trigger used for every other explanation on the site. The
+ * Explains the blue and orange rings without a legend row: a single "?" bubble next to the
+ * Results heading, the same trigger used for every other explanation on the site. The
  * earlier row of swatches under the search bar read as extra chrome and did not match.
  */
 const RingKeyTip = ({ variants }: { variants: CardVariant[] }) => (
-  <InfoTip label="What the ring colours mean" align="right">
+  <InfoTip label="What the ring colours mean" align="left">
     <div className="space-y-2">
       {(['complete', 'pending'] as const)
         .filter(variant => variants.includes(variant))
@@ -570,12 +570,14 @@ function ResultsPageContent() {
       const hasAnyRequiredFilter = hasRequiredTag || hasPendingTag || hasTheirRequiredTag || hasTheirPendingTag;
 
       if (applyFilters) {
-        params.min_compatibility = activeFilters.compatibility.min;
-        params.max_compatibility = activeFilters.compatibility.max;
-        params.min_age = activeFilters.age.min;
-        params.max_age = activeFilters.age.max;
-        params.min_distance = activeFilters.distance.min;
-        params.max_distance = activeFilters.distance.max;
+        // Only ranges the user actually narrowed. Sending the defaults made turning Required
+        // on also apply age 18-80, which quietly dropped anyone older than 80 from the list.
+        if (activeFilters.compatibility.min !== defaultFilters.compatibility.min) params.min_compatibility = activeFilters.compatibility.min;
+        if (activeFilters.compatibility.max !== defaultFilters.compatibility.max) params.max_compatibility = activeFilters.compatibility.max;
+        if (activeFilters.age.min !== defaultFilters.age.min) params.min_age = activeFilters.age.min;
+        if (activeFilters.age.max !== defaultFilters.age.max) params.max_age = activeFilters.age.max;
+        if (activeFilters.distance.min !== defaultFilters.distance.min) params.min_distance = activeFilters.distance.min;
+        if (activeFilters.distance.max !== defaultFilters.distance.max) params.max_distance = activeFilters.distance.max;
         // Enable required_only if Required/Pending/Their Required/Their Pending tags are selected OR if the toggle is on
         // This ensures missing_required and their_missing_required are calculated so we can filter properly
         params.required_only = activeFilters.requiredOnly || hasAnyRequiredFilter;
@@ -1875,7 +1877,10 @@ function ResultsPageContent() {
         {/* Title and Count */}
         <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
+              {ringKeyVariants.length > 0 && <RingKeyTip variants={ringKeyVariants} />}
+            </div>
             <p className="text-base text-gray-500">
               Showing {Math.min(sortedProfiles.length, visibleCount)} of {searchTerm.trim() && !loading ? totalCount : (showFiltersApplied && filteredTotalCount !== null ? filteredTotalCount : (totalCount > 0 ? totalCount : 'many'))} people
               {searchTerm.trim() && ` (matching "${searchTerm}")`}
@@ -2010,7 +2015,6 @@ function ResultsPageContent() {
                 </span>
               </button>
             ))}
-            {ringKeyVariants.length > 0 && <RingKeyTip variants={ringKeyVariants} />}
           </div>
         )}
 
