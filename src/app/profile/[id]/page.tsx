@@ -1775,6 +1775,31 @@ export default function UserProfilePage() {
   const profileUserAnsweredQuestionNumber = (questionNumber: number) => (
     profileUserAnsweredQuestionNumbers.has(questionNumber)
   );
+  // Question numbers the viewer has answered too. By number, because on a grouped question
+  // the viewer may have answered a different option than the profile's owner.
+  const currentUserAnsweredQuestionNumbers = useMemo(() => new Set(
+    currentUserAnswers
+      .map((answer: { question?: { question_number?: number } }) => Number(answer.question?.question_number))
+      .filter(Number.isFinite)
+  ), [currentUserAnswers]);
+  // Deliberately quiet next to the purple "✓ Answered", which is about the profile's owner.
+  const YouAnsweredMarker = () => (
+    <InfoTip
+      label="You answered this question"
+      openOnHover
+      align="right"
+      placement="top"
+      panelClassName="w-auto whitespace-nowrap"
+      triggerClassName="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:text-gray-600"
+      trigger={
+        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      }
+    >
+      You answered this question
+    </InfoTip>
+  );
   const AnsweredBadge = () => (
     <span className="text-sm text-[#672DB7]">✓ Answered</span>
   );
@@ -4179,11 +4204,14 @@ export default function UserProfilePage() {
                                   </span>
                                   {answeredByProfile && <AnsweredBadge />}
                                 </div>
-                                {!isDisabled && (
-                                  <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                  </svg>
-                                )}
+                                <div className="ml-3 flex items-center gap-2">
+                                  {currentUserAnsweredQuestionIds.has(String(question.id).toLowerCase()) && <YouAnsweredMarker />}
+                                  {!isDisabled && (
+                                    <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -4364,11 +4392,14 @@ export default function UserProfilePage() {
                                   </div>
                                 </div>
                               </div>
-                              {groupAny.pendingType === 'my' && (
-                                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              )}
+                              <div className="ml-3 flex items-center gap-2">
+                                {currentUserAnsweredQuestionNumbers.has(group.questionNumber) && <YouAnsweredMarker />}
+                                {groupAny.pendingType === 'my' && (
+                                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                )}
+                              </div>
                             </div>
                           );
                         }
@@ -4409,11 +4440,14 @@ export default function UserProfilePage() {
                                 {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
                               </div>
                             </div>
-                            {!isDisabled && (
-                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            )}
+                            <div className="ml-3 flex items-center gap-2">
+                              {currentUserAnsweredQuestionNumbers.has(group.questionNumber) && <YouAnsweredMarker />}
+                              {!isDisabled && (
+                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              )}
+                            </div>
                           </div>
                         );
                       })

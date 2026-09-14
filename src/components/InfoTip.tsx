@@ -28,6 +28,8 @@ interface InfoTipProps {
   triggerClassName?: string;
   /** Panel width; the default suits a sentence or two. */
   panelClassName?: string;
+  /** Also open while a mouse hovers the trigger; a tap still opens it on touch screens. */
+  openOnHover?: boolean;
 }
 
 const DEFAULT_TRIGGER_CLASSES =
@@ -83,6 +85,7 @@ export default function InfoTip({
   trigger,
   triggerClassName = '',
   panelClassName = 'w-56 sm:w-64',
+  openOnHover = false,
 }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<PanelPosition | null>(null);
@@ -166,7 +169,17 @@ export default function InfoTip({
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen(current => !current)}
+        onClick={event => {
+          // A tip never activates what it sits in, such as a clickable row.
+          event.stopPropagation();
+          setOpen(current => (openOnHover ? true : !current));
+        }}
+        onPointerEnter={event => {
+          if (openOnHover && event.pointerType === 'mouse') setOpen(true);
+        }}
+        onPointerLeave={event => {
+          if (openOnHover && event.pointerType === 'mouse') setOpen(false);
+        }}
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={label}
