@@ -231,6 +231,18 @@ export default function PersonalDetailsPage() {
       return;
     }
 
+    // Same 18-80 range the server enforces.
+    const today = new Date();
+    const age = today.getFullYear() - year - ((today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) ? 1 : 0);
+    if (age < 18) {
+      setError('You must be at least 18 years old');
+      return;
+    }
+    if (age > 80) {
+      setError('You must be 80 years old or younger');
+      return;
+    }
+
     setLoading(true);
 
     // Convert MM/DD/YYYY to YYYY-MM-DD for backend
