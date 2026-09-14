@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiService } from '@/services/api';
 import type { ApiUser, UserAnswer, Question } from '@/services/api';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
@@ -78,6 +78,11 @@ export default function CalculationPage() {
   const [showRequired, setShowRequired] = useState(false);
   const [requiredScope, setRequiredScope] = useState<'p1' | 'p2'>('p1');
   const [impostorLoading, setImpostorLoading] = useState(false);
+  // Every keystroke starts a search, and a slow one used to land after the person was already
+  // picked — reopening the dropdown under a filled-in field. Only the newest search for a field
+  // may fill its list; selecting someone or leaving the field retires any search in flight.
+  const person1SearchSeq = useRef(0);
+  const person2SearchSeq = useRef(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -143,31 +148,35 @@ export default function CalculationPage() {
 
   const handlePerson1Search = async (query: string) => {
     setPerson1Search(query);
-    if (query.trim().length >= 2) {
-      const results = await searchUsers(query, person2 ? [person2] : []);
-      setPerson1Results(results);
-    } else {
+    const seq = ++person1SearchSeq.current;
+    if (query.trim().length < 2) {
       setPerson1Results([]);
+      return;
     }
+    const results = await searchUsers(query, person2 ? [person2] : []);
+    if (seq === person1SearchSeq.current) setPerson1Results(results);
   };
 
   const handlePerson2Search = async (query: string) => {
     setPerson2Search(query);
-    if (query.trim().length >= 2) {
-      const results = await searchUsers(query, person1 ? [person1] : []);
-      setPerson2Results(results);
-    } else {
+    const seq = ++person2SearchSeq.current;
+    if (query.trim().length < 2) {
       setPerson2Results([]);
+      return;
     }
+    const results = await searchUsers(query, person1 ? [person1] : []);
+    if (seq === person2SearchSeq.current) setPerson2Results(results);
   };
 
   const selectPerson1 = (user: ApiUser) => {
+    person1SearchSeq.current += 1;
     setPerson1(user.id);
     setPerson1Search(`${user.first_name} ${user.last_name} (${user.username})`);
     setPerson1Results([]);
   };
 
   const selectPerson2 = (user: ApiUser) => {
+    person2SearchSeq.current += 1;
     setPerson2(user.id);
     setPerson2Search(`${user.first_name} ${user.last_name} (${user.username})`);
     setPerson2Results([]);
@@ -204,6 +213,9 @@ export default function CalculationPage() {
     } catch (error) {
       console.error('Impostor login failed:', error);
       impostorWindow.close();
+    } finally {
+      // Impostor opens in its own tab, so this page and its results stay put; the button was
+      // only ever re-enabled on failure, which left it disabled after every successful login.
       setImpostorLoading(false);
     }
   };
@@ -891,7 +903,10 @@ export default function CalculationPage() {
               type="text"
               value={person1Search}
               onChange={(e) => handlePerson1Search(e.target.value)}
-              onBlur={() => setTimeout(() => setPerson1Results([]), 200)}
+              onBlur={() => setTimeout(() => {
+                person1SearchSeq.current += 1;
+                setPerson1Results([]);
+              }, 200)}
               placeholder="Search by name or username..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white text-gray-900"
             />
@@ -920,7 +935,10 @@ export default function CalculationPage() {
               type="text"
               value={person2Search}
               onChange={(e) => handlePerson2Search(e.target.value)}
-              onBlur={() => setTimeout(() => setPerson2Results([]), 200)}
+              onBlur={() => setTimeout(() => {
+                person2SearchSeq.current += 1;
+                setPerson2Results([]);
+              }, 200)}
               placeholder="Search by name or username..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] focus:border-[#672DB7] bg-white text-gray-900"
             />
