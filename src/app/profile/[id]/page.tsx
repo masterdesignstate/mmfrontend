@@ -333,6 +333,14 @@ export default function UserProfilePage() {
   const [editMeRequired, setEditMeRequired] = useState(false);
   const [editError, setEditError] = useState('');
   const [isAnsweringPending, setIsAnsweringPending] = useState(false);
+  // Where the answer form was opened: "View/Change Answer" on this profile's answer, or a
+  // My Pending card. Back and Save return to wherever that was.
+  const answerFormOriginRef = useRef<'profile' | 'pending'>('profile');
+  // Split Save button in the answer form: the chevron opens Reset / Clear.
+  const [showEditSaveMenu, setShowEditSaveMenu] = useState(false);
+  const editSaveMenuRef = useRef<HTMLDivElement>(null);
+  const closeEditSaveMenu = useCallback(() => setShowEditSaveMenu(false), []);
+  useDismissOnOutside(editSaveMenuRef, showEditSaveMenu, closeEditSaveMenu);
   const [showSaveToast, setShowSaveToast] = useState(false);
   // Keyed by question number: chips are pushed conditionally, so an array index points
   // at a different question as soon as an earlier chip appears or disappears.
@@ -2091,15 +2099,15 @@ export default function UserProfilePage() {
     setIsAnsweringPending(false);
   };
 
-  // Handle "Answer Question" button — switch to inline edit for the current question
-  const handleAnswerQuestion = () => {
-    if (!selectedQuestionNumber || !selectedQuestionData.length) return;
-    const questionsForNumber = selectedQuestionData;
-
-    // Pre-populate sliders from cached currentUserAnswers (instant, no API call)
-    const existingAnswers = currentUserAnswers.filter((a: any) => {
+  /**
+   * Fill the inline answer form from the viewer's saved answers, with defaults where there are
+   * none. For a grouped question `focusQuestionId` is the option being edited: importance, share
+   * and Required come from that option's answer, not from whichever option happens to be first.
+   */
+  const initializeEditForm = (questionsForNumber: any[], focusQuestionId?: string | null) => {
+    const answerFor = (questionId: string) => currentUserAnswers.find((a: any) => {
       const qId = typeof a.question === 'object' ? a.question.id : a.question;
-      return questionsForNumber.some((q: any) => q.id === qId);
+      return qId === questionId;
     });
 
     const sliders: Record<string, number> = {};
@@ -2108,10 +2116,7 @@ export default function UserProfilePage() {
     const notes: Record<string, string> = {};
     questionsForNumber.forEach((q: any) => {
       const key = `q${q.group_number || q.id}`;
-      const existing = existingAnswers.find((a: any) => {
-        const aQid = typeof a.question === 'object' ? a.question.id : a.question;
-        return aQid === q.id;
-      });
+      const existing = answerFor(q.id);
       sliders[`${key}_me`] = existing ? (existing.me_open_to_all ? 3 : existing.me_answer || 3) : 3;
       sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
       openToAll[`${key}_me`] = existing?.me_open_to_all || false;
@@ -2124,19 +2129,103 @@ export default function UserProfilePage() {
       notes[key] = existing?.me_note || '';
     });
 
+    const source = focusQuestionId
+      ? answerFor(focusQuestionId)
+      : questionsForNumber.map((q: any) => answerFor(q.id)).find(Boolean);
+    const requiredQuestionId = focusQuestionId || questionsForNumber[0]?.id;
+
     setEditSliderAnswers(sliders);
     setEditOpenToAllStates(openToAll);
     setEditExcludedAnswerValues(exclusions);
     setEditAnswerNotes(notes);
-    const firstExisting = existingAnswers[0];
     setEditImportanceValues({
-      me: firstExisting?.me_importance || 3,
-      lookingFor: firstExisting?.looking_for_importance || 3,
+      me: source?.me_importance || 3,
+      lookingFor: source?.looking_for_importance || 3,
     });
-    setEditMeShare(firstExisting?.me_share !== false);
-    setEditMeRequired(false);
-    setIsAnsweringPending(true);
+    setEditMeShare(source?.me_share !== false);
+    setEditMeRequired(
+      Boolean(requiredQuestionId) && currentUserRequiredQuestionIds.has(String(requiredQuestionId).toLowerCase())
+    );
     setEditError('');
+  };
+
+  // Handle "Answer Question" button — switch to inline edit for the current question
+  const handleAnswerQuestion = () => {
+    if (!selectedQuestionNumber || !selectedQuestionData.length) return;
+    answerFormOriginRef.current = 'profile';
+    initializeEditForm(selectedQuestionData, selectedGroupedQuestionId);
+    setShowEditSaveMenu(false);
+    setIsAnsweringPending(true);
+  };
+
+  /** Step back out of the answer form to wherever it was opened from. */
+  const handleLeaveAnswerForm = () => {
+    setShowEditSaveMenu(false);
+    if (answerFormOriginRef.current === 'profile') {
+      // Back to this profile's answer (and, for a grouped question, the option being viewed).
+      setIsAnsweringPending(false);
+    } else if (selectedGroupedQuestionId) {
+      setSelectedGroupedQuestionId(null);
+    } else {
+      handleBackToQuestionsList();
+    }
+  };
+
+  /** Put the form back as it was when it opened. Nothing is saved or deleted. */
+  const handleResetEditForm = () => {
+    setShowEditSaveMenu(false);
+    initializeEditForm(selectedQuestionData, selectedGroupedQuestionId);
+  };
+
+  /** Remove the viewer's answer to this question (optional questions only, as on the questions page). */
+  const handleClearEditAnswer = async () => {
+    setShowEditSaveMenu(false);
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId || !selectedQuestionNumber) return;
+    if (!confirm('Are you sure you want to clear your answer to this question? This will remove all your responses.')) return;
+
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}undo_question/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUserId, question_number: selectedQuestionNumber }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setEditError(data.error || 'Failed to clear answer');
+        return;
+      }
+
+      const clearedIds = new Set(selectedQuestionData.map((q: any) => String(q.id).toLowerCase()));
+      setCurrentUserAnswers(prev => prev.filter((a: any) => {
+        const qId = typeof a.question === 'object' ? a.question.id : a.question;
+        return !clearedIds.has(String(qId).toLowerCase());
+      }));
+      setCurrentUserAnsweredQuestionIds(prev => new Set([...prev].filter(id => !clearedIds.has(id))));
+      // undo_question also drops the Required rows for the question.
+      setCurrentUserRequiredQuestionIds(prev => new Set([...prev].filter(id => !clearedIds.has(id))));
+
+      const answeredQuestionsKey = `answered_questions_${currentUserId}`;
+      const existingAnswered: string[] = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+      localStorage.setItem(
+        answeredQuestionsKey,
+        JSON.stringify(existingAnswered.filter(id => !clearedIds.has(String(id).toLowerCase())))
+      );
+      sessionStorage.removeItem(`profile_${userId}`);
+      sessionStorage.removeItem(`profile_${userId}_timestamp`);
+      sessionStorage.removeItem('questionsMetadataCache');
+      sessionStorage.removeItem('questionsDataTimestamp');
+      sessionStorage.removeItem('userAnswersData');
+
+      handleLeaveAnswerForm();
+    } catch (err) {
+      console.error('Failed to clear answer:', err);
+      setEditError('Failed to clear answer. Please try again.');
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   // Handle clicking a "My Pending" question card - opens inline edit form
@@ -2156,41 +2245,18 @@ export default function UserProfilePage() {
         const questionsForNumber = normalizeEthnicityQuestions((data.results || []) as any[], questionNumber);
         questionsForNumber.sort((a: any, b: any) => (a.group_number || 0) - (b.group_number || 0));
 
+        answerFormOriginRef.current = 'pending';
+        setShowEditSaveMenu(false);
         setSelectedQuestionNumber(questionNumber);
         setSelectedQuestionData(questionsForNumber);
         setIsAnsweringPending(true);
         setEditError('');
 
-        // For grouped questions (e.g. ethnicity), show card list first — don't init sliders yet
-        if (questionsForNumber.length > 0 && questionsForNumber[0].question_type === 'grouped') {
-          // Slider state will be initialized when user picks a sub-question
-          setEditSliderAnswers({});
-          setEditOpenToAllStates({});
-          setEditExcludedAnswerValues({});
-          setEditImportanceValues({ me: 3, lookingFor: 3 });
-          setEditMeShare(true);
-          setEditMeRequired(false);
-          return;
-        }
+        // For grouped questions (e.g. ethnicity), show the card list first; the form is filled
+        // when the user picks an option.
+        if (questionsForNumber.length > 0 && questionsForNumber[0].question_type === 'grouped') return;
 
-        // Initialize default slider values using same key pattern as questions page
-        const sliders: Record<string, number> = {};
-        const openToAll: Record<string, boolean> = {};
-        const exclusions: Record<string, number[]> = {};
-        questionsForNumber.forEach((q: any) => {
-          const key = `q${q.group_number || q.id}`;
-          sliders[`${key}_me`] = 3;
-          sliders[`${key}_looking`] = 3;
-          openToAll[`${key}_me`] = false;
-          openToAll[`${key}_looking`] = false;
-          exclusions[key] = [];
-        });
-        setEditSliderAnswers(sliders);
-        setEditOpenToAllStates(openToAll);
-        setEditExcludedAnswerValues(exclusions);
-        setEditImportanceValues({ me: 3, lookingFor: 3 });
-        setEditMeShare(true);
-        setEditMeRequired(false);
+        initializeEditForm(questionsForNumber);
       }
     } catch (error) {
       console.error('Error fetching questions for pending question:', questionNumber, error);
@@ -2281,12 +2347,7 @@ export default function UserProfilePage() {
     sessionStorage.removeItem(`profile_${userId}_timestamp`);
 
     // Navigate away immediately (optimistic)
-    if (isGrouped && selectedGroupedQuestionId) {
-      setSelectedGroupedQuestionId(null);
-    } else {
-      setIsAnsweringPending(false);
-      handleBackToQuestionsList();
-    }
+    handleLeaveAnswerForm();
     setEditSaving(false);
 
     // Show toast
@@ -3242,7 +3303,7 @@ export default function UserProfilePage() {
                       Their Required
                     </button>
                   </div>
-                  {/* Same explanation as the results filter panel's My / Their Required picker. */}
+                  {/* Captioned the same way as the results filter panel's My / Their Required picker. */}
                   <p className="mt-2 px-1 text-xs text-purple-900/60">
                     {requiredScope === 'my'
                       ? 'Compatibility is based on your required questions.'
@@ -3566,9 +3627,10 @@ export default function UserProfilePage() {
                 <>
                   <button
                     onClick={() => {
-                      // If viewing a grouped sub-question in edit mode, go back to card list
-                      if (isAnsweringPending && selectedGroupedQuestionId) {
-                        setSelectedGroupedQuestionId(null);
+                      // The answer form steps back to where it was opened from: this
+                      // profile's answer, or the My Pending card list.
+                      if (isAnsweringPending) {
+                        handleLeaveAnswerForm();
                       } else {
                         handleBackToQuestionsList();
                       }
@@ -3798,30 +3860,8 @@ export default function UserProfilePage() {
                                   key={question.id}
                                   onClick={() => {
                                     if (alreadyAnswered) return;
-                                    // Stay in overlay — select this sub-question and init its slider values
-                                    const subKey = `q${question.group_number || question.id}`;
-                                    setEditSliderAnswers(prev => ({
-                                      ...prev,
-                                      [`${subKey}_me`]: prev[`${subKey}_me`] || 3,
-                                      [`${subKey}_looking`]: prev[`${subKey}_looking`] || 3,
-                                    }));
-                                    setEditOpenToAllStates(prev => ({
-                                      ...prev,
-                                      [`${subKey}_me`]: prev[`${subKey}_me`] || false,
-                                      [`${subKey}_looking`]: prev[`${subKey}_looking`] || false,
-                                    }));
-                                    const existing = currentUserAnswers.find((answer: UserAnswer) => {
-                                      const qId = typeof answer.question === 'object' ? answer.question.id : answer.question;
-                                      return qId === question.id;
-                                    });
-                                    setEditExcludedAnswerValues(prev => ({
-                                      ...prev,
-                                      [subKey]: prev[subKey] || normalizeExcludedValues(
-                                        existing?.excluded_answer_values,
-                                        getAllowedExclusionValues(question),
-                                        existing?.me_open_to_all ? [] : [existing?.me_answer || 3]
-                                      ),
-                                    }));
+                                    // Stay in overlay — select this sub-question and fill the form from its answer
+                                    initializeEditForm(selectedQuestionData, question.id);
                                     setSelectedGroupedQuestionId(question.id);
                                   }}
 	                                  className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
@@ -4579,17 +4619,75 @@ export default function UserProfilePage() {
               <div className="flex shrink-0 justify-between items-center gap-2 px-4 py-3 border-t border-gray-200 sm:px-6 sm:py-4">
                 {editError && <p className="text-red-500 text-sm">{editError}</p>}
                 {!editError && <div />}
-                <button
-                  onClick={handleSavePendingAnswer}
-                  disabled={editSaving}
-                  className={`px-8 py-3 rounded-md font-medium transition-colors cursor-pointer ${
-                    !editSaving
-                      ? 'bg-black text-white hover:bg-gray-800'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {editSaving ? 'Saving...' : 'Save'}
-                </button>
+                {/* Split button, as on the questions page: the chevron opens Reset (always) and
+                    Clear (optional questions the viewer has answered); the main segment saves. */}
+                <div className="relative flex shrink-0" ref={editSaveMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditSaveMenu(open => !open)}
+                    disabled={editSaving}
+                    aria-label="More save options"
+                    aria-haspopup="menu"
+                    aria-expanded={showEditSaveMenu}
+                    className={`flex items-center justify-center px-3 py-3 rounded-l-md border-r transition-colors cursor-pointer ${
+                      !editSaving
+                        ? 'bg-black text-white border-white/25 hover:bg-gray-800'
+                        : 'bg-gray-300 text-gray-500 border-gray-400/40 !cursor-not-allowed'
+                    }`}
+                  >
+                    <svg
+                      className={`w-4 h-4 transition-transform ${showEditSaveMenu ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSavePendingAnswer}
+                    disabled={editSaving}
+                    className={`px-8 py-3 rounded-r-md font-medium transition-colors cursor-pointer ${
+                      !editSaving
+                        ? 'bg-black text-white hover:bg-gray-800'
+                        : 'bg-gray-300 text-gray-500 !cursor-not-allowed'
+                    }`}
+                  >
+                    {editSaving ? 'Saving...' : 'Save'}
+                  </button>
+
+                  {showEditSaveMenu && (
+                    <div
+                      role="menu"
+                      className="absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleResetEditForm}
+                        className="block w-full px-4 py-2.5 text-left hover:bg-gray-50 cursor-pointer"
+                      >
+                        <span className="block text-sm font-medium text-gray-900">Reset to default</span>
+                        <span className="block text-xs text-gray-500">Undo your edits since you opened this question</span>
+                      </button>
+                      {isOptionalQuestionNumber(selectedQuestionNumber) &&
+                        selectedQuestionData.some((q: any) => currentUserAnsweredQuestionIds.has(String(q.id).toLowerCase())) && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleClearEditAnswer}
+                          className="block w-full border-t border-gray-100 px-4 py-2.5 text-left hover:bg-red-50 cursor-pointer"
+                        >
+                          <span className="block text-sm font-medium text-red-600">Clear answer</span>
+                          <span className="block text-xs text-red-500/80">Remove your answer as if you never answered</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

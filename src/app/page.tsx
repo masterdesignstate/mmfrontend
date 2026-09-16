@@ -210,11 +210,6 @@ export default function LandingPage() {
                 <a key={href} href={href} className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]" onClick={() => setMobileOpen(false)}>{label}</a>
               ))}
             </nav>
-            <nav className="mt-2 space-y-1 border-t border-black/[0.06] pt-2 text-sm text-[#6B6571]" aria-label="More links">
-              <Link href="/privacy" className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]">Privacy</Link>
-              <Link href="/terms" className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]">Terms</Link>
-              <a href="mailto:hello@matchmatical.com" className="block rounded-xl px-3 py-3 hover:bg-black/[0.04]">Contact</a>
-            </nav>
           </div>
         )}
       </header>
@@ -377,7 +372,6 @@ export default function LandingPage() {
               <Wordmark />
             </Link>
             <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#6B6571]" aria-label="Footer navigation">
-              <a href="#faq" className="hover:text-[#672DB7]">FAQ</a>
               <Link href="/privacy" className="hover:text-[#672DB7]">Privacy</Link>
               <Link href="/terms" className="hover:text-[#672DB7]">Terms</Link>
               <a href="mailto:hello@matchmatical.com" className="hover:text-[#672DB7]">Contact</a>
