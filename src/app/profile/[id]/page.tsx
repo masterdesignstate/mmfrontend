@@ -2199,12 +2199,40 @@ export default function UserProfilePage() {
     initializeEditForm(selectedQuestionData, selectedGroupedQuestionId);
   };
 
-  /** Remove the viewer's answer to this question (optional questions only, as on the questions page). */
+  /**
+   * What "Clear answer" in the Save menu can do for the question in the form.
+   *
+   * On an option of a grouped question (White under Ethnicity, Left under Ideology) it clears
+   * just that option. A mandatory grouped question only needs one answered option, so the last
+   * one can't be cleared. Any other question clears as a whole, and only when optional.
+   */
+  const getEditClearAction = (): { optionId: string | null; allowed: boolean } | null => {
+    const isAnswered = (id: unknown) => currentUserAnsweredQuestionIds.has(String(id).toLowerCase());
+    const isGroupedOption = selectedQuestionData[0]?.question_type === 'grouped' && Boolean(selectedGroupedQuestionId);
+    if (isGroupedOption) {
+      if (!isAnswered(selectedGroupedQuestionId)) return null;
+      const otherOptionAnswered = selectedQuestionData.some((q: any) => q.id !== selectedGroupedQuestionId && isAnswered(q.id));
+      return {
+        optionId: selectedGroupedQuestionId,
+        allowed: !isMandatoryQuestionNumber(selectedQuestionNumber) || otherOptionAnswered,
+      };
+    }
+    if (!isOptionalQuestionNumber(selectedQuestionNumber) || !selectedQuestionData.some((q: any) => isAnswered(q.id))) return null;
+    return { optionId: null, allowed: true };
+  };
+
+  /** Remove the viewer's answer to this question, or to the grouped option being edited. */
   const handleClearEditAnswer = async () => {
     setShowEditSaveMenu(false);
     const currentUserId = localStorage.getItem('user_id');
-    if (!currentUserId || !selectedQuestionNumber) return;
-    if (!confirm('Are you sure you want to clear your answer to this question? This will remove all your responses.')) return;
+    const clearAction = getEditClearAction();
+    if (!currentUserId || !selectedQuestionNumber || !clearAction?.allowed) return;
+    const { optionId } = clearAction;
+    const optionName = optionId ? selectedQuestionData.find((q: any) => q.id === optionId)?.question_name : null;
+    const confirmMessage = optionName
+      ? `Are you sure you want to clear your answer for ${optionName}? Your other answers to this question stay.`
+      : 'Are you sure you want to clear your answer to this question? This will remove all your responses.';
+    if (!confirm(confirmMessage)) return;
 
     setEditSaving(true);
     setEditError('');
@@ -2212,7 +2240,11 @@ export default function UserProfilePage() {
       const response = await fetch(`${getApiUrl(API_ENDPOINTS.ANSWERS)}undo_question/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUserId, question_number: selectedQuestionNumber }),
+        body: JSON.stringify(
+          optionId
+            ? { user_id: currentUserId, question_id: optionId }
+            : { user_id: currentUserId, question_number: selectedQuestionNumber }
+        ),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -2220,13 +2252,15 @@ export default function UserProfilePage() {
         return;
       }
 
-      const clearedIds = new Set(selectedQuestionData.map((q: any) => String(q.id).toLowerCase()));
+      const clearedIds = new Set(
+        (optionId ? [optionId] : selectedQuestionData.map((q: any) => q.id)).map(id => String(id).toLowerCase())
+      );
       setCurrentUserAnswers(prev => prev.filter((a: any) => {
         const qId = typeof a.question === 'object' ? a.question.id : a.question;
         return !clearedIds.has(String(qId).toLowerCase());
       }));
       setCurrentUserAnsweredQuestionIds(prev => new Set([...prev].filter(id => !clearedIds.has(id))));
-      // undo_question also drops the Required rows for the question.
+      // undo_question also drops the Required rows for what it cleared.
       setCurrentUserRequiredQuestionIds(prev => new Set([...prev].filter(id => !clearedIds.has(id))));
 
       const answeredQuestionsKey = `answered_questions_${currentUserId}`;
@@ -4700,18 +4734,41 @@ export default function UserProfilePage() {
                         <span className="block text-sm font-medium text-gray-900">Reset to default</span>
                         <span className="block text-xs text-gray-500">Undo your edits since you opened this question</span>
                       </button>
-                      {isOptionalQuestionNumber(selectedQuestionNumber) &&
-                        selectedQuestionData.some((q: any) => currentUserAnsweredQuestionIds.has(String(q.id).toLowerCase())) && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={handleClearEditAnswer}
-                          className="block w-full border-t border-gray-100 px-4 py-2.5 text-left hover:bg-red-50 cursor-pointer"
-                        >
-                          <span className="block text-sm font-medium text-red-600">Clear answer</span>
-                          <span className="block text-xs text-red-500/80">Remove your answer as if you never answered</span>
-                        </button>
-                      )}
+                      {(() => {
+                        const clearAction = getEditClearAction();
+                        if (!clearAction) return null;
+                        const optionName = clearAction.optionId
+                          ? selectedQuestionData.find((q: any) => q.id === clearAction.optionId)?.question_name
+                          : null;
+                        return clearAction.allowed ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={handleClearEditAnswer}
+                            className="block w-full border-t border-gray-100 px-4 py-2.5 text-left hover:bg-red-50 cursor-pointer"
+                          >
+                            <span className="block text-sm font-medium text-red-600">Clear answer</span>
+                            <span className="block text-xs text-red-500/80">
+                              {optionName
+                                ? `Remove your answer for ${optionName}; your other answers stay`
+                                : 'Remove your answer as if you never answered'}
+                            </span>
+                          </button>
+                        ) : (
+                          // The last answered option of a mandatory grouped question.
+                          <button
+                            type="button"
+                            role="menuitem"
+                            aria-disabled="true"
+                            className="block w-full border-t border-gray-100 px-4 py-2.5 text-left cursor-default"
+                          >
+                            <span className="block text-sm font-medium text-gray-300">Clear answer</span>
+                            <span className="block text-xs text-gray-400">
+                              Answer another option first; this question needs at least one
+                            </span>
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
