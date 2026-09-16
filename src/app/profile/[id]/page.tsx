@@ -1808,9 +1808,29 @@ export default function UserProfilePage() {
       You answered this question
     </InfoTip>
   );
-  const AnsweredBadge = () => (
-    <span className="text-sm text-[#672DB7]">✓ Answered</span>
+  // "✓ Answered" from sm up. Phones get just the check, which says who answered when tapped,
+  // so the question text keeps the row's width.
+  const AnsweredBadge = ({ by }: { by: string }) => (
+    <>
+      <span className="hidden whitespace-nowrap text-sm text-[#672DB7] sm:inline">✓ Answered</span>
+      <InfoTip
+        label={`Answered by ${by}`}
+        align="right"
+        placement="top"
+        className="sm:hidden"
+        panelClassName="w-auto whitespace-nowrap"
+        triggerClassName="flex h-5 w-5 shrink-0 items-center justify-center text-[#672DB7]"
+        trigger={
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        }
+      >
+        Answered by {by}
+      </InfoTip>
+    </>
   );
+  const profileOwnerName = user?.first_name || user?.username || 'them';
 
   // Build pending question groups from allQuestions for display in the modal
   const pendingQuestionGroups = useMemo(() => {
@@ -3736,7 +3756,7 @@ export default function UserProfilePage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-8 sm:py-6 lg:px-24">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-8 sm:py-6 lg:px-24">
               {selectedQuestionNumber ? (
                 isAnsweringPending ? (
                   // Render editable answer form for "My Pending" questions
@@ -3864,7 +3884,7 @@ export default function UserProfilePage() {
                                     initializeEditForm(selectedQuestionData, question.id);
                                     setSelectedGroupedQuestionId(question.id);
                                   }}
-	                                  className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
+	                                  className={`flex items-center justify-between px-3 py-3.5 border rounded-lg transition-all duration-200 sm:p-4 ${
 	                                    !alreadyAnswered
 	                                      ? 'border-black bg-gray-50 cursor-pointer hover:bg-gray-100'
 	                                      : 'border-[#672DB7] bg-purple-50 cursor-not-allowed opacity-60'
@@ -3878,9 +3898,9 @@ export default function UserProfilePage() {
                                       height={24}
 	                                      className={`w-6 h-6 ${alreadyAnswered ? 'opacity-60' : ''}`}
 	                                    />
-	                                    <span className={`font-medium ${!alreadyAnswered ? 'text-black' : 'text-gray-500'}`}>{question.question_name}</span>
-	                                    {alreadyAnswered ? <AnsweredBadge /> : (
-	                                      <span className="text-sm text-[#672DB7]">Not Answered</span>
+	                                    <span className={`text-sm font-medium sm:text-base ${!alreadyAnswered ? 'text-black' : 'text-gray-500'}`}>{question.question_name}</span>
+	                                    {alreadyAnswered ? <AnsweredBadge by="you" /> : (
+	                                      <span className="whitespace-nowrap text-xs text-[#672DB7] sm:text-sm">Not Answered</span>
 	                                    )}
                                   </div>
                                   {!alreadyAnswered && (
@@ -4219,7 +4239,7 @@ export default function UserProfilePage() {
                                   if (isDisabled) return;
                                   setSelectedGroupedQuestionId(question.id);
                                 }}
-                                className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-200 ${
+                                className={`flex items-center justify-between px-3 py-3.5 border rounded-lg transition-all duration-200 sm:p-4 ${
                                   answeredByProfile
                                     ? 'border-[#672DB7] bg-purple-50'
                                     : !isDisabled
@@ -4239,10 +4259,10 @@ export default function UserProfilePage() {
                                     height={24}
                                     className={`w-6 h-6 ${isDisabled && 'opacity-50'}`}
                                   />
-                                  <span className={`font-medium ${!isDisabled ? 'text-black' : 'text-gray-400'}`}>
+                                  <span className={`text-sm font-medium sm:text-base ${!isDisabled ? 'text-black' : 'text-gray-400'}`}>
                                     {question.question_name}
                                   </span>
-                                  {answeredByProfile && <AnsweredBadge />}
+                                  {answeredByProfile && <AnsweredBadge by={profileOwnerName} />}
                                 </div>
                                 <div className="ml-3 flex items-center gap-2">
                                   {currentUserAnsweredQuestionIds.has(String(question.id).toLowerCase()) && <YouAnsweredMarker />}
@@ -4411,7 +4431,7 @@ export default function UserProfilePage() {
                                   handlePendingQuestionClick(group.questionNumber);
                                 }
                               }}
-                              className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                              className={`flex items-center justify-between px-3 py-3.5 border rounded-lg transition-colors sm:p-4 ${
                                 answeredByProfile
                                   ? 'border-[#672DB7] bg-purple-50'
                                   : groupAny.pendingType === 'my'
@@ -4425,14 +4445,14 @@ export default function UserProfilePage() {
                             >
                               <div className="flex-1">
                                 <div className="flex items-start">
-                                  <span className="text-sm text-gray-400 mr-3">{group.questionNumber}.</span>
+                                  <span className="mr-2 text-xs leading-5 text-gray-400 sm:mr-3 sm:text-sm">{group.questionNumber}.</span>
                                   <div className="flex-1">
-                                    <span className="text-gray-500">{group.displayName}</span>
-                                    {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
+                                    <span className="text-sm text-gray-500 sm:text-base">{group.displayName}</span>
+                                    {answeredByProfile && <span className="ml-2 inline-flex align-middle sm:ml-3"><AnsweredBadge by={profileOwnerName} /></span>}
                                   </div>
                                 </div>
                               </div>
-                              <div className="ml-3 flex items-center gap-2">
+                              <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
                                 {currentUserAnsweredQuestionNumbers.has(group.questionNumber) && <YouAnsweredMarker />}
                                 {groupAny.pendingType === 'my' && (
                                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4461,7 +4481,7 @@ export default function UserProfilePage() {
                               if (isDisabled) return;
                               handleQuestionClick(group.questionNumber, questionType);
                             }}
-                            className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                            className={`flex items-center justify-between px-3 py-3.5 border rounded-lg transition-colors sm:p-4 ${
                               answeredByProfile
                                 ? 'border-[#672DB7] bg-purple-50'
                                 : isDisabled
@@ -4475,12 +4495,12 @@ export default function UserProfilePage() {
                           >
                             <div className="flex-1">
                               <div className="flex items-start">
-                                <span className="text-sm text-gray-500 mr-3">{group.questionNumber}.</span>
-                                <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{group.displayName}</span>
-                                {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
+                                <span className="mr-2 text-xs leading-5 text-gray-500 sm:mr-3 sm:text-sm">{group.questionNumber}.</span>
+                                <span className={`flex-1 text-sm sm:text-base ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{group.displayName}</span>
+                                {answeredByProfile && <span className="ml-2 inline-flex align-middle sm:ml-3"><AnsweredBadge by={profileOwnerName} /></span>}
                               </div>
                             </div>
-                            <div className="ml-3 flex items-center gap-2">
+                            <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
                               {currentUserAnsweredQuestionNumbers.has(group.questionNumber) && <YouAnsweredMarker />}
                               {!isDisabled && (
                                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4536,7 +4556,7 @@ export default function UserProfilePage() {
                                 if (isDisabled) return;
                                 handleQuestionClick(qNum);
                               }}
-                              className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                              className={`flex items-center justify-between px-3 py-3.5 border rounded-lg transition-colors sm:p-4 ${
                                 answeredByProfile
                                   ? 'border-[#672DB7] bg-purple-50'
                                   : isDisabled
@@ -4550,9 +4570,9 @@ export default function UserProfilePage() {
                             >
                               <div className="flex-1">
                                 <div className="flex items-start">
-                                  <span className="text-sm text-gray-500 mr-3">{qNum}.</span>
-                                  <span className={`flex-1 ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{questionText}</span>
-                                  {answeredByProfile && <span className="ml-3"><AnsweredBadge /></span>}
+                                  <span className="mr-2 text-xs leading-5 text-gray-500 sm:mr-3 sm:text-sm">{qNum}.</span>
+                                  <span className={`flex-1 text-sm sm:text-base ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>{questionText}</span>
+                                  {answeredByProfile && <span className="ml-2 inline-flex align-middle sm:ml-3"><AnsweredBadge by={profileOwnerName} /></span>}
                                 </div>
                               </div>
                               {!isDisabled && (
