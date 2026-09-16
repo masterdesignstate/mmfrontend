@@ -1808,10 +1808,11 @@ export default function UserProfilePage() {
       You answered this question
     </InfoTip>
   );
-  // "✓ Answered" beside the question from sm up. Phones get AnsweredCheck instead, centred in
-  // the row's trailing column with the person marker, so the question text keeps the width.
-  const AnsweredBadge = () => (
-    <span className="hidden whitespace-nowrap text-sm text-[#672DB7] sm:inline">✓ Answered</span>
+  // "✓ Answered" beside the question from sm up. In question rows phones get AnsweredCheck
+  // instead, centred in the trailing column with the person marker, so the question text keeps
+  // the width. Grouped option cards hold short labels, so they keep the text everywhere.
+  const AnsweredBadge = ({ onPhones = false }: { onPhones?: boolean }) => (
+    <span className={`whitespace-nowrap text-xs text-[#672DB7] sm:inline sm:text-sm ${onPhones ? '' : 'hidden'}`}>✓ Answered</span>
   );
   // Tapping the check says who answered.
   const AnsweredCheck = ({ by }: { by: string }) => (
@@ -3900,11 +3901,10 @@ export default function UserProfilePage() {
 	                                      className={`w-6 h-6 ${alreadyAnswered ? 'opacity-60' : ''}`}
 	                                    />
 	                                    <span className={`text-sm font-medium sm:text-base ${!alreadyAnswered ? 'text-black' : 'text-gray-500'}`}>{question.question_name}</span>
-	                                    {alreadyAnswered ? <AnsweredBadge /> : (
+	                                    {alreadyAnswered ? <AnsweredBadge onPhones /> : (
 	                                      <span className="whitespace-nowrap text-xs text-[#672DB7] sm:text-sm">Not Answered</span>
 	                                    )}
                                   </div>
-                                  {alreadyAnswered && <AnsweredCheck by="you" />}
                                   {!alreadyAnswered && (
                                     <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -4264,10 +4264,9 @@ export default function UserProfilePage() {
                                   <span className={`text-sm font-medium sm:text-base ${!isDisabled ? 'text-black' : 'text-gray-400'}`}>
                                     {question.question_name}
                                   </span>
-                                  {answeredByProfile && <AnsweredBadge />}
+                                  {answeredByProfile && <AnsweredBadge onPhones />}
                                 </div>
                                 <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
-                                  {answeredByProfile && <AnsweredCheck by={profileOwnerName} />}
                                   {currentUserAnsweredQuestionIds.has(String(question.id).toLowerCase()) && <YouAnsweredMarker />}
                                   {!isDisabled && (
                                     <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
