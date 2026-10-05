@@ -20,6 +20,8 @@ function SettingsPageContent() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [requireAnswersForLikes, setRequireAnswersForLikes] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
+  const [requireApprovalForLikes, setRequireApprovalForLikes] = useState(true);
+  const [savingApproval, setSavingApproval] = useState(false);
   const [answerVis, setAnswerVis] = useState<FeedVisibility>('none');
   const [savingShareAnswers, setSavingShareAnswers] = useState(false);
   const [bioVis, setBioVis] = useState<FeedVisibility>('all');
@@ -64,6 +66,7 @@ function SettingsPageContent() {
     if (userId) {
       apiService.getUser(userId).then(user => {
         setRequireAnswersForLikes(!!user.require_answers_for_likes);
+        setRequireApprovalForLikes(user.require_approval_for_likes !== false);
         setAnswerVis((user.share_answers ?? 'none') as FeedVisibility);
         setBioVis((user.feed_visibility_bio ?? 'all') as FeedVisibility);
         setPhotoVis((user.feed_visibility_photo ?? 'all') as FeedVisibility);
@@ -91,6 +94,24 @@ function SettingsPageContent() {
       setMessage({ type: 'error', text: 'Could not update privacy setting. Please try again.' });
     } finally {
       setSavingPrivacy(false);
+    }
+  };
+
+  const handleToggleRequireApprovalForLikes = async () => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId || savingApproval) return;
+    const next = !requireApprovalForLikes;
+    setRequireApprovalForLikes(next); // optimistic
+    setSavingApproval(true);
+    try {
+      await apiService.updateUser(userId, { require_approval_for_likes: next });
+      posthog.capture('privacy_require_approval_for_likes_toggled', { value: next });
+    } catch (error) {
+      console.error('Error updating approval setting:', error);
+      setRequireApprovalForLikes(!next); // revert
+      setMessage({ type: 'error', text: 'Could not update approval setting. Please try again.' });
+    } finally {
+      setSavingApproval(false);
     }
   };
 
@@ -468,6 +489,34 @@ function SettingsPageContent() {
                 <option value="liked">Liked</option>
                 <option value="matched">Matched</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Approval Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="px-5 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Approval</h2>
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-900">Only allow people to like you after you&apos;ve approved them. When off, anyone can like you directly.</h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleRequireApprovalForLikes}
+                disabled={savingApproval}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0 mt-0.5"
+                style={{ backgroundColor: requireApprovalForLikes ? '#672DB7' : '#ADADAD' }}
+                aria-pressed={requireApprovalForLikes}
+                aria-label="Require approval before likes"
+              >
+                <span
+                  className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow"
+                  style={{ transform: requireApprovalForLikes ? 'translateX(20px)' : 'translateX(2px)' }}
+                />
+              </button>
             </div>
           </div>
         </div>

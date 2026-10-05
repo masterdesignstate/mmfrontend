@@ -74,6 +74,7 @@ interface UserProfile {
   last_active?: string | null;
   questions_answered_count?: number;
   require_answers_for_likes?: boolean;
+  require_approval_for_likes?: boolean;
   share_answers?: FeedVisibility;
   pictures?: { id: string; image_url: string; order: number }[];
   profile_prompts?: UserProfilePrompt[];
@@ -1316,6 +1317,12 @@ export default function UserProfilePage() {
             alert(payload?.message || "You need to answer all of this user's required questions before you can like them.");
             return;
           }
+          if (payload?.error === 'approval_required') {
+            // Target requires approval and hasn't approved us (e.g. setting changed mid-session)
+            setSelectedTags(selectedTags);
+            setShowApprovalPopup(true);
+            return;
+          }
         }
         throw new Error('Failed to send like');
       }
@@ -1368,13 +1375,15 @@ export default function UserProfilePage() {
     const normalizedTag = tag.toLowerCase();
     const isCurrentlySelected = selectedTags.includes(normalizedTag);
 
-    // Check if trying to like when other user hasn't approved you yet
+    // Check if trying to like when other user requires approval and hasn't approved you yet
     if (normalizedTag === 'like' && !isCurrentlySelected) {
-      const theyApprovedMe = await checkIfTheyApprovedMe();
-      if (!theyApprovedMe) {
-        // Show approval required popup
-        setShowApprovalPopup(true);
-        return;
+      if (user?.require_approval_for_likes !== false) {
+        const theyApprovedMe = await checkIfTheyApprovedMe();
+        if (!theyApprovedMe) {
+          // Show approval required popup
+          setShowApprovalPopup(true);
+          return;
+        }
       }
       // They approved me, show note popup directly
       setShowNotePopup(true);
@@ -2618,12 +2627,14 @@ export default function UserProfilePage() {
         alert("You need to answer all of this user's required questions before you can like them.");
         return;
       }
-      // If approved, check if they have approved me before allowing like
-      const theyApprovedMe = await checkIfTheyApprovedMe();
-      if (!theyApprovedMe) {
-        // Show popup that they need to approve you first
-        setShowApprovalPopup(true);
-        return;
+      // If they require approval, check they have approved me before allowing like
+      if (user?.require_approval_for_likes !== false) {
+        const theyApprovedMe = await checkIfTheyApprovedMe();
+        if (!theyApprovedMe) {
+          // Show popup that they need to approve you first
+          setShowApprovalPopup(true);
+          return;
+        }
       }
       // They approved me, show note popup directly
       setShowNotePopup(true);

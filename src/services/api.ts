@@ -243,6 +243,7 @@ export interface ApiUser {
   has_pending_reports?: boolean;
   mandatory_questions_complete?: boolean;
   require_answers_for_likes?: boolean;
+  require_approval_for_likes?: boolean;
   share_answers?: FeedVisibility;
   feed_visibility_bio?: FeedVisibility;
   feed_visibility_photo?: FeedVisibility;

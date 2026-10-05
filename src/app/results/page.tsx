@@ -984,9 +984,9 @@ function ResultsPageContent() {
         // Surface the new "required questions unanswered" gate cleanly
         let payload: { error?: string; message?: string } | null = null;
         try { payload = await response.json(); } catch { /* noop */ }
-        if (response.status === 403 && payload?.error === 'required_questions_unanswered') {
-          const err = new Error(payload.message || 'Required questions not answered');
-          (err as Error & { code?: string }).code = 'required_questions_unanswered';
+        if (response.status === 403 && (payload?.error === 'required_questions_unanswered' || payload?.error === 'approval_required')) {
+          const err = new Error(payload.message || 'Like not allowed');
+          (err as Error & { code?: string }).code = payload.error;
           throw err;
         }
         throw new Error('Failed to toggle tag');
@@ -1207,6 +1207,15 @@ function ResultsPageContent() {
           alert("You need to answer all of this user's required questions before you can like them.");
           return;
         }
+        if (code === 'approval_required') {
+          // Target requires approval and hasn't approved us (e.g. setting changed mid-session)
+          setProfiles(prev => prev.map(p =>
+            p.id === profileId ? { ...p, tags: currentTags, isLiked: false, status: 'approved' } : p
+          ));
+          setPopupUserName(profile.user.first_name || profile.user.username);
+          setShowApprovalPopup(true);
+          return;
+        }
         throw err;
       }
       posthog.capture('profile_liked', { liked_user_id: profileId, has_note: !!noteText.trim() });
@@ -1296,13 +1305,15 @@ function ResultsPageContent() {
         alert("You need to answer all of this user's required questions before you can like them.");
         return;
       }
-      // If approved, check if they have approved me before allowing like
-      const theyApprovedMe = await checkIfTheyApprovedMe(profileId);
-      if (!theyApprovedMe) {
-        // Show popup that they need to approve you first
-        setPopupUserName(profile.user.first_name || profile.user.username);
-        setShowApprovalPopup(true);
-        return;
+      // If they require approval, check they have approved me before allowing like
+      if (profile.user.require_approval_for_likes !== false) {
+        const theyApprovedMe = await checkIfTheyApprovedMe(profileId);
+        if (!theyApprovedMe) {
+          // Show popup that they need to approve you first
+          setPopupUserName(profile.user.first_name || profile.user.username);
+          setShowApprovalPopup(true);
+          return;
+        }
       }
       // They approved me, show note popup directly
       setPendingLikeProfileId(profileId);
