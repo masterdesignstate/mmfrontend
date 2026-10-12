@@ -218,6 +218,12 @@ export interface UserRestrictionHistory {
   moderator_notes?: string;
 }
 
+export interface DummyApprovalStats {
+  total: number;
+  approval_on: number;
+  approval_off: number;
+}
+
 export interface ApiUser {
   id: string;
   username: string;
@@ -239,6 +245,7 @@ export interface ApiUser {
   questions_answered_count?: number;
   is_online?: boolean;
   is_admin?: boolean;
+  is_dummy?: boolean;
   last_active?: string | null;
   has_pending_reports?: boolean;
   mandatory_questions_complete?: boolean;
@@ -664,6 +671,37 @@ class ApiService {
 
   async getAdminProfiles(): Promise<ApiUser[]> {
     return this.request('/users/admin_profiles/', 'GET') as Promise<ApiUser[]>;
+  }
+
+  /** Admin only: how many dummy accounts require approval for likes. */
+  async getDummyApprovalStats(adminUserId: string): Promise<DummyApprovalStats> {
+    return this.request(
+      `/users/dummy_approval/?user_id=${encodeURIComponent(adminUserId)}`,
+      'GET'
+    ) as Promise<DummyApprovalStats>;
+  }
+
+  /** Admin only: turn approval-for-likes on or off for every dummy account. */
+  async setDummyApproval(
+    adminUserId: string,
+    enabled: boolean
+  ): Promise<DummyApprovalStats & { updated: number }> {
+    return this.request('/users/dummy_approval/', 'POST', {
+      user_id: adminUserId,
+      require_approval_for_likes: enabled,
+    }) as Promise<DummyApprovalStats & { updated: number }>;
+  }
+
+  /** Admin only: turn approval-for-likes on or off for one user. */
+  async setUserApproval(
+    adminUserId: string,
+    targetUserId: string,
+    enabled: boolean
+  ): Promise<{ id: string; require_approval_for_likes: boolean }> {
+    return this.request(`/users/${targetUserId}/set_approval/`, 'POST', {
+      user_id: adminUserId,
+      require_approval_for_likes: enabled,
+    }) as Promise<{ id: string; require_approval_for_likes: boolean }>;
   }
 
   async getUser(userId: string): Promise<ApiUser> {

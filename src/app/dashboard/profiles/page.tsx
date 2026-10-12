@@ -20,6 +20,8 @@ interface ProfileData {
   restrictionType: string;
   restrictionReason?: string;
   restrictionReasonDetail?: string;
+  isDummy: boolean;
+  requireApproval: boolean;
 }
 
 export default function ProfilesPage() {
@@ -30,6 +32,9 @@ export default function ProfilesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [accountTypeFilter, setAccountTypeFilter] = useState<'All' | 'Dummy' | 'Real'>('All');
+  // Rows whose approval toggle is mid-request, so a double click can't race itself.
+  const [approvalSaving, setApprovalSaving] = useState<Set<string>>(new Set());
   const [minAge, setMinAge] = useState('');
   const [maxAge, setMaxAge] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
@@ -92,7 +97,10 @@ export default function ProfilesPage() {
             : user.has_pending_reports ? 'Pending'
             : 'Active',
           restrictionReason: user.restriction_reason || undefined,
-          restrictionReasonDetail: user.restriction_reason_detail || undefined
+          restrictionReasonDetail: user.restriction_reason_detail || undefined,
+          isDummy: !!user.is_dummy,
+          // Server default is on, so a missing value means on.
+          requireApproval: user.require_approval_for_likes !== false,
         };
       });
 
@@ -108,6 +116,32 @@ export default function ProfilesPage() {
   useEffect(() => {
     fetchProfiles();
   }, [fetchProfiles]);
+
+  const handleApprovalToggle = async (profile: ProfileData) => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId || approvalSaving.has(profile.id)) return;
+
+    const next = !profile.requireApproval;
+    const setRow = (value: boolean) =>
+      setProfiles(prev => prev.map(p => (p.id === profile.id ? { ...p, requireApproval: value } : p)));
+
+    setRow(next); // Optimistic, so the switch responds instantly.
+    setApprovalSaving(prev => new Set(prev).add(profile.id));
+    try {
+      const result = await apiService.setUserApproval(adminUserId, profile.id, next);
+      setRow(result.require_approval_for_likes);
+    } catch (err) {
+      console.error('Error updating approval setting:', err);
+      setRow(profile.requireApproval); // Roll back so the UI can't claim a state the server rejected.
+      alert('Failed to update approval setting');
+    } finally {
+      setApprovalSaving(prev => {
+        const copy = new Set(prev);
+        copy.delete(profile.id);
+        return copy;
+      });
+    }
+  };
 
   const [impostorLoading, setImpostorLoading] = useState(false);
 
@@ -207,6 +241,9 @@ export default function ProfilesPage() {
 
     const matchesStatus = statusFilter === 'All' || statusFilter === profile.restrictionType;
 
+    const matchesAccountType = accountTypeFilter === 'All' ||
+      (accountTypeFilter === 'Dummy') === profile.isDummy;
+
     const matchesMinAge = minAge === '' || (profile.age !== null && profile.age >= parseInt(minAge));
     const matchesMaxAge = maxAge === '' || (profile.age !== null && profile.age <= parseInt(maxAge));
 
@@ -215,7 +252,7 @@ export default function ProfilesPage() {
 
     const matchesMinAnswers = minAnswers === '' || profile.answers >= parseInt(minAnswers);
 
-    return matchesSearch && matchesStatus && matchesMinAge && matchesMaxAge && matchesLocation && matchesMinAnswers;
+    return matchesSearch && matchesStatus && matchesAccountType && matchesMinAge && matchesMaxAge && matchesLocation && matchesMinAnswers;
   });
 
   // Sort profiles
@@ -270,6 +307,7 @@ export default function ProfilesPage() {
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('All');
+    setAccountTypeFilter('All');
     setMinAge('');
     setMaxAge('');
     setLocationFilter('');
@@ -360,6 +398,20 @@ export default function ProfilesPage() {
               <option value="Banned">Banned</option>
               <option value="Restricted">Restricted</option>
               <option value="Pending">Pending</option>
+            </select>
+          </div>
+
+          {/* Account type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
+            <select
+              value={accountTypeFilter}
+              onChange={(e) => { setAccountTypeFilter(e.target.value as 'All' | 'Dummy' | 'Real'); setCurrentPage(1); }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#672DB7] bg-white cursor-pointer text-gray-900"
+            >
+              <option value="All">All</option>
+              <option value="Real">Real</option>
+              <option value="Dummy">Dummy</option>
             </select>
           </div>
 
@@ -484,6 +536,9 @@ export default function ProfilesPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Approval
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -510,6 +565,11 @@ export default function ProfilesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {profile.name}
+                    {profile.isDummy && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        Dummy
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {profile.username}
@@ -546,6 +606,26 @@ export default function ProfilesPage() {
                         <ReasonChip reason={profile.restrictionReason} description={profile.restrictionReasonDetail} />
                       </span>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={profile.requireApproval}
+                      aria-label={`Require approval for likes: ${profile.requireApproval ? 'on' : 'off'}`}
+                      title={profile.requireApproval ? 'Likes require approval (click to turn off)' : 'Likes do not require approval (click to turn on)'}
+                      onClick={() => handleApprovalToggle(profile)}
+                      disabled={approvalSaving.has(profile.id)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
+                        profile.requireApproval ? 'bg-[#672DB7]' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                          profile.requireApproval ? 'translate-x-[18px]' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center space-x-3">

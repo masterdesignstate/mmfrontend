@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { apiService, DummyApprovalStats } from '@/services/api';
 
 interface Controls {
   id: number;
@@ -69,6 +70,46 @@ export default function ControlsPage() {
   useEffect(() => {
     fetchControls();
   }, []);
+
+  // Approval-for-likes across all dummy accounts. This is live per-user data, not a
+  // Controls field, so it's fetched separately and the switch reflects the counts.
+  const [dummyApproval, setDummyApproval] = useState<DummyApprovalStats | null>(null);
+  const [dummyApprovalSaving, setDummyApprovalSaving] = useState(false);
+
+  const fetchDummyApproval = async () => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) return;
+    try {
+      setDummyApproval(await apiService.getDummyApprovalStats(adminUserId));
+    } catch (err) {
+      console.error('Error fetching dummy approval stats:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDummyApproval();
+  }, []);
+
+  const handleDummyApprovalToggle = async (enabled: boolean) => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId || dummyApprovalSaving) return;
+
+    setDummyApprovalSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await apiService.setDummyApproval(adminUserId, enabled);
+      setDummyApproval(result);
+      setSuccess(`Approval ${enabled ? 'turned on' : 'turned off'} for ${result.updated} dummy accounts.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update dummy accounts');
+      console.error('Error toggling dummy approval:', err);
+      fetchDummyApproval();
+    } finally {
+      setDummyApprovalSaving(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -359,6 +400,52 @@ export default function ControlsPage() {
                   checked={autoAnswerRequiredEnabled}
                   onChange={(e) => handleToggle('auto_answer_required_enabled', e.target.checked)}
                   disabled={!supportsAutoUpdaterToggles}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-gray-900 peer-focus:ring-2 peer-focus:ring-gray-900 peer-focus:ring-offset-2 peer-disabled:opacity-40 transition-colors"></div>
+                <div className="absolute w-5 h-5 ml-0.5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5 pointer-events-none"></div>
+              </label>
+            </div>
+          </div>
+
+          {/* Dummy accounts -- bulk edit of a per-user setting, applied immediately */}
+          <div className="pt-6 border-t border-gray-100 space-y-5">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
+                Dummy Accounts
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Applies to every dummy account at once. Changes apply immediately. Individual
+                accounts can be changed from the Profile List.
+              </p>
+            </div>
+
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="text-sm font-medium text-gray-900">Require approval for likes</div>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  When on, a user can only like a dummy after that dummy has approved or liked them.
+                </p>
+                {dummyApproval && (
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    {dummyApproval.approval_on.toLocaleString()} of{' '}
+                    {dummyApproval.total.toLocaleString()} dummies require approval
+                    {dummyApproval.approval_on > 0 && dummyApproval.approval_off > 0 && (
+                      <span className="text-amber-600"> (mixed)</span>
+                    )}
+                  </p>
+                )}
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  checked={
+                    !!dummyApproval &&
+                    dummyApproval.total > 0 &&
+                    dummyApproval.approval_off === 0
+                  }
+                  onChange={(e) => handleDummyApprovalToggle(e.target.checked)}
+                  disabled={!dummyApproval || dummyApproval.total === 0 || dummyApprovalSaving}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-gray-900 peer-focus:ring-2 peer-focus:ring-gray-900 peer-focus:ring-offset-2 peer-disabled:opacity-40 transition-colors"></div>
