@@ -10,6 +10,8 @@ interface ProfileStatsRowProps {
   heightCm?: number | null;
   isOnline?: boolean;
   lastActive?: string | null;
+  /** Rendered under the stats in the same card (the profile icons). */
+  children?: React.ReactNode;
 }
 
 /** Height in feet and inches, e.g. `5'-3"`. */
@@ -35,6 +37,7 @@ export default function ProfileStatsRow({
   heightCm,
   isOnline,
   lastActive,
+  children,
 }: ProfileStatsRowProps) {
   const cells: Array<{ label: string; content: React.ReactNode }> = [
     { label: 'From', content: formatLocation(fromLocation) || 'Austin' },
@@ -43,7 +46,7 @@ export default function ProfileStatsRow({
     {
       label: 'Activity',
       content: (
-        <div className="flex min-w-0 items-center justify-center">
+        <div className="flex min-w-0 items-center">
           <ActivityStatus isOnline={isOnline || false} lastActive={lastActive} />
         </div>
       ),
@@ -51,17 +54,18 @@ export default function ProfileStatsRow({
   ];
 
   return (
-    <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm">
+    <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-3 shadow-sm">
       {/* Two columns on a phone: four 65px tracks cannot hold values like
           "Brownsville" or "10 months ago", which then spill past the card edge. */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4 sm:gap-3">
         {cells.map(cell => (
-          <div key={cell.label} className="min-w-0 text-center">
+          <div key={cell.label} className="min-w-0">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{cell.label}</h3>
             <div className="mt-1 truncate text-sm font-medium text-gray-900">{cell.content}</div>
           </div>
         ))}
       </div>
+      {children && <div className="mt-3 border-t border-gray-100 pt-3">{children}</div>}
     </div>
   );
 }

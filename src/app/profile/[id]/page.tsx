@@ -3153,16 +3153,14 @@ export default function UserProfilePage() {
           heightCm={user.height}
           isOnline={user.is_online}
           lastActive={user.last_active}
-        />
-
-        {/* Section 2 — Profile icons (no outer card; chips inherit the section-card look) */}
-        {profileIcons.length > 0 && (
-          <div className="w-full max-w-xl mx-auto mb-4" ref={iconPanelRef}>
-            <div className="flex flex-wrap gap-2 justify-center">
+        >
+          {profileIcons.length > 0 && (
+          <div ref={iconPanelRef}>
+            <div className="flex flex-wrap gap-2">
               {profileIcons.map((icon) => (
                 <div
                   key={icon.questionNumber}
-                  className={`flex items-center bg-white ring-1 ring-gray-200 shadow-sm rounded-full pl-2 pr-3 py-1.5 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
+                  className={`flex items-center bg-white ring-1 ring-gray-200 rounded-full pl-2 pr-3 py-1.5 transition-colors ${icon.options.length > 0 ? 'cursor-pointer' : ''}`}
                   onClick={() => icon.options.length > 0 &&
                     setExpandedIconQuestion(expandedIconQuestion === icon.questionNumber ? null : icon.questionNumber)}
                 >
@@ -3191,7 +3189,7 @@ export default function UserProfilePage() {
 
             {/* Expanded dropdown for selected icon */}
             {expandedIcon && expandedIcon.options.length > 0 && (
-              <div className="mt-3 bg-white ring-1 ring-gray-200 shadow-sm rounded-2xl p-4">
+              <div className="mt-3 rounded-xl bg-gray-50 p-3">
                 <div className="space-y-2">
                   {expandedIcon.options.map((option, optIndex) => (
                     <div key={optIndex} className="flex items-center gap-3 py-1">
@@ -3211,7 +3209,8 @@ export default function UserProfilePage() {
               </div>
             )}
           </div>
-        )}
+          )}
+        </ProfileStatsRow>
 
         {activeProfileTab === 'posts' && renderProfilePostsTab()}
         {activeProfileTab === 'comments' && renderProfileCommentsTab()}

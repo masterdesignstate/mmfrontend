@@ -1219,8 +1219,10 @@ class ApiService {
     }) as Promise<{ status: string; already_prompted: boolean }>;
   }
 
-  async getAnswerExclusions(userId: string): Promise<AnswerExclusion[]> {
-    return this.request(`/answers/exclusions/?user=${userId}`, 'GET') as Promise<AnswerExclusion[]>;
+  /** With `includeAll`, also returns answered questions that don't exclude anything yet. */
+  async getAnswerExclusions(userId: string, includeAll = false): Promise<AnswerExclusion[]> {
+    const all = includeAll ? '&all=1' : '';
+    return this.request(`/answers/exclusions/?user=${userId}${all}`, 'GET') as Promise<AnswerExclusion[]>;
   }
 
   async updateAnswerExclusions(answerId: string, values: number[]): Promise<void> {

@@ -398,6 +398,7 @@ function FeedPageContent() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [people, setPeople] = useState<FeedPerson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [error, setError] = useState<string>('');
@@ -425,20 +426,31 @@ function FeedPageContent() {
     apiService.getFeedHashtags(viewerId).then(setCategories).catch(() => setCategories([]));
   }, [viewerId]);
 
+  // Searches fire as the user types and can resolve out of order, so only the most recent
+  // request may write to state; otherwise a slow "Luc" response overwrites "Lucy".
+  const requestSeq = useRef(0);
+
   const fetchPage = useCallback(async (aud: FeedAudience, pageNum: number, append: boolean, q: string, hashtag: string) => {
     if (!viewerId) return;
+    const seq = ++requestSeq.current;
     setLoading(true);
+    setRefreshing(!append);
     setError('');
     try {
       const data = await apiService.getFeed({ audience: aud, page: pageNum, viewerId, q, hashtag });
+      if (seq !== requestSeq.current) return;
       setItems((prev) => append ? [...prev, ...data.results] : data.results);
       if (!append) setPeople(data.people ?? []);
       setHasNext(data.has_next);
       setPage(pageNum);
     } catch (err) {
+      if (seq !== requestSeq.current) return;
       setError(err instanceof Error ? err.message : 'Could not load feed.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [viewerId]);
 
@@ -465,7 +477,15 @@ function FeedPageContent() {
             <NavLogo />
           </div>
           <div className="flex items-center gap-2 w-full max-w-2xl mx-auto min-w-0">
-            <div className="relative flex-1 min-w-0">
+            <form
+              role="search"
+              className="relative flex-1 min-w-0"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSearchQuery(searchInput.trim());
+                (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.blur();
+              }}
+            >
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -473,6 +493,7 @@ function FeedPageContent() {
               </div>
               <input
                 type="search"
+                enterKeyHint="search"
                 placeholder="Search posts, names or usernames"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -488,7 +509,7 @@ function FeedPageContent() {
                   ×
                 </button>
               )}
-            </div>
+            </form>
             <FeedTitleDropdown audience={audience} setAudience={setAudience} />
           </div>
           <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2">
@@ -557,14 +578,22 @@ function FeedPageContent() {
           </div>
         )}
 
-        {searchQuery && people.length > 0 && <PeopleMatches people={people} />}
-
         {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
+
+        <div
+          aria-busy={refreshing}
+          className={`transition-opacity duration-150 ${refreshing && items.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}
+        >
+        {searchQuery && people.length > 0 && <PeopleMatches people={people} />}
 
         {loading && items.length === 0 ? (
           <HeartLoader texts={['Loading your feed...', 'Catching up on posts...', 'Almost ready...']} fullScreen={false} />
         ) : items.length === 0 ? (
-          <div className="text-center text-gray-500 py-10">Nothing here yet.</div>
+          <div className="text-center text-gray-500 py-10">
+            {searchQuery
+              ? (people.length > 0 ? 'No posts or updates from them yet.' : `No results for “${searchQuery}”.`)
+              : 'Nothing here yet.'}
+          </div>
         ) : (
           <>
             {items.map((it, i) => {
@@ -586,6 +615,7 @@ function FeedPageContent() {
             )}
           </>
         )}
+        </div>
         </main>
       </div>
     </div>
@@ -594,29 +624,28 @@ function FeedPageContent() {
 
 function PeopleMatches({ people }: { people: FeedPerson[] }) {
   return (
-    <section className="mb-4" aria-label="People">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>
+    <section className="mb-4 border-b border-gray-100 pb-4" aria-label="People">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>
       <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="inline-flex gap-2">
+        <div className="flex gap-3">
           {people.map((person) => {
             const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.username;
             return (
               <Link
                 key={person.id}
                 href={`/profile/${person.id}`}
-                className="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 ring-1 ring-gray-200 hover:ring-purple-300"
+                title={`${name} (@${person.username})`}
+                className="flex w-28 shrink-0 flex-col items-center rounded-2xl px-2 py-3 ring-1 ring-gray-200 transition hover:bg-purple-50/40 hover:ring-purple-300"
               >
                 <Image
                   src={person.profile_photo || DEFAULT_AVATAR}
                   alt=""
-                  width={28}
-                  height={28}
-                  className="h-7 w-7 rounded-full object-cover"
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 rounded-full object-cover ring-1 ring-gray-100"
                 />
-                <span className="flex flex-col leading-tight">
-                  <span className="whitespace-nowrap text-sm font-semibold text-gray-900">{name}</span>
-                  <span className="whitespace-nowrap text-xs text-gray-500">@{person.username}</span>
-                </span>
+                <span className="mt-2 w-full truncate text-center text-sm font-semibold text-gray-900">{name}</span>
+                <span className="w-full truncate text-center text-xs text-gray-500">@{person.username}</span>
               </Link>
             );
           })}

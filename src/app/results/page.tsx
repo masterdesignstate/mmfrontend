@@ -2557,6 +2557,14 @@ function ResultsPageContent() {
                     </div>
                   </div>
                 </div>
+
+                {viewerId && (
+                  <ExcludedQuestionsSection
+                    userId={viewerId}
+                    drafts={exclusionDrafts}
+                    onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
+                  />
+                )}
               </div>
 
               {/* Compatibility Slider */}
@@ -2626,14 +2634,6 @@ function ResultsPageContent() {
                   })}
                 </div>
               </div>
-
-              {viewerId && (
-                <ExcludedQuestionsSection
-                  userId={viewerId}
-                  drafts={exclusionDrafts}
-                  onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
-                />
-              )}
             </div>
 
             {/* Footer */}
