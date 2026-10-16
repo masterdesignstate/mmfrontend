@@ -550,7 +550,7 @@ export default function EditProfilePage() {
       return 'Please fill in all required fields';
     }
     if (taglineOverLimit) return overLimitMessage('Tag line', MAX_TAGLINE_CHARS);
-    if (bioOverLimit) return overLimitMessage('Bio', MAX_BIO_CHARS);
+    if (bioOverLimit) return overLimitMessage('About Me', MAX_BIO_CHARS);
     const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
     if (!dateRegex.test(form.dateOfBirth)) return 'Date must be in MM/DD/YYYY format';
     const [mm, dd, yyyy] = form.dateOfBirth.split('/').map(Number);
@@ -1156,20 +1156,21 @@ export default function EditProfilePage() {
                 </select>
               </div>
 
-              {/* Bio */}
+              {/* About Me (stored as `bio`) */}
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-900">Bio</label>
+                  <label htmlFor="about-me" className="block text-sm font-medium text-gray-900">About Me</label>
                   <CharCounter value={form.bio} max={MAX_BIO_CHARS} />
                 </div>
                 <textarea
+                  id="about-me"
                   name="bio"
                   value={form.bio}
                   onChange={onChange}
-                  rows={3}
-                  placeholder="Tell us about yourself..."
+                  rows={6}
+                  placeholder="Tell people about yourself..."
                   aria-invalid={bioOverLimit}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent resize-none ${
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent resize-y ${
                     bioOverLimit ? 'border-red-400 focus:ring-red-500' : 'border-gray-300 focus:ring-[#672DB7]'
                   }`}
                 />

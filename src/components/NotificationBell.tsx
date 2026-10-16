@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiService, Notification } from '@/services/api';
+import { getQuestionHeading } from '@/utils/questionDisplay';
 
 interface NotificationBellProps {
   userId: string;
@@ -81,8 +82,12 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           prev.map(n => (n.id === notification.id ? { ...n, is_read: true } : n))
         );
       }
-      // Navigate to notifications page; if already there, refresh to pull latest
-      if (pathname === '/notifications') {
+      const promptedQuestionNumber = notification.notification_type === 'question_prompt'
+        ? notification.related_question?.question_number
+        : undefined;
+      if (promptedQuestionNumber) {
+        router.push(`/questions/${promptedQuestionNumber}`);
+      } else if (pathname === '/notifications') {
         // Force a client-side reload to ensure list updates
         window.location.reload();
       } else {
@@ -136,6 +141,13 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         return notification.note
           ? `${senderName} voted on your poll: ${notification.note}`
           : `${senderName} voted on your poll`;
+      case 'question_prompt': {
+        const question = notification.related_question;
+        const heading = question ? getQuestionHeading(question.question_number, question) : '';
+        return heading
+          ? `${senderName} asked you to answer “${heading}”`
+          : `${senderName} asked you to answer a question`;
+      }
       default:
         return `${senderName} interacted with you`;
     }

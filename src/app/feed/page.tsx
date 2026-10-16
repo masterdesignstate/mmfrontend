@@ -17,6 +17,7 @@ import {
   MAX_POST_IMAGES,
   type FeedAudience,
   type FeedItem,
+  type FeedPerson,
   type HashtagCategory,
   type Post,
   type PostVisibility,
@@ -292,7 +293,7 @@ function ActivityCard({ item }: { item: FeedItem }) {
   let body: React.ReactNode = null;
   let verb = '';
   if (a.kind === 'bio_updated') {
-    verb = grouped ? `updated their bio ${count} times` : 'updated their bio';
+    verb = grouped ? `updated their About Me ${count} times` : 'updated their About Me';
     const snippet = String((a.payload as { snippet?: string }).snippet || '');
     if (snippet) body = <blockquote className="mt-1.5 text-sm text-gray-600 italic border-l-2 border-purple-200 pl-3">“{snippet}”</blockquote>;
   } else if (a.kind === 'photo_added') {
@@ -395,6 +396,7 @@ function ActivityCard({ item }: { item: FeedItem }) {
 function FeedPageContent() {
   const [audience, setAudience] = useState<FeedAudience>('all');
   const [items, setItems] = useState<FeedItem[]>([]);
+  const [people, setPeople] = useState<FeedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
@@ -430,6 +432,7 @@ function FeedPageContent() {
     try {
       const data = await apiService.getFeed({ audience: aud, page: pageNum, viewerId, q, hashtag });
       setItems((prev) => append ? [...prev, ...data.results] : data.results);
+      if (!append) setPeople(data.people ?? []);
       setHasNext(data.has_next);
       setPage(pageNum);
     } catch (err) {
@@ -470,7 +473,7 @@ function FeedPageContent() {
               </div>
               <input
                 type="search"
-                placeholder="Search posts"
+                placeholder="Search posts, names or usernames"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="block w-full pl-9 pr-8 py-2 sm:py-2.5 text-sm border border-gray-300 rounded-full bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
@@ -554,6 +557,8 @@ function FeedPageContent() {
           </div>
         )}
 
+        {searchQuery && people.length > 0 && <PeopleMatches people={people} />}
+
         {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
 
         {loading && items.length === 0 ? (
@@ -584,6 +589,40 @@ function FeedPageContent() {
         </main>
       </div>
     </div>
+  );
+}
+
+function PeopleMatches({ people }: { people: FeedPerson[] }) {
+  return (
+    <section className="mb-4" aria-label="People">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>
+      <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="inline-flex gap-2">
+          {people.map((person) => {
+            const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.username;
+            return (
+              <Link
+                key={person.id}
+                href={`/profile/${person.id}`}
+                className="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 ring-1 ring-gray-200 hover:ring-purple-300"
+              >
+                <Image
+                  src={person.profile_photo || DEFAULT_AVATAR}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-full object-cover"
+                />
+                <span className="flex flex-col leading-tight">
+                  <span className="whitespace-nowrap text-sm font-semibold text-gray-900">{name}</span>
+                  <span className="whitespace-nowrap text-xs text-gray-500">@{person.username}</span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
 

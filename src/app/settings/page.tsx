@@ -583,7 +583,7 @@ function SettingsPageContent() {
           </div>
           <div className="px-5 py-4 space-y-3">
             {([
-              { label: 'Bio Updates', field: 'feed_visibility_bio' as const, value: bioVis, set: setBioVis },
+              { label: 'About Me Updates', field: 'feed_visibility_bio' as const, value: bioVis, set: setBioVis },
               { label: 'Photo Updates', field: 'feed_visibility_photo' as const, value: photoVis, set: setPhotoVis },
               { label: 'Questions Answered', field: 'feed_visibility_question' as const, value: questionVis, set: setQuestionVis },
             ]).map(row => (

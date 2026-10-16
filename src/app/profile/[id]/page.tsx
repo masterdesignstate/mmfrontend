@@ -13,6 +13,8 @@ import FeedPostCard, { DEFAULT_AVATAR, formatRelative } from '@/components/FeedP
 import HamburgerMenu from '@/components/HamburgerMenu';
 import InfoTip from '@/components/InfoTip';
 import MatchCelebration from '@/components/MatchCelebration';
+import AboutMeSection from '@/components/AboutMeSection';
+import PromptToAnswerButton from '@/components/PromptToAnswerButton';
 import ProfileStatsRow from '@/components/ProfileStatsRow';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
@@ -3215,6 +3217,8 @@ export default function UserProfilePage() {
         {activeProfileTab === 'comments' && renderProfileCommentsTab()}
         {activeProfileTab === 'profile' && (
           <>
+        <AboutMeSection text={user.bio} isOwner={currentViewerId === user.id} />
+
         {/* Section 3 — Compatibility cards + Required */}
         {compatibility && (
           <div className="w-full max-w-xl mx-auto mb-4">
@@ -3454,13 +3458,6 @@ export default function UserProfilePage() {
           </div>
         )}
 
-
-        {/* Section 4 — Bio (no heading, min-height card) */}
-        <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm min-h-[44px] flex items-center justify-center">
-          <p className="text-sm font-normal text-black text-center">
-            {user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}
-          </p>
-        </div>
 
         <ProfilePromptCards
           prompts={profilePrompts}
@@ -4502,6 +4499,13 @@ export default function UserProfilePage() {
                               <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
                                 {answeredByProfile && <AnsweredCheck by={profileOwnerName} />}
                                 {currentUserAnsweredQuestionNumbers.has(group.questionNumber) && <YouAnsweredMarker />}
+                                {groupAny.pendingType === 'their' && !answeredByProfile && !isViewingOwnProfile && user && (
+                                  <PromptToAnswerButton
+                                    recipientId={user.id}
+                                    recipientName={profileOwnerName}
+                                    questionNumber={group.questionNumber}
+                                  />
+                                )}
                                 {groupAny.pendingType === 'my' && (
                                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

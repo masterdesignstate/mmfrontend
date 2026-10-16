@@ -154,14 +154,6 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           </button>
 
           <button
-            onMouseEnter={prefetchQuestions}
-            onClick={() => handleNavigation('/questions?filter=answered')}
-            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            My Answers
-          </button>
-
-          <button
             onClick={() => handleNavigation('/results')}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >

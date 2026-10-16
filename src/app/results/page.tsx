@@ -9,6 +9,7 @@ import ReactSlider from 'react-slider';
 import { apiService, MAX_LIKE_NOTE_CHARS, type ApiUser, type CompatibilityResult } from '@/services/api';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import CharCounter from '@/components/CharCounter';
+import ExcludedQuestionsSection from '@/components/ExcludedQuestionsSection';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import InfoTip from '@/components/InfoTip';
 import NavLogo from '@/components/NavLogo';
@@ -275,6 +276,9 @@ function ResultsPageContent() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  // Exclusion edits made in the filter panel, keyed by answer id; saved on Apply.
+  const [exclusionDrafts, setExclusionDrafts] = useState<Record<string, number[]>>({});
+  const [viewerId, setViewerId] = useState('');
   const [hasHydrated, setHasHydrated] = useState(false);
   // Load filtersApplied from sessionStorage on mount
   const [filtersApplied, setFiltersApplied] = useState(() => {
@@ -691,6 +695,7 @@ function ResultsPageContent() {
 
   useEffect(() => {
     setHasHydrated(true);
+    setViewerId(localStorage.getItem('user_id') || '');
   }, []);
 
   // Snapshot current filters into pendingFilters when modal opens
@@ -700,6 +705,7 @@ function ResultsPageContent() {
         ...filters,
         tags: normalizeExclusiveRequiredTags(filters.tags ?? [])
       });
+      setExclusionDrafts({});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showFilterModal]);
@@ -1571,6 +1577,14 @@ function ResultsPageContent() {
     try {
       setIsApplyingFilters(true); // Shows loading animation inside modal
 
+      // Exclusions are answer data, not filter state: persist them before refetching so the
+      // new results already reflect them.
+      const draftEntries = Object.entries(exclusionDrafts);
+      if (draftEntries.length > 0) {
+        await Promise.all(draftEntries.map(([answerId, values]) => apiService.updateAnswerExclusions(answerId, values)));
+        setExclusionDrafts({});
+      }
+
       // NOTE: setAppliedTags is intentionally NOT called here.
       // It's updated inside fetchCompatibleUsers when new profiles arrive,
       // so card colors don't flip before the data refreshes.
@@ -1716,7 +1730,7 @@ function ResultsPageContent() {
               </div>
               <input
                 type="text"
-                placeholder={searchField === 'name' ? 'Search by Name' : searchField === 'username' ? 'Search by Username' : searchField === 'live' ? 'Search by Location' : 'Search by Bio'}
+                placeholder={searchField === 'name' ? 'Search by Name' : searchField === 'username' ? 'Search by Username' : searchField === 'live' ? 'Search by Location' : 'Search by About Me'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full min-w-0 sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-l-full rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
@@ -1726,11 +1740,11 @@ function ResultsPageContent() {
                 <button
                   onClick={() => setShowSearchFieldDropdown(!showSearchFieldDropdown)}
                   aria-expanded={showSearchFieldDropdown}
-                  aria-label={`Search field: ${searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'Bio'}. Change it.`}
+                  aria-label={`Search field: ${searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'About Me'}. Change it.`}
                   className="h-full px-2 sm:px-4 border border-l-0 border-gray-300 rounded-r-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none flex items-center gap-0.5 sm:gap-1 relative shadow-sm whitespace-nowrap"
                 >
                   <span className="hidden sm:inline text-xs sm:text-sm">
-                    {searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'Bio'}
+                    {searchField === 'name' ? 'Name' : searchField === 'username' ? 'Username' : searchField === 'live' ? 'Live' : 'About Me'}
                   </span>
                   <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1790,8 +1804,8 @@ function ResultsPageContent() {
                         searchField === 'bio' ? 'bg-gray-50' : ''
                       }`}
                     >
-                      <div className={`font-semibold ${searchField === 'bio' ? 'text-indigo-600' : 'text-black'}`}>Bio</div>
-                      <div className="text-sm text-gray-500">Search by bio text</div>
+                      <div className={`font-semibold ${searchField === 'bio' ? 'text-indigo-600' : 'text-black'}`}>About Me</div>
+                      <div className="text-sm text-gray-500">Search by About Me text</div>
                     </button>
                   </div>
                 )}
@@ -1898,6 +1912,16 @@ function ResultsPageContent() {
             </p>
           </div>
 
+          <button
+            type="button"
+            onClick={() => router.push('/questions?filter=answered')}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:border-[#672DB7] hover:text-[#672DB7] cursor-pointer"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            My Answers
+          </button>
         </div>
 
         {/* Active Filter Chips */}
@@ -2602,6 +2626,14 @@ function ResultsPageContent() {
                   })}
                 </div>
               </div>
+
+              {viewerId && (
+                <ExcludedQuestionsSection
+                  userId={viewerId}
+                  drafts={exclusionDrafts}
+                  onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
+                />
+              )}
             </div>
 
             {/* Footer */}

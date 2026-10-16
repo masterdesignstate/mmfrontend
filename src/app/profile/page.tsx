@@ -10,6 +10,7 @@ import { apiService, type UserProfilePrompt } from '@/services/api';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import AboutMeSection from '@/components/AboutMeSection';
 import ProfileStatsRow from '@/components/ProfileStatsRow';
 import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
@@ -871,6 +872,8 @@ export default function ProfilePage() {
             </div>
           )}
 
+          <AboutMeSection text={user.bio} isOwner />
+
           {/* Section 3 — Question counts */}
           {requiredQuestionsCount !== undefined && (
             <div className="w-full max-w-xl mx-auto mb-4">
@@ -901,13 +904,6 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
-
-          {/* Section 4 — Bio */}
-          <div className="w-full max-w-xl mx-auto mb-4 rounded-2xl ring-1 ring-gray-200 bg-white px-4 py-2.5 shadow-sm min-h-[44px] flex items-center justify-center">
-            <p className="text-sm font-normal text-black text-center">
-              {user.bio || 'Lord of the rings hardcore fan and doja cat enthusiast'}
-            </p>
-          </div>
 
           <ProfilePromptCards
             prompts={profilePrompts}

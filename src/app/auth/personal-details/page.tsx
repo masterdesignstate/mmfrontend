@@ -213,7 +213,7 @@ export default function PersonalDetailsPage() {
     }
 
     if (bioOverLimit) {
-      setError(overLimitMessage('Bio', MAX_BIO_CHARS));
+      setError(overLimitMessage('About Me', MAX_BIO_CHARS));
       return;
     }
 
@@ -552,11 +552,11 @@ export default function PersonalDetailsPage() {
                 </select>
               </div>
 
-              {/* Bio Field */}
+              {/* About Me Field (stored as `bio`) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="bio" className="block text-sm font-medium text-gray-900">
-                    Bio
+                    About Me
                   </label>
                   <CharCounter value={formData.bio} max={MAX_BIO_CHARS} />
                 </div>

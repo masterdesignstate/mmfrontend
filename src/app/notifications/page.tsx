@@ -9,6 +9,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import NavLogo from '@/components/NavLogo';
 import HeartLoader from '@/components/HeartLoader';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import { getQuestionHeading } from '@/utils/questionDisplay';
 
 function NotificationsPageContent() {
   const router = useRouter();
@@ -91,6 +92,8 @@ function NotificationsPageContent() {
         } catch {
           router.push('/chats');
         }
+      } else if (notification.notification_type === 'question_prompt' && notification.related_question?.question_number) {
+        router.push(`/questions/${notification.related_question.question_number}`);
       } else {
         router.push(`/profile/${notification.sender.id}`);
       }
@@ -148,6 +151,13 @@ function NotificationsPageContent() {
         return notification.note
           ? `${senderName} voted on your poll: ${notification.note}`
           : `${senderName} voted on your poll`;
+      case 'question_prompt': {
+        const question = notification.related_question;
+        const heading = question ? getQuestionHeading(question.question_number, question) : '';
+        return heading
+          ? `${senderName} asked you to answer “${heading}”`
+          : `${senderName} asked you to answer a question`;
+      }
       default:
         return `${senderName} interacted with you`;
     }
@@ -166,6 +176,8 @@ function NotificationsPageContent() {
         return '💌';
       case 'prompt_poll':
         return '📊';
+      case 'question_prompt':
+        return '❓';
       default:
         return '🔔';
     }

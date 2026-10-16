@@ -32,7 +32,7 @@ export const MAX_POLL_COMMENT_CHARS = 200;
 // Free-text length limits — keep in sync with the backend
 // (User.tagline / User.bio / UserAnswer.me_note / Post.MAX_BODY_LENGTH).
 export const MAX_TAGLINE_CHARS = 40;
-export const MAX_BIO_CHARS = 280;
+export const MAX_BIO_CHARS = 3000;
 export const MAX_ANSWER_NOTE_CHARS = 160;
 export const MAX_POST_CHARS = 160;
 export const MAX_POST_COMMENT_CHARS = 1000;
@@ -196,11 +196,22 @@ export interface FeedItem {
   activity?: FeedActivity;
 }
 
+/** Someone whose name or username matched a feed search. */
+export interface FeedPerson {
+  id: string;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  profile_photo?: string | null;
+}
+
 export interface FeedResponse {
   results: FeedItem[];
   has_next: boolean;
   page: number;
   audience: FeedAudience;
+  /** People the search matched by name or username; page 1 of a search only. */
+  people?: FeedPerson[];
 }
 
 export type FeedVisibility = 'none' | 'all' | 'approved' | 'liked' | 'matched';
@@ -360,12 +371,32 @@ export interface Notification {
   id: string;
   recipient: ApiUser;
   sender: ApiUser;
-  notification_type: 'approve' | 'like' | 'match' | 'note' | 'prompt_poll';
+  notification_type: 'approve' | 'like' | 'match' | 'note' | 'prompt_poll' | 'question_prompt';
   note?: string;
   is_read: boolean;
   created_at: string;
   related_user_result?: string;
   related_prompt_poll_vote?: PromptPollVote;
+  /** For question_prompt: the question the sender asked the recipient to answer. */
+  related_question?: Pick<
+    Question,
+    'id' | 'question_number' | 'question_name' | 'question_type' | 'group_name' | 'group_name_text' | 'text'
+  > | null;
+}
+
+/** One of the viewer's answers that excludes people from Results (GET /answers/exclusions/). */
+export interface AnswerExclusion {
+  answer_id: string;
+  question: Pick<
+    Question,
+    'id' | 'question_number' | 'question_name' | 'question_type' | 'group_name' | 'group_name_text' | 'text'
+  > & { group_number?: number | null };
+  me_answer: number;
+  excluded_answer_values: number[];
+  allowed_values: number[];
+  /** The viewer's own answer, which can't be excluded. */
+  blocked_values: number[];
+  value_labels: Record<string, string>;
 }
 
 export interface Message {
@@ -1177,6 +1208,23 @@ class ApiService {
 
   async markAllNotificationsRead(userId: string): Promise<{ status: string }> {
     return this.request(`/notifications/mark_all_read/?user_id=${userId}`, 'POST') as Promise<{ status: string }>;
+  }
+
+  /** Ask `recipientId` to answer a question; a repeat while the first is unread is a no-op. */
+  async promptQuestion(senderId: string, recipientId: string, questionNumber: number): Promise<{ status: string; already_prompted: boolean }> {
+    return this.request('/notifications/prompt_question/', 'POST', {
+      user_id: senderId,
+      recipient_id: recipientId,
+      question_number: questionNumber,
+    }) as Promise<{ status: string; already_prompted: boolean }>;
+  }
+
+  async getAnswerExclusions(userId: string): Promise<AnswerExclusion[]> {
+    return this.request(`/answers/exclusions/?user=${userId}`, 'GET') as Promise<AnswerExclusion[]>;
+  }
+
+  async updateAnswerExclusions(answerId: string, values: number[]): Promise<void> {
+    await this.request(`/answers/${answerId}/`, 'PATCH', { excluded_answer_values: values });
   }
 
   async deleteNotification(notificationId: string): Promise<void> {

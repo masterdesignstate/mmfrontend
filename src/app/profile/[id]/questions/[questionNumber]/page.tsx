@@ -20,6 +20,7 @@ import {
   WANT_KIDS_LABELS,
 } from '@/constants/mandatoryQuestions';
 import { getQuestionOptionIcon } from '@/constants/questionIcons';
+import PromptToAnswerButton from '@/components/PromptToAnswerButton';
 import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
 import { getAnswerValuePosition, getAnswerValues, getNearestAnswerValue, getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
@@ -122,6 +123,8 @@ export default function ReadOnlyQuestionViewPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [canShowThemAnswers, setCanShowThemAnswers] = useState(false);
+  const [profileName, setProfileName] = useState('them');
+  const [viewerId, setViewerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
@@ -173,6 +176,8 @@ export default function ReadOnlyQuestionViewPage() {
 
         setQuestions(questionsList);
         setUserAnswers(filteredAnswers);
+        setViewerId(currentUserId);
+        setProfileName(profileData?.first_name || profileData?.username || 'them');
         setCanShowThemAnswers(canViewThemAnswersForAudience(
           normalizeAnswerVisibility(profileData?.share_answers),
           currentUserId,
@@ -251,6 +256,20 @@ export default function ReadOnlyQuestionViewPage() {
     const questionType: Question['question_type'] = questions[0]?.question_type || 'basic';
     const canShowThem = canShowThemAnswers;
     const allQuestionAnswersShared = userAnswers.length > 0 && userAnswers.every(answer => answer.me_share !== false);
+
+    if (userAnswers.length === 0 && viewerId && viewerId !== userId) {
+      return (
+        <div className="flex flex-col items-center gap-4 py-12 text-center">
+          <p className="text-gray-500">{profileName} hasn&apos;t answered this question yet.</p>
+          <PromptToAnswerButton
+            recipientId={userId}
+            recipientName={profileName}
+            questionNumber={questionNumber}
+            variant="full"
+          />
+        </div>
+      );
+    }
 
     if (!allQuestionAnswersShared) {
       return (

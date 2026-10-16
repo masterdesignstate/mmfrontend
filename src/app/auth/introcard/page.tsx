@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { ONBOARDING_ROUTES, ONBOARDING_STEPS, RELATIONSHIP } from '@/constants/mandatoryQuestions';
 import OnboardingShell from '@/components/OnboardingShell';
+import { hasSeenOnboardingDemo } from '@/utils/onboardingDemo';
 
 export default function IntroCardPage() {
   const router = useRouter();
@@ -157,11 +158,23 @@ export default function IntroCardPage() {
 
       if (!nextUnanswered) {
         router.push('/feed');
-      } else if (nextUnanswered === RELATIONSHIP) {
+        return;
+      }
+
+      let destination: string;
+      if (nextUnanswered === RELATIONSHIP) {
         params.set('questions', JSON.stringify(questions));
-        router.push(`/auth/relationship?${params.toString()}`);
+        destination = `/auth/relationship?${params.toString()}`;
       } else {
-        router.push(`${ONBOARDING_ROUTES[nextUnanswered]}?${params.toString()}`);
+        destination = `${ONBOARDING_ROUTES[nextUnanswered]}?${params.toString()}`;
+      }
+
+      // The practice question runs once, right before someone's very first question.
+      if (nextUnanswered === ONBOARDING_STEPS[0].number && !hasSeenOnboardingDemo(userId)) {
+        const demoParams = new URLSearchParams({ user_id: userId, next: destination });
+        router.push(`/auth/demo-question?${demoParams.toString()}`);
+      } else {
+        router.push(destination);
       }
     } catch (error) {
       console.error('Error navigating:', error);
