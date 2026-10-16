@@ -624,10 +624,11 @@ function FeedPageContent() {
 
 function PeopleMatches({ people }: { people: FeedPerson[] }) {
   return (
-    <section className="mb-4 border-b border-gray-100 pb-4" aria-label="People">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>
-      <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex gap-3">
+    <section className="mb-4 border-b border-gray-100 pb-3" aria-label="People">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>
+      {/* The padding keeps the cards' rings inside the scroller, which clips overflow on both axes. */}
+      <div className="overflow-x-auto p-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-2">
           {people.map((person) => {
             const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.username;
             return (
@@ -635,17 +636,17 @@ function PeopleMatches({ people }: { people: FeedPerson[] }) {
                 key={person.id}
                 href={`/profile/${person.id}`}
                 title={`${name} (@${person.username})`}
-                className="flex w-28 shrink-0 flex-col items-center rounded-2xl px-2 py-3 ring-1 ring-gray-200 transition hover:bg-purple-50/40 hover:ring-purple-300"
+                className="flex w-[92px] shrink-0 flex-col items-center rounded-xl px-1.5 py-2 ring-1 ring-gray-200 transition hover:bg-purple-50/40 hover:ring-purple-300"
               >
                 <Image
                   src={person.profile_photo || DEFAULT_AVATAR}
                   alt=""
-                  width={64}
-                  height={64}
-                  className="h-16 w-16 rounded-full object-cover ring-1 ring-gray-100"
+                  width={44}
+                  height={44}
+                  className="h-11 w-11 rounded-full object-cover"
                 />
-                <span className="mt-2 w-full truncate text-center text-sm font-semibold text-gray-900">{name}</span>
-                <span className="w-full truncate text-center text-xs text-gray-500">@{person.username}</span>
+                <span className="mt-1.5 w-full truncate text-center text-xs font-semibold text-gray-900">{name}</span>
+                <span className="w-full truncate text-center text-[11px] leading-tight text-gray-500">@{person.username}</span>
               </Link>
             );
           })}
