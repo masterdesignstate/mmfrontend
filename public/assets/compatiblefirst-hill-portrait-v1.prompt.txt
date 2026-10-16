@@ -1,0 +1,37 @@
+Generated with the built-in image generation tool.
+
+Use case: infographic-diagram
+Create one finished vertical portrait infographic for CompatibleFirst, approximately 9:16, high resolution, beautifully polished and legible on mobile.
+
+The four images attached in the conversation are STYLE REFERENCES ONLY, not edit targets. Match their established brand: luminous very pale lavender background, spacious editorial layout, bold black modern sans-serif headings with vivid royal-purple emphasis, beveled clear glass panels, glossy purple accents, faceted amethyst heart logo, restrained dotted textures and soft shadows. Reproduce the brand wordmark CompatibleFirst.com at the top, Compatible in black, First in purple, small .com. Do not replicate the question flow, portraits, profile cards or 92% score from the references. This is a NEW hill metaphor composition.
+
+Core message: dating takes effort from two people, and an opaque hill prevents you seeing how you align until you have invested in the climb. CompatibleFirst is like a transparent hill: answers and mutual preferences help you see alignment earlier, while connection still takes effort. Do not promise guaranteed love or certainty.
+
+Layout:
+Top ~18%: centered small faceted purple heart and CompatibleFirst.com wordmark, then large two-line headline, exact text:
+"Dating is a climb"
+"Start with a clearer view"
+First line black; second line royal purple. Give these excellent hierarchy.
+
+Middle: TWO LARGE STACKED SCENES, each filling the width with generous side margins, each inside an elegant softly rounded glass-edged panel. One hill per scene. These are gently sloped, rounded HILLS, not towering jagged mountains, drawn as highly polished dimensional editorial 3D miniature terrain. The same hill shape and the same two tiny adult hikers in both scenes. Show winding ascending footpaths and a small faceted purple heart at the summit. People are subtle miniature realistic figures, not goofy cartoons. Camera is an oblique side view that makes opposite sides and opacity understandable.
+
+UPPER SCENE, heading exact "Dating today" in black.
+Opaque solid matte muted gray-lavender hill. One hiker ascending near-side slope, other person largely obscured behind the far-side ridge, with a small floating purple question mark indicating what is unknown. The opaque hill visibly interrupts any view between them. Footpath climbs a long way to the summit. Avoid revealing the hill's hidden interior. Make the relationship between climbing, effort, and the obscured far side intuitive.
+Below illustration in the same panel, concise caption exact:
+"Invest time before you know where you align"
+
+LOWER SCENE, heading exact "With CompatibleFirst" with CompatibleFirst in royal purple.
+Same hill, same camera and path scale, now made of beautifully transparent pale violet crystal-clear GLASS with a few restrained faceted edges and luminous contour lines. It MUST visibly be see-through, not just a purple solid mountain. The near and far paths and both hikers can be seen through its transparent body, still on their respective slopes and still climbing. Subtle sight line connects across the transparent hill, making the visibility metaphor obvious.
+Through its clear face show three tasteful floating small glass badges with simple purple icons and these exact readable labels:
+"Values"   "Lifestyle"   "Relationship goals"
+Use generous spacing so these three labels remain crisp and never overlap people, paths or each other. They represent dimensions of alignment becoming visible, not magical guaranteed compatibility. No percentages.
+Below illustration in the same panel, concise caption on two lines exact:
+"See how your answers and preferences align"
+"from the start"
+
+Bottom ~10%: large centered closing line exact:
+"The climb still takes two"
+And smaller purple line:
+"See where you align"
+
+All visible text must follow the exact supplied wording, without terminal periods. Spell CompatibleFirst correctly. No extra copy, no Reddit reference, no source attribution in the image. Make this a coherent premium branded infographic, with large actual hill illustrations as the main storytelling element, subtle texture, uncluttered typography, polished transparent materials, no excessive decorative connectors. Keep entire design within frame with safe margins.

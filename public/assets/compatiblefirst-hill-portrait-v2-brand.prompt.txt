@@ -1,0 +1,22 @@
+Mode: Built-in image generation tool, edit
+Inputs: compatiblefirst-hill-portrait-v1.png; mmlogox.png
+
+Edit the supplied portrait hill infographic. Input image 1 is the EDIT TARGET. Input image 2 is the actual official CompatibleFirst heart logo from the website and is a REQUIRED EXACT LOGO INSERT, not a loose style reference.
+Make only the following brand corrections; preserve composition, two panels, hill shapes, hikers, paths, headings, all captions and visual story.
+1. Correct the palette to the actual website: primary brand purple #672DB7 (RGB 103,45,183), darkest accent #59259F, main text #18151D, secondary text #6B6571, background #FCFBFD, gentle lavender surface shades #F5F1FA and #F1EAFB, subtle border #E5E2E8. Replace the excessively bright electric blue-violet purple across headline, label text, icons, question mark, footer, decorative dots and glass shading with this warmer, more muted brand purple. Background should be primarily clean warm off-white with subtle lavender atmosphere. Retain the elegant glass aesthetic and transparent crystal hill, but gently tint it in the warmer brand purple family. Terrain and hikers retain realistic natural details.
+2. At top, remove the invented 3D jewel heart COMPLETELY and replace it with the provided actual logo artwork. Faithfully insert the exact flat geometric heart design, with its exact polygon facets, colors, silhouette, aspect ratio and negative space. The mark has a dark plum upper-left lobe, purple upper-right lobe, triangular muted lavender facets and its distinctive triangular negative space on right of center, and a purple downward tip. Do not redraw as a gemstone, add bevels, extrude, change shapes, or reinterpret this brand asset. Use provided logo pixels faithfully, scaled neatly to the existing top emblem footprint. Keep CompatibleFirst.com wordmark below it with Compatible in #18151D, First in #672DB7, and small .com in charcoal.
+The two small summit hearts can remain dimensional metaphor illustrations, toned to the updated warmer purple, distinct from the official top logo.
+All other content must stay the same. Maintain exact text:
+Dating is a climb
+Start with a clearer view
+Dating today
+Invest time before you know where you align
+With CompatibleFirst
+Values
+Lifestyle
+Relationship goals
+See how your answers and preferences align
+from the start
+The climb still takes two
+See where you align
+No terminal periods. Deliver the polished revised full portrait image, same aspect ratio and full uncropped composition.

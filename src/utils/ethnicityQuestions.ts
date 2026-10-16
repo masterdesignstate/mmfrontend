@@ -17,6 +17,17 @@ type AnswerWithQuestion<TQuestion extends EthnicityQuestionLike = EthnicityQuest
 
 const OTHER_ETHNICITY_TEXT = 'How strongly do you identify as another ethnicity?';
 
+// The database stores this option as "Native"; everywhere that lists the options shows the
+// full name. Only question objects are renamed — onboarding keeps its answered-options record
+// in the stored spelling, so normalizeEthnicityQuestionName leaves it alone.
+const NATIVE_ETHNICITY_STORED_NAME = 'Native';
+const NATIVE_ETHNICITY_DISPLAY_NAME = 'Native American';
+
+/** The stored option name for a displayed one, for lookups keyed on what the database holds. */
+export function toStoredEthnicityName(questionName: string): string {
+  return questionName === NATIVE_ETHNICITY_DISPLAY_NAME ? NATIVE_ETHNICITY_STORED_NAME : questionName;
+}
+
 function isEthnicityQuestion(question: EthnicityQuestionLike, questionNumber?: number): boolean {
   return questionNumber === ETHNICITY || question.question_number === ETHNICITY;
 }
@@ -35,7 +46,13 @@ export function normalizeEthnicityQuestionName(questionName?: string | null): st
 }
 
 export function normalizeEthnicityQuestion<T extends EthnicityQuestionLike>(question: T): T {
-  if (!isEthnicityQuestion(question) || (!isHawaiianQuestion(question) && !isDuplicateOtherQuestion(question))) {
+  if (!isEthnicityQuestion(question)) return question;
+
+  if (question.question_name === NATIVE_ETHNICITY_STORED_NAME) {
+    return { ...question, question_name: NATIVE_ETHNICITY_DISPLAY_NAME } as T;
+  }
+
+  if (!isHawaiianQuestion(question) && !isDuplicateOtherQuestion(question)) {
     return question;
   }
 

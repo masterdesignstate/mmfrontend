@@ -9,6 +9,7 @@ import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabel
 import { getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
+import { toStoredEthnicityName } from '@/utils/ethnicityQuestions';
 import {
   DIET,
   EDUCATION,
@@ -248,14 +249,18 @@ export default function QuestionPage() {
         return displayNames[ethnicity as keyof typeof displayNames] || ethnicity;
       };
 
+      // The Questions page passes the displayed name ("Native American"); the maps above are
+      // keyed on the stored one.
+      const ethnicityKey = toStoredEthnicityName(ethnicityParam);
+
       // Create hardcoded question data
       const hardcodedQuestion = {
-        id: questionIds[ethnicityParam as keyof typeof questionIds],
-        question_name: ethnicityParam,
+        id: questionIds[ethnicityKey as keyof typeof questionIds],
+        question_name: ethnicityKey,
         question_number: ETHNICITY,
-        group_number: Object.keys(questionIds).indexOf(ethnicityParam) + 1,
+        group_number: Object.keys(questionIds).indexOf(ethnicityKey) + 1,
         group_name: 'Ethnicity',
-        text: `How strongly do you identify as ${getEthnicityDisplayName(ethnicityParam).toLowerCase()}?`,
+        text: `How strongly do you identify as ${getEthnicityDisplayName(ethnicityKey).toLowerCase()}?`,
         answers: [{ value: '1', answer_text: 'Less' }, { value: '2', answer_text: '' }, { value: '3', answer_text: '' }, { value: '4', answer_text: '' }, { value: '5', answer_text: 'More' }],
         open_to_all_me: false,
         open_to_all_looking_for: true

@@ -1,0 +1,48 @@
+Mode: Built-in image generation with approved infographic and official logo references
+
+Create one NEW premium vertical portrait infographic for CompatibleFirst, approximately 9:16, finished and legible on mobile. New visual metaphor: BRINGING COMPATIBILITY INTO FOCUS THROUGH A LENS.
+
+Input image 1 is a visual BRAND STYLE reference only: preserve warm purple palette, luminous pale backdrop, strong modern typography and dimensional clear glass materials, but create an entirely new layout. Do not reuse puzzles or two stacked comparison panels. Input image 2 is the actual official logo to reproduce faithfully: exact flat geometric heart artwork, original facet shapes and colors and triangular negative space; do not make the top logo a gemstone.
+
+Concept: dating initially gives an incomplete, blurry picture. CompatibleFirst uses answers and mutual preferences like an optical lens, bringing compatibility dimensions into focus earlier. It does not predict chemistry or guarantee connection. Show the sharp-versus-blurred difference visually in one large hero composition.
+
+Actual site palette: primary warm purple #672DB7, dark accent #59259F, charcoal #18151D, secondary text #6B6571, off-white #FCFBFD, subtle lavender #F5F1FA and #F1EAFB, borders #E5E2E8. Avoid electric blue, neon violet, hot pink. Background mostly off-white with gentle lavender glow, soft studio shadows and restrained dotted motifs.
+
+TOP 22%:
+Centered compact horizontal brand lockup: official heart left of "CompatibleFirst.com", Compatible charcoal, First purple, small .com charcoal.
+Large bold headline, exact text split over three lines:
+"Bring"
+"compatibility"
+"into focus"
+First two lines charcoal, third purple. Beautiful editorial typography with ample margins.
+Smaller subheading:
+"See what matters earlier"
+
+HERO middle ~48%:
+A beautifully rendered enormous upright circular OPTICAL LENS with a thick polished glass rim and a restrained warm-purple metal outer edge, slightly angled but facing viewer enough to read. It rests on a subtle clear glass base, no handle. The lens is a physical focus metaphor, not a portal, app screen, camera or magnifying glass detective prop.
+Behind it is a broad translucent glass board, tilted slightly in perspective, containing abstract organized profile-information shapes and three compatibility topics. Outside the circular lens, the information board is visibly softly out of focus, indistinct, without readable tiny words. Through the lens the SAME information becomes razor-sharp, and the lens contains three beautifully spaced horizontal topic rows, with simple purple icons on the left and large exact text on the right:
+"Values"
+"Lifestyle"
+"Relationship goals"
+Each row uses a tasteful subtle translucent rounded pill with generous padding. The entire three-topic group must fit clearly inside the circular lens with no clipping or text distortion. Add only a few blurred abstract rows beyond the lens edges to make the optical reveal unmistakable. Do not blur any main poster headings, captions or branding. The blur belongs only to the information-board illustration.
+Two small unobtrusive callouts near opposite sides of the hero:
+Left outside the lens near blurred board, exact "Still getting to know each other"
+Right near the clear lens edge, exact "Compatibility, clearer"
+Use tasteful small leaders. Keep typography readable and do not overlap hero labels.
+No people's photographs. No numerical score, checkmarks, guarantees, love hearts floating inside lens, sparkles, or floating miniature screenshots. Make the contrast between blurred backdrop and clear lens compelling and immediate.
+
+BELOW HERO ~15%:
+Three short steps in a slim understated horizontal rounded glass strip with small simple icons and discrete purple arrow separators. Exact labels:
+"Your answers" → "Mutual preferences" → "Clearer alignment"
+Ensure labels don't get cramped; can wrap within each of three equal columns if needed.
+Below strip one simple explanatory line in dark secondary text, centered and optionally wrapped:
+"Understand where you align before investing more time"
+
+BOTTOM ~15%:
+Large closing message in two lines:
+"Clarity comes first"
+"Connection grows together"
+First line warm purple, second charcoal.
+Small "CompatibleFirst.com" centered at very bottom.
+
+No terminal periods except .com. All visible text exactly as provided; no extra marketing copy. Strong hierarchy, spacious editorial composition, one stunning optical hero, warm purple consistent with reference, restrained glass reflections. Portrait infographic should feel like a fresh member of the approved campaign, completely different from hills and puzzle pieces.

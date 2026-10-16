@@ -1,0 +1,49 @@
+Mode: Built-in image generation with brand infographic and official logo references
+
+Create one NEW polished vertical portrait CompatibleFirst marketing infographic, roughly 9:16, in the approved brand style, with HUMANS as the unmistakable central subjects. User explicitly wants human touch back: previous abstract objects felt impersonal. This design must be emotionally warm, candid and recognizably about two real adults meeting. Different concept from hills, puzzles and lenses: THE STORY BEHIND EACH FACE.
+
+Input image 1 is only a brand style reference for layout polish, typography and lavender glass treatments. Do not include a lens or its previous text. Input image 2 is the actual official brand heart logo, reproduce its precise flat geometric facets, silhouette, original colors, aspect ratio and triangular negative space at top. Do not reinvent it as a jewel.
+
+Palette of actual site: warm brand purple #672DB7, dark purple #59259F, charcoal #18151D, secondary text #6B6571, off-white #FCFBFD, soft lavender #F5F1FA / #F1EAFB. Avoid electric neon blue-violet. The environment and people keep natural realistic skin colors and warm daylight, not purple skin. Refined glass overlays, small restrained dotted accents, generous editorial spacing.
+
+TOP ~22%:
+Centered compact official flat geometric heart to left of "CompatibleFirst.com" wordmark, Compatible charcoal, First warm brand purple, .com small charcoal.
+Large bold headline on two lines:
+"More than a face"
+"A person to discover"
+First line charcoal, second warm brand purple.
+Smaller sentence:
+"See where you align before the first hello"
+
+CENTRAL HUMAN HERO ~48%:
+Large editorial lifestyle photograph filling the width with soft corners and edges that blend gently into the pale background.
+Two equally prominent real-looking adults in their early thirties sitting opposite each other at a small café table, BOTH faces unobstructed in three-quarter view, each turned toward the other, making relaxed genuine eye contact and sharing a small laugh. A woman with dark wavy shoulder-length hair and a man with short softly curly hair. Both dressed in understated everyday clothes with natural textures (e.g. cream knit, sage overshirt). Show their faces LARGE ENOUGH to read emotion, upper bodies and natural hands on table; photo from waist/chest up, not tiny figures. Imperfect realistic skin, expressive eyes, candid connection, beautiful warm window light. Their expressions should be curious and comfortable, not stock-photo toothy grins, forced romance or idealized glamour. Two coffee cups, understated café details softly out of focus.
+Place each person's own small, translucent rounded profile-note card close to their lower torso, below the face and above/table area without hiding hands. The cards are subtle secondary supporting detail, no giant app UI. Maintain plenty of photo visibility. Each note card has two exact short lines with a small tasteful icon beside each:
+Left person's card:
+"Looking for a relationship"
+"Values honest communication"
+Right person's card:
+"Looking for a relationship"
+"Values honest communication"
+These are illustrative shared answers, not real-user records. Do not add names, ages, scores, quotes or checkmarks. The duplicate details intentionally show a common starting point.
+A very subtle thin purple connector between the two cards symbolizes alignment, terminating in small dots, not a huge heart or spectacle. People remain central. No phones or devices between them.
+
+UNDER HERO ~18%:
+Heading exact:
+"Start with what matters to both of you"
+Below it three equal compact glass tiles in one horizontal row, simple understated warm-purple line icons and short readable labels:
+"Your answers"
+"Their preferences"
+"Two-way compatibility"
+Use moderate size tiles and roomy layout, no unnecessary dense copy.
+Small explanatory sentence beneath:
+"Discover shared values, lifestyles and relationship goals"
+
+BOTTOM ~12%:
+Warm closing message, bold centered two lines:
+"Compatibility starts the conversation"
+"You build the connection"
+First line charcoal, second purple.
+Small "CompatibleFirst.com" at bottom.
+
+The final output should be a genuinely human, intimate, optimistic branded infographic with two prominent believable people, photo-led story and restrained informational overlays. No mountain, puzzle, lens, generic faceless figures, silhouettes, faceted people, robots, oversized glass objects, percentages, claims of guaranteed chemistry or guaranteed love. All text verbatim, no terminal periods except .com. Keep all main copy legible at portrait/mobile size and do not crop heads or text. One coherent full poster, not multiple alternatives.

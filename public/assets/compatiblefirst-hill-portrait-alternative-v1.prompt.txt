@@ -1,0 +1,41 @@
+Mode: Built-in image generation with approved design and official logo references
+
+Create an ALTERNATIVE DESIGN for the supplied CompatibleFirst vertical infographic. Input 1 is the approved previous design, a brand and content reference, NOT a layout to copy. Input 2 is the actual logo asset, to reproduce faithfully at the top. Produce one finished premium portrait infographic in approximately 9:16 aspect ratio.
+
+New composition: ONE BIG HERO HILL visually transitioning from opaque stone on the LEFT HALF to transparent glass on the RIGHT HALF, with a clearly perceptible central transition along the ridge. This replaces the previous two stacked panels with one striking, larger central sculptural illustration. A smooth rounded hill viewed obliquely, occupying the central 50% of the poster, with winding paths ascending toward a shared summit. A tiny adult hiker on each side climbing toward the top. The left surface is solid muted warm gray stone and blocks visibility, while the right surface is truly transparent glass in pale brand purple, revealing far-side trails through the hill. A thin warm-purple dotted sight line becomes visible through the glass, visually conveying earlier insight. The hill should feel physically cohesive, a single sculptural cutaway comparison, not two disconnected mountains, not a literal split page, not a collage. Keep the solid-versus-see-through difference instantly readable. Realistic tiny hikers, tasteful natural vegetation near the base, clean studio-like backdrop fading into off-white. Crystal transparency is the hero.
+
+Brand palette based on actual website: primary purple #672DB7, darker purple #59259F, dark charcoal #18151D, secondary text #6B6571, off-white #FCFBFD, light lavender #F5F1FA and #F1EAFB, subtle borders #E5E2E8. No electric blue, neon violet or pink. Elegant glossy glass details, soft shadows, restrained lavender dotted textures. Strong modern sans-serif typography, generous whitespace and mobile readability.
+
+Top: use actual flat geometric heart logo from input 2, preserving its exact facets, silhouette, colors, triangular negative space and proportions. Do not reinvent or render the logo as a gem. Place the logo LEFT of wordmark on one centered horizontal line, spelling "CompatibleFirst.com", Compatible charcoal, First purple, .com small charcoal.
+Under it a bold editorial headline over two lines:
+"Same climb"
+"Clearer view"
+First line charcoal, second line purple.
+A smaller supporting line:
+"Dating takes effort"
+"Compatibility can be clearer from the start"
+
+Then around the top of the central hero hill, two short labels aligned to the corresponding sides, not overlapping the hill:
+Left label "Dating today"
+Right label "With CompatibleFirst"
+Left caption underneath label in smaller but readable type: "Climb and discover"
+Right caption underneath label: "See alignment earlier"
+Fine restrained leader lines connect labels to the opaque and glass halves respectively, without clutter.
+Small subtle dimensional heart at shared summit allowed but do not make a second giant logo.
+
+Below hill: a single slim rounded translucent glass strip, internally divided into three equally sized columns with generous padding. Each has a small simple purple icon above a concise label:
+"Values"
+"Lifestyle"
+"Relationship goals"
+These are dimensions that become visible earlier. No percentages, no scores, no checkmarks claiming all three are guaranteed compatible.
+
+Below that a centered readable sentence over two lines:
+"Your answers and mutual preferences"
+"help you see where you align"
+
+Bottom closing line in large bold charcoal:
+"The climb still takes two"
+Small purple wordmark-like closing line:
+"CompatibleFirst.com"
+
+Keep all supplied copy spelled exactly and omit terminal periods (except .com). Make it distinctive from the previous design: more editorial whitespace, one breathtaking central hill, fewer frames, compact horizontal insight strip, sophisticated hierarchy. Do not add other text. No two stacked hill panels, no extra third hill, no guarantee of love, no cartoon mascots. Finished polished branded infographic with safe margins and no cropping.
