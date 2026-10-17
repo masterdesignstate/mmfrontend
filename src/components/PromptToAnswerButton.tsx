@@ -10,8 +10,8 @@ interface PromptToAnswerButtonProps {
   recipientId: string;
   recipientName: string;
   questionNumber: number;
-  /** `compact` fits inside a question-list row; `full` is a standalone call to action. */
-  variant?: 'compact' | 'full';
+  /** `compact` fits a question-list row; `ask` is the short label in the picker; `full` is a standalone call to action. */
+  variant?: 'compact' | 'ask' | 'full';
 }
 
 /** Sends `recipientId` a notification asking them to answer this question. */
@@ -48,11 +48,15 @@ export default function PromptToAnswerButton({
       ? 'Asking…'
       : variant === 'full'
         ? `Ask ${recipientName} to answer`
-        : 'Ask to answer';
+        : variant === 'ask'
+          ? 'Ask'
+          : 'Ask to answer';
 
   const sizing = variant === 'full'
     ? 'px-5 py-2.5 text-sm'
-    : 'px-2.5 py-1 text-[11px] sm:text-xs';
+    : variant === 'ask'
+      ? 'px-3.5 py-1.5 text-xs'
+      : 'px-2.5 py-1 text-[11px] sm:text-xs';
 
   return (
     <span className={`inline-flex flex-col ${variant === 'full' ? 'items-center' : 'items-end'}`}>

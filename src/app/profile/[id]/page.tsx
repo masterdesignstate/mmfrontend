@@ -14,6 +14,7 @@ import HamburgerMenu from '@/components/HamburgerMenu';
 import InfoTip from '@/components/InfoTip';
 import MatchCelebration from '@/components/MatchCelebration';
 import AboutMeSection from '@/components/AboutMeSection';
+import AskQuestionPicker, { type AskableQuestion } from '@/components/AskQuestionPicker';
 import PromptToAnswerButton from '@/components/PromptToAnswerButton';
 import ProfileStatsRow from '@/components/ProfileStatsRow';
 import ProfilePromptCards from '@/components/ProfilePromptCards';
@@ -56,6 +57,7 @@ import {
   MANDATORY_QUESTION_PROMPTS,
 } from '@/constants/mandatoryQuestions';
 import { getQuestionOptionIcon } from '@/constants/questionIcons';
+import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
 import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 import posthog from 'posthog-js';
 
@@ -169,6 +171,26 @@ const HeartGlyph = ({
   </svg>
 );
 
+function profileActionMessage(tag: string, added: boolean, name: string) {
+  const addedLabels: Record<string, string> = {
+    approve: `Approved ${name}`,
+    like: `Liked ${name}`,
+    hide: `Hidden ${name}`,
+    hot: `Marked ${name} as Hot`,
+    maybe: `Marked ${name} as Maybe`,
+    save: `Saved ${name}`,
+  };
+  const removedLabels: Record<string, string> = {
+    approve: 'Removed approval',
+    like: 'Removed like',
+    hide: `Unhidden ${name}`,
+    hot: 'Removed Hot',
+    maybe: 'Removed Maybe',
+    save: 'Removed save',
+  };
+  return (added ? addedLabels : removedLabels)[tag] || (added ? `Added ${tag}` : `Removed ${tag}`);
+}
+
 export default function UserProfilePage() {
   const router = useRouter();
   const params = useParams();
@@ -205,6 +227,7 @@ export default function UserProfilePage() {
   const [profileCommentsError, setProfileCommentsError] = useState('');
   const [hasMatch, setHasMatch] = useState(false); // Track if both users liked each other
   const [showQuestionsModal, setShowQuestionsModal] = useState(false);
+  const [showAskPicker, setShowAskPicker] = useState(false);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
   const [questionsModalPage, setQuestionsModalPage] = useState(1);
   const QUESTIONS_PER_PAGE = 8;
@@ -345,6 +368,12 @@ export default function UserProfilePage() {
   const closeEditSaveMenu = useCallback(() => setShowEditSaveMenu(false), []);
   useDismissOnOutside(editSaveMenuRef, showEditSaveMenu, closeEditSaveMenu);
   const [showSaveToast, setShowSaveToast] = useState(false);
+  const [actionToast, setActionToast] = useState('');
+  const actionToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
+  const photoMenuRef = useRef<HTMLDivElement>(null);
+  const closePhotoMenu = useCallback(() => setPhotoMenuOpen(false), []);
+  useDismissOnOutside(photoMenuRef, photoMenuOpen, closePhotoMenu);
   // Keyed by question number: chips are pushed conditionally, so an array index points
   // at a different question as soon as an earlier chip appears or disappears.
   const [expandedIconQuestion, setExpandedIconQuestion] = useState<number | null>(null);
@@ -1268,6 +1297,12 @@ export default function UserProfilePage() {
   //   setShowNotePopup(true);
   // };
 
+  const showActionToast = useCallback((message: string) => {
+    setActionToast(message);
+    if (actionToastTimer.current) clearTimeout(actionToastTimer.current);
+    actionToastTimer.current = setTimeout(() => setActionToast(''), 2400);
+  }, []);
+
   // Handle sending like with optional note
   const handleSendLike = async () => {
     if (isOverLimit(noteText, MAX_LIKE_NOTE_CHARS)) return;
@@ -1329,10 +1364,13 @@ export default function UserProfilePage() {
         throw new Error('Failed to send like');
       }
 
+      const likedName = user?.first_name || user?.username || 'them';
+
       // Check for match after adding like
       await checkForMatch(newSelectedTags);
 
       // If there's a note, send it to the backend
+      let noteSent = false;
       if (noteText.trim()) {
         const noteResponse = await fetch(`${getApiUrl(API_ENDPOINTS.USER_RESULTS)}/send_note/`, {
           method: 'POST',
@@ -1345,12 +1383,15 @@ export default function UserProfilePage() {
         });
 
         if (noteResponse.ok) {
+          noteSent = true;
           console.log('✅ Note sent successfully');
           posthog.capture('note_sent', { recipient_id: userId });
         } else {
           console.error('❌ Failed to send note');
         }
       }
+
+      showActionToast(noteSent ? `Liked ${likedName} and sent a note` : `Liked ${likedName}`);
 
       // Refresh tags from server to ensure sync
       const response = await fetch(
@@ -1364,8 +1405,8 @@ export default function UserProfilePage() {
       }
     } catch (error) {
       console.error('Error sending like:', error);
-      // Revert on error
       setSelectedTags(selectedTags);
+      showActionToast("Couldn't update. Try again.");
     }
 
     // Clear note text for next time
@@ -1555,11 +1596,16 @@ export default function UserProfilePage() {
             ? [...prev, normalizedTag]
             : prev.filter(t => t !== normalizedTag)
         );
+        showActionToast("Couldn't update. Try again.");
         console.error('Failed to toggle tag');
-      } else if (!isCurrentlySelected) {
-        // Track engagement events for new tag additions
-        if (normalizedTag === 'approve') posthog.capture('approve_sent', { approved_user_id: userId });
-        if (normalizedTag === 'hide') posthog.capture('user_hidden', { hidden_user_id: userId });
+      } else {
+        const person = user?.first_name || user?.username || 'them';
+        showActionToast(profileActionMessage(normalizedTag, !isCurrentlySelected, person));
+        if (!isCurrentlySelected) {
+          // Track engagement events for new tag additions
+          if (normalizedTag === 'approve') posthog.capture('approve_sent', { approved_user_id: userId });
+          if (normalizedTag === 'hide') posthog.capture('user_hidden', { hidden_user_id: userId });
+        }
       }
     } catch (error) {
       // Revert on error
@@ -1568,6 +1614,7 @@ export default function UserProfilePage() {
           ? [...prev, normalizedTag]
           : prev.filter(t => t !== normalizedTag)
       );
+      showActionToast("Couldn't update. Try again.");
       console.error('Error toggling tag:', error);
     }
   };
@@ -1844,6 +1891,34 @@ export default function UserProfilePage() {
     </InfoTip>
   );
   const profileOwnerName = user?.first_name || user?.username || 'them';
+
+  // Questions this person hasn't answered, one row per question number, so Ask is a search
+  // instead of a filter buried in the questions list.
+  const askableQuestions = useMemo(() => {
+    const seen = new Set<number>();
+    const rows: AskableQuestion[] = [];
+    const ordered = [...allQuestions].sort((a, b) =>
+      (Number(a.question_number) - Number(b.question_number)) ||
+      ((Number(a.group_number) || 0) - (Number(b.group_number) || 0))
+    );
+    for (const question of ordered) {
+      const number = Number(question.question_number);
+      if (!Number.isFinite(number) || seen.has(number)) continue;
+      if (question.is_approved === false) continue;
+      if (profileUserAnsweredQuestionNumbers.has(number)) continue;
+      seen.add(number);
+      rows.push({
+        questionNumber: number,
+        heading: getQuestionHeading(number, question),
+        subtitle: getQuestionSubtitle(number, question),
+        required: ordered.some(item =>
+          Number(item.question_number) === number &&
+          currentUserRequiredQuestionIds.has(String(item.id).toLowerCase())
+        ),
+      });
+    }
+    return rows;
+  }, [allQuestions, profileUserAnsweredQuestionNumbers, currentUserRequiredQuestionIds]);
 
   // Build pending question groups from allQuestions for display in the modal
   const pendingQuestionGroups = useMemo(() => {
@@ -2696,6 +2771,8 @@ export default function UserProfilePage() {
           break;
       }
 
+      showActionToast(action === 'add_approve' ? `Approved ${displayName}` : 'Removed like');
+
       // Refresh tags from server to ensure sync
       const currentUserId = localStorage.getItem('user_id');
       if (currentUserId && userId) {
@@ -2715,6 +2792,7 @@ export default function UserProfilePage() {
       // Revert on error
       setSelectedTags(selectedTags);
       setHasMatch(false);
+      showActionToast("Couldn't update. Try again.");
       console.error('Error updating progression:', error);
     }
   };
@@ -3054,6 +3132,48 @@ export default function UserProfilePage() {
               </h1>
             </div>
           </div>
+
+          {!isViewingOwnProfile && (
+            <div ref={photoMenuRef} className="absolute top-3 right-3 z-30">
+              <button
+                type="button"
+                aria-label="More actions"
+                aria-expanded={photoMenuOpen}
+                onClick={() => setPhotoMenuOpen(open => !open)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/45 bg-black/30 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_24px_rgba(0,0,0,0.22)] backdrop-blur-xl hover:bg-black/40"
+              >
+                <svg className="h-5 w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="5" cy="12" r="1.7" />
+                  <circle cx="12" cy="12" r="1.7" />
+                  <circle cx="19" cy="12" r="1.7" />
+                </svg>
+              </button>
+              {photoMenuOpen && (
+                <div className="absolute right-0 top-11 w-56 overflow-hidden rounded-2xl border border-white/60 bg-white/55 shadow-[0_16px_40px_rgba(0,0,0,0.2)] backdrop-blur-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoMenuOpen(false);
+                      setShowAskPicker(true);
+                    }}
+                    className="block w-full px-4 py-3 text-left text-sm font-medium text-gray-900 hover:bg-white/50"
+                  >
+                    Ask a question
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoMenuOpen(false);
+                      setShowReportPopup(true);
+                    }}
+                    className="block w-full border-t border-white/40 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-white/50"
+                  >
+                    Report
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Purple/Orange Sleeve - pulled up behind the photo (color from results card when ?border= is set) */}
           <div className="rounded-2xl -mt-6 pt-7 pb-3.5 px-5 relative z-0" style={{ background: sleeveBackground }}>
@@ -3668,6 +3788,16 @@ export default function UserProfilePage() {
           </>
         )}
       </div>
+
+      {showAskPicker && user && !isViewingOwnProfile && (
+        <AskQuestionPicker
+          recipientId={user.id}
+          recipientName={profileOwnerName}
+          questions={askableQuestions}
+          ready={allQuestions.length > 0}
+          onClose={() => setShowAskPicker(false)}
+        />
+      )}
 
       {/* Questions Modal Overlay */}
       {showQuestionsModal && (
@@ -5304,6 +5434,14 @@ export default function UserProfilePage() {
       )}
 
       {/* Match Celebration */}
+      {actionToast && (
+        <div className="pointer-events-none fixed bottom-8 left-1/2 z-[250] -translate-x-1/2 animate-fade-in-up">
+          <div className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white shadow-lg">
+            {actionToast}
+          </div>
+        </div>
+      )}
+
       <MatchCelebration
         show={showMatchCelebration}
         onClose={() => setShowMatchCelebration(false)}
