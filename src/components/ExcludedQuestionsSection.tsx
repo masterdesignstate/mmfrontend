@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import ExclusionControl from '@/components/ExclusionControl';
 import InfoTip from '@/components/InfoTip';
 import { apiService, type AnswerExclusion } from '@/services/api';
-import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
 
 interface ExcludedQuestionsSectionProps {
   userId: string;
@@ -22,11 +21,14 @@ function FilterLinesIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) 
   );
 }
 
-/** Rows of one question that has several (Ethnicity's options, say) need their own names. */
-const rowCaption = (row: AnswerExclusion, rows: AnswerExclusion[]) => {
-  const siblings = rows.filter(other => other.question.question_number === row.question.question_number);
-  return siblings.length > 1 || row.question.question_type === 'grouped' ? row.question.question_name : '';
+/** `1.3` for a group's third option (Relationship → Date), `8` for a standalone question. */
+const questionNumberLabel = (row: AnswerExclusion) => {
+  const { question_number: number, group_number: group, question_type: type } = row.question;
+  return group && type !== 'basic' ? `${number}.${group}` : String(number);
 };
+
+/** The chip's name: the option ("Black", "Date") for grouped questions, else the short name. */
+const chipLabel = (row: AnswerExclusion) => row.question.question_name || row.question.group_name || row.question.text;
 
 const valuesSummary = (row: AnswerExclusion, values: number[]) =>
   values.map(value => row.value_labels[String(value)]?.trim() || String(value)).join(', ');
@@ -41,7 +43,6 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addedIds, setAddedIds] = useState<string[]>([]);
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
@@ -57,16 +58,9 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
 
   const valuesFor = (row: AnswerExclusion) => drafts[row.answer_id] ?? row.excluded_answer_values;
   const activeRows = rows.filter(row =>
-    !removedIds.includes(row.answer_id)
-    && (row.excluded_answer_values.length > 0 || row.answer_id in drafts || addedIds.includes(row.answer_id))
+    row.excluded_answer_values.length > 0 || row.answer_id in drafts || addedIds.includes(row.answer_id)
   );
   const activeIds = new Set(activeRows.map(row => row.answer_id));
-
-  const remove = (row: AnswerExclusion) => {
-    setAddedIds(prev => prev.filter(id => id !== row.answer_id));
-    setRemovedIds(prev => [...prev, row.answer_id]);
-    if (row.excluded_answer_values.length > 0 || row.answer_id in drafts) onDraftChange(row.answer_id, []);
-  };
 
   return (
     <div className="mb-8 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
@@ -116,47 +110,38 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
           )}
         </div>
       ) : (
-        <ul className="space-y-2">
-          {activeRows.map(row => {
-            const values = valuesFor(row);
-            const caption = rowCaption(row, rows);
-            const heading = getQuestionHeading(row.question.question_number, row.question);
-            return (
-              <li
-                key={row.answer_id}
-                className="flex items-center gap-2 rounded-2xl bg-white py-2 pl-3.5 pr-1.5 ring-1 ring-purple-200/70"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">
-                    {heading}
-                    {caption && <span className="font-medium text-gray-500"> · {caption}</span>}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">
-                    {values.length > 0 ? `Hiding ${valuesSummary(row, values)}` : 'Tap Exclude to pick answers'}
-                    {row.answer_id in drafts && <span className="italic text-gray-400"> · unsaved</span>}
-                  </p>
-                </div>
-                <ExclusionControl
-                  values={values}
-                  allowedValues={row.allowed_values}
-                  blockedValues={row.blocked_values}
-                  onChange={next => onDraftChange(row.answer_id, next)}
-                  buttonLabel={values.length > 0 ? 'Edit' : 'Exclude'}
-                  title="Exclude"
-                  ariaLabel={`Choose excluded answers for ${heading}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => remove(row)}
-                  aria-label={`Stop excluding on ${heading}`}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-lg leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        <>
+          <ul className="flex flex-wrap gap-2">
+            {activeRows.map(row => {
+              const values = valuesFor(row);
+              const label = chipLabel(row);
+              return (
+                <li
+                  key={row.answer_id}
+                  title={values.length > 0 ? `${row.question.text} Hiding: ${valuesSummary(row, values)}` : row.question.text}
+                  className={`inline-flex items-center rounded-full bg-white py-0.5 pl-3.5 pr-0.5 ring-1 ${
+                    values.length > 0 ? 'ring-[#672DB7]' : 'ring-purple-200'
+                  }`}
                 >
-                  ×
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  <span className="text-sm font-medium text-gray-900">{label}</span>
+                  <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-purple-200" />
+                  <ExclusionControl
+                    iconOnly
+                    values={values}
+                    allowedValues={row.allowed_values}
+                    blockedValues={row.blocked_values}
+                    onChange={next => onDraftChange(row.answer_id, next)}
+                    title={label}
+                    ariaLabel={`Choose excluded answers for ${label}`}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          {activeRows.some(row => valuesFor(row).length === 0) && (
+            <p className="mt-2 text-xs text-purple-900/60">Tap the filter icon on a chip to choose which answers to hide.</p>
+          )}
+        </>
       )}
 
       {pickerOpen && (
@@ -164,10 +149,7 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
           rows={rows}
           activeIds={activeIds}
           onClose={() => setPickerOpen(false)}
-          onAdd={ids => {
-            setRemovedIds(prev => prev.filter(id => !ids.includes(id)));
-            setAddedIds(prev => [...prev, ...ids.filter(id => !prev.includes(id))]);
-          }}
+          onAdd={ids => setAddedIds(prev => [...prev, ...ids.filter(id => !prev.includes(id))])}
         />
       )}
     </div>
@@ -188,7 +170,7 @@ function ExcludeQuestionPicker({ rows, activeIds, onClose, onAdd }: {
     if (!term) return rows;
     return rows.filter(row => {
       const q = row.question;
-      return [getQuestionHeading(q.question_number, q), q.question_name, q.group_name, q.text, String(q.question_number)]
+      return [questionNumberLabel(row), q.question_name, q.group_name, q.text]
         .some(text => (text || '').toLowerCase().includes(term));
     });
   }, [rows, search]);
@@ -230,8 +212,6 @@ function ExcludeQuestionPicker({ rows, activeIds, onClose, onAdd }: {
             const q = row.question;
             const already = activeIds.has(row.answer_id);
             const selected = already || picked.includes(row.answer_id);
-            const caption = rowCaption(row, rows);
-            const subtitle = getQuestionSubtitle(q.question_number, q);
             return (
               <li key={row.answer_id}>
                 <button
@@ -242,12 +222,9 @@ function ExcludeQuestionPicker({ rows, activeIds, onClose, onAdd }: {
                     selected ? 'bg-purple-50' : 'hover:bg-gray-50'
                   } disabled:cursor-default`}
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-gray-900">
-                      {getQuestionHeading(q.question_number, q)}
-                      {caption && <span className="font-medium text-gray-500"> · {caption}</span>}
-                    </span>
-                    {subtitle && <span className="block truncate text-xs text-gray-500">{subtitle}</span>}
+                  <span className="flex min-w-0 flex-1 gap-2 text-sm text-gray-900">
+                    <span className="w-9 shrink-0 tabular-nums text-gray-500">{questionNumberLabel(row)}</span>
+                    <span className="min-w-0">{q.text}</span>
                   </span>
                   {already ? (
                     <span className="shrink-0 text-xs font-medium text-gray-400">Added</span>

@@ -16,7 +16,11 @@ interface ExclusionControlProps {
   helpText?: string;
   disabled?: boolean;
   popoverPlacement?: 'above' | 'below';
+  /** Render just the filter icon, for use inside a chip. */
+  iconOnly?: boolean;
 }
+
+const POPOVER_WIDTH_PX = 256;
 
 export default function ExclusionControl({
   values,
@@ -30,12 +34,14 @@ export default function ExclusionControl({
   helpText = 'People with these answers won’t appear in your results. Your own answer can’t be excluded.',
   disabled = false,
   popoverPlacement = 'below',
+  iconOnly = false,
 }: ExclusionControlProps) {
   const [open, setOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [legendPinned, setLegendPinned] = useState(false);
   const [blockedHelpValue, setBlockedHelpValue] = useState<number | null>(null);
   const [draftValues, setDraftValues] = useState<number[]>([]);
+  const [alignLeft, setAlignLeft] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<number[]>([]);
   const allowedValuesKey = allowedValues.join(',');
@@ -101,11 +107,14 @@ export default function ExclusionControl({
     const initialDraft = [...selected];
     draftRef.current = initialDraft;
     setDraftValues(initialDraft);
+    // The popover hangs off the trigger's right edge; flip it when that would run off screen.
+    const rect = rootRef.current?.getBoundingClientRect();
+    setAlignLeft(!!rect && rect.right < POPOVER_WIDTH_PX + 8);
     setOpen(true);
   };
 
   if (exclusionValues.length === 0) {
-    return <div className={`h-7 w-[74px] sm:w-[88px] ${className}`} aria-hidden />;
+    return iconOnly ? null : <div className={`h-7 w-[74px] sm:w-[88px] ${className}`} aria-hidden />;
   }
 
   return (
@@ -116,7 +125,11 @@ export default function ExclusionControl({
         title={ariaLabel}
         onClick={toggleOpen}
         disabled={disabled}
-        className={`inline-flex h-7 w-[74px] cursor-pointer items-center justify-center gap-1 rounded-full border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:gap-1.5 sm:px-2.5 sm:text-xs ${
+        className={iconOnly ? `flex h-7 w-7 cursor-pointer items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          selected.length > 0
+            ? 'bg-[#672DB7] text-white'
+            : 'text-gray-600 hover:bg-purple-50 hover:text-[#672DB7]'
+        }` : `inline-flex h-7 w-[74px] cursor-pointer items-center justify-center gap-1 rounded-full border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[88px] sm:gap-1.5 sm:px-2.5 sm:text-xs ${
           selected.length > 0
             ? 'border-[#672DB7] bg-[#672DB7] text-white shadow-sm'
             : 'border-gray-300 bg-white text-gray-700 hover:border-[#672DB7] hover:bg-purple-50 hover:text-[#672DB7]'
@@ -135,7 +148,7 @@ export default function ExclusionControl({
             strokeLinecap="round"
           />
         </svg>
-        <span>{buttonLabel}</span>
+        {!iconOnly && <span>{buttonLabel}</span>}
       </button>
 
       {open && (
@@ -143,7 +156,7 @@ export default function ExclusionControl({
           className={`absolute z-50 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg ${
             popoverPlacement === 'above'
               ? 'bottom-9 left-1/2 -translate-x-1/2'
-              : 'right-0 top-9'
+              : alignLeft ? 'left-0 top-9' : 'right-0 top-9'
           }`}
           onPointerDownCapture={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
