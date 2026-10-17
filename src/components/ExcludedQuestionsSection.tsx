@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import ExclusionControl from '@/components/ExclusionControl';
 import InfoTip from '@/components/InfoTip';
-import { apiService, type AnswerExclusion } from '@/services/api';
+import { type AnswerExclusion } from '@/services/api';
 
 interface ExcludedQuestionsSectionProps {
-  userId: string;
+  /** Answered questions that can carry exclusions; fetched with the Results page. */
+  rows: AnswerExclusion[];
+  /** False until the Results page has finished the exclusions request. */
+  loaded?: boolean;
+  error?: string;
   /** Unsaved edits, keyed by answer id. The filter panel saves them on Apply. */
   drafts: Record<string, number[]>;
   onDraftChange: (answerId: string, values: number[]) => void;
@@ -38,23 +42,9 @@ const valuesSummary = (row: AnswerExclusion, values: number[]) =>
  * chips whose filter button picks the values, plus a searchable picker to add more.
  * Only answered questions are offered, since an exclusion is stored on the viewer's answer.
  */
-export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange }: ExcludedQuestionsSectionProps) {
-  const [rows, setRows] = useState<AnswerExclusion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default function ExcludedQuestionsSection({ rows, loaded = true, error, drafts, onDraftChange }: ExcludedQuestionsSectionProps) {
   const [addedIds, setAddedIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
-
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    setLoading(true);
-    apiService.getAnswerExclusions(userId, true)
-      .then(data => { if (!cancelled) setRows(data); })
-      .catch(() => { if (!cancelled) setError('Could not load your exclusions.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [userId]);
 
   const valuesFor = (row: AnswerExclusion) => drafts[row.answer_id] ?? row.excluded_answer_values;
   const activeRows = rows.filter(row =>
@@ -74,7 +64,7 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
             People whose own answer is one of your excluded values won&apos;t appear in your results. Changes are saved when you apply filters.
           </InfoTip>
         </div>
-        {!loading && !error && activeRows.length > 0 && (
+        {!error && activeRows.length > 0 && (
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
@@ -85,10 +75,10 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
         )}
       </div>
 
-      {loading ? (
-        <p className="text-sm text-purple-900/60">Loading…</p>
-      ) : error ? (
+      {error ? (
         <p className="text-sm text-red-600">{error}</p>
+      ) : !loaded ? (
+        <div className="h-16" aria-hidden />
       ) : activeRows.length === 0 ? (
         <div className="rounded-xl bg-white/70 px-4 py-4 text-center ring-1 ring-purple-200/60">
           <p className="text-sm font-medium text-gray-800">You haven&apos;t excluded any questions yet.</p>
@@ -132,14 +122,23 @@ export default function ExcludedQuestionsSection({ userId, drafts, onDraftChange
                     blockedValues={row.blocked_values}
                     onChange={next => onDraftChange(row.answer_id, next)}
                     title={label}
-                    ariaLabel={`Choose excluded answers for ${label}`}
+                    ariaLabel={`Exclude answers for ${label}`}
                   />
                 </li>
               );
             })}
           </ul>
           {activeRows.some(row => valuesFor(row).length === 0) && (
-            <p className="mt-2 text-xs text-purple-900/60">Tap the filter icon on a chip to choose which answers to hide.</p>
+            <p className="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-purple-900/60">
+              <span>Tap</span>
+              <span className="inline-flex items-center gap-1 font-medium text-gray-800">
+                Exclude
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-600 ring-1 ring-purple-200">
+                  <FilterLinesIcon className="h-3 w-3" />
+                </span>
+              </span>
+              <span>on a chip to choose which answers to hide.</span>
+            </p>
           )}
         </>
       )}

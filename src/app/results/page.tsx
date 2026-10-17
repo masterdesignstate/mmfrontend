@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
-import { apiService, MAX_LIKE_NOTE_CHARS, type ApiUser, type CompatibilityResult } from '@/services/api';
+import { apiService, MAX_LIKE_NOTE_CHARS, type AnswerExclusion, type ApiUser, type CompatibilityResult } from '@/services/api';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import CharCounter from '@/components/CharCounter';
 import ExcludedQuestionsSection from '@/components/ExcludedQuestionsSection';
@@ -278,6 +278,9 @@ function ResultsPageContent() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   // Exclusion edits made in the filter panel, keyed by answer id; saved on Apply.
   const [exclusionDrafts, setExclusionDrafts] = useState<Record<string, number[]>>({});
+  const [exclusionRows, setExclusionRows] = useState<AnswerExclusion[]>([]);
+  const [exclusionsLoaded, setExclusionsLoaded] = useState(false);
+  const [exclusionError, setExclusionError] = useState('');
   const [viewerId, setViewerId] = useState('');
   const [hasHydrated, setHasHydrated] = useState(false);
   // Load filtersApplied from sessionStorage on mount
@@ -695,7 +698,23 @@ function ResultsPageContent() {
 
   useEffect(() => {
     setHasHydrated(true);
-    setViewerId(localStorage.getItem('user_id') || '');
+    const id = localStorage.getItem('user_id') || '';
+    setViewerId(id);
+    if (!id) return;
+    let cancelled = false;
+    apiService.getAnswerExclusions(id, true)
+      .then(data => {
+        if (cancelled) return;
+        setExclusionRows(data);
+        setExclusionError('');
+        setExclusionsLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setExclusionError('Could not load your exclusions.');
+        setExclusionsLoaded(true);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   // Snapshot current filters into pendingFilters when modal opens
@@ -1582,6 +1601,12 @@ function ResultsPageContent() {
       const draftEntries = Object.entries(exclusionDrafts);
       if (draftEntries.length > 0) {
         await Promise.all(draftEntries.map(([answerId, values]) => apiService.updateAnswerExclusions(answerId, values)));
+        const draftsMap = Object.fromEntries(draftEntries);
+        setExclusionRows(prev => prev.map(row => (
+          row.answer_id in draftsMap
+            ? { ...row, excluded_answer_values: draftsMap[row.answer_id] }
+            : row
+        )));
         setExclusionDrafts({});
       }
 
@@ -2560,7 +2585,9 @@ function ResultsPageContent() {
 
                 {viewerId && (
                   <ExcludedQuestionsSection
-                    userId={viewerId}
+                    rows={exclusionRows}
+                    loaded={exclusionsLoaded}
+                    error={exclusionError}
                     drafts={exclusionDrafts}
                     onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
                   />
