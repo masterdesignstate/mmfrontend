@@ -34,7 +34,7 @@ const STEPS: TourStep[] = [
     id: 'question',
     target: '[data-tour="question"]',
     title: 'The question',
-    body: 'You answer what you want, then what you are.',
+    body: 'Set what you’re looking for, then your own answer.',
   },
   {
     id: 'them',
