@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 import AnswerSliderRow from '@/components/AnswerSliderRow';
-import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
+import OnboardingShell from '@/components/OnboardingShell';
 import GuidedTour, { type TourStep } from '@/components/onboarding/GuidedTour';
 import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import type { AnswerValueLabel } from '@/utils/answerValues';
@@ -27,66 +27,65 @@ const DOCK = 'aside[aria-label="Question actions"] > div';
 const STEPS: TourStep[] = [
   {
     id: 'welcome',
-    title: 'Let’s try a practice question',
-    body: 'Before your first real question, here’s a quick walkthrough of how questions work. Nothing you do here is saved.',
+    title: 'How a question works',
+    body: 'This sample is not saved.',
   },
   {
     id: 'question',
     target: '[data-tour="question"]',
     title: 'The question',
-    body: 'Each question has a number and a prompt. You’ll answer it twice: once about what you want, and once about you.',
+    body: 'You answer what you want, then what you are.',
   },
   {
     id: 'them',
     target: '[data-tour="them"]',
-    title: 'Them: what you’re looking for',
-    body: 'Slide to the answer you’d like a match to have. The words under the slider say what each number means.',
-    hint: 'Try it: drag the Them slider.',
+    title: 'Them',
+    body: 'The answer you want from someone else. The words under the slider explain each number.',
+    hint: 'Move the slider.',
   },
   {
     id: 'ota',
     target: '[data-tour="them"]',
     title: 'Open to All',
-    body: 'Not picky about this one? Drag Them all the way to 5, then tap the 5 again. The slider turns purple, meaning any answer works for you. Tap it again to turn it off.',
-    hint: 'Try it: move to 5 and tap it again.',
+    body: 'Move to 5, then tap it. The slider turns purple and any answer is fine. Tap again to turn it off.',
   },
   {
     id: 'exclude',
     target: `${DOCK} > :nth-child(2)`,
     title: 'Exclude',
-    body: 'Want to rule people out? Exclude hides anyone whose own answer is one you pick. You can change these later from the Filter panel on Results.',
+    body: 'Hides people whose answer is one you pick. You can change this later in Results filters.',
   },
   {
     id: 'me',
     target: '[data-tour="me"]',
-    title: 'Me: your own answer',
-    body: 'Now answer for yourself. This is what other people’s Them answers are compared against.',
-    hint: 'Try it: drag the Me slider.',
+    title: 'Me',
+    body: 'Your own answer. Other people are compared against this.',
+    hint: 'Move the slider.',
   },
   {
     id: 'note',
     target: `${DOCK} > :nth-child(3)`,
-    title: 'Add a note',
-    body: 'Want to explain your answer? Add a short note to the question. Who can see notes is up to you in Settings.',
+    title: 'Note',
+    body: 'A short note on your answer. Who can see notes is set in Settings.',
   },
   {
     id: 'importance',
     target: '[data-tour="importance"]',
     title: 'Importance',
-    body: 'How much does this question matter to you? Higher importance counts for more in your compatibility scores.',
-    hint: 'Try it: set an importance.',
+    body: 'Higher importance counts for more in compatibility.',
+    hint: 'Move the slider.',
   },
   {
     id: 'toggles',
     target: '[data-tour="toggles"]',
     title: 'Required and Share',
-    body: 'Optional questions also have these. Required For Match: people must answer it before you’re matched. Share Answer: shows your answer on your profile.',
+    body: 'Required means they must answer it. Share shows your answer on your profile.',
   },
   {
     id: 'next',
     target: 'footer button:last-of-type',
-    title: 'Save and continue',
-    body: 'On real questions, Next saves your answer and moves on. That’s everything. Your first question is up next!',
+    title: 'Next',
+    body: 'On a real question, Next saves your answer.',
   },
 ];
 
@@ -180,19 +179,17 @@ export default function DemoQuestionPage() {
         onQuestionNoteChange={setNote}
       >
         <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
-          <div className="mb-2 flex justify-center">
-            <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-[#672DB7] ring-1 ring-purple-200">
-              Practice question · nothing is saved
+          <div data-tour="question" className="mb-2 text-center sm:mb-6 lg:mb-8">
+            <span className="inline-flex rounded-full border border-gray-900 px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-gray-900">
+              SAMPLE QUESTION
             </span>
-          </div>
-
-          <div data-tour="question">
-            <OnboardingTitle step="Practice. Coffee" question="How often do you drink coffee?">
-              <div data-tour="toggles" className="mb-4 flex w-full items-center justify-between gap-3 sm:mb-8">
-                <DemoSwitch label="Required For Match" checked={required} onChange={() => setRequired(v => !v)} />
-                <DemoSwitch label="Share Answer" checked={share} onChange={() => setShare(v => !v)} />
-              </div>
-            </OnboardingTitle>
+            <p className="mb-1 mt-3 break-words text-base font-bold text-black sm:mb-4 sm:text-xl lg:text-2xl">
+              How often do you drink coffee?
+            </p>
+            <div data-tour="toggles" className="mb-4 flex w-full items-center justify-between gap-3 sm:mb-8">
+              <DemoSwitch label="Required For Match" checked={required} onChange={() => setRequired(v => !v)} />
+              <DemoSwitch label="Share Answer" checked={share} onChange={() => setShare(v => !v)} />
+            </div>
           </div>
 
           <div className="mb-2" data-tour="them">

@@ -16,3 +16,12 @@ export const markOnboardingDemoSeen = (userId: string): void => {
     // Private mode: the demo just shows again next time.
   }
 };
+
+/** Back from the first question should show the walkthrough again. */
+export const clearOnboardingDemoSeen = (userId: string): void => {
+  try {
+    localStorage.removeItem(demoSeenKey(userId));
+  } catch {
+    // Private mode: nothing was stored.
+  }
+};

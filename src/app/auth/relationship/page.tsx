@@ -8,6 +8,7 @@ import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
+import { clearOnboardingDemoSeen } from '@/utils/onboardingDemo';
 import posthog from 'posthog-js';
 
 type RelationshipKey = 'friend' | 'hookup' | 'date' | 'partner';
@@ -180,10 +181,10 @@ export default function RelationshipPage() {
   };
 
   const handleBack = () => {
-    const params = new URLSearchParams({ 
-      user_id: userId
-    });
-    router.push(`/auth/introcard?${params.toString()}`);
+    if (userId) clearOnboardingDemoSeen(userId);
+    const next = `/auth/relationship?user_id=${encodeURIComponent(userId)}`;
+    const params = new URLSearchParams({ user_id: userId, next });
+    router.push(`/auth/demo-question?${params.toString()}`);
   };
 
   return (

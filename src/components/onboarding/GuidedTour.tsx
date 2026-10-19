@@ -127,29 +127,22 @@ export default function GuidedTour({
         style={cardStyle}
       >
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#672DB7]">
-            Step {index + 1} of {steps.length}
+          <span className="text-xs text-gray-500">
+            {index + 1} / {steps.length}
           </span>
           {!isLast && (
-            <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-400 hover:text-gray-600">
-              Skip tour
+            <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-500 hover:text-gray-800">
+              Skip
             </button>
           )}
         </div>
-        <h2 id="tour-step-title" className="text-base font-bold text-gray-900">{step.title}</h2>
+        <h2 id="tour-step-title" className="text-base font-semibold text-gray-900">{step.title}</h2>
         <p className="mt-1 text-sm leading-relaxed text-gray-600">{step.body}</p>
-        {completed ? (
-          <p className="mt-2 text-sm font-semibold text-green-600">Nice, that&apos;s it!</p>
-        ) : step.hint ? (
-          <p className="mt-2 rounded-lg bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-[#672DB7]">{step.hint}</p>
-        ) : null}
+        {step.hint && !completed && (
+          <p className="mt-2 text-sm text-gray-900">{step.hint}</p>
+        )}
 
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex gap-1" aria-hidden="true">
-            {steps.map((s, i) => (
-              <span key={s.id} className={`h-1.5 rounded-full transition-all ${i === index ? 'w-4 bg-[#672DB7]' : 'w-1.5 bg-gray-200'}`} />
-            ))}
-          </div>
+        <div className="mt-3 flex items-center justify-end">
           <div className="flex items-center gap-2">
             {index > 0 && (
               <button type="button" onClick={onBack} className="px-2 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900">
