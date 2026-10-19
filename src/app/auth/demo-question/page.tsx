@@ -34,7 +34,7 @@ const STEPS: TourStep[] = [
     id: 'question',
     target: '[data-tour="question"]',
     title: 'The question',
-    body: 'Set what you’re looking for, then your own answer.',
+    body: 'CompatibleFirst is built on questions. Your answers are what the algorithm uses to calculate compatibility. Each question is split into Them and Me.',
   },
   {
     id: 'them',
