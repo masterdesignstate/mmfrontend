@@ -5435,8 +5435,8 @@ export default function UserProfilePage() {
 
       {/* Match Celebration */}
       {actionToast && (
-        <div className="pointer-events-none fixed bottom-8 left-1/2 z-[250] -translate-x-1/2 animate-fade-in-up">
-          <div className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white shadow-lg">
+        <div className="pointer-events-none fixed bottom-8 left-4 right-4 z-[250] flex justify-center animate-fade-in-up">
+          <div className="max-w-full rounded-full bg-black px-6 py-3 text-center text-sm font-medium text-white shadow-lg">
             {actionToast}
           </div>
         </div>

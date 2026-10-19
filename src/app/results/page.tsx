@@ -2400,7 +2400,7 @@ function ResultsPageContent() {
             </div>
 
             {/* Content */}
-            <div className="p-4 sm:p-8 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-8">
               <div className="w-full max-w-2xl">
                 {/* Compatibility Type Picker */}
                 <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
@@ -2664,7 +2664,7 @@ function ResultsPageContent() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-gray-200">
+            <div className="flex shrink-0 items-center justify-between border-t border-gray-200 bg-white p-4">
               <button
                 onClick={clearAllFilters}
                 className="text-gray-600 hover:text-gray-800 font-medium cursor-pointer"
