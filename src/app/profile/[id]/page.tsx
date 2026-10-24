@@ -21,6 +21,7 @@ import ProfilePromptCards from '@/components/ProfilePromptCards';
 import ProfilePhotoGallery from '@/components/ProfilePhotoGallery';
 import NoteReveal from '@/components/NoteReveal';
 import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
+import { EXCLUDE_ME_BLOCKED_HELP, EXCLUDE_ME_HELP } from '@/components/ExclusionControl';
 import {
   MobileQuestionActionDock,
   MobileQuestionActionsProvider,
@@ -1316,8 +1317,10 @@ export default function UserProfilePage() {
       newSelectedTags.push('like');
     }
 
-    // Update UI immediately
+    // Update UI immediately, and say so before the request comes back.
     setSelectedTags(newSelectedTags);
+    const likedName = user?.first_name || user?.username || 'them';
+    showActionToast(`Liked ${likedName}`);
 
     try {
       // Remove hide tag if present before adding like
@@ -1351,20 +1354,20 @@ export default function UserProfilePage() {
           if (payload?.error === 'required_questions_unanswered') {
             // Revert optimistic UI
             setSelectedTags(selectedTags);
+            setActionToast('');
             alert(payload?.message || "You need to answer all of this user's required questions before you can like them.");
             return;
           }
           if (payload?.error === 'approval_required') {
             // Target requires approval and hasn't approved us (e.g. setting changed mid-session)
             setSelectedTags(selectedTags);
+            setActionToast('');
             setShowApprovalPopup(true);
             return;
           }
         }
         throw new Error('Failed to send like');
       }
-
-      const likedName = user?.first_name || user?.username || 'them';
 
       // Check for match after adding like
       await checkForMatch(newSelectedTags);
@@ -1391,7 +1394,7 @@ export default function UserProfilePage() {
         }
       }
 
-      showActionToast(noteSent ? `Liked ${likedName} and sent a note` : `Liked ${likedName}`);
+      if (noteSent) showActionToast(`Liked ${likedName} and sent a note`);
 
       // Refresh tags from server to ensure sync
       const response = await fetch(
@@ -1475,6 +1478,9 @@ export default function UserProfilePage() {
           : [...prev, normalizedTag]
       );
     }
+
+    const person = user?.first_name || user?.username || 'them';
+    showActionToast(profileActionMessage(normalizedTag, !isCurrentlySelected, person));
 
     try {
       // If hiding, first remove approve and like tags
@@ -1598,14 +1604,10 @@ export default function UserProfilePage() {
         );
         showActionToast("Couldn't update. Try again.");
         console.error('Failed to toggle tag');
-      } else {
-        const person = user?.first_name || user?.username || 'them';
-        showActionToast(profileActionMessage(normalizedTag, !isCurrentlySelected, person));
-        if (!isCurrentlySelected) {
-          // Track engagement events for new tag additions
-          if (normalizedTag === 'approve') posthog.capture('approve_sent', { approved_user_id: userId });
-          if (normalizedTag === 'hide') posthog.capture('user_hidden', { hidden_user_id: userId });
-        }
+      } else if (!isCurrentlySelected) {
+        // Track engagement events for new tag additions
+        if (normalizedTag === 'approve') posthog.capture('approve_sent', { approved_user_id: userId });
+        if (normalizedTag === 'hide') posthog.capture('user_hidden', { hidden_user_id: userId });
       }
     } catch (error) {
       // Revert on error
@@ -1906,6 +1908,7 @@ export default function UserProfilePage() {
       if (!Number.isFinite(number) || seen.has(number)) continue;
       if (question.is_approved === false) continue;
       if (profileUserAnsweredQuestionNumbers.has(number)) continue;
+      if (!currentUserAnsweredQuestionNumbers.has(number)) continue;
       seen.add(number);
       rows.push({
         questionNumber: number,
@@ -1918,7 +1921,21 @@ export default function UserProfilePage() {
       });
     }
     return rows;
-  }, [allQuestions, profileUserAnsweredQuestionNumbers, currentUserRequiredQuestionIds]);
+  }, [allQuestions, currentUserAnsweredQuestionNumbers, profileUserAnsweredQuestionNumbers, currentUserRequiredQuestionIds]);
+
+  const requestAnswerEmptyMessage = useMemo(() => {
+    if (askableQuestions.length > 0 || allQuestions.length === 0) return '';
+    const seen = new Set<number>();
+    let unansweredByThem = 0;
+    for (const question of allQuestions) {
+      const number = Number(question.question_number);
+      if (!Number.isFinite(number) || seen.has(number) || question.is_approved === false) continue;
+      seen.add(number);
+      if (!profileUserAnsweredQuestionNumbers.has(number)) unansweredByThem += 1;
+    }
+    if (unansweredByThem === 0) return `${profileOwnerName} has answered every question.`;
+    return 'You can request a question after you’ve answered it.';
+  }, [allQuestions, askableQuestions.length, profileOwnerName, profileUserAnsweredQuestionNumbers]);
 
   // Build pending question groups from allQuestions for display in the modal
   const pendingQuestionGroups = useMemo(() => {
@@ -2229,10 +2246,13 @@ export default function UserProfilePage() {
       sliders[`${key}_looking`] = existing ? (existing.looking_for_open_to_all ? 3 : existing.looking_for_answer || 3) : 3;
       openToAll[`${key}_me`] = existing?.me_open_to_all || false;
       openToAll[`${key}_looking`] = existing?.looking_for_open_to_all || false;
+      const relationshipRow = Number(q.question_number) === RELATIONSHIP;
       exclusions[key] = normalizeExcludedValues(
         existing?.excluded_answer_values,
         getAllowedExclusionValues(q),
-        existing?.me_open_to_all ? [] : [existing?.me_answer || 3]
+        relationshipRow
+          ? (existing?.me_open_to_all ? [] : [existing?.me_answer || 3])
+          : (existing?.looking_for_open_to_all ? [] : [existing?.looking_for_answer || 3])
       );
       notes[key] = existing?.me_note || '';
     });
@@ -2443,7 +2463,9 @@ export default function UserProfilePage() {
         excluded_answer_values: normalizeExcludedValues(
           editExcludedAnswerValues[key] || [],
           getAllowedExclusionValues(question),
-          editOpenToAllStates[`${key}_me`] ? [] : [editSliderAnswers[`${key}_me`] || 3]
+          questionNumber === RELATIONSHIP
+            ? (editOpenToAllStates[`${key}_me`] ? [] : [editSliderAnswers[`${key}_me`] || 3])
+            : (editOpenToAllStates[`${key}_looking`] ? [] : [editSliderAnswers[`${key}_looking`] || 3])
         ),
         me_note: editAnswerNotes[key] || '',
         is_required_for_me: isNonGrouped ? editMeRequired : false
@@ -2510,9 +2532,10 @@ export default function UserProfilePage() {
     });
   };
 
-  const getEditBlockedExclusionValuesForKey = (key: string) => (
-    editOpenToAllStates[`${key}_me`] ? [] : [editSliderAnswers[`${key}_me`] || 3]
-  );
+  const getEditBlockedExclusionValuesForKey = (key: string, useMe = false) => {
+    const side = useMe ? 'me' : 'looking';
+    return editOpenToAllStates[`${key}_${side}`] ? [] : [editSliderAnswers[`${key}_${side}`] || 3];
+  };
 
   const setEditExcludedValuesForKey = (key: string, values: number[], question?: ExclusionQuestion) => {
     setEditExcludedAnswerValues(prev => ({
@@ -2742,8 +2765,9 @@ export default function UserProfilePage() {
         break;
     }
 
-    // Update UI immediately
+    // Update UI immediately, and say so before the request comes back.
     setSelectedTags(newSelectedTags);
+    showActionToast(action === 'add_approve' ? `Approved ${displayName}` : 'Removed like');
 
     // Sync with backend
     try {
@@ -2770,8 +2794,6 @@ export default function UserProfilePage() {
           posthog.capture('approve_sent', { approved_user_id: userId });
           break;
       }
-
-      showActionToast(action === 'add_approve' ? `Approved ${displayName}` : 'Removed like');
 
       // Refresh tags from server to ensure sync
       const currentUserId = localStorage.getItem('user_id');
@@ -3158,7 +3180,7 @@ export default function UserProfilePage() {
                     }}
                     className="block w-full px-4 py-3 text-left text-sm font-medium text-gray-900 hover:bg-white/50"
                   >
-                    Ask a question
+                    Request an answer
                   </button>
                   <button
                     type="button"
@@ -3795,6 +3817,7 @@ export default function UserProfilePage() {
           recipientName={profileOwnerName}
           questions={askableQuestions}
           ready={allQuestions.length > 0}
+          emptyMessage={requestAnswerEmptyMessage || undefined}
           onClose={() => setShowAskPicker(false)}
         />
       )}
@@ -4175,8 +4198,10 @@ export default function UserProfilePage() {
                                 showExclude={isRelationship}
                                 excludedValues={editExcludedAnswerValues[key] || []}
                                 allowedExclusionValues={getAllowedExclusionValues(question)}
-                                blockedExclusionValues={getEditBlockedExclusionValuesForKey(key)}
+                                blockedExclusionValues={getEditBlockedExclusionValuesForKey(key, true)}
                                 onExcludedValuesChange={(values) => setEditExcludedValuesForKey(key, values, question)}
+                                excludeBlockedHelp={EXCLUDE_ME_BLOCKED_HELP}
+                                excludeHelpText={EXCLUDE_ME_HELP}
                                 showNote
                                 note={editAnswerNotes[key] || ''}
                                 onNoteChange={(note) => setEditAnswerNotes(prev => ({ ...prev, [key]: note }))}
@@ -5435,7 +5460,7 @@ export default function UserProfilePage() {
 
       {/* Match Celebration */}
       {actionToast && (
-        <div className="pointer-events-none fixed bottom-8 left-4 right-4 z-[250] flex justify-center animate-fade-in-up">
+        <div className="pointer-events-none fixed bottom-8 left-4 right-4 z-[250] flex justify-center animate-action-toast">
           <div className="max-w-full rounded-full bg-black px-6 py-3 text-center text-sm font-medium text-white shadow-lg">
             {actionToast}
           </div>
@@ -5476,6 +5501,13 @@ export default function UserProfilePage() {
         }
         .animate-fade-in-up {
           animation: fadeInUp 0.3s ease-out;
+        }
+        @keyframes actionToastIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-action-toast {
+          animation: actionToastIn 0.22s ease-out;
         }
       `}</style>
     </div>

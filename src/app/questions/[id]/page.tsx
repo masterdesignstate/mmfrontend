@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { mutate as globalMutate } from 'swr';
+import { EXCLUDE_ME_BLOCKED_HELP, EXCLUDE_ME_HELP } from '@/components/ExclusionControl';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import {
   ALCOHOL,
@@ -758,10 +759,13 @@ function QuestionEditPageContent() {
           : answer.looking_for_answer;
         openToAll[`${key}_me`] = meIsOpen;
         openToAll[`${key}_looking`] = lookingIsOpen;
+        const blockMe = Number(question.question_number) === RELATIONSHIP;
         exclusions[key] = normalizeExcludedValues(
           answer.excluded_answer_values,
           getAllowedExclusionValues(question),
-          answer.me_open_to_all ? [] : [answer.me_answer || 3]
+          blockMe
+            ? (answer.me_open_to_all ? [] : [answer.me_answer || 3])
+            : (answer.looking_for_open_to_all ? [] : [answer.looking_for_answer || 3])
         );
         notes[key] = answer.me_note || '';
 
@@ -831,7 +835,9 @@ function QuestionEditPageContent() {
         exc: normalizeExcludedValues(
           existingAnswer.excluded_answer_values,
           getAllowedExclusionValues(question),
-          existingAnswer.me_open_to_all ? [] : [existingAnswer.me_answer || 3]
+          Number(question.question_number) === RELATIONSHIP
+            ? (existingAnswer.me_open_to_all ? [] : [existingAnswer.me_answer || 3])
+            : (existingAnswer.looking_for_open_to_all ? [] : [existingAnswer.looking_for_answer || 3])
         ),
         note: existingAnswer.me_note || '',
       }));
@@ -961,7 +967,9 @@ function QuestionEditPageContent() {
             excluded_answer_values: normalizeExcludedValues(
               excludedAnswerValues[key] || [],
               getAllowedExclusionValues(question),
-              openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3]
+              questionNumber === RELATIONSHIP
+                ? (openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3])
+                : (openToAllStates[`${key}_looking`] ? [] : [sliderAnswers[`${key}_looking`] || 3])
             ),
             me_note: answerNotes[key] || '',
             is_required_for_me: isNonGroupedQuestionOver10 ? meRequired : false
@@ -1191,7 +1199,9 @@ function QuestionEditPageContent() {
   };
 
   const getBlockedExclusionValuesForKey = (key: string) => (
-    openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3]
+    questionNumber === RELATIONSHIP
+      ? (openToAllStates[`${key}_me`] ? [] : [sliderAnswers[`${key}_me`] || 3])
+      : (openToAllStates[`${key}_looking`] ? [] : [sliderAnswers[`${key}_looking`] || 3])
   );
 
   const setExcludedValuesForKey = (key: string, values: number[], question?: Question) => {
@@ -1250,6 +1260,8 @@ function QuestionEditPageContent() {
     /** Head every row with its own section heading instead of one heading for the group. */
     headingPerRow = false,
     className = '',
+    excludeBlockedHelp,
+    excludeHelpText,
   }: {
     title: string;
     titleColor?: string;
@@ -1258,6 +1270,8 @@ function QuestionEditPageContent() {
     showNote?: boolean;
     headingPerRow?: boolean;
     className?: string;
+    excludeBlockedHelp?: string;
+    excludeHelpText?: string;
   }) => (
     <div className={`mb-2 ${className}`}>
       {!headingPerRow && (
@@ -1293,6 +1307,8 @@ function QuestionEditPageContent() {
             excludedValues={excludedAnswerValues[row.storageKey] || []}
             allowedExclusionValues={getAllowedExclusionValues(row.question)}
             blockedExclusionValues={getBlockedExclusionValuesForKey(row.storageKey)}
+            excludeBlockedHelp={excludeBlockedHelp}
+            excludeHelpText={excludeHelpText}
             onExcludedValuesChange={(values) =>
               setExcludedValuesForKey(row.storageKey, values, row.question)
             }
@@ -1357,6 +1373,8 @@ function QuestionEditPageContent() {
               showExclude: true,
               showNote: true,
               headingPerRow: true,
+              excludeBlockedHelp: EXCLUDE_ME_BLOCKED_HELP,
+              excludeHelpText: EXCLUDE_ME_HELP,
             })}
             {renderImportanceSection(
               importanceValues.me,

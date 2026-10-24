@@ -6,6 +6,11 @@ import { TIP_PANEL_CLASSES, tipArrowClasses } from '@/components/InfoTip';
 import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 
+export const EXCLUDE_THEM_BLOCKED_HELP = 'This is what you’re looking for and can’t be excluded.';
+export const EXCLUDE_THEM_HELP = 'People with these answers won’t appear in your results. The answer you’re looking for can’t be excluded.';
+export const EXCLUDE_ME_BLOCKED_HELP = 'This is your answer and can’t be excluded.';
+export const EXCLUDE_ME_HELP = 'People with these answers won’t appear in your results. Your own answer can’t be excluded.';
+
 interface ExclusionControlProps {
   values: number[];
   onChange: (values: number[]) => void;
@@ -16,10 +21,15 @@ interface ExclusionControlProps {
   title?: string;
   ariaLabel?: string;
   helpText?: string;
+  /** Tooltip on the value that cannot be excluded. */
+  blockedHelp?: string;
   disabled?: boolean;
   popoverPlacement?: 'above' | 'below';
   /** Render just the filter icon, for use inside a chip. */
   iconOnly?: boolean;
+  /** Stack the values and caption the first and last, for the filter panel. */
+  showEndLabels?: boolean;
+  valueLabels?: Record<string, string>;
 }
 
 const POPOVER_WIDTH_PX = 256;
@@ -35,10 +45,13 @@ export default function ExclusionControl({
   buttonLabel = 'Exclude',
   title = 'Exclude',
   ariaLabel = 'Exclude answer values',
-  helpText = 'People with these answers won’t appear in your results. Your own answer can’t be excluded.',
+  helpText = EXCLUDE_THEM_HELP,
+  blockedHelp = EXCLUDE_THEM_BLOCKED_HELP,
   disabled = false,
   popoverPlacement = 'below',
   iconOnly = false,
+  showEndLabels = false,
+  valueLabels,
 }: ExclusionControlProps) {
   const [open, setOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -201,16 +214,18 @@ export default function ExclusionControl({
           Done
         </button>
       </div>
-      <div className="mb-3 flex gap-2">
+      <div className={showEndLabels ? 'mb-3 flex flex-col items-center gap-2.5' : 'mb-3 flex gap-2'}>
         {exclusionValues.map(value => {
           const isSelected = activeValues.includes(value);
           const isBlocked = blockedExclusionValues.includes(value);
+          const isEnd = value === exclusionValues[0] || value === exclusionValues[exclusionValues.length - 1];
+          const endLabel = showEndLabels && isEnd ? (valueLabels?.[String(value)] || '').trim() : '';
           return (
-            <span key={value} className="relative">
+            <span key={value} className={showEndLabels ? 'relative flex flex-col items-center' : 'relative'}>
               <button
                 type="button"
                 aria-disabled={isBlocked}
-                aria-label={isBlocked ? `${value}. This is your answer and can’t be excluded.` : String(value)}
+                aria-label={isBlocked ? `${value}. ${blockedHelp}` : String(value)}
                 onClick={() => toggleValue(value)}
                 onMouseEnter={() => isBlocked && setBlockedHelpValue(value)}
                 onMouseLeave={() => isBlocked && setBlockedHelpValue(null)}
@@ -226,12 +241,19 @@ export default function ExclusionControl({
               >
                 {value}
               </button>
+              {endLabel && (
+                <span className="mt-1 max-w-[9.5rem] text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-gray-500">
+                  {endLabel}
+                </span>
+              )}
               {isBlocked && blockedHelpValue === value && (
                 <span
                   role="tooltip"
-                  className={`absolute bottom-10 left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES}`}
+                  className={`absolute left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES} ${
+                    showEndLabels ? 'bottom-full mb-1' : 'bottom-10'
+                  }`}
                 >
-                  This is your answer and can’t be excluded.
+                  {blockedHelp}
                   <span className={tipArrowClasses('bottom', 'center')} />
                 </span>
               )}

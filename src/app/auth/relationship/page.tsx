@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import { RELATIONSHIP, getNextOnboardingRoute, getOnboardingProgressPercent } from '@/constants/mandatoryQuestions';
 import AnswerSliderRow, { RowHeading } from '@/components/AnswerSliderRow';
+import { EXCLUDE_ME_BLOCKED_HELP, EXCLUDE_ME_HELP } from '@/components/ExclusionControl';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
@@ -226,6 +227,8 @@ export default function RelationshipPage() {
                 excludedValues={excluded[questionKey]}
                 allowedExclusionValues={DEFAULT_EXCLUSION_VALUES}
                 blockedExclusionValues={blockedExclusions(questionKey)}
+                excludeBlockedHelp={EXCLUDE_ME_BLOCKED_HELP}
+                excludeHelpText={EXCLUDE_ME_HELP}
                 onExcludedValuesChange={(values) => setExcludedFor(questionKey, values)}
               />
             </div>

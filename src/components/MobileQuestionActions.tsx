@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import NoteControl from '@/components/NoteControl';
+import { EXCLUDE_THEM_BLOCKED_HELP, EXCLUDE_THEM_HELP } from '@/components/ExclusionControl';
 import { TIP_PANEL_CLASSES, tipArrowClasses } from '@/components/InfoTip';
 import { DEFAULT_EXCLUSION_VALUES, normalizeExcludedValues } from '@/utils/exclusionValues';
 
@@ -23,6 +24,8 @@ export interface MobileQuestionActionEntry {
   excludedValues?: number[];
   allowedExclusionValues?: number[];
   blockedExclusionValues?: number[];
+  excludeBlockedHelp?: string;
+  excludeHelpText?: string;
   onExcludedValuesChange?: (values: number[]) => void;
   showNote?: boolean;
   note?: string;
@@ -305,8 +308,7 @@ function MobileExclusionPicker({
               </div>
 
               <p className="mb-3 text-xs leading-relaxed text-gray-500">
-                People with these answers won’t appear in your results. Your own answer
-                can’t be excluded.
+                {selectedEntry?.excludeHelpText || EXCLUDE_THEM_HELP}
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {allowedValues.map(value => {
@@ -317,7 +319,7 @@ function MobileExclusionPicker({
                       <button
                         type="button"
                         aria-disabled={isBlocked}
-                        aria-label={isBlocked ? `${value}. This is your answer and can’t be excluded.` : String(value)}
+                        aria-label={isBlocked ? `${value}. ${selectedEntry?.excludeBlockedHelp || EXCLUDE_THEM_BLOCKED_HELP}` : String(value)}
                         onClick={() => toggleValue(value)}
                         onMouseEnter={() => isBlocked && setBlockedHelpValue(value)}
                         onMouseLeave={() => isBlocked && setBlockedHelpValue(null)}
@@ -338,7 +340,7 @@ function MobileExclusionPicker({
                           role="tooltip"
                           className={`absolute bottom-11 left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES}`}
                         >
-                          This is your answer and can’t be excluded.
+                          {selectedEntry?.excludeBlockedHelp || EXCLUDE_THEM_BLOCKED_HELP}
                           <span className={tipArrowClasses('bottom', 'center')} />
                         </span>
                       )}

@@ -18,6 +18,8 @@ interface AskQuestionPickerProps {
   questions: AskableQuestion[];
   /** False while the profile is still loading the question list. */
   ready: boolean;
+  /** Shown when there is nothing to request. */
+  emptyMessage?: string;
   onClose: () => void;
 }
 
@@ -27,6 +29,7 @@ export default function AskQuestionPicker({
   recipientName,
   questions,
   ready,
+  emptyMessage = 'You can request a question after you’ve answered it.',
   onClose,
 }: AskQuestionPickerProps) {
   const [search, setSearch] = useState('');
@@ -48,12 +51,12 @@ export default function AskQuestionPicker({
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
       <div
         role="dialog"
-        aria-label={`Ask ${recipientName} a question`}
+        aria-label={`Request an answer from ${recipientName}`}
         className="flex h-[75vh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
         onClick={event => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h3 className="min-w-0 truncate text-base font-semibold text-gray-900">Ask {recipientName}</h3>
+          <h3 className="min-w-0 truncate text-base font-semibold text-gray-900">Request an answer</h3>
           <button type="button" onClick={onClose} aria-label="Close" className="text-xl leading-none text-gray-400 hover:text-gray-600">×</button>
         </div>
         <div className="px-4 pt-3">
@@ -62,7 +65,7 @@ export default function AskQuestionPicker({
             autoFocus
             value={search}
             onChange={event => setSearch(event.target.value)}
-            placeholder="Search questions they haven't answered"
+            placeholder="Search questions you’ve answered"
             className="block w-full rounded-full border border-gray-300 px-4 py-2 text-sm placeholder-gray-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
           />
         </div>
@@ -70,7 +73,7 @@ export default function AskQuestionPicker({
           {!ready ? (
             <li className="px-3 py-6 text-center text-sm text-gray-500">Loading questions…</li>
           ) : questions.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-gray-500">{recipientName} has answered every question.</li>
+            <li className="px-3 py-6 text-center text-sm text-gray-500">{emptyMessage}</li>
           ) : filtered.length === 0 ? (
             <li className="px-3 py-6 text-center text-sm text-gray-500">No questions match “{search.trim()}”.</li>
           ) : filtered.map(question => (

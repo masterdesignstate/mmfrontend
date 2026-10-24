@@ -10,6 +10,8 @@ export interface TourStep {
   body: string;
   /** Shown under the body for steps that ask the user to do something. */
   hint?: string;
+  /** Leave the page undimmed so the whole question stays visible. */
+  revealAll?: boolean;
 }
 
 interface GuidedTourProps {
@@ -93,6 +95,9 @@ export default function GuidedTour({
   const isLast = index === steps.length - 1;
   const cardWidth = Math.min(CARD_WIDTH, viewport.width - 24);
   const cardStyle: CSSProperties = (() => {
+    if (step.revealAll) {
+      return { top: Math.max(12, viewport.height - cardHeight - 16), left: (viewport.width - cardWidth) / 2, width: cardWidth };
+    }
     if (!rect) {
       return { top: Math.max(12, (viewport.height - cardHeight) / 2), left: (viewport.width - cardWidth) / 2, width: cardWidth };
     }
@@ -106,7 +111,7 @@ export default function GuidedTour({
 
   return (
     <div className="fixed inset-0 z-[300] pointer-events-none" role="dialog" aria-modal="false" aria-labelledby="tour-step-title">
-      {rect ? (
+      {!step.revealAll && (rect ? (
         <div
           className="absolute rounded-2xl ring-2 ring-white/90 transition-all duration-300 ease-out"
           style={{
@@ -119,7 +124,7 @@ export default function GuidedTour({
         />
       ) : (
         <div className="absolute inset-0 bg-[rgba(17,12,34,0.55)] pointer-events-auto" />
-      )}
+      ))}
 
       <div
         ref={cardRef}
@@ -130,11 +135,13 @@ export default function GuidedTour({
           <span className="text-xs text-gray-500">
             {index + 1} / {steps.length}
           </span>
-          {!isLast && (
-            <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-500 hover:text-gray-800">
-              Skip
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onSkip}
+            className="rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+          >
+            Skip tour
+          </button>
         </div>
         <h2 id="tour-step-title" className="text-base font-semibold text-gray-900">{step.title}</h2>
         <p className="mt-1 text-sm leading-relaxed text-gray-600">{step.body}</p>

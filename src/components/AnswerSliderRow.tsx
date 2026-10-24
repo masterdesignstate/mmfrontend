@@ -152,6 +152,9 @@ export interface RowControlsProps {
   allowedExclusionValues?: number[];
   blockedExclusionValues?: number[];
   onExcludedValuesChange?: (values: number[]) => void;
+  /** Copy for the value that cannot be excluded. Defaults to the Them answer. */
+  excludeBlockedHelp?: string;
+  excludeHelpText?: string;
   /** Free-text note — the "Me" side of a question. */
   showNote?: boolean;
   note?: string;
@@ -168,6 +171,8 @@ export function RowControls({
   allowedExclusionValues,
   blockedExclusionValues,
   onExcludedValuesChange,
+  excludeBlockedHelp,
+  excludeHelpText,
   showNote = false,
   note = '',
   onNoteChange,
@@ -186,6 +191,8 @@ export function RowControls({
           values={excludedValues}
           allowedValues={allowedExclusionValues}
           blockedValues={blockedExclusionValues}
+          blockedHelp={excludeBlockedHelp}
+          helpText={excludeHelpText}
           onChange={onExcludedValuesChange || (() => {})}
         />
       ) : showNote ? (
@@ -297,6 +304,8 @@ export default function AnswerSliderRow({
       excludedValues: controls.excludedValues,
       allowedExclusionValues: controls.allowedExclusionValues,
       blockedExclusionValues: controls.blockedExclusionValues,
+      excludeBlockedHelp: controls.excludeBlockedHelp,
+      excludeHelpText: controls.excludeHelpText,
       onExcludedValuesChange: controls.onExcludedValuesChange,
       showNote: controls.showNote,
       note: controls.note,
@@ -306,6 +315,8 @@ export default function AnswerSliderRow({
     actionId,
     controls.allowedExclusionValues,
     controls.blockedExclusionValues,
+    controls.excludeBlockedHelp,
+    controls.excludeHelpText,
     controls.excludedValues,
     allowedValuesKey,
     blockedValuesKey,

@@ -43,14 +43,14 @@ export default function PromptToAnswerButton({
   };
 
   const label = state === 'sent'
-    ? 'Asked'
+    ? 'Requested'
     : state === 'sending'
-      ? 'Asking…'
+      ? 'Requesting…'
       : variant === 'full'
-        ? `Ask ${recipientName} to answer`
+        ? `Request an answer from ${recipientName}`
         : variant === 'ask'
-          ? 'Ask'
-          : 'Ask to answer';
+          ? 'Request'
+          : 'Request answer';
 
   const sizing = variant === 'full'
     ? 'px-5 py-2.5 text-sm'
@@ -64,7 +64,7 @@ export default function PromptToAnswerButton({
         type="button"
         onClick={send}
         disabled={state === 'sending' || state === 'sent'}
-        title={state === 'sent' ? `${recipientName} will get a notification` : `Ask ${recipientName} to answer this question`}
+        title={state === 'sent' ? `${recipientName} will get a notification` : `Request ${recipientName} answer this question`}
         className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-semibold transition-colors ${sizing} ${
           state === 'sent'
             ? 'cursor-default bg-purple-50 text-[#672DB7] ring-1 ring-purple-200'

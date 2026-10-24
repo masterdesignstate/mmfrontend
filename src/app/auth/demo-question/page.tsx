@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 import AnswerSliderRow from '@/components/AnswerSliderRow';
@@ -82,29 +82,12 @@ const STEPS: TourStep[] = [
     body: 'Required means they must answer it. Share shows your answer on your profile.',
   },
   {
-    id: 'next',
-    target: 'footer button:last-of-type',
-    title: 'Next',
-    body: 'On a real question, Next saves your answer.',
+    id: 'whole',
+    revealAll: true,
+    title: 'The whole question',
+    body: 'Them, Me, and Importance sit together. On a real question, Next saves your answer.',
   },
 ];
-
-interface DemoState {
-  them: number;
-  me: number;
-  importance: number;
-  themOpen: boolean;
-}
-
-/** Steps that finish themselves once the user has done what they ask. */
-const TASKS: Partial<Record<string, (start: DemoState, now: DemoState) => boolean>> = {
-  them: (start, now) => now.them !== start.them,
-  ota: (start, now) => now.themOpen !== start.themOpen,
-  me: (start, now) => now.me !== start.me,
-  importance: (start, now) => now.importance !== start.importance,
-};
-
-const AUTO_ADVANCE_MS = 900;
 
 /** Allow only in-app onboarding routes as the place to continue to. */
 const safeNext = (raw: string | null) => (raw && raw.startsWith('/auth/') ? raw : '/auth/relationship');
@@ -125,33 +108,11 @@ export default function DemoQuestionPage() {
   const [share, setShare] = useState(true);
 
   const [stepIndex, setStepIndex] = useState(0);
-  const [taskDone, setTaskDone] = useState(false);
-
-  const state = useMemo<DemoState>(() => ({ them, me, importance, themOpen }), [them, me, importance, themOpen]);
-  const stepStartRef = useRef<DemoState>(state);
   const step = STEPS[stepIndex];
 
   useEffect(() => {
     posthog.capture('onboarding_demo_started');
   }, []);
-
-  // Snapshot on entering a step, so "did they do it" compares against where they started.
-  useEffect(() => {
-    stepStartRef.current = state;
-    setTaskDone(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIndex]);
-
-  useEffect(() => {
-    const task = TASKS[step.id];
-    if (!taskDone && task?.(stepStartRef.current, state)) setTaskDone(true);
-  }, [state, step.id, taskDone]);
-
-  useEffect(() => {
-    if (!taskDone) return;
-    const timer = setTimeout(() => setStepIndex(i => Math.min(i + 1, STEPS.length - 1)), AUTO_ADVANCE_MS);
-    return () => clearTimeout(timer);
-  }, [taskDone, stepIndex]);
 
   const finish = (skipped: boolean) => {
     if (userId) markOnboardingDemoSeen(userId);
@@ -167,7 +128,7 @@ export default function DemoQuestionPage() {
     setStepIndex(i => i + 1);
   };
 
-  const blockedExclusions = themOpen ? [] : [me];
+  const blockedExclusions = themOpen ? [] : [them];
 
   return (
     <>
@@ -177,6 +138,7 @@ export default function DemoQuestionPage() {
         nextLabel={stepIndex === STEPS.length - 1 ? 'Start questions' : 'Next'}
         questionNote={note}
         onQuestionNoteChange={setNote}
+        contentClassName={step.revealAll ? 'pb-64' : ''}
       >
         <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
           <div data-tour="question" className="mb-2 text-center sm:mb-6 lg:mb-8">
@@ -242,7 +204,6 @@ export default function DemoQuestionPage() {
       <GuidedTour
         steps={STEPS}
         index={stepIndex}
-        completed={taskDone}
         onNext={goNext}
         onBack={() => setStepIndex(i => Math.max(0, i - 1))}
         onSkip={() => finish(true)}

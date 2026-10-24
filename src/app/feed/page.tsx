@@ -407,6 +407,7 @@ function FeedPageContent() {
   // Search + category filter
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); // debounced
+  const [personId, setPersonId] = useState<string | null>(null);
   const [activeHashtag, setActiveHashtag] = useState<string>(''); // active category
   const [categories, setCategories] = useState<HashtagCategory[]>([]);
 
@@ -420,6 +421,11 @@ function FeedPageContent() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // A new search starts over, instead of keeping a person picked for the previous text.
+  useEffect(() => {
+    setPersonId(null);
+  }, [searchQuery]);
+
   // Load categories (top hashtags) once viewer is known + when filter context changes
   useEffect(() => {
     if (!viewerId) return;
@@ -430,14 +436,14 @@ function FeedPageContent() {
   // request may write to state; otherwise a slow "Luc" response overwrites "Lucy".
   const requestSeq = useRef(0);
 
-  const fetchPage = useCallback(async (aud: FeedAudience, pageNum: number, append: boolean, q: string, hashtag: string) => {
+  const fetchPage = useCallback(async (aud: FeedAudience, pageNum: number, append: boolean, q: string, hashtag: string, authorId: string | null) => {
     if (!viewerId) return;
     const seq = ++requestSeq.current;
     setLoading(true);
     setRefreshing(!append);
     setError('');
     try {
-      const data = await apiService.getFeed({ audience: aud, page: pageNum, viewerId, q, hashtag });
+      const data = await apiService.getFeed({ audience: aud, page: pageNum, viewerId, q, hashtag, authorId: authorId || undefined });
       if (seq !== requestSeq.current) return;
       setItems((prev) => append ? [...prev, ...data.results] : data.results);
       if (!append) setPeople(data.people ?? []);
@@ -455,8 +461,8 @@ function FeedPageContent() {
   }, [viewerId]);
 
   useEffect(() => {
-    if (viewerId) fetchPage(audience, 1, false, searchQuery, activeHashtag);
-  }, [audience, viewerId, searchQuery, activeHashtag, fetchPage]);
+    if (viewerId) fetchPage(audience, 1, false, searchQuery, activeHashtag, personId);
+  }, [audience, viewerId, searchQuery, activeHashtag, personId, fetchPage]);
 
   const onPosted = (post: Post) => {
     setItems((prev) => [{ kind: 'post', created_at: post.created_at, post }, ...prev]);
@@ -584,7 +590,13 @@ function FeedPageContent() {
           aria-busy={refreshing}
           className={`transition-opacity duration-150 ${refreshing && items.length > 0 ? 'opacity-50 pointer-events-none' : ''}`}
         >
-        {searchQuery && people.length > 0 && <PeopleMatches people={people} />}
+        {searchQuery && people.length > 0 && (
+          <PeopleMatches
+            people={people}
+            selectedId={personId}
+            onSelect={(person) => setPersonId(current => current === person.id ? null : person.id)}
+          />
+        )}
 
         {loading && items.length === 0 ? (
           <HeartLoader texts={['Loading your feed...', 'Catching up on posts...', 'Almost ready...']} fullScreen={false} />
@@ -605,7 +617,7 @@ function FeedPageContent() {
             {hasNext && (
               <div className="flex justify-center mt-4">
                 <button
-                  onClick={() => fetchPage(audience, page + 1, true, searchQuery, activeHashtag)}
+                  onClick={() => fetchPage(audience, page + 1, true, searchQuery, activeHashtag, personId)}
                   disabled={loading}
                   className="px-5 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium"
                 >
@@ -622,7 +634,15 @@ function FeedPageContent() {
   );
 }
 
-function PeopleMatches({ people }: { people: FeedPerson[] }) {
+function PeopleMatches({
+  people,
+  selectedId,
+  onSelect,
+}: {
+  people: FeedPerson[];
+  selectedId: string | null;
+  onSelect: (person: FeedPerson) => void;
+}) {
   return (
     <section className="mb-4 border-b border-gray-100 pb-3" aria-label="People">
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>
@@ -631,12 +651,19 @@ function PeopleMatches({ people }: { people: FeedPerson[] }) {
         <div className="flex gap-2">
           {people.map((person) => {
             const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.username;
+            const selected = selectedId === person.id;
             return (
-              <Link
+              <button
                 key={person.id}
-                href={`/profile/${person.id}`}
-                title={`${name} (@${person.username})`}
-                className="flex w-[92px] shrink-0 flex-col items-center rounded-xl px-1.5 py-2 ring-1 ring-gray-200 transition hover:bg-purple-50/40 hover:ring-purple-300"
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onSelect(person)}
+                title={selected ? `Showing posts and updates from ${name}` : `Show posts and updates from ${name}`}
+                className={`flex w-[92px] shrink-0 flex-col items-center rounded-xl px-1.5 py-2 ring-1 transition ${
+                  selected
+                    ? 'bg-purple-50 ring-[#672DB7]'
+                    : 'ring-gray-200 hover:bg-purple-50/40 hover:ring-purple-300'
+                }`}
               >
                 <Image
                   src={person.profile_photo || DEFAULT_AVATAR}
@@ -647,7 +674,7 @@ function PeopleMatches({ people }: { people: FeedPerson[] }) {
                 />
                 <span className="mt-1.5 w-full truncate text-center text-xs font-semibold text-gray-900">{name}</span>
                 <span className="w-full truncate text-center text-[11px] leading-tight text-gray-500">@{person.username}</span>
-              </Link>
+              </button>
             );
           })}
         </div>

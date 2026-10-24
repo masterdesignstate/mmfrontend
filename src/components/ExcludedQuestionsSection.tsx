@@ -117,6 +117,8 @@ export default function ExcludedQuestionsSection({ rows, loaded = true, error, d
                   <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-purple-200" />
                   <ExclusionControl
                     iconOnly
+                    showEndLabels
+                    valueLabels={row.value_labels}
                     values={values}
                     allowedValues={row.allowed_values}
                     blockedValues={row.blocked_values}

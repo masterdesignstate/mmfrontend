@@ -155,8 +155,8 @@ function NotificationsPageContent() {
         const question = notification.related_question;
         const heading = question ? getQuestionHeading(question.question_number, question) : '';
         return heading
-          ? `${senderName} asked you to answer “${heading}”`
-          : `${senderName} asked you to answer a question`;
+          ? `${senderName} requested an answer to “${heading}”`
+          : `${senderName} requested an answer to a question`;
       }
       default:
         return `${senderName} interacted with you`;

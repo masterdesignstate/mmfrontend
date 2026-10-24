@@ -131,8 +131,8 @@ export default function QuestionPage() {
     [question]
   );
   const blockedExclusionValues = useMemo(
-    () => openToAll.meOpen ? [] : [meAnswer],
-    [meAnswer, openToAll.meOpen]
+    () => openToAll.lookingForOpen ? [] : [lookingForAnswer],
+    [lookingForAnswer, openToAll.lookingForOpen]
   );
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
@@ -389,7 +389,7 @@ export default function QuestionPage() {
             setExcludedAnswerValues(normalizeExcludedValues(
               existing.excluded_answer_values,
               allowedExclusionValues,
-              existing.me_open_to_all ? [] : [existing.me_answer || 3]
+              existing.looking_for_open_to_all ? [] : [existing.looking_for_answer || 3]
             ));
             setMeShare(existing.me_share !== false);
             setAnswerNote(existing.me_note || '');
