@@ -27,12 +27,13 @@ interface ExclusionControlProps {
   popoverPlacement?: 'above' | 'below';
   /** Render just the filter icon, for use inside a chip. */
   iconOnly?: boolean;
-  /** Stack the values and caption the first and last, for the filter panel. */
+  /** Caption the first and last values under the row, for the filter panel. */
   showEndLabels?: boolean;
   valueLabels?: Record<string, string>;
 }
 
 const POPOVER_WIDTH_PX = 256;
+const END_LABEL_CLASS = 'text-[9px] font-semibold uppercase leading-tight line-clamp-2';
 const VIEWPORT_GAP_PX = 8;
 const TRIGGER_GAP_PX = 8;
 
@@ -162,6 +163,12 @@ export default function ExclusionControl({
     return iconOnly ? null : <div className={`h-7 w-[74px] sm:w-[88px] ${className}`} aria-hidden />;
   }
 
+  const labelFor = (value: number) => (valueLabels?.[String(value)] || '').trim();
+  const endLabels = {
+    first: showEndLabels ? labelFor(exclusionValues[0]) : '',
+    last: showEndLabels && exclusionValues.length > 1 ? labelFor(exclusionValues[exclusionValues.length - 1]) : '',
+  };
+
   const popover = open && typeof document !== 'undefined' ? createPortal(
     <div
       ref={popoverRef}
@@ -214,14 +221,15 @@ export default function ExclusionControl({
           Done
         </button>
       </div>
-      <div className={showEndLabels ? 'mb-3 flex flex-col items-center gap-2.5' : 'mb-3 flex gap-2'}>
+      <div
+        className="mb-3 grid justify-center gap-x-2"
+        style={{ gridTemplateColumns: `repeat(${exclusionValues.length}, 2rem)` }}
+      >
         {exclusionValues.map(value => {
           const isSelected = activeValues.includes(value);
           const isBlocked = blockedExclusionValues.includes(value);
-          const isEnd = value === exclusionValues[0] || value === exclusionValues[exclusionValues.length - 1];
-          const endLabel = showEndLabels && isEnd ? (valueLabels?.[String(value)] || '').trim() : '';
           return (
-            <span key={value} className={showEndLabels ? 'relative flex flex-col items-center' : 'relative'}>
+            <span key={value} className="relative">
               <button
                 type="button"
                 aria-disabled={isBlocked}
@@ -241,17 +249,10 @@ export default function ExclusionControl({
               >
                 {value}
               </button>
-              {endLabel && (
-                <span className="mt-1 max-w-[9.5rem] text-center text-[10px] font-medium uppercase leading-tight tracking-wide text-gray-500">
-                  {endLabel}
-                </span>
-              )}
               {isBlocked && blockedHelpValue === value && (
                 <span
                   role="tooltip"
-                  className={`absolute left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES} ${
-                    showEndLabels ? 'bottom-full mb-1' : 'bottom-10'
-                  }`}
+                  className={`absolute bottom-10 left-1/2 z-[70] w-40 -translate-x-1/2 text-center font-normal ${TIP_PANEL_CLASSES}`}
                 >
                   {blockedHelp}
                   <span className={tipArrowClasses('bottom', 'center')} />
@@ -260,6 +261,23 @@ export default function ExclusionControl({
             </span>
           );
         })}
+        {showEndLabels && (endLabels.first || endLabels.last) && (
+          <div className="relative col-span-full mt-1">
+            <span className={`invisible block max-w-[46%] ${END_LABEL_CLASS}`} aria-hidden>
+              {endLabels.first.length > endLabels.last.length ? endLabels.first : endLabels.last}
+            </span>
+            {endLabels.first && (
+              <span className={`absolute left-0 top-0 max-w-[46%] text-gray-500 ${END_LABEL_CLASS}`}>
+                {endLabels.first}
+              </span>
+            )}
+            {endLabels.last && (
+              <span className={`absolute right-0 top-0 max-w-[46%] text-right text-gray-500 ${END_LABEL_CLASS}`}>
+                {endLabels.last}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-end">
         <button
