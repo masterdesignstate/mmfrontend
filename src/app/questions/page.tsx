@@ -58,21 +58,70 @@ const createDefaultFilters = () => ({
 type QuestionsPageFilters = ReturnType<typeof createDefaultFilters>;
 type QuestionSortOption = 'randomized' | 'popular' | 'new' | 'number';
 
-/** The five question-type tiles in the filter modal, in display order. */
+const FILTER_PILL =
+  'inline-flex min-h-8 cursor-pointer items-center rounded-full border-2 px-3 py-1 text-sm font-medium leading-none transition-colors';
+
 const QUESTION_FILTER_TILES: Array<{
   key: keyof QuestionsPageFilters['questions'];
   label: string;
-  icon: string;
-  /** The asterisk artwork is taller than it is wide; the rest are square. */
-  iconHeight: number;
-  activeClass: string;
 }> = [
-  { key: 'mandatory', label: 'Mandatory', icon: '/assets/asterisk.png', iconHeight: 48, activeClass: 'border-red-500 bg-red-50' },
-  { key: 'answered', label: 'Answered', icon: '/assets/answered.png', iconHeight: 40, activeClass: 'border-green-500 bg-green-50' },
-  { key: 'unanswered', label: 'Unanswered', icon: '/assets/un.png', iconHeight: 40, activeClass: 'border-blue-500 bg-blue-50' },
-  { key: 'required', label: 'Required', icon: '/assets/req.png', iconHeight: 40, activeClass: 'border-gray-800 bg-gray-50' },
-  { key: 'submitted', label: 'Submitted', icon: '/assets/submitted.png', iconHeight: 40, activeClass: 'border-orange-500 bg-orange-50' },
+  { key: 'mandatory', label: 'Mandatory' },
+  { key: 'answered', label: 'Answered' },
+  { key: 'unanswered', label: 'Unanswered' },
+  { key: 'required', label: 'Required' },
+  { key: 'submitted', label: 'Submitted' },
 ];
+
+const FILTER_TAGS = ['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'] as const;
+
+function FilterPills({
+  questions,
+  tags,
+  onToggle,
+}: {
+  questions: QuestionsPageFilters['questions'];
+  tags: QuestionsPageFilters['tags'];
+  onToggle: (category: 'questions' | 'tags', key: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {QUESTION_FILTER_TILES.map(tile => (
+        <button
+          key={tile.key}
+          type="button"
+          aria-pressed={questions[tile.key]}
+          onClick={() => onToggle('questions', tile.key)}
+          className={`${FILTER_PILL} ${
+            questions[tile.key]
+              ? 'border-black bg-gray-50 text-gray-900'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+          }`}
+        >
+          {tile.label}
+        </button>
+      ))}
+      {FILTER_TAGS.map(tag => {
+        const tagKey = tag.toLowerCase() as keyof QuestionsPageFilters['tags'];
+        const selected = tags[tagKey];
+        return (
+          <button
+            key={tag}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onToggle('tags', tagKey)}
+            className={`${FILTER_PILL} ${
+              selected
+                ? 'border-black bg-gray-50 text-gray-900'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+            }`}
+          >
+            {tag}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const shuffleQuestionNumbers = (questionNumbers: number[]) => {
   const shuffled = [...questionNumbers];
@@ -1322,6 +1371,26 @@ function QuestionsPageContent() {
     }));
   };
 
+  const toggleLiveFilter = (category: 'questions' | 'tags', filter: string) => {
+    const turningAnsweredOff = category === 'questions' && filter === 'answered' && activeFilters.questions.answered;
+    if (filterParam === 'answered' && !turningAnsweredOff) {
+      clearMenuFilterFromUrl();
+    }
+    if (category === 'questions') {
+      const filterType = filter as keyof typeof activeFilters.questions;
+      const next = !activeFilters.questions[filterType];
+      if (filterType === 'answered' || filterType === 'unanswered') {
+        filterFetchDone.current = false;
+        isFetchingFilteredQuestions.current = false;
+        lastFilterState.current = '';
+      }
+      updateQuestionFilter(filterType, next);
+      return;
+    }
+    const tagType = filter as keyof typeof activeFilters.tags;
+    updateTagFilter(tagType, !activeFilters.tags[tagType]);
+  };
+
   const clearAllFilters = () => {
     const clearedFilters = {
       questions: {
@@ -1595,7 +1664,7 @@ function QuestionsPageContent() {
       {/* Main Content */}
       <div className="px-4 py-6 max-w-6xl mx-auto sm:px-8">
         {/* Title and Ask Button */}
-        <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl font-bold sm:text-2xl">Questions</h1>
             <p className="text-sm text-gray-600">
@@ -1610,74 +1679,17 @@ function QuestionsPageContent() {
           </button>
         </div>
 
+        <div className="mb-4">
+          <FilterPills
+            questions={activeFilters.questions}
+            tags={activeFilters.tags}
+            onToggle={toggleLiveFilter}
+          />
+        </div>
+
         {/* Questions List */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-x-2 gap-y-2 flex-wrap overflow-visible py-1">
-              {/* Question Type Filters */}
-              {activeFilters.questions.mandatory && (
-                <button
-                  type="button"
-                  onClick={() => setShowFilterModal(prev => !prev)}
-                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-red-500 bg-red-50 text-gray-900 cursor-pointer"
-                >
-                  <Image src="/assets/asterisk.png" alt="Mandatory" width={24} height={29} className="h-auto w-auto" />
-                </button>
-              )}
-              {activeFilters.questions.answered && (
-                <button
-                  type="button"
-                  onClick={() => setShowFilterModal(prev => !prev)}
-                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-green-500 bg-green-50 text-gray-900 cursor-pointer"
-                >
-                  <Image src="/assets/answered.png" alt="Answered" width={24} height={24} />
-                </button>
-              )}
-              {activeFilters.questions.unanswered && (
-                <button
-                  type="button"
-                  onClick={() => setShowFilterModal(prev => !prev)}
-                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-blue-500 bg-blue-50 text-gray-900 cursor-pointer"
-                >
-                  <Image src="/assets/un.png" alt="Unanswered" width={24} height={24} />
-                </button>
-              )}
-              {activeFilters.questions.required && (
-                <button
-                  type="button"
-                  onClick={() => setShowFilterModal(prev => !prev)}
-                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-gray-800 bg-gray-50 text-gray-900 cursor-pointer"
-                >
-                  <Image src="/assets/req.png" alt="Required" width={24} height={24} />
-                </button>
-              )}
-              {activeFilters.questions.submitted && (
-                <button
-                  type="button"
-                  onClick={() => setShowFilterModal(prev => !prev)}
-                  className="relative inline-flex items-center justify-center px-2 py-1 rounded-full text-sm font-medium border-2 border-orange-500 bg-orange-50 text-gray-900 cursor-pointer"
-                >
-                  <Image src="/assets/submitted.png" alt="Submitted" width={24} height={24} />
-                </button>
-              )}
-
-              {/* Tag Filters */}
-              {Object.entries(activeFilters.tags).map(([tagKey, isActive]) => {
-                if (!isActive) return null;
-                const tagName = tagKey.charAt(0).toUpperCase() + tagKey.slice(1);
-                return (
-                  <button
-                    type="button"
-                    key={tagKey}
-                    onClick={() => setShowFilterModal(prev => !prev)}
-                    className="relative inline-flex min-h-8 items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border-2 border-black text-gray-700 text-sm font-medium leading-none cursor-pointer hover:border-gray-600"
-                  >
-                    <div className="absolute inset-0 bg-black opacity-3" style={{ borderRadius: '24px' }}></div>
-                    <span className="relative z-10">{tagName}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="mb-2 flex justify-end">
             <span className="shrink-0 pr-1 text-xs font-medium text-black sm:pr-7 sm:text-sm">Times Answered</span>
           </div>
           {paginatedGroupedQuestions
@@ -1858,7 +1870,7 @@ function QuestionsPageContent() {
           onClick={() => setShowFilterModal(false)}
         >
           <div 
-            className="bg-white rounded-3xl shadow-lg w-full max-w-2xl mx-4 h-[70vh] flex flex-col"
+            className="bg-white rounded-3xl shadow-lg w-full max-w-2xl mx-4 flex max-h-[70vh] flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1875,68 +1887,12 @@ function QuestionsPageContent() {
             </div>
 
             {/* Content */}
-            <div className="p-4 flex-1 overflow-y-auto sm:p-8">
-              {/* Questions Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Questions</h3>
-                {/*
-                  Three columns on phones, five from `sm`. At five columns a 375px screen
-                  leaves each tile ~46px, which is narrower than the word "Unanswered" —
-                  the captions then ran past their tiles and collided with each other.
-                */}
-                <div className="grid max-w-xl grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3">
-                  {QUESTION_FILTER_TILES.map(tile => (
-                    <button
-                      key={tile.key}
-                      onClick={() => handleFilterToggle('questions', tile.key)}
-                      className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 p-1 transition-colors sm:rounded-3xl ${
-                        pendingFilters.questions[tile.key]
-                          ? tile.activeClass
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <Image
-                        src={tile.icon}
-                        alt=""
-                        width={40}
-                        height={tile.iconHeight}
-                        className="h-7 w-auto sm:h-10"
-                      />
-                      <span className="w-full px-0.5 text-center text-[10px] font-medium leading-tight text-gray-900 sm:text-xs">
-                        {tile.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tags Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Tags</h3>
-                <div className="flex flex-wrap items-start content-start gap-x-2 gap-y-2 overflow-visible py-1">
-                  {['Value', 'Lifestyle', 'Look', 'Trait', 'Hobby', 'Interest'].map((tag) => {
-                    const tagKey = tag.toLowerCase() as keyof typeof pendingFilters.tags;
-                    const isSelected = pendingFilters.tags[tagKey];
-                    
-                    return (
-                      <button
-                        key={tag}
-                        onClick={() => handleFilterToggle('tags', tagKey)}
-                        className={`relative inline-flex min-h-9 items-center px-3 sm:px-4 py-2 rounded-full border text-sm font-medium leading-none transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'border-black text-gray-700 border-2'
-                            : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                        }`}
-                      >
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-black opacity-3" style={{ borderRadius: '24px' }}></div>
-                        )}
-                        <span className="relative z-10">{tag}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="overflow-y-auto p-4 sm:p-6">
+              <FilterPills
+                questions={pendingFilters.questions}
+                tags={pendingFilters.tags}
+                onToggle={handleFilterToggle}
+              />
             </div>
 
             {/* Footer */}

@@ -416,7 +416,7 @@ export default function ReadOnlyQuestionViewPage() {
           {/* Them Section */}
           {canShowThem && (
           <div className="mb-6">
-            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+            <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>My Ideal Match</h3>
 
             {!hasRowScaleLabels && (
               <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
@@ -668,7 +668,7 @@ export default function ReadOnlyQuestionViewPage() {
         {/* Them Section */}
         {canShowThem && (
         <div className="mb-6">
-          <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>Them</h3>
+          <h3 className="text-2xl font-bold text-center mb-1" style={{ color: '#672DB7' }}>My Ideal Match</h3>
 
           <div className="grid items-center justify-center mx-auto max-w-fit mb-2" style={{ gridTemplateColumns: '112px 500px 60px', columnGap: '20px', gap: '20px 12px' }}>
             <div></div>

@@ -447,14 +447,14 @@ function SettingsPageContent() {
           <div className="px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-gray-900">Show Them on answers you share.</h3>
+                <h3 className="text-sm font-medium text-gray-900">Show My Ideal Match on answers you share.</h3>
               </div>
               <select
                 value={answerVis}
                 onChange={(e) => handleChangeShareAnswersVisibility(e.target.value as FeedVisibility)}
                 disabled={savingShareAnswers}
                 className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white focus:ring-[#672DB7] focus:border-[#672DB7] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                aria-label="Who can see Them on answers you share"
+                aria-label="Who can see My Ideal Match on answers you share"
               >
                 <option value="none">None</option>
                 <option value="all">Everyone</option>

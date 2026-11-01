@@ -30,7 +30,7 @@ import {
   WANT_KIDS_LABELS,
 } from '@/constants/mandatoryQuestions';
 import { getQuestionOptionIcon } from '@/constants/questionIcons';
-import { getQuestionHeading, getQuestionSubtitle } from '@/utils/questionDisplay';
+import { getQuestionHeading, getQuestionSubtitle, idealMatchHeading } from '@/utils/questionDisplay';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
 import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
@@ -308,7 +308,7 @@ const MultiSliderTemplate = ({
             {/* Them Section */}
             <div className="mb-8">
               <div className="flex justify-center mb-4">
-                <h3 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Them</h3>
+                <h3 className="font-semibold text-lg" style={{ color: '#672DB7' }}>My Ideal Match</h3>
               </div>
 
               <div className="space-y-4">
@@ -520,7 +520,7 @@ const BasicSliderTemplate = ({
             {/* Them Section */}
             <div className="mb-8">
               <div className="flex justify-center mb-4">
-                <h3 className="font-semibold text-lg" style={{ color: '#672DB7' }}>Them</h3>
+                <h3 className="font-semibold text-lg" style={{ color: '#672DB7' }}>My Ideal Match</h3>
               </div>
 
               <div className="flex items-center gap-4">
@@ -631,6 +631,7 @@ function QuestionEditPageContent() {
   const [showAllGroupedOptions, setShowAllGroupedOptions] = useState(false);
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
+  const [focusedId, setFocusedId] = useState('match');
   // The Required switch as it loaded, for "Reset to default".
   const initialRequiredRef = useRef(false);
   // Split Save button: the chevron opens Reset / Clear.
@@ -652,6 +653,21 @@ function QuestionEditPageContent() {
     }, 1500);
     return () => clearInterval(interval);
   }, [loading]);
+
+  const firstQuestionId = questions[0]?.id;
+  const firstGroupNumber = questions[0]?.group_number;
+  useEffect(() => {
+    if (questionNumber === RELATIONSHIP) {
+      if (firstGroupNumber != null) setFocusedId(`q${firstGroupNumber}_me`);
+      return;
+    }
+    setFocusedId('match');
+  }, [questionNumber, firstQuestionId, firstGroupNumber]);
+
+  const advanceFocus = (from: string, order: string[]) => {
+    const index = order.indexOf(from);
+    if (index >= 0 && index < order.length - 1) setFocusedId(order[index + 1]);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1262,6 +1278,8 @@ function QuestionEditPageContent() {
     className = '',
     excludeBlockedHelp,
     excludeHelpText,
+    sectionId,
+    onSettled,
   }: {
     title: string;
     titleColor?: string;
@@ -1272,11 +1290,14 @@ function QuestionEditPageContent() {
     className?: string;
     excludeBlockedHelp?: string;
     excludeHelpText?: string;
+    /** One focus target for the whole section. Per-row headings use each row's own key. */
+    sectionId?: string;
+    onSettled?: (id: string) => void;
   }) => (
     <div className={`mb-2 ${className}`}>
       {!headingPerRow && (
         <h3
-          className={`-mb-2 text-center text-lg font-bold ${
+          className={`-mb-2 text-center text-base font-bold leading-tight sm:text-lg ${
             titleColor ? 'text-black' : ''
           }`}
         >
@@ -1286,8 +1307,14 @@ function QuestionEditPageContent() {
 
 
       <div className="space-y-1">
-        {rows.map(row => (
-          <div key={`${title}-${row.stateKey}`} className={headingPerRow ? 'mb-0 sm:mb-2' : ''}>
+        {rows.map(row => {
+          const focusId = headingPerRow ? row.stateKey : sectionId;
+          return (
+          <div
+            key={`${title}-${row.stateKey}`}
+            className={headingPerRow ? 'mb-0 sm:mb-2' : ''}
+            onPointerDown={() => focusId && setFocusedId(focusId)}
+          >
           {headingPerRow && <RowHeading label={row.label} className="leading-6 sm:leading-7" />}
           <AnswerSliderRow
             label={row.label}
@@ -1315,9 +1342,12 @@ function QuestionEditPageContent() {
             showNote={showNote}
             note={answerNotes[row.storageKey] || ''}
             onNoteChange={(note) => setNoteForKey(row.storageKey, note)}
+            highlighted={Boolean(focusId && focusedId === focusId)}
+            onSettled={focusId && onSettled ? () => onSettled(focusId) : undefined}
           />
           </div>
-        ))}
+          );
+        })}
 
       </div>
     </div>
@@ -1327,7 +1357,7 @@ function QuestionEditPageContent() {
     value: number,
     onChange: (value: number) => void
   ) => (
-    <div className="mb-2 pt-1">
+    <div className="mb-2 pt-1" onPointerDown={() => setFocusedId('importance')}>
       <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
       <AnswerSliderRow
@@ -1337,6 +1367,7 @@ function QuestionEditPageContent() {
         onChange={onChange}
         isImportance
         hideRowLabel
+        highlighted={focusedId === 'importance'}
       />
     </div>
   );
@@ -1375,6 +1406,10 @@ function QuestionEditPageContent() {
               headingPerRow: true,
               excludeBlockedHelp: EXCLUDE_ME_BLOCKED_HELP,
               excludeHelpText: EXCLUDE_ME_HELP,
+              onSettled: (id) => advanceFocus(id, [
+                ...questions.map(question => `q${question.group_number}_me`),
+                'importance',
+              ]),
             })}
             {renderImportanceSection(
               importanceValues.me,
@@ -1401,7 +1436,7 @@ function QuestionEditPageContent() {
         sliderSectionShell(
           <>
             {renderSliderSection({
-              title: 'Them',
+              title: 'My Ideal Match',
               titleColor: '#672DB7',
               rows: questions.map((question) => ({
                 question,
@@ -1412,9 +1447,11 @@ function QuestionEditPageContent() {
                 otaEnabled: questionAllowsLookingOta(question),
               })),
               showExclude: true,
+              sectionId: 'match',
+              onSettled: (id) => advanceFocus(id, ['match', 'me', 'importance']),
             })}
 
-            {/* Me section — no importance slider, it is shared with Them. */}
+            {/* Me section — no importance slider, it is shared with My Ideal Match. */}
             {renderSliderSection({
               title: 'Me',
               rows: questions.map((question) => ({
@@ -1427,6 +1464,8 @@ function QuestionEditPageContent() {
               })),
               showNote: true,
               className: 'pt-1',
+              sectionId: 'me',
+              onSettled: (id) => advanceFocus(id, ['match', 'me', 'importance']),
             })}
             {renderImportanceSection(
               importanceValues.lookingFor,
@@ -1589,7 +1628,7 @@ function QuestionEditPageContent() {
         sliderSectionShell(
           <>
             {renderSliderSection({
-              title: 'Them',
+              title: 'My Ideal Match',
               titleColor: '#672DB7',
               rows: [{
                 question,
@@ -1600,6 +1639,8 @@ function QuestionEditPageContent() {
                 otaEnabled: questionAllowsLookingOta(question),
               }],
               showExclude: true,
+              sectionId: 'match',
+              onSettled: (id) => advanceFocus(id, ['match', 'me', 'importance']),
             })}
 
             {renderSliderSection({
@@ -1614,6 +1655,8 @@ function QuestionEditPageContent() {
               }],
               showNote: true,
               className: 'pt-1',
+              sectionId: 'me',
+              onSettled: (id) => advanceFocus(id, ['match', 'me', 'importance']),
             })}
             {renderImportanceSection(
               importanceValues.lookingFor,
@@ -1754,8 +1797,17 @@ function QuestionEditPageContent() {
           {/* Title — responsive typography for small/medium/large */}
           <div className={`text-center ${questionNumber === RELATIONSHIP ? 'mb-2 sm:mb-3' : 'mb-4 sm:mb-6 lg:mb-8'}`}>
             <div className="inline-block w-full max-w-full px-0 sm:px-1">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2 break-words">
-                {getQuestionHeading(questionNumber, questions?.[0])}
+            <h1
+              key={questions?.[0]?.question_type === 'grouped' || questionNumber === RELATIONSHIP
+                ? 'heading'
+                : (focusedId === 'match' ? 'match' : 'me')}
+              className={`text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-1 sm:mb-2 break-words ${
+                questions?.[0]?.question_type === 'grouped' || questionNumber === RELATIONSHIP ? '' : 'question-side-in'
+              }`}
+            >
+                {questions?.[0]?.question_type !== 'grouped' && questionNumber !== RELATIONSHIP && focusedId === 'match'
+                  ? idealMatchHeading(getQuestionHeading(questionNumber, questions?.[0]))
+                  : getQuestionHeading(questionNumber, questions?.[0])}
             </h1>
               
               {/* Share Answer and Required switches — optional questions only. */}

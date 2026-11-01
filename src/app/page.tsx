@@ -19,7 +19,7 @@ const featureCards = [
     ),
   },
   {
-    title: 'Me & Them',
+    title: 'My Ideal Match',
     description: 'Answer for yourself and what you want in a match',
     icon: (
       <svg className="h-5 w-5 text-[#672DB7]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

@@ -30,6 +30,37 @@ interface DisplayQuestion {
 const isGrouped = (question?: DisplayQuestion | null): boolean =>
   question?.question_type === 'grouped';
 
+/**
+ * The stored prompt is the Me wording. This rephrases it so it is clearly about
+ * the person you want, for the moment that slider is the one being answered.
+ */
+export const idealMatchPrompt = (text: string) => {
+  const trimmed = text.trim();
+  const rules: Array<[RegExp, string]> = [
+    [/^How strongly do you\b/i, 'How strongly does your ideal match'],
+    [/^How frequently do you\b/i, 'How frequently does your ideal match'],
+    [/^How often do you\b/i, 'How often does your ideal match'],
+    [/^How important is (.+?) in your life\??$/i, "How important is $1 in your ideal match's life?"],
+    [/^Do you\b/i, 'Does your ideal match'],
+    [/^What (.+?) do you identify with\??$/i, 'What $1 does your ideal match identify with?'],
+    [/^What is your\b/i, "What is your ideal match's"],
+    [/^What's your\b/i, "What's your ideal match's"],
+    [/^Which (.+?) best describes you\??$/i, 'Which $1 best describes your ideal match?'],
+    [/^Which (.+?) do you\b/i, 'Which $1 does your ideal match'],
+  ];
+  for (const [pattern, replacement] of rules) {
+    if (pattern.test(trimmed)) return trimmed.replace(pattern, replacement);
+  }
+  return trimmed;
+};
+
+/** Keep a leading question number, and rephrase only the prompt after it. */
+export const idealMatchHeading = (heading: string) => {
+  const match = heading.match(/^(\d+\.\s+)([\s\S]+)$/);
+  if (!match) return idealMatchPrompt(heading);
+  return `${match[1]}${idealMatchPrompt(match[2])}`;
+};
+
 /** The question's own wording, without the number. */
 export const getQuestionPrompt = (
   questionNumber?: number | null,

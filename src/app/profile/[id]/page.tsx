@@ -1827,6 +1827,27 @@ export default function UserProfilePage() {
   const canReadProfileAnswer = (answer?: UserAnswer | null) => (
     Boolean(answer) && (isViewingOwnProfile || answer?.me_share !== false)
   );
+  const answerMarkFor = (answers: UserAnswer[]) => {
+    const readable = answers.filter(answer => canReadProfileAnswer(answer));
+    if (readable.length === 0) return null;
+    const type = readable[0]?.question?.question_type || 'basic';
+    if (['four', 'grouped', 'double', 'triple'].includes(type)) return 'G';
+    const answer = readable[0];
+    if (answer.me_open_to_all || Number(answer.me_answer) === 6) return 'OTA';
+    const value = Number(answer.me_answer);
+    return Number.isFinite(value) ? String(value) : null;
+  };
+  const AnswerValueMark = ({ mark }: { mark: string }) => (
+    <span
+      aria-label={mark === 'OTA' ? 'Open to all' : mark === 'G' ? 'Grouped answers' : `Answer ${mark}`}
+      className={`inline-flex h-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${
+        mark.length > 1 ? 'px-1.5' : 'w-7'
+      }`}
+      style={{ backgroundColor: '#672DB7', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}
+    >
+      {mark}
+    </span>
+  );
   const profileUserAnsweredQuestionIds = useMemo(() => new Set(
     userAnswers
       .map(answer => String(answer.question?.id || '').toLowerCase())
@@ -4003,7 +4024,7 @@ export default function UserProfilePage() {
 
                               {/* THEM section (first) */}
                               <div className="mb-2">
-                                <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h3>
+                                <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>My Ideal Match</h3>
 
 
                                 <div className="space-y-1">
@@ -4145,7 +4166,7 @@ export default function UserProfilePage() {
                         {/* Them Section (shown for all except Q1 Relationship) */}
                         {!isRelationship && (
                           <div className="mb-2">
-                            <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h3>
+                            <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>My Ideal Match</h3>
 
 
                             <div className="space-y-1">
@@ -4396,7 +4417,7 @@ export default function UserProfilePage() {
                             {/* Them Section */}
                             {shareThemAnswers && isShared && (
                               <div className="mb-2 pt-1">
-                                <h4 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h4>
+                                <h4 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>My Ideal Match</h4>
 
 
                                 <AnswerSliderRow
@@ -4429,6 +4450,11 @@ export default function UserProfilePage() {
                             const isShared = canReadProfileAnswer(answer);
                             const isDisabled = !hasAnswer || !isShared;
                             const answeredByProfile = profileUserAnsweredQuestion(question.id);
+                            const optionMark = !isDisabled && answer
+                              ? (answer.me_open_to_all || Number(answer.me_answer) === 6
+                                ? 'OTA'
+                                : (Number.isFinite(Number(answer.me_answer)) ? String(Number(answer.me_answer)) : null))
+                              : null;
 
                             return (
                               <div
@@ -4463,6 +4489,7 @@ export default function UserProfilePage() {
                                   {answeredByProfile && <AnsweredBadge onPhones />}
                                 </div>
                                 <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
+                                  {optionMark && <AnswerValueMark mark={optionMark} />}
                                   {currentUserAnsweredQuestionIds.has(String(question.id).toLowerCase()) && <YouAnsweredMarker />}
                                   {!isDisabled && (
                                     <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4566,7 +4593,7 @@ export default function UserProfilePage() {
                     // Them sliders section
                     const renderThemSliders = () => (
                       <div className="mb-2">
-                        <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>Them</h3>
+                        <h3 className="-mb-2 text-center text-lg font-bold" style={{ color: '#672DB7' }}>My Ideal Match</h3>
                         <div className="space-y-1">
                           {readOnlyRows.map(({ question, label, labels, answer }) => {
                             const isOpenToAllLooking = Number(answer?.looking_for_answer) === 6 || answer?.looking_for_open_to_all || false;
@@ -4679,6 +4706,7 @@ export default function UserProfilePage() {
                         const answeredByProfile = group.questions.some((answer) => (
                           profileUserAnsweredQuestion(answer.question?.id)
                         ));
+                        const answerMark = answerMarkFor(group.questions);
 
                         return (
                           <div
@@ -4707,6 +4735,7 @@ export default function UserProfilePage() {
                               </div>
                             </div>
                             <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
+                              {answerMark && <AnswerValueMark mark={answerMark} />}
                               {answeredByProfile && <AnsweredCheck by={profileOwnerName} />}
                               {currentUserAnsweredQuestionNumbers.has(group.questionNumber) && <YouAnsweredMarker />}
                               {!isDisabled && (
@@ -4755,6 +4784,7 @@ export default function UserProfilePage() {
                           const answeredByProfile = answers.some((answer) => (
                             profileUserAnsweredQuestion(answer.question?.id)
                           ));
+                          const answerMark = answerMarkFor(answers);
                           
                           return (
                             <div
@@ -4783,6 +4813,7 @@ export default function UserProfilePage() {
                                 </div>
                               </div>
                               <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
+                              {answerMark && <AnswerValueMark mark={answerMark} />}
                               {answeredByProfile && <AnsweredCheck by={profileOwnerName} />}
                               {!isDisabled && (
                                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

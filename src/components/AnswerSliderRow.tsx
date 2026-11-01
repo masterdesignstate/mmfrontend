@@ -241,6 +241,10 @@ export interface AnswerSliderRowProps extends RowControlsProps {
   /** Tighten only the caption spacing around the row on phones; the slider hit area stays 44px. */
   compactMobile?: boolean;
   className?: string;
+  /** Soft purple edge on the track. */
+  highlighted?: boolean;
+  /** The thumb was dragged, or Open to All was toggled. */
+  onSettled?: () => void;
 }
 
 /**
@@ -271,6 +275,8 @@ export default function AnswerSliderRow({
   hideRowLabel = false,
   compactMobile = false,
   className = '',
+  highlighted = false,
+  onSettled,
   ...controls
 }: AnswerSliderRowProps) {
   const actionId = useId();
@@ -374,6 +380,8 @@ export default function AnswerSliderRow({
           ariaLabel={label}
           otaEnabled={!readOnly && Boolean(controls.showOta)}
           onOtaToggle={controls.onOtaToggle}
+          highlighted={highlighted}
+          onSettled={onSettled}
         />
         {/* Scale captions live under the slider. Every caption is on at all times for a
             question row; an IMPORTANCE row shows only the chosen rung, since five importance

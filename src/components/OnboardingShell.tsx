@@ -137,16 +137,24 @@ export default function OnboardingShell({
 export function OnboardingTitle({
   step,
   question,
+  questionKey,
   children,
 }: {
   step: string;
   question: string;
+  /** Remounts the question line so a side change can fade in. */
+  questionKey?: string;
   children?: ReactNode;
 }) {
   return (
     <div className="mb-2 text-center sm:mb-6 lg:mb-8">
       <h1 className="mb-0.5 text-lg font-bold text-black sm:mb-2 sm:text-2xl lg:text-3xl">{step}</h1>
-      <p className="mb-1 break-words text-base font-bold text-black sm:mb-4 sm:text-xl lg:text-2xl">
+      <p
+        key={questionKey}
+        className={`mb-1 break-words text-base font-bold text-black sm:mb-4 sm:text-xl lg:text-2xl ${
+          questionKey ? 'question-side-in' : ''
+        }`}
+      >
         {question}
       </p>
       {children}

@@ -39,6 +39,21 @@ body {
   animation: mobile-value-label-in 240ms ease-out;
 }
 
+@keyframes question-side-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.question-side-in {
+  animation: question-side-in 280ms ease-out;
+}
+
 @keyframes mobile-ota-track-glow {
   0% {
     box-shadow: 0 0 0 rgba(103, 45, 183, 0);

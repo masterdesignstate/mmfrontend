@@ -25,6 +25,10 @@ export interface AnswerSliderProps {
   otaEnabled?: boolean;
   /** On phones, tapping the value-5 thumb again toggles OTA. */
   onOtaToggle?: () => void;
+  /** Soft purple edge, for the slider the person is answering. */
+  highlighted?: boolean;
+  /** A drag, or an Open to All tap, finished. A tap that does not move the thumb does not settle. */
+  onSettled?: () => void;
 }
 
 /**
@@ -45,6 +49,8 @@ export default function AnswerSlider({
   ariaLabel,
   otaEnabled = false,
   onOtaToggle,
+  highlighted = false,
+  onSettled,
 }: AnswerSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingPointerRef = useRef<number | null>(null);
@@ -53,7 +59,11 @@ export default function AnswerSlider({
     startY: number;
     moved: boolean;
     otaTapCandidate: boolean;
+    startValue: number;
+    wasHighlighted: boolean;
   } | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const valueLabels: AnswerValueLabel[] = labels && labels.length > 0 ? labels : [];
 
   const answerValues = getAnswerValues(valueLabels);
@@ -71,7 +81,9 @@ export default function AnswerSlider({
       if (!track) return;
       const rect = track.getBoundingClientRect();
       if (rect.width === 0) return;
-      onChange(getAnswerValueFromPercentage((clientX - rect.left) / rect.width, valueLabels));
+      const next = getAnswerValueFromPercentage((clientX - rect.left) / rect.width, valueLabels);
+      valueRef.current = next;
+      onChange(next);
     },
     // valueLabels is derived fresh each render; depend on its identity-stable projection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,6 +121,8 @@ export default function AnswerSlider({
       startY: event.clientY,
       moved: false,
       otaTapCandidate: isOpenToAll ? isAtOtaThumb : isAtFiveThumb,
+      startValue: value,
+      wasHighlighted: highlighted,
     };
     if (isOpenToAll) return;
     updateFromClientX(event.clientX);
@@ -127,9 +141,13 @@ export default function AnswerSlider({
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = pointerGestureRef.current;
+    const settled = Boolean(
+      gesture && (gesture.moved || gesture.otaTapCandidate || valueRef.current !== gesture.startValue)
+    );
     if (gesture?.otaTapCandidate && !gesture.moved) onOtaToggle?.();
     draggingPointerRef.current = null;
     pointerGestureRef.current = null;
+    if (settled && gesture?.wasHighlighted) onSettled?.();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -221,12 +239,15 @@ export default function AnswerSlider({
         )}
 
         <div
-          className={`h-5 w-full rounded-[20px] border transition-colors duration-200 ${
+          className={`h-5 w-full rounded-[20px] border transition-[border-color,box-shadow] duration-300 ${
             isOpenToAll ? 'mobile-ota-track-glow' : ''
           }`}
           style={{
             backgroundColor: isOpenToAll ? '#672DB7' : '#F5F5F5',
-            borderColor: isOpenToAll ? '#672DB7' : '#ADADAD',
+            borderColor: isOpenToAll ? '#672DB7' : highlighted ? 'rgba(103, 45, 183, 0.28)' : '#ADADAD',
+            boxShadow: highlighted
+              ? '0 0 6px rgba(103, 45, 183, 0.16)'
+              : '0 0 0 rgba(103, 45, 183, 0)',
           }}
         />
 

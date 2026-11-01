@@ -435,7 +435,7 @@ export function MobileQuestionActionDock() {
                 role="tooltip"
                 className={`absolute bottom-10 left-0 z-50 w-64 text-left ${TIP_PANEL_CLASSES}`}
               >
-                Open to All applies only to Them. If you’re open to every answer, move to
+                Open to All applies only to My Ideal Match. If you’re open to every answer, move to
                 5 and tap 5 again. Tap the blank circle again to turn it off.
                 <span className={tipArrowClasses('bottom', 'left')} />
               </div>

@@ -34,12 +34,12 @@ const STEPS: TourStep[] = [
     id: 'question',
     target: '[data-tour="question"]',
     title: 'The question',
-    body: 'CompatibleFirst compares you with other people: Them is what you want from them, and Me is your own answer.',
+    body: 'CompatibleFirst compares you with other people: My Ideal Match is what you want from them, and Me is your own answer.',
   },
   {
     id: 'them',
     target: '[data-tour="them"]',
-    title: 'Them',
+    title: 'My Ideal Match',
     body: 'The answer you want from someone else. The words under the slider explain each number.',
     hint: 'Move the slider.',
   },
@@ -85,7 +85,7 @@ const STEPS: TourStep[] = [
     id: 'whole',
     revealAll: true,
     title: 'The whole question',
-    body: 'Them, Me, and Importance sit together. On a real question, Next saves your answer.',
+    body: 'My Ideal Match, Me, and Importance sit together. On a real question, Next saves your answer.',
   },
 ];
 
@@ -155,7 +155,7 @@ export default function DemoQuestionPage() {
           </div>
 
           <div className="mb-2" data-tour="them">
-            <h3 className="-mb-2 text-center text-lg font-bold text-black">Them</h3>
+            <h3 className="-mb-2 text-center text-base font-bold leading-tight text-black sm:text-lg">My Ideal Match</h3>
             <AnswerSliderRow
               label="COFFEE"
               hideRowLabel

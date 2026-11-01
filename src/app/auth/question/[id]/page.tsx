@@ -23,6 +23,7 @@ import {
   isMandatoryQuestionNumber,
   isOptionalQuestionNumber,
 } from '@/constants/mandatoryQuestions';
+import { idealMatchPrompt } from '@/utils/questionDisplay';
 import posthog from 'posthog-js';
 
 /**
@@ -136,12 +137,24 @@ export default function QuestionPage() {
   );
   const [meShare, setMeShare] = useState(true);
   const [meRequired, setMeRequired] = useState(false);
+  const [answerSide, setAnswerSide] = useState<'match' | 'me' | 'importance'>('match');
 
   /** Set when this route is one of the numbered mandatory steps (`/auth/question/8`). */
   const onboardingStep = useMemo(
     () => onboardingStepFromRoute(String(params.id)),
     [params.id]
   );
+
+  useEffect(() => {
+    setAnswerSide('match');
+  }, [
+    params.id,
+    searchParams.get('ethnicity'),
+    searchParams.get('education'),
+    searchParams.get('diet'),
+    searchParams.get('faith'),
+    searchParams.get('ideology'),
+  ]);
 
   const [loading, setLoading] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
@@ -576,7 +589,6 @@ export default function QuestionPage() {
   };
 
   const handleNext = async () => {
-    
     if (!userId || !question) {
       setError('User ID and question are required');
       return;
@@ -891,8 +903,13 @@ export default function QuestionPage() {
 
   const showProgress =
     searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true';
+  const focusSides = searchParams.get('context') !== 'profile';
   const lookingOtaAllowed = questionAllowsLookingOta(question);
   const meOtaAllowed = questionAllowsMeOta(question);
+  const baseQuestionText = question?.text || 'What ethnicity do you identify with?';
+  const shownQuestionText = focusSides && answerSide === 'match'
+    ? idealMatchPrompt(baseQuestionText)
+    : baseQuestionText;
 
   return (
     <OnboardingShell
@@ -915,7 +932,8 @@ export default function QuestionPage() {
             GROUPED_OPTION_ROUTES[String(params.id)] ? `${GROUPED_OPTION_ROUTES[String(params.id)].questionNumber}. ${GROUPED_OPTION_ROUTES[String(params.id)].label}` :
             question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'
           }
-          question={question?.text || 'What ethnicity do you identify with?'}
+          question={shownQuestionText}
+          questionKey={focusSides ? (answerSide === 'match' ? 'match' : 'me') : undefined}
         >
           {/* Share Answer and Required switches — optional questions only. */}
           {question && isOptionalQuestionNumber(question.question_number) && (
@@ -962,40 +980,33 @@ export default function QuestionPage() {
           </div>
         )}
 
-        {/* Looking For Section */}
-        <div className="mb-2">
-          <h3 className="-mb-2 text-center text-lg font-bold text-black">
-            Them
+        <div className="mb-2" onPointerDown={() => focusSides && setAnswerSide('match')}>
+          <h3 className="-mb-2 text-center text-base font-bold leading-tight text-black sm:text-lg">
+            My Ideal Match
           </h3>
-
-
-          <div className="space-y-1">
-            <AnswerSliderRow
-              label={rowLabel}
-              hideRowLabel
-              labels={scaleLabels}
-              value={lookingForAnswer}
-              onChange={(value) => handleSliderChange('lookingForAnswer', value)}
-              showOta={lookingOtaAllowed}
-              otaChecked={openToAll.lookingForOpen}
-              onOtaToggle={() => handleOpenToAllToggle('lookingForOpen')}
-              showExclude
-              excludedValues={excludedAnswerValues}
-              allowedExclusionValues={allowedExclusionValues}
-              blockedExclusionValues={blockedExclusionValues}
-              onExcludedValuesChange={(values) =>
-                setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))
-              }
-            />
-
-          </div>
+          <AnswerSliderRow
+            label={rowLabel}
+            hideRowLabel
+            labels={scaleLabels}
+            value={lookingForAnswer}
+            onChange={(value) => handleSliderChange('lookingForAnswer', value)}
+            showOta={lookingOtaAllowed}
+            otaChecked={openToAll.lookingForOpen}
+            onOtaToggle={() => handleOpenToAllToggle('lookingForOpen')}
+            showExclude
+            excludedValues={excludedAnswerValues}
+            allowedExclusionValues={allowedExclusionValues}
+            blockedExclusionValues={blockedExclusionValues}
+            onExcludedValuesChange={(values) =>
+              setExcludedAnswerValues(normalizeExcludedValues(values, allowedExclusionValues, blockedExclusionValues))
+            }
+            highlighted={focusSides && answerSide === 'match'}
+            onSettled={focusSides ? () => setAnswerSide('me') : undefined}
+          />
         </div>
 
-        {/* Me Section */}
-        <div className="mb-2 pt-1">
+        <div className="mb-2 pt-1" onPointerDown={() => focusSides && setAnswerSide('me')}>
           <h3 className="-mb-2 text-center text-lg font-bold">Me</h3>
-
-
           <AnswerSliderRow
             label={rowLabel}
             hideRowLabel
@@ -1008,11 +1019,13 @@ export default function QuestionPage() {
             showNote
             note={answerNote}
             onNoteChange={setAnswerNote}
+            highlighted={focusSides && answerSide === 'me'}
+            onSettled={focusSides ? () => setAnswerSide('importance') : undefined}
           />
         </div>
 
         {/* Importance Section — mobile only; desktop keeps the existing row layout. */}
-        <div className="mb-2 pt-1">
+        <div className="mb-2 pt-1" onPointerDown={() => focusSides && setAnswerSide('importance')}>
           <h3 className="-mb-2 text-center text-lg font-bold">Importance</h3>
 
           <AnswerSliderRow
@@ -1022,6 +1035,7 @@ export default function QuestionPage() {
             onChange={(value) => setImportance(prev => ({ ...prev, lookingFor: value }))}
             isImportance
             hideRowLabel
+            highlighted={focusSides && answerSide === 'importance'}
           />
         </div>
       </div>
