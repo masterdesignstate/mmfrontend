@@ -85,7 +85,16 @@ export default function GroupedPickerStep({ questionNumber, routeId, options, st
     setError('');
 
     try {
-      if (answeredOptions.size === 0) {
+      // State is filled in an effect, so a fast Next used to see an empty set, flash the
+      // red message, and only then notice the option saved a moment earlier.
+      let answered = answeredOptions;
+      try {
+        const saved = JSON.parse(localStorage.getItem(`${storageKey}_${userId}`) || '[]');
+        if (Array.isArray(saved)) answered = new Set([...answered, ...saved]);
+      } catch {
+        // Keep the in-memory set.
+      }
+      if (answered.size === 0) {
         setError(`Please answer at least one ${noun} question before proceeding.`);
         return;
       }

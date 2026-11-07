@@ -260,8 +260,16 @@ export default function EthnicityPage() {
       console.log('📋 Answered ethnicities set size:', answeredEthnicities.size);
       console.log('📋 Answered ethnicities:', Array.from(answeredEthnicities));
       
-      // Require at least 1 answered ethnicity question
-      if (answeredEthnicities.size === 0) {
+      // Require at least 1 answered ethnicity question. Read storage as well as state:
+      // the set is loaded in an effect, and Next right after answering used to miss it.
+      let answeredCount = answeredEthnicities.size;
+      try {
+        const saved = JSON.parse(localStorage.getItem(`answeredEthnicities_${userId}`) || '[]');
+        if (Array.isArray(saved)) answeredCount = new Set([...answeredEthnicities, ...saved]).size;
+      } catch {
+        // Keep the in-memory count.
+      }
+      if (answeredCount === 0) {
         console.log('❌ Validation failed: No answered ethnicity questions found');
         console.log('📋 Current answeredEthnicities state:', Array.from(answeredEthnicities));
         setError('Please answer at least one ethnicity question before proceeding.');

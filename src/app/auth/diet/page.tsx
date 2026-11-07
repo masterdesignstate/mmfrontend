@@ -143,8 +143,16 @@ export default function DietPage() {
       console.log('📋 Answered diet questions set size:', answeredDiets.size);
       console.log('📋 Answered diet questions:', Array.from(answeredDiets));
       
-      // Require at least 1 answered diet question
-      if (answeredDiets.size === 0) {
+      // Require at least 1 answered diet question. Read storage as well as state:
+      // the set is loaded in an effect, and Next right after answering used to miss it.
+      let answeredCount = answeredDiets.size;
+      try {
+        const saved = JSON.parse(localStorage.getItem(`answeredDiets_${userId}`) || '[]');
+        if (Array.isArray(saved)) answeredCount = new Set([...answeredDiets, ...saved]).size;
+      } catch {
+        // Keep the in-memory count.
+      }
+      if (answeredCount === 0) {
         setError('Please answer at least one diet question before proceeding.');
         return;
       }

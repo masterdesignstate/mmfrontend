@@ -401,6 +401,10 @@ function ResultsPageContent() {
   // Guards the search-refetch effect from firing on mount (the initial load
   // already happens elsewhere).
   const isInitialSearchMount = useRef(true);
+  // A page that comes back short (an excluded person dropped, or a client-side
+  // distance/hide filter) should be filled from the next page instead of leaving a gap.
+  const backfillAttemptsRef = useRef(0);
+  const backfillInFlightRef = useRef(false);
 
   // --- Timing diagnostics ---
   const mountTime = useRef(performance.now());
@@ -656,6 +660,8 @@ function ResultsPageContent() {
       // This ensures proper pagination (no ghost cards)
 
       if (page === 1) {
+        backfillAttemptsRef.current = 0;
+        backfillInFlightRef.current = false;
         setProfiles(filteredProfiles);
         // Sync color-affecting filter snapshots with the filters we just fetched against.
         // This prevents card colors from flipping before the new profile data arrives.
@@ -666,7 +672,10 @@ function ResultsPageContent() {
         setAppliedCompatibilityType(activeFilters.compatibilityType ?? 'overall');
         setAppliedFiltersApplied(applyFilters);
       } else {
-        setProfiles(prev => [...prev, ...filteredProfiles]);
+        setProfiles(prev => {
+          const seen = new Set(prev.map(profile => profile.user.id));
+          return [...prev, ...filteredProfiles.filter(profile => !seen.has(profile.user.id))];
+        });
       }
 
       const totalFromResponse = response.total_count || response.count;
@@ -692,6 +701,7 @@ function ResultsPageContent() {
         setProfiles([]);
       }
     } finally {
+      backfillInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -900,12 +910,26 @@ function ResultsPageContent() {
       }
 
       // Then sort the filtered profiles using the applied-compatibility-type snapshot
-      setSortedProfiles(sortProfiles(filteredProfiles, currentUserLive, appliedCompatibilityType));
+      const nextSorted = sortProfiles(filteredProfiles, currentUserLive, appliedCompatibilityType);
+      setSortedProfiles(nextSorted);
+      // The grid only renders people still in this list. If a filter removed someone after
+      // the page was sliced, pull the next page so that slot is a real profile.
+      if (
+        !loading &&
+        hasNextPage &&
+        nextSorted.length < visibleCount &&
+        !backfillInFlightRef.current &&
+        backfillAttemptsRef.current < 6
+      ) {
+        backfillAttemptsRef.current += 1;
+        backfillInFlightRef.current = true;
+        void fetchCompatibleUsers(currentPage + 1, filtersApplied);
+      }
     } else {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm, searchField, appliedFiltersApplied, appliedDistance, appliedCompatibilityType, appliedRequiredOnly, appliedRequiredScope, currentUserLive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, appliedFiltersApplied, appliedDistance, appliedCompatibilityType, appliedRequiredOnly, appliedRequiredScope, currentUserLive, loading, hasNextPage, visibleCount, currentPage, filtersApplied]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
@@ -2400,7 +2424,7 @@ function ResultsPageContent() {
             </div>
 
             {/* Content */}
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-8">
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8">
               <div className="w-full max-w-2xl">
                 {/* Compatibility Type Picker */}
                 <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">

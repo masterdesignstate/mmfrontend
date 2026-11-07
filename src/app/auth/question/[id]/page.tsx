@@ -50,6 +50,15 @@ const GROUPED_OPTION_ROUTES: Record<string, { questionNumber: number; label: str
   ideology: { questionNumber: IDEOLOGY, label: 'Ideology', picker: '/auth/ideology', storageKey: 'answeredIdeologies' },
 };
 
+/** Card lists a grouped slider should return to. Back from "Masters" lands on Education, not Ethnicity. */
+const GROUPED_PICKER_ROUTES: Record<string, string> = {
+  ethnicity: '/auth/ethnicity',
+  education: '/auth/education',
+  diet: '/auth/diet',
+  faith: '/auth/faith',
+  ideology: '/auth/ideology',
+};
+
 /** The route id for a numbered onboarding step, or null for the grouped/by-id routes. */
 const onboardingStepFromRoute = (routeId: string) => {
   const number = Number(routeId);
@@ -157,7 +166,13 @@ export default function QuestionPage() {
   ]);
 
   const [loading, setLoading] = useState(false);
-  const [loadingQuestion, setLoadingQuestion] = useState(false);
+  // Numbered steps paint from ONBOARDING_STEPS. Grouped steps fetch, so start on the
+  // spinner — the alternative was one frame (and, on a slow response, about a second)
+  // of red "Question not found" before the real question arrived.
+  const [loadingQuestion, setLoadingQuestion] = useState(
+    () => !onboardingStepFromRoute(String(params.id))
+  );
+  const [loadFailed, setLoadFailed] = useState(false);
   const [error, setError] = useState<string>('');
   const answerFetchIdRef = useRef(0);
 
@@ -279,6 +294,8 @@ export default function QuestionPage() {
         open_to_all_looking_for: true
       };
       setQuestion(hardcodedQuestion);
+      setLoadFailed(false);
+      setError('');
     } else if (questionId === 'education' && educationParam && questionNumberParam) {
       // Education wording differs per level ("How much High School have you completed?"
       // vs "How much of a Master's degree have you completed?"), so no template can
@@ -303,6 +320,8 @@ export default function QuestionPage() {
         open_to_all_looking_for: true
       };
       setQuestion(hardcodedQuestion);
+      setLoadFailed(false);
+      setError('');
 
       // Set initial slider values to 5 (YES) for diet questions (only if no existing answer was passed)
       if (!initialEa) {
@@ -314,6 +333,8 @@ export default function QuestionPage() {
     } else if (onboardingStep) {
       // Every numbered mandatory step renders from ONBOARDING_STEPS so the page paints
       // without waiting on the API. One unlabelled slider per section, same as each other.
+      setLoadFailed(false);
+      setError('');
       setQuestion({
         id: onboardingStep.question!.id,
         question_name: onboardingStep.label,
@@ -339,6 +360,8 @@ export default function QuestionPage() {
         try {
           const parsedQuestionData = JSON.parse(questionDataParam);
           setQuestion(parsedQuestionData);
+          setLoadFailed(false);
+          setError('');
         } catch (error) {
           fetchQuestion(questionId);
         }
@@ -432,16 +455,21 @@ export default function QuestionPage() {
 
   const fetchQuestion = async (questionId: string) => {
     setLoadingQuestion(true);
+    setLoadFailed(false);
+    setError('');
     try {
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}${questionId}/`;
       const response = await fetch(apiUrl);
       if (response.ok) {
         const data = await response.json();
         setQuestion(data);
+        setError('');
       } else {
+        setLoadFailed(true);
         setError('Failed to load question');
       }
     } catch (error: unknown) {
+      setLoadFailed(true);
       setError('Failed to load question');
     } finally {
       setLoadingQuestion(false);
@@ -450,6 +478,8 @@ export default function QuestionPage() {
 
   const fetchEthnicityQuestion = async (ethnicity: string, questionNumber: number) => {
     setLoadingQuestion(true);
+    setLoadFailed(false);
+    setError('');
     try {
       // Fetch all ethnicity questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
@@ -464,16 +494,21 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
+            setError('');
           } else {
+            setLoadFailed(true);
             setError(`No ethnicity question found for ${ethnicity}`);
           }
         } else {
+          setLoadFailed(true);
           setError(`No ethnicity question ${questionNumber} found`);
         }
       } else {
+        setLoadFailed(true);
         setError('Failed to load ethnicity question');
       }
     } catch (error: unknown) {
+      setLoadFailed(true);
       setError('Failed to load ethnicity question');
     } finally {
       setLoadingQuestion(false);
@@ -482,6 +517,8 @@ export default function QuestionPage() {
 
   const fetchEducationQuestion = async (education: string, questionNumber: number) => {
     setLoadingQuestion(true);
+    setLoadFailed(false);
+    setError('');
     try {
       // Fetch all education questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
@@ -496,16 +533,21 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
+            setError('');
           } else {
+            setLoadFailed(true);
             setError(`No education question found for ${education}`);
           }
         } else {
+          setLoadFailed(true);
           setError(`No education question ${questionNumber} found`);
         }
       } else {
+        setLoadFailed(true);
         setError('Failed to load education question');
       }
     } catch (error: unknown) {
+      setLoadFailed(true);
       setError('Failed to load education question');
     } finally {
       setLoadingQuestion(false);
@@ -514,6 +556,8 @@ export default function QuestionPage() {
 
   const fetchDietQuestion = async (diet: string, questionNumber: number) => {
     setLoadingQuestion(true);
+    setLoadFailed(false);
+    setError('');
     try {
       // Fetch all diet questions and find the specific one
       const apiUrl = `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`;
@@ -528,16 +572,21 @@ export default function QuestionPage() {
           
           if (specificQuestion) {
             setQuestion(specificQuestion);
+            setError('');
           } else {
+            setLoadFailed(true);
             setError(`No diet question found for ${diet}`);
           }
         } else {
+          setLoadFailed(true);
           setError(`No diet question ${questionNumber} found`);
         }
       } else {
+        setLoadFailed(true);
         setError('Failed to load diet question');
       }
     } catch (error: unknown) {
+      setLoadFailed(true);
       setError('Failed to load diet question');
     } finally {
       setLoadingQuestion(false);
@@ -546,6 +595,8 @@ export default function QuestionPage() {
 
   const fetchGroupedOption = async (optionName: string, questionNumber: number) => {
     setLoadingQuestion(true);
+    setLoadFailed(false);
+    setError('');
     try {
       const response = await fetch(`${getApiUrl(API_ENDPOINTS.QUESTIONS)}?question_number=${questionNumber}`);
       if (response.ok) {
@@ -555,13 +606,17 @@ export default function QuestionPage() {
         );
         if (specificQuestion) {
           setQuestion(specificQuestion);
+          setError('');
         } else {
+          setLoadFailed(true);
           setError(`No question found for ${optionName}`);
         }
       } else {
+        setLoadFailed(true);
         setError('Failed to load question');
       }
     } catch {
+      setLoadFailed(true);
       setError('Failed to load question');
     } finally {
       setLoadingQuestion(false);
@@ -589,7 +644,20 @@ export default function QuestionPage() {
   };
 
   const handleNext = async () => {
-    if (!userId || !question) {
+    // The numbered step is known before the effect copies it into state. Using the
+    // stale question here showed "User ID and question are required" and then moved on.
+    const stepQuestion = onboardingStep?.question;
+    const activeQuestion = stepQuestion
+      ? {
+          id: question?.question_number === onboardingStep.number ? question.id : stepQuestion.id,
+          question_number: onboardingStep.number,
+          is_mandatory: true,
+          open_to_all_me: question?.question_number === onboardingStep.number ? Boolean(question.open_to_all_me) : false,
+          open_to_all_looking_for: question?.question_number === onboardingStep.number ? Boolean(question.open_to_all_looking_for) : true,
+        }
+      : question;
+
+    if (!userId || !activeQuestion?.id) {
       setError('User ID and question are required');
       return;
     }
@@ -598,26 +666,33 @@ export default function QuestionPage() {
     setError('');
 
     try {
-      // IMMEDIATELY save to localStorage for instant UI feedback
-      const answeredQuestionsKey = `answered_questions_${userId}`;
-      const existingAnswered = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
-      if (!existingAnswered.includes(question.id)) {
-        existingAnswered.push(question.id);
-        localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
+      // IMMEDIATELY save to localStorage for instant UI feedback.
+      // A bad stored value used to throw here, which painted the red error and
+      // held Next for a beat before the next question could open.
+      try {
+        const answeredQuestionsKey = `answered_questions_${userId}`;
+        const stored = JSON.parse(localStorage.getItem(answeredQuestionsKey) || '[]');
+        const existingAnswered = Array.isArray(stored) ? stored : [];
+        if (!existingAnswered.includes(activeQuestion.id)) {
+          existingAnswered.push(activeQuestion.id);
+          localStorage.setItem(answeredQuestionsKey, JSON.stringify(existingAnswered));
+        }
+      } catch {
+        // The answer still saves to the API below.
       }
 
       // Prepare user answer (is_required_for_me is per-user; me_importance is separate)
       const userAnswer = {
         user_id: userId,
-        question_id: question.id,
-        me_answer: questionAllowsMeOta(question) && openToAll.meOpen ? 6 : meAnswer,
-        me_open_to_all: questionAllowsMeOta(question) && openToAll.meOpen,
+        question_id: activeQuestion.id,
+        me_answer: questionAllowsMeOta(activeQuestion) && openToAll.meOpen ? 6 : meAnswer,
+        me_open_to_all: questionAllowsMeOta(activeQuestion) && openToAll.meOpen,
         me_importance: importance.me,
         me_share: meShare,
-        looking_for_answer: questionAllowsLookingOta(question) && openToAll.lookingForOpen
+        looking_for_answer: questionAllowsLookingOta(activeQuestion) && openToAll.lookingForOpen
           ? 6
           : lookingForAnswer,
-        looking_for_open_to_all: questionAllowsLookingOta(question) && openToAll.lookingForOpen,
+        looking_for_open_to_all: questionAllowsLookingOta(activeQuestion) && openToAll.lookingForOpen,
         looking_for_importance: importance.lookingFor,
         looking_for_share: true,
         excluded_answer_values: normalizeExcludedValues(excludedAnswerValues, allowedExclusionValues, blockedExclusionValues),
@@ -786,10 +861,14 @@ export default function QuestionPage() {
             }
           } catch {}
 
-          posthog.capture('onboarding_step_completed', {
-            step: onboardingStep.label.toLowerCase(),
-            question_number: onboardingStep.number,
-          });
+          try {
+            posthog.capture('onboarding_step_completed', {
+              step: onboardingStep.label.toLowerCase(),
+              question_number: onboardingStep.number,
+            });
+          } catch {
+            // Analytics must not block the next step.
+          }
 
           const nextParams = new URLSearchParams({ user_id: userId });
           const nextRoute = getNextOnboardingRoute(onboardingStep.number);
@@ -849,36 +928,65 @@ export default function QuestionPage() {
         refresh: 'true'  // Add refresh parameter to trigger answered questions check
       });
 
+      // A grouped slider (Masters, Christian, …) goes back to its own card list.
+      // Numbered steps go to the previous onboarding step.
+      const picker = GROUPED_PICKER_ROUTES[String(params.id)];
       const previousRoute = onboardingStep
         ? getPreviousOnboardingRoute(onboardingStep.number)
         : null;
 
-      if (previousRoute) {
+      if (picker) {
+        router.push(`${picker}?${urlParams.toString()}`);
+      } else if (previousRoute) {
         router.push(`${previousRoute}?${urlParams.toString()}`);
-      } else if (GROUPED_OPTION_ROUTES[String(params.id)]) {
-        router.push(`${GROUPED_OPTION_ROUTES[String(params.id)].picker}?${urlParams.toString()}`);
-      } else if (params.id === 'diet') {
-        router.push(`/auth/education?${urlParams.toString()}`);
-      } else if (params.id === 'education') {
-        router.push(`/auth/ethnicity?${urlParams.toString()}`);
       } else {
         router.push(`/auth/ethnicity?${urlParams.toString()}`);
       }
     }
   };
 
-  if (loadingQuestion) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading question...</p>
+  // Numbered steps render from ONBOARDING_STEPS on the first paint. A question left
+  // over from the previous step must not count — that was the red "Question not
+  // found" flash while the effect caught up, and then a second of the error banner.
+  const routeId = String(params.id);
+  const groupedMeta = GROUPED_OPTION_ROUTES[routeId];
+  const expectedNumber = onboardingStep?.number
+    ?? groupedMeta?.questionNumber
+    ?? (routeId === 'ethnicity' ? ETHNICITY : routeId === 'education' ? EDUCATION : routeId === 'diet' ? DIET : null);
+  const questionIsCurrent = Boolean(
+    question && (expectedNumber == null || question.question_number === expectedNumber)
+  );
+  const bakedOnboardingQuestion = onboardingStep?.question
+    ? {
+        id: onboardingStep.question.id,
+        question_name: onboardingStep.label,
+        question_number: onboardingStep.number,
+        group_name: onboardingStep.label,
+        text: onboardingStep.prompt,
+        answers: onboardingStep.question.labels.map(label => ({
+          value: String(label.value),
+          answer_text: label.answer_text || '',
+        })),
+        open_to_all_me: false as const,
+        open_to_all_looking_for: true as const,
+      }
+    : null;
+  const displayQuestion = (questionIsCurrent ? question : null) ?? bakedOnboardingQuestion;
+
+  if (!displayQuestion) {
+    if (!loadFailed) {
+      return (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#672DB7] mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading question...</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
-  if (!question) {
+  if (!displayQuestion) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -898,15 +1006,15 @@ export default function QuestionPage() {
     params.id === 'ethnicity' ? formatEthnicityLabel(searchParams.get('ethnicity')) :
     params.id === 'education' ? getEducationDisplayName(searchParams.get('education') || '').toUpperCase() :
     params.id === 'diet' ? getDietDisplayName(searchParams.get('diet') || '').toUpperCase() :
-    GROUPED_OPTION_ROUTES[String(params.id)] ? (searchParams.get(String(params.id)) || question?.question_name || 'ANSWER').toUpperCase() :
-    (question?.question_name || 'ANSWER').toUpperCase();
+    GROUPED_OPTION_ROUTES[String(params.id)] ? (searchParams.get(String(params.id)) || displayQuestion?.question_name || 'ANSWER').toUpperCase() :
+    (displayQuestion?.question_name || 'ANSWER').toUpperCase();
 
   const showProgress =
     searchParams.get('context') !== 'profile' && searchParams.get('from_questions_page') !== 'true';
   const focusSides = searchParams.get('context') !== 'profile';
-  const lookingOtaAllowed = questionAllowsLookingOta(question);
-  const meOtaAllowed = questionAllowsMeOta(question);
-  const baseQuestionText = question?.text || 'What ethnicity do you identify with?';
+  const lookingOtaAllowed = questionAllowsLookingOta(displayQuestion);
+  const meOtaAllowed = questionAllowsMeOta(displayQuestion);
+  const baseQuestionText = displayQuestion?.text || 'What ethnicity do you identify with?';
   const shownQuestionText = focusSides && answerSide === 'match'
     ? idealMatchPrompt(baseQuestionText)
     : baseQuestionText;
@@ -926,17 +1034,17 @@ export default function QuestionPage() {
         <OnboardingTitle
           step={
             onboardingStep ? `${onboardingStep.number}. ${onboardingStep.label}` :
-            params.id === 'ethnicity' ? `${question?.question_number || ETHNICITY}. Ethnicity` :
+            params.id === 'ethnicity' ? `${displayQuestion?.question_number || ETHNICITY}. Ethnicity` :
             params.id === 'education' ? `${EDUCATION}. Education` :
-            params.id === 'diet' ? `${question?.question_number || DIET}. Diet` :
+            params.id === 'diet' ? `${displayQuestion?.question_number || DIET}. Diet` :
             GROUPED_OPTION_ROUTES[String(params.id)] ? `${GROUPED_OPTION_ROUTES[String(params.id)].questionNumber}. ${GROUPED_OPTION_ROUTES[String(params.id)].label}` :
-            question?.question_number ? `${question.question_number}. ${question.group_name || question.question_name}` : 'Loading...'
+            displayQuestion?.question_number ? `${displayQuestion.question_number}. ${displayQuestion.group_name || displayQuestion.question_name}` : 'Loading...'
           }
           question={shownQuestionText}
           questionKey={focusSides ? (answerSide === 'match' ? 'match' : 'me') : undefined}
         >
           {/* Share Answer and Required switches — optional questions only. */}
-          {question && isOptionalQuestionNumber(question.question_number) && (
+          {displayQuestion && isOptionalQuestionNumber(displayQuestion.question_number) && (
             <div className="mb-4 flex w-full items-center justify-between gap-3 sm:mb-8">
               {/* Required For Match - Left */}
               <div className="flex items-center gap-2 sm:gap-3">

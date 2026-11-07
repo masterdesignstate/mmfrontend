@@ -32,7 +32,7 @@ const questionNumberLabel = (row: AnswerExclusion) => {
 };
 
 /** The chip's name: the option ("Black", "Date") for grouped questions, else the short name. */
-const chipLabel = (row: AnswerExclusion) => row.question.question_name || row.question.group_name || row.question.text;
+const chipLabel = (row: AnswerExclusion) => row.question.text || row.question.question_name || row.question.group_name || '';
 
 const valuesSummary = (row: AnswerExclusion, values: number[]) =>
   values.map(value => row.value_labels[String(value)]?.trim() || String(value)).join(', ');
@@ -109,13 +109,14 @@ export default function ExcludedQuestionsSection({ rows, loaded = true, error, d
                 <li
                   key={row.answer_id}
                   title={values.length > 0 ? `${row.question.text} Hiding: ${valuesSummary(row, values)}` : row.question.text}
-                  className={`inline-flex items-center rounded-full bg-white py-0.5 pl-3.5 pr-0.5 ring-1 ${
+                  className={`flex max-w-full min-w-0 items-center rounded-full bg-white py-0.5 pl-3.5 pr-0.5 ring-1 ${
                     values.length > 0 ? 'ring-[#672DB7]' : 'ring-purple-200'
                   }`}
                 >
-                  <span className="text-sm font-medium text-gray-900">{label}</span>
-                  <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-purple-200" />
+                  <span className="min-w-0 break-words text-sm font-medium text-gray-900">{label}</span>
+                  <span aria-hidden="true" className="mx-1.5 h-4 w-px shrink-0 bg-purple-200" />
                   <ExclusionControl
+                    className="shrink-0"
                     iconOnly
                     showEndLabels
                     valueLabels={row.value_labels}
@@ -223,9 +224,9 @@ function ExcludeQuestionPicker({ rows, activeIds, onClose, onAdd }: {
                     selected ? 'bg-purple-50' : 'hover:bg-gray-50'
                   } disabled:cursor-default`}
                 >
-                  <span className="flex min-w-0 flex-1 gap-2 text-sm text-gray-900">
-                    <span className="w-9 shrink-0 tabular-nums text-gray-500">{questionNumberLabel(row)}</span>
-                    <span className="min-w-0">{q.text}</span>
+                  <span className="flex min-w-0 flex-1 items-start gap-2 text-sm text-gray-900">
+                    <span className="shrink-0 tabular-nums text-gray-500">{questionNumberLabel(row)}</span>
+                    <span className="min-w-0 break-words">{q.text}</span>
                   </span>
                   {already ? (
                     <span className="shrink-0 text-xs font-medium text-gray-400">Added</span>

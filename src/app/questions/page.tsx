@@ -3,9 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
-import { TIP_PANEL_CLASSES, tipArrowClasses } from '@/components/InfoTip';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS, API_BASE_URL } from '@/config/api';
 import { isMandatoryQuestionNumber, MANDATORY_QUESTION_PROMPTS } from '@/constants/mandatoryQuestions';
 import HamburgerMenu from '@/components/HamburgerMenu';
@@ -177,10 +175,20 @@ function QuestionsPageContent() {
   const [currentPage, setCurrentPageInternal] = useState(1);
   const pageRestoredRef = useRef(false);
   const restoredPageNumberRef = useRef<number | null>(null); // Track what page we restored to
+  // Stays false until the user changes a filter, search, or sort. Restoring page 103 on
+  // mount must not also pin later filter changes to that page.
+  const userChangedQueryRef = useRef(false);
 
   const setCurrentPage = React.useCallback((newPage: number | ((prev: number) => number)) => {
     setCurrentPageInternal(newPage);
   }, []);
+  // Filters, search, and sort describe a new result set. Page 103 of "everything"
+  // is not page 103 of "mandatory", so those changes go back to page 1.
+  const noteUserQueryChange = React.useCallback(() => {
+    userChangedQueryRef.current = true;
+    restoredPageNumberRef.current = 1;
+    setCurrentPage(1);
+  }, [setCurrentPage]);
   const [totalPages, setTotalPages] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [totalQuestionGroups, setTotalQuestionGroups] = useState(0);
@@ -189,7 +197,6 @@ function QuestionsPageContent() {
   const [allQuestionNumbers, setAllQuestionNumbers] = useState<number[]>([]);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   /** Key of the card whose mandatory badge was tapped, so its legend is showing. */
-  const [mandatoryLegendKey, setMandatoryLegendKey] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<QuestionSortOption>('number');
   const [randomizedSortNonce, setRandomizedSortNonce] = useState(0);
   const sortButtonRef = useRef<HTMLButtonElement>(null);
@@ -233,15 +240,26 @@ function QuestionsPageContent() {
   const { answeredQuestionNumbers, answeredLoading } = useAnsweredQuestions(userId || null);
   const { submittedQuestions, submittedQuestionNumbers } = useSubmittedQuestions<Question>(userId || null);
   // Fetched whole rather than read off the current page, which only ever holds ten numbers.
-  const { questions: mandatoryQuestions, questionNumbers: mandatoryQuestionNumbers } =
+  const { questions: mandatoryQuestions, questionNumbers: mandatoryQuestionNumbers, isLoading: mandatoryLoading } =
     useQuestionSet<Question>(activeFilters.questions.mandatory ? 'is_mandatory=true' : null);
-  const { questions: requiredFlagQuestions, questionNumbers: requiredFlagQuestionNumbers } =
+  const { questions: requiredFlagQuestions, questionNumbers: requiredFlagQuestionNumbers, isLoading: requiredFlagLoading } =
     useQuestionSet<Question>(activeFilters.questions.required ? 'is_required_for_match=true' : null);
+  const activeTagNames = (Object.entries(activeFilters.tags) as [string, boolean][])
+    .filter(([, on]) => on)
+    .map(([name]) => name);
+  const tagQuery = activeTagNames.length
+    ? activeTagNames.map(name => `tags=${encodeURIComponent(name)}`).join('&')
+    : null;
+  const { questions: taggedQuestions, questionNumbers: taggedQuestionNumbers, isLoading: tagsLoading } =
+    useQuestionSet<Question>(tagQuery);
 
   // Answered/unanswered are the only filters with a dedicated fetch of their own, so they
   // are the only ones whose data can still be in flight.
   const filterActive = activeFilters.questions.answered || activeFilters.questions.unanswered;
-  const filterPending = filterActive && (answeredLoading || !filterFetchDone.current);
+  const filterPending = (filterActive && (answeredLoading || !filterFetchDone.current))
+    || (activeFilters.questions.mandatory && mandatoryLoading)
+    || (activeFilters.questions.required && requiredFlagLoading)
+    || (tagQuery !== null && tagsLoading);
 
   // Every filter, not just those two. `fetchQuestionsForCurrentPage` deliberately leaves
   // `filteredQuestions` empty whenever any filter is on, so an empty list is the normal
@@ -425,15 +443,6 @@ function QuestionsPageContent() {
     };
   }, [showSortDropdown]);
 
-  // The mandatory legend is a tap-to-explain bubble; any pointer elsewhere dismisses it.
-  // The badge itself stops propagation, so this only ever fires for taps outside it.
-  useEffect(() => {
-    if (!mandatoryLegendKey) return;
-    const dismiss = () => setMandatoryLegendKey(null);
-    document.addEventListener('pointerdown', dismiss);
-    return () => document.removeEventListener('pointerdown', dismiss);
-  }, [mandatoryLegendKey]);
-
   // Check for menu-driven filter parameter and reset fetch state.
   // useLayoutEffect blocks paint — user never sees the stale empty content
   useLayoutEffect(() => {
@@ -603,9 +612,12 @@ function QuestionsPageContent() {
         if (cancelled || searchTerm.trim() !== activeTerm) return;
         setSearchResults(items);
         setFilteredQuestions(items);
-        if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-          // Don't reset — page was restored
-        } else {
+        if (userChangedQueryRef.current) {
+          userChangedQueryRef.current = false;
+          if (currentPage !== 1) setCurrentPage(1);
+        } else if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+          // Keep the page restored on mount, and later pages of this same search.
+        } else if (currentPage !== 1) {
           setCurrentPage(1);
         }
       };
@@ -813,7 +825,15 @@ function QuestionsPageContent() {
       return questionGroup[0].submitted_by?.id === storedUserId;
     };
 
+    const tagsByNumber = new Map<number, string[]>();
+    for (const row of taggedQuestions) {
+      if (row.question_number == null || tagsByNumber.has(row.question_number)) continue;
+      tagsByNumber.set(row.question_number, row.tags?.map(tag => tag.name.toLowerCase()) || []);
+    }
+
     const getQuestionTags = (questionNumber: number): string[] => {
+      const fromSet = tagsByNumber.get(questionNumber);
+      if (fromSet) return fromSet;
       const questionGroup = allGroupedQuestions[questionNumber];
       if (!questionGroup || questionGroup.length === 0) return [];
       // Tags are now objects, extract the names
@@ -825,6 +845,7 @@ function QuestionsPageContent() {
     // Every filter that is answered from a whole-account set rather than the loaded page.
     // Without this the page's ten numbers were the only candidates, so "Mandatory" reported
     // 10 of 14 and "Required" 10 of 15.
+    const hasTagFilters = Object.values(activeFilters.tags).some(filter => filter);
     const widenToAllQuestions =
       activeFilters.questions.answered ||
       activeFilters.questions.unanswered ||
@@ -832,9 +853,11 @@ function QuestionsPageContent() {
       activeFilters.questions.mandatory ||
       activeFilters.questions.required;
 
-    // Union the fetched numbers in explicitly: `allQuestionNumbers` comes from cached
-    // question metadata, which can still be missing a question approved moments ago.
-    const questionNumbersToCheck = widenToAllQuestions
+    // Tag filters start from every question that has one of the selected tags, not from
+    // the ten numbers on the current page. Other filters then AND against that set.
+    const questionNumbersToCheck = hasTagFilters
+      ? taggedQuestionNumbers
+      : widenToAllQuestions
       ? Array.from(new Set([
           ...allQuestionNumbers,
           ...submittedQuestionNumbers,
@@ -918,6 +941,7 @@ function QuestionsPageContent() {
       ...(activeFilters.questions.submitted ? submittedQuestions : []),
       ...(activeFilters.questions.mandatory ? mandatoryQuestions : []),
       ...(activeFilters.questions.required ? requiredFlagQuestions : []),
+      ...(Object.values(activeFilters.tags).some(Boolean) ? taggedQuestions : []),
     ];
     const seenIds = new Set(questions.map(q => q.id));
     const questionPool = extraRows.length
@@ -930,6 +954,11 @@ function QuestionsPageContent() {
     
     setFilteredQuestions(filteredQuestionData);
 
+    if (userChangedQueryRef.current) {
+      userChangedQueryRef.current = false;
+      if (currentPage !== 1) setCurrentPage(1);
+      return;
+    }
     if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
       return;
     }
@@ -939,7 +968,7 @@ function QuestionsPageContent() {
     // Note: currentPage is intentionally NOT in dependencies to avoid re-filtering on page change
     }, [activeFilters, questions, answeredQuestionNumbers, submittedQuestions, submittedQuestionNumbers,
         mandatoryQuestions, mandatoryQuestionNumbers, requiredFlagQuestions, requiredFlagQuestionNumbers,
-        allQuestionNumbers]);
+        taggedQuestions, taggedQuestionNumbers, allQuestionNumbers]);
 
   // Fetch all questions when filtering by answered/unanswered (since we need ALL questions, not just current page)
   useEffect(() => {
@@ -1085,9 +1114,12 @@ function QuestionsPageContent() {
         });
 
         setFilteredQuestions(allQuestions);
-        if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-          // Don't reset — page was restored
-        } else {
+        if (userChangedQueryRef.current) {
+          userChangedQueryRef.current = false;
+          if (currentPage !== 1) setCurrentPage(1);
+        } else if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+          // Keep the page restored on mount.
+        } else if (currentPage !== 1) {
           setCurrentPage(1);
         }
       } catch (error) {
@@ -1117,8 +1149,11 @@ function QuestionsPageContent() {
         setSearchIndex(searchResults);
         searchIndexTimestamp.current = Date.now();
       }
-      if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
-        // Don't reset — page was restored
+      if (userChangedQueryRef.current) {
+        userChangedQueryRef.current = false;
+        if (currentPage !== 1) setCurrentPage(1);
+      } else if (pageRestoredRef.current && restoredPageNumberRef.current !== null && restoredPageNumberRef.current !== 1) {
+        // Keep the page restored on mount, and later pages of this same search.
       } else if (currentPage !== 1) {
         setCurrentPage(1);
       }
@@ -1150,7 +1185,7 @@ function QuestionsPageContent() {
   // Sort handler
   const handleSortOptionSelect = (option: QuestionSortOption) => {
     lastFetchedQuestionNumbersRef.current = '';
-    restoredPageNumberRef.current = 1;
+    noteUserQueryChange();
     const hasClientSideFilters = searchTerm.trim().length > 0 ||
       activeFilters.questions.answered || activeFilters.questions.unanswered ||
       activeFilters.questions.required || activeFilters.questions.mandatory ||
@@ -1158,9 +1193,6 @@ function QuestionsPageContent() {
     if (option === 'randomized' && !hasClientSideFilters) {
       setQuestions([]);
       setFilteredQuestions([]);
-    }
-    if (currentPage !== 1) {
-      setCurrentPage(1);
     }
     if (option === 'randomized') {
       setRandomizedSortNonce(prev => prev + 1);
@@ -1372,6 +1404,7 @@ function QuestionsPageContent() {
   };
 
   const toggleLiveFilter = (category: 'questions' | 'tags', filter: string) => {
+    noteUserQueryChange();
     const turningAnsweredOff = category === 'questions' && filter === 'answered' && activeFilters.questions.answered;
     if (filterParam === 'answered' && !turningAnsweredOff) {
       clearMenuFilterFromUrl();
@@ -1421,6 +1454,7 @@ function QuestionsPageContent() {
       (activeFilters.questions.answered && !pendingFilters.questions.answered) ||
       (activeFilters.questions.unanswered && !pendingFilters.questions.unanswered);
     
+    noteUserQueryChange();
     // Update filters state first
     setFilters(pendingFilters);
     clearMenuFilterFromUrl();
@@ -1571,7 +1605,10 @@ function QuestionsPageContent() {
               type="text"
               placeholder="Search"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                noteUserQueryChange();
+                setSearchTerm(e.target.value);
+              }}
               className="block w-full min-w-0 pl-7 pr-7 py-2 sm:py-2.5 text-sm border border-gray-300 rounded-full bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
             />
             <div className="absolute inset-y-0 right-0 pr-2.5 sm:pr-3 flex items-center">
@@ -1583,7 +1620,10 @@ function QuestionsPageContent() {
               )}
               {!isSearching && searchTerm && (
                 <button
-                  onClick={() => setSearchTerm('')}
+                  onClick={() => {
+                    noteUserQueryChange();
+                    setSearchTerm('');
+                  }}
                   className="text-gray-500 hover:text-black text-sm focus:outline-none"
                   aria-label="Clear search"
                 >
@@ -1697,7 +1737,6 @@ function QuestionsPageContent() {
               const answerCount = getAnswerCount(group.questionNumber);
               const isAnswered = answeredQuestionNumbers.includes(group.questionNumber) ||
                 group.questions.some(question => question.is_answered);
-              const isMandatory = group.questions.some(question => question.is_mandatory);
 
               const cardKey = String(key);
 
@@ -1711,35 +1750,6 @@ function QuestionsPageContent() {
                       : 'border-gray-200 bg-white hover:bg-gray-50'
                   }`}
                 >
-                  {isMandatory && (
-                    // Absolutely positioned in the card's top-left corner, so it costs the
-                    // row no width. Smaller and tucked further into the corner on phones,
-                    // where the reduced card padding puts the question number closer in.
-                    <button
-                      type="button"
-                      aria-label="Mandatory question"
-                      aria-expanded={mandatoryLegendKey === cardKey}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMandatoryLegendKey(prev => (prev === cardKey ? null : cardKey));
-                      }}
-                      className="absolute -left-1.5 -top-1.5 z-10 flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white shadow-sm sm:-left-2 sm:-top-1 sm:h-7 sm:w-7"
-                    >
-                      <Image src="/assets/asterisk.png" alt="Mandatory" width={21} height={25} className="h-3 w-auto sm:h-5" />
-                    </button>
-                  )}
-                  {isMandatory && mandatoryLegendKey === cardKey && (
-                    <span
-                      role="tooltip"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`absolute -top-9 left-2 z-20 whitespace-nowrap ${TIP_PANEL_CLASSES}`}
-                    >
-                      Mandatory question
-                      <span className={tipArrowClasses('bottom', 'left')} />
-                    </span>
-                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start">
                       <span className="mr-1.5 text-xs text-gray-500 sm:mr-3 sm:text-sm">{group.questionNumber}.</span>

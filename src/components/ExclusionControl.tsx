@@ -33,7 +33,10 @@ interface ExclusionControlProps {
 }
 
 const POPOVER_WIDTH_PX = 256;
-const END_LABEL_CLASS = 'text-[9px] font-semibold uppercase leading-tight line-clamp-2';
+const END_LABEL_CLASS = 'text-[9px] font-semibold uppercase leading-tight break-words';
+// 3.5rem reaches the center of the next circle (32px circle + 8px gap + 16px radius).
+// 50% keeps a two-stop scale from crossing the middle of the row. Longer captions wrap.
+const END_LABEL_STYLE = { width: 'min(3.5rem, 50%)' };
 const VIEWPORT_GAP_PX = 8;
 const TRIGGER_GAP_PX = 8;
 
@@ -180,8 +183,8 @@ export default function ExclusionControl({
       onClick={(event) => event.stopPropagation()}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2">
-          <span className="text-sm font-semibold text-black">{title}</span>
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <span className="min-w-0 break-words text-sm font-semibold text-black">{title}</span>
           <span className="relative">
             <button
               type="button"
@@ -263,16 +266,16 @@ export default function ExclusionControl({
         })}
         {showEndLabels && (endLabels.first || endLabels.last) && (
           <div className="relative col-span-full mt-1">
-            <span className={`invisible block max-w-[46%] ${END_LABEL_CLASS}`} aria-hidden>
+            <span className={`invisible block ${END_LABEL_CLASS}`} style={END_LABEL_STYLE} aria-hidden>
               {endLabels.first.length > endLabels.last.length ? endLabels.first : endLabels.last}
             </span>
             {endLabels.first && (
-              <span className={`absolute left-0 top-0 max-w-[46%] text-gray-500 ${END_LABEL_CLASS}`}>
+              <span className={`absolute left-0 top-0 text-left text-gray-500 ${END_LABEL_CLASS}`} style={END_LABEL_STYLE}>
                 {endLabels.first}
               </span>
             )}
             {endLabels.last && (
-              <span className={`absolute right-0 top-0 max-w-[46%] text-right text-gray-500 ${END_LABEL_CLASS}`}>
+              <span className={`absolute right-0 top-0 text-right text-gray-500 ${END_LABEL_CLASS}`} style={END_LABEL_STYLE}>
                 {endLabels.last}
               </span>
             )}

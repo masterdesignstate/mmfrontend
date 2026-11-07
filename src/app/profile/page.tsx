@@ -1032,7 +1032,7 @@ export default function ProfilePage() {
               <div>
                 <div className="flex items-center gap-4 mb-3">
                   <div className="w-20 shrink-0" />
-                  <h4 className="flex-1 text-base font-semibold text-black text-center">Ideology</h4>
+                  <h4 className="flex-1 text-base font-semibold text-black text-center">My Ideology</h4>
                 </div>
                 <div className="flex items-center gap-4 mb-2">
                   <div className="w-20 shrink-0" />

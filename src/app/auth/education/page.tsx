@@ -166,8 +166,16 @@ export default function EducationPage() {
       console.log('📋 Answered educations set size:', answeredEducations.size);
       console.log('📋 Answered educations:', Array.from(answeredEducations));
       
-      // Require at least 1 answered education question
-      if (answeredEducations.size === 0) {
+      // Require at least 1 answered education question. Read storage as well as state:
+      // the set is loaded in an effect, and Next right after answering used to miss it.
+      let answeredCount = answeredEducations.size;
+      try {
+        const saved = JSON.parse(localStorage.getItem(`answeredEducations_${userId}`) || '[]');
+        if (Array.isArray(saved)) answeredCount = new Set([...answeredEducations, ...saved]).size;
+      } catch {
+        // Keep the in-memory count.
+      }
+      if (answeredCount === 0) {
         console.log('❌ Validation failed: No answered education questions found');
         console.log('📋 Current answeredEducations state:', Array.from(answeredEducations));
         setError('Please answer at least one education question before proceeding.');

@@ -9,6 +9,24 @@ interface QuestionSetResponse<T> {
 const EMPTY_QUESTIONS: never[] = [];
 const EMPTY_NUMBERS: number[] = [];
 
+/** One response page is not the whole set once a tag matches more than the page size. */
+async function fetchAllQuestionPages<T>(url: string): Promise<QuestionSetResponse<T>> {
+  const results: T[] = [];
+  let next: string | null = url;
+  for (let page = 0; page < 20 && next; page += 1) {
+    const res: Response = await fetch(next, { headers: { 'Content-Type': 'application/json' } });
+    if (!res.ok) {
+      const error = new Error('API request failed') as Error & { status: number };
+      error.status = res.status;
+      throw error;
+    }
+    const data: { results?: T[]; next?: unknown } = await res.json();
+    results.push(...(data.results || []));
+    next = typeof data.next === 'string' ? data.next : null;
+  }
+  return { results };
+}
+
 /**
  * Every question matching a server-side flag, independent of the page currently on screen.
  *
@@ -22,7 +40,8 @@ const EMPTY_NUMBERS: number[] = [];
 export function useQuestionSet<T extends { question_number: number | null }>(query: string | null) {
   const { data, isLoading } = useSWR<QuestionSetResponse<T>>(
     query ? `${getApiUrl(API_ENDPOINTS.QUESTIONS)}?${query}&page_size=1000` : null,
-    { dedupingInterval: 60000 }
+    (url: string) => fetchAllQuestionPages<T>(url),
+    { dedupingInterval: 60000, keepPreviousData: false }
   );
 
   // Memoised on the response: these feed filter effect dependencies, and a new array
