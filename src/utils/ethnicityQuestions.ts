@@ -15,7 +15,23 @@ type AnswerWithQuestion<TQuestion extends EthnicityQuestionLike = EthnicityQuest
   question?: string | TQuestion;
 };
 
-const OTHER_ETHNICITY_TEXT = 'How strongly do you identify as another ethnicity?';
+const ETHNICITY_PHRASES: Record<string, string> = {
+  White: 'white',
+  Black: 'Black or African descent',
+  Native: 'Native American',
+  Hispanic: 'Hispanic/Latino',
+  Asian: 'Asian',
+  Other: 'another ethnicity',
+  Hawaiian: 'another ethnicity',
+};
+
+/** Me wording for one ethnicity option. The match side is derived from this. */
+export function ethnicityDescribesPrompt(storedName: string): string {
+  const phrase = ETHNICITY_PHRASES[storedName] || storedName;
+  return `To what extent does ${phrase} describe you?`;
+}
+
+const OTHER_ETHNICITY_TEXT = ethnicityDescribesPrompt('Other');
 
 // The database stores this option as "Native"; everywhere that lists the options shows the
 // full name. Only question objects are renamed — onboarding keeps its answered-options record

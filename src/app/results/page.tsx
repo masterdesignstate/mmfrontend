@@ -2157,7 +2157,7 @@ function ResultsPageContent() {
                 </svg>
               </div>
               <p className="mt-6 text-lg font-semibold text-gray-700 results-loading-text">
-                {['Finding your matches...', 'Crunching the numbers...', 'Calculating compatibility...', 'Almost there...'][loadingTextIndex]}
+                {['Finding people...', 'Crunching the numbers...', 'Calculating compatibility...', 'Almost there...'][loadingTextIndex]}
               </p>
             </div>
           </div>
@@ -2418,7 +2418,7 @@ function ResultsPageContent() {
 
                 {/* Cycling loading text */}
                 <p className="mt-6 text-lg font-semibold text-gray-700 filter-loading-text">
-                  {['Crunching the numbers...', 'Running the math...', 'Calculating compatibility...', 'Finding your matches...'][loadingTextIndex]}
+                  {['Crunching the numbers...', 'Running the math...', 'Calculating compatibility...', 'Finding people...'][loadingTextIndex]}
                 </p>
               </div>
             )}

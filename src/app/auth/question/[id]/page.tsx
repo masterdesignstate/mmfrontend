@@ -9,7 +9,7 @@ import { DEFAULT_SCALE_LABELS, IMPORTANCE_LABELS } from '@/constants/answerLabel
 import { getSliderLabelsForQuestion } from '@/utils/answerValues';
 import type { AnswerValueLabel } from '@/utils/answerValues';
 import { getAllowedExclusionValues, normalizeExcludedValues } from '@/utils/exclusionValues';
-import { toStoredEthnicityName } from '@/utils/ethnicityQuestions';
+import { ethnicityDescribesPrompt, toStoredEthnicityName } from '@/utils/ethnicityQuestions';
 import {
   DIET,
   EDUCATION,
@@ -265,19 +265,6 @@ export default function QuestionPage() {
         Other: '2ef95f1a-3b2f-48f5-adb6-1c31d89ed904'         // Group 6: Other
       };
 
-      // Get ethnicity display name
-      const getEthnicityDisplayName = (ethnicity: string) => {
-        const displayNames = {
-          White: 'White',
-          Black: 'Black or African Descent',
-          Native: 'Native American',
-          Hispanic: 'Hispanic/Latino',
-          Asian: 'Asian',
-          Other: 'Other'
-        };
-        return displayNames[ethnicity as keyof typeof displayNames] || ethnicity;
-      };
-
       // The Questions page passes the displayed name ("Native American"); the maps above are
       // keyed on the stored one.
       const ethnicityKey = toStoredEthnicityName(ethnicityParam);
@@ -289,7 +276,7 @@ export default function QuestionPage() {
         question_number: ETHNICITY,
         group_number: Object.keys(questionIds).indexOf(ethnicityKey) + 1,
         group_name: 'Ethnicity',
-        text: `How strongly do you identify as ${getEthnicityDisplayName(ethnicityKey).toLowerCase()}?`,
+        text: ethnicityDescribesPrompt(ethnicityKey),
         answers: [{ value: '1', answer_text: 'Less' }, { value: '2', answer_text: '' }, { value: '3', answer_text: '' }, { value: '4', answer_text: '' }, { value: '5', answer_text: 'More' }],
         open_to_all_me: false,
         open_to_all_looking_for: true

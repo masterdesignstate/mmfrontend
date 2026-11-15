@@ -47,6 +47,8 @@ export const idealMatchPrompt = (text: string) => {
     [/^What's your\b/i, "What's your ideal match's"],
     [/^Which (.+?) best describes you\??$/i, 'Which $1 best describes your ideal match?'],
     [/^What (.+?) best describes you\??$/i, 'What $1 best describes your ideal match?'],
+    [/^Does (.+?) best describe you\??$/i, 'Does $1 best describe your ideal match?'],
+    [/^To what extent does (.+?) describe you\??$/i, 'To what extent does $1 describe your ideal match?'],
     [/^Which (.+?) do you\b/i, 'Which $1 does your ideal match'],
   ];
   for (const [pattern, replacement] of rules) {

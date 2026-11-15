@@ -155,7 +155,7 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
+  const [toast, setToast] = useState<string>('');
 
   // Soft caps: over-limit text is typeable so the counter can flag it, but it blocks saving.
   const taglineOverLimit = isOverLimit(form.tagline, MAX_TAGLINE_CHARS);
@@ -171,9 +171,7 @@ export default function EditProfilePage() {
   const [promptItems, setPromptItems] = useState<PromptFormItem[]>([]);
   const [initialPromptItems, setInitialPromptItems] = useState<PromptFormItem[]>([]);
   const [savedPrompts, setSavedPrompts] = useState<UserProfilePrompt[]>([]);
-  const [promptSaving, setPromptSaving] = useState(false);
   const [promptError, setPromptError] = useState('');
-  const [promptSuccess, setPromptSuccess] = useState('');
   const [promptPicker, setPromptPicker] = useState<{ index: number } | null>(null);
   const [promptPickerCategory, setPromptPickerCategory] = useState('all');
   const [mediaBusyKey, setMediaBusyKey] = useState<string | null>(null);
@@ -458,7 +456,6 @@ export default function EditProfilePage() {
       return true;
     }
   }, [promptItems, initialPromptItems]);
-  const canSavePrompts = promptsDirty && !promptSaving && !promptValidationError;
 
   const openPromptPicker = (index: number) => {
     setPromptPicker({ index });
@@ -473,14 +470,10 @@ export default function EditProfilePage() {
     return promptTemplates.filter(template => activeFilter.categories.includes(template.category));
   }, [promptPickerCategory, promptTemplates]);
 
-  const savePrompts = async () => {
-    if (!userId) return;
-    setPromptError('');
-    setPromptSuccess('');
+  const persistPrompts = async (uid: string) => {
     const validationError = validatePromptItems(promptItems);
     if (validationError) {
-      setPromptError(validationError);
-      return;
+      throw new Error(validationError);
     }
 
     const payload: ProfilePromptPayload[] = promptItems.map(item => ({
@@ -492,24 +485,11 @@ export default function EditProfilePage() {
       poll_options: item.prompt_type === 'poll' ? item.poll_options.map(option => option.trim()) : [],
     }));
 
-    setPromptSaving(true);
-    try {
-      const prompts = await apiService.replaceUserProfilePrompts(userId, payload);
-      const promptForm = prompts.sort((a, b) => a.order - b.order).map(promptToFormItem);
-      setSavedPrompts(prompts);
-      setPromptItems(promptForm);
-      setInitialPromptItems(promptForm);
-      setPromptSuccess('Prompts saved successfully');
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem(`profile_${userId}`);
-        sessionStorage.removeItem(`profile_${userId}_timestamp`);
-      }
-      mutate(`${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`);
-    } catch (error) {
-      setPromptError(error instanceof Error ? error.message : 'Failed to save prompts');
-    } finally {
-      setPromptSaving(false);
-    }
+    const prompts = await apiService.replaceUserProfilePrompts(uid, payload);
+    const promptForm = prompts.sort((a, b) => a.order - b.order).map(promptToFormItem);
+    setSavedPrompts(prompts);
+    setPromptItems(promptForm);
+    setInitialPromptItems(promptForm);
   };
 
   const uploadPromptMedia = async (index: number, file: File | undefined, kind: 'voice' | 'video') => {
@@ -593,10 +573,15 @@ export default function EditProfilePage() {
 
   const handleSave = async () => {
     setError('');
-    setSuccess('');
+    setPromptError('');
+    setToast('');
     const err = validate();
     if (err) {
       setError(err);
+      return;
+    }
+    if (promptsDirty && promptValidationError) {
+      setPromptError(promptValidationError);
       return;
     }
     if (!userId) {
@@ -640,8 +625,17 @@ export default function EditProfilePage() {
         }
       }
 
+      if (promptsDirty) {
+        try {
+          await persistPrompts(userId);
+        } catch (promptErr) {
+          setPromptError(promptErr instanceof Error ? promptErr.message : 'Failed to save prompts');
+          throw promptErr;
+        }
+      }
+
       posthog.capture('profile_updated', { user_id: userId });
-      setSuccess('Profile updated successfully');
+      setToast('Changes saved');
 
       const profileUrl = `${getApiUrl(API_ENDPOINTS.USERS)}${userId}/`;
       if (typeof window !== 'undefined') {
@@ -668,24 +662,17 @@ export default function EditProfilePage() {
 
     } catch (e: any) {
       posthog.captureException(e);
-      setError(e?.message || 'Failed to save changes');
+      if (!promptError) setError(e?.message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
   };
 
-  // Auto-dismiss success message
   useEffect(() => {
-    if (!success) return;
-    const t = setTimeout(() => setSuccess(''), 2500);
+    if (!toast) return;
+    const t = setTimeout(() => setToast(''), 2800);
     return () => clearTimeout(t);
-  }, [success]);
-
-  useEffect(() => {
-    if (!promptSuccess) return;
-    const t = setTimeout(() => setPromptSuccess(''), 2500);
-    return () => clearTimeout(t);
-  }, [promptSuccess]);
+  }, [toast]);
 
   const formDirty = useMemo(() => {
     if (!initialFormState) return false;
@@ -696,9 +683,9 @@ export default function EditProfilePage() {
     }
   }, [form, initialFormState]);
 
-  const isDirty = formDirty || photosDirty;
+  const isDirty = formDirty || photosDirty || promptsDirty;
 
-  const canSave = isDirty && !saving && !photoUploading && !taglineOverLimit && !bioOverLimit;
+  const canSave = isDirty && !saving && !photoUploading && !mediaBusyKey && !recording && !taglineOverLimit && !bioOverLimit && !(promptsDirty && promptValidationError);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -999,9 +986,6 @@ export default function EditProfilePage() {
             <p className="text-sm text-gray-600 mb-4">
               Your first photo is your main thumbnail across the app. Click <strong>Make primary</strong> on any photo to move it to the front. Photo changes apply when you press <strong>Save changes</strong>.
             </p>
-            {photosDirty && (
-              <p className="mb-4 text-xs font-medium text-amber-700">You have unsaved photo changes.</p>
-            )}
             {photoError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{photoError}</div>
             )}
@@ -1072,24 +1056,11 @@ export default function EditProfilePage() {
 
           <div className="max-w-4xl mx-auto mb-6 space-y-4">
             {promptError && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{promptError}</div>}
-            {promptSuccess && <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">{promptSuccess}</div>}
 
             {renderPromptSection('written', 'Written Prompts')}
             {renderPromptSection('voice', 'Voice Prompt')}
             {renderPromptSection('video', 'Video Prompt')}
             {renderPromptSection('poll', 'Prompt Poll')}
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={savePrompts}
-                disabled={!canSavePrompts}
-                className="px-5 py-2 rounded-md text-white font-medium shadow-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ backgroundColor: purple }}
-              >
-                {promptSaving ? 'Saving prompts...' : 'Save prompts'}
-              </button>
-            </div>
 
             {savedPrompts.some(prompt => prompt.prompt_type === 'poll' && (prompt.poll_votes?.length ?? 0) > 0) && userId && (
               <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
@@ -1103,8 +1074,7 @@ export default function EditProfilePage() {
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm max-w-4xl mx-auto">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Details</h2>
 
-            {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">{error}</div>}
-            {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded">{success}</div>}
+            {error && !promptError && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">{error}</div>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Display Name (locked) */}
@@ -1259,6 +1229,27 @@ export default function EditProfilePage() {
           </div>
         </div>
       </div>
+      {toast && (
+        <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div className="flex animate-profile-toast items-center gap-2.5 rounded-2xl bg-gray-900 px-4 py-3 text-sm font-medium text-white shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            {toast}
+          </div>
+        </div>
+      )}
+      <style jsx>{`
+        @keyframes profileToastIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-profile-toast {
+          animation: profileToastIn 0.22s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
