@@ -201,10 +201,8 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
 
           <button
             onClick={() => {
-              // Clear filter state on logout
+              // Clear filter state on logout. Results filters are kept per user and persist.
               if (typeof window !== 'undefined') {
-                sessionStorage.removeItem('results_page_filters');
-                sessionStorage.removeItem('results_page_filters_applied');
                 sessionStorage.removeItem('questions_page_filters');
                 sessionStorage.removeItem('questions_current_page');
               }

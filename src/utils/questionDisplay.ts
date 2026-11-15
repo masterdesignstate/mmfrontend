@@ -19,8 +19,8 @@ interface DisplayQuestion {
  * same question could read differently depending on which screen you were looking at.
  *
  * A **grouped** question (ethnicity, education, diet, faith) is a set of sub-questions under
- * one heading, so it keeps both parts: "4. Ethnicity" above "What ethnicity do you identify
- * with?".
+ * one heading, so it keeps both parts: "4. Ethnicity" above "What ethnicity best describes
+ * you?".
  *
  * Everything else is a single question, and its "title" is only ever a category label that
  * restates the prompt. Those used to render as "13. Want Kids" above "Do you want kids?";
@@ -46,6 +46,7 @@ export const idealMatchPrompt = (text: string) => {
     [/^What is your\b/i, "What is your ideal match's"],
     [/^What's your\b/i, "What's your ideal match's"],
     [/^Which (.+?) best describes you\??$/i, 'Which $1 best describes your ideal match?'],
+    [/^What (.+?) best describes you\??$/i, 'What $1 best describes your ideal match?'],
     [/^Which (.+?) do you\b/i, 'Which $1 does your ideal match'],
   ];
   for (const [pattern, replacement] of rules) {

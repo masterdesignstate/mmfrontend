@@ -22,6 +22,7 @@ import {
   IDEOLOGY,
   isMandatoryQuestionNumber,
   isOptionalQuestionNumber,
+  MANDATORY_QUESTION_PROMPTS,
 } from '@/constants/mandatoryQuestions';
 import { idealMatchPrompt } from '@/utils/questionDisplay';
 import posthog from 'posthog-js';
@@ -1014,7 +1015,7 @@ export default function QuestionPage() {
   const focusSides = searchParams.get('context') !== 'profile';
   const lookingOtaAllowed = questionAllowsLookingOta(displayQuestion);
   const meOtaAllowed = questionAllowsMeOta(displayQuestion);
-  const baseQuestionText = displayQuestion?.text || 'What ethnicity do you identify with?';
+  const baseQuestionText = displayQuestion?.text || MANDATORY_QUESTION_PROMPTS[ETHNICITY];
   const shownQuestionText = focusSides && answerSide === 'match'
     ? idealMatchPrompt(baseQuestionText)
     : baseQuestionText;

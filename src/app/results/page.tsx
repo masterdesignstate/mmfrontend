@@ -6,7 +6,19 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
-import { apiService, MAX_LIKE_NOTE_CHARS, type AnswerExclusion, type ApiUser, type CompatibilityResult } from '@/services/api';
+import { apiService, MAX_LIKE_NOTE_CHARS, type AnswerExclusion, type ApiUser, type CompatibilityResult, type SavedResultFilter } from '@/services/api';
+import {
+  DEFAULT_RESULTS_FILTERS,
+  MAX_SAVED_RESULT_FILTERS,
+  MAX_SAVED_RESULT_FILTER_NAME,
+  isDefaultResultsFilters,
+  normalizeResultsFilters,
+  readStoredResultsFilters,
+  sameResultsFilters,
+  writeStoredResultsFilters,
+  type FilterRange,
+  type ResultsFilters,
+} from '@/constants/resultsFilters';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import CharCounter from '@/components/CharCounter';
 import ExcludedQuestionsSection from '@/components/ExcludedQuestionsSection';
@@ -283,14 +295,10 @@ function ResultsPageContent() {
   const [exclusionError, setExclusionError] = useState('');
   const [viewerId, setViewerId] = useState('');
   const [hasHydrated, setHasHydrated] = useState(false);
-  // Load filtersApplied from sessionStorage on mount
-  const [filtersApplied, setFiltersApplied] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('results_page_filters_applied');
-      return saved === 'true';
-    }
-    return false;
-  });
+  // The last applied filters, stored per user. Read once; the server copy may replace them on mount.
+  const [storedFilters] = useState<ResultsFilters | null>(() => readStoredResultsFilters());
+  const storedFiltersActive = !!storedFilters && !isDefaultResultsFilters(storedFilters);
+  const [filtersApplied, setFiltersApplied] = useState(storedFiltersActive);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -318,24 +326,10 @@ function ResultsPageContent() {
   const [pendingLikeProfileId, setPendingLikeProfileId] = useState<string | null>(null);
   const [currentUserLive, setCurrentUserLive] = useState<string | null>(null);
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
-  // Track which tags are actually applied (for color logic) - initialize from session storage if filters were applied
-  const [appliedTags, setAppliedTags] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const wasApplied = sessionStorage.getItem('results_page_filters_applied') === 'true';
-      if (wasApplied) {
-        const savedFilters = sessionStorage.getItem('results_page_filters');
-        if (savedFilters) {
-          try {
-            const parsed = JSON.parse(savedFilters);
-            return parsed.tags || [];
-          } catch (e) {
-            console.error('Error parsing saved filters for appliedTags:', e);
-          }
-        }
-      }
-    }
-    return [];
-  });
+  // Track which tags are actually applied (for color logic)
+  const [appliedTags, setAppliedTags] = useState<string[]>(
+    storedFiltersActive && storedFilters ? storedFilters.tags : []
+  );
   // Snapshot of required-related filter state that the currently-displayed profiles correspond to.
   // Updated only when new results arrive — prevents card colors flipping before data refreshes.
   const [appliedRequiredOnly, setAppliedRequiredOnly] = useState<boolean>(false);
@@ -359,39 +353,13 @@ function ResultsPageContent() {
   }, [sortedProfiles, visibleCount, appliedTags, appliedRequiredOnly, appliedRequiredScope]);
   // Snapshots for the sort/filter pipeline so the visible cards don't reorder or
   // get distance-filtered until the newly-fetched profiles arrive.
-  const [appliedDistance, setAppliedDistance] = useState<{ min: number; max: number }>(() => {
-    if (typeof window !== 'undefined') {
-      const wasApplied = sessionStorage.getItem('results_page_filters_applied') === 'true';
-      if (wasApplied) {
-        const savedFilters = sessionStorage.getItem('results_page_filters');
-        if (savedFilters) {
-          try {
-            const parsed = JSON.parse(savedFilters);
-            if (parsed.distance) return parsed.distance;
-          } catch {}
-        }
-      }
-    }
-    return { min: 1, max: 100 };
-  });
-  const [appliedCompatibilityType, setAppliedCompatibilityType] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const savedFilters = sessionStorage.getItem('results_page_filters');
-      if (savedFilters) {
-        try {
-          const parsed = JSON.parse(savedFilters);
-          if (parsed.compatibilityType) return parsed.compatibilityType;
-        } catch {}
-      }
-    }
-    return 'overall';
-  });
-  const [appliedFiltersApplied, setAppliedFiltersApplied] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('results_page_filters_applied') === 'true';
-    }
-    return false;
-  });
+  const [appliedDistance, setAppliedDistance] = useState<FilterRange>(
+    storedFiltersActive && storedFilters ? storedFilters.distance : DEFAULT_RESULTS_FILTERS.distance
+  );
+  const [appliedCompatibilityType, setAppliedCompatibilityType] = useState<string>(
+    storedFilters?.compatibilityType ?? DEFAULT_RESULTS_FILTERS.compatibilityType
+  );
+  const [appliedFiltersApplied, setAppliedFiltersApplied] = useState<boolean>(storedFiltersActive);
   const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
@@ -415,40 +383,17 @@ function ResultsPageContent() {
 
   const showFiltersApplied = hasHydrated && filtersApplied;
 
-  // Filter state - load from sessionStorage on mount
-  const defaultFilters = {
-    compatibilityType: 'overall', // overall, me_to_them, them_to_me
-    compatibility: {
-      min: 0,
-      max: 100
-    },
-    distance: {
-      min: 1,
-      max: 100
-    },
-    age: {
-      min: 18,
-      max: 80
-    },
-    tags: [] as string[],
-    requiredOnly: false,
-    requiredScope: 'my' as 'my' | 'their'
-  };
-  const [filters, setFilters] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const savedFilters = sessionStorage.getItem('results_page_filters');
-      if (savedFilters) {
-        try {
-          return JSON.parse(savedFilters);
-        } catch (e) {
-          console.error('Error parsing saved filters:', e);
-        }
-      }
-    }
-    return defaultFilters;
-  });
+  const defaultFilters = DEFAULT_RESULTS_FILTERS;
+  const [filters, setFilters] = useState<ResultsFilters>(storedFilters ?? DEFAULT_RESULTS_FILTERS);
   // Pending filters: edited in the modal, only committed to `filters` on Apply
-  const [pendingFilters, setPendingFilters] = useState(defaultFilters);
+  const [pendingFilters, setPendingFilters] = useState<ResultsFilters>(DEFAULT_RESULTS_FILTERS);
+  const [savedFilterPresets, setSavedFilterPresets] = useState<SavedResultFilter[]>([]);
+  const [presetError, setPresetError] = useState('');
+  const [presetBusy, setPresetBusy] = useState(false);
+  const [presetMenuId, setPresetMenuId] = useState<string | null>(null);
+  // Naming a new preset (no id) or renaming one (id set).
+  const [presetNameDraft, setPresetNameDraft] = useState<{ id?: string; value: string } | null>(null);
+  const latestFirstPageRequestRef = useRef(0);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
 
   // Fetch tags for a specific user
@@ -529,6 +474,7 @@ function ResultsPageContent() {
   // depend on stale closure values after a setState in the same tick.
   const fetchCompatibleUsers = async (page = 1, applyFilters = false, filtersOverride?: typeof filters) => {
     const activeFilters = filtersOverride ?? filters;
+    const firstPageRequest = page === 1 ? ++latestFirstPageRequestRef.current : 0;
 
     try {
       setLoading(true);
@@ -645,6 +591,8 @@ function ResultsPageContent() {
       }));
 
       const profilesWithTags = await fetchTagsForProfiles(transformedProfiles);
+      // A newer first-page fetch (say, the server's saved filters arriving) supersedes this one.
+      if (page === 1 && firstPageRequest !== latestFirstPageRequestRef.current) return;
 
       const isFilteringForHide = applyFilters && (activeFilters.tags.includes('Hide') || activeFilters.tags.includes('Hidden'));
 
@@ -668,7 +616,7 @@ function ResultsPageContent() {
         setAppliedRequiredOnly(applyFilters ? !!activeFilters.requiredOnly : false);
         setAppliedRequiredScope(applyFilters ? (activeFilters.requiredScope ?? 'my') : 'my');
         setAppliedTags(applyFilters ? (activeFilters.tags || []) : []);
-        setAppliedDistance(applyFilters && activeFilters.distance ? activeFilters.distance : { min: 1, max: 100 });
+        setAppliedDistance(applyFilters && activeFilters.distance ? activeFilters.distance : DEFAULT_RESULTS_FILTERS.distance);
         setAppliedCompatibilityType(activeFilters.compatibilityType ?? 'overall');
         setAppliedFiltersApplied(applyFilters);
       } else {
@@ -687,6 +635,7 @@ function ResultsPageContent() {
 
     } catch (error) {
       console.error('Error fetching compatible users:', error);
+      if (page === 1 && firstPageRequest !== latestFirstPageRequestRef.current) return;
       // No placeholder profiles here. This used to fall back to a generated list whose ids
       // were strings like "profile-0"; the grid looked normal, the error below never showed
       // (it only renders when the list is empty), and tapping one asked the API for a user
@@ -702,7 +651,9 @@ function ResultsPageContent() {
       }
     } finally {
       backfillInFlightRef.current = false;
-      setLoading(false);
+      if (page !== 1 || firstPageRequest === latestFirstPageRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -795,22 +746,33 @@ function ResultsPageContent() {
     timingLog('mount effect');
     posthog.capture('results_viewed');
 
-    const hasActiveFilters = filtersApplied ||
-      filters.compatibility.min !== 0 ||
-      filters.compatibility.max !== 100 ||
-      filters.distance.min !== 1 ||
-      filters.distance.max !== 100 ||
-      filters.age.min !== 18 ||
-      filters.age.max !== 80 ||
-      (filters.tags && filters.tags.length > 0) ||
-      filters.requiredOnly;
+    const hasActiveFilters = filtersApplied || !isDefaultResultsFilters(filters);
 
     if (!isApplyingFilters) {
-      if (hasActiveFilters) {
-        fetchCompatibleUsers(1, true);
-      } else {
-        fetchCompatibleUsers(1, false);
-      }
+      fetchCompatibleUsers(1, hasActiveFilters);
+    }
+
+    // The server copy wins: it carries filters applied on another device or browser.
+    const userId = localStorage.getItem('user_id');
+    if (userId) {
+      apiService.getResultsFilters(userId)
+        .then((serverValue) => {
+          if (!serverValue || Object.keys(serverValue).length === 0) return;
+          const serverFilters = normalizeResultsFilters(serverValue);
+          writeStoredResultsFilters(serverFilters);
+          if (sameResultsFilters(serverFilters, filters)) return;
+          const active = !isDefaultResultsFilters(serverFilters);
+          setFilters(serverFilters);
+          setFiltersApplied(active);
+          setCurrentPage(1);
+          setVisibleCount(PAGE_SIZE);
+          setHasNextPage(true);
+          fetchCompatibleUsers(1, active, serverFilters);
+        })
+        .catch((loadError) => console.error('Could not load saved results filters:', loadError));
+      apiService.getSavedResultFilters(userId)
+        .then(setSavedFilterPresets)
+        .catch((loadError) => console.error('Could not load saved filter presets:', loadError));
     }
     // Match checking is handled by the profiles.length effect after data loads
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -951,28 +913,18 @@ function ResultsPageContent() {
     };
   }, [showSortDropdown]);
 
-  // Save filters to sessionStorage whenever they change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('results_page_filters', JSON.stringify(filters));
-    }
+    writeStoredResultsFilters(filters);
   }, [filters]);
-
-  // Save filtersApplied to sessionStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('results_page_filters_applied', filtersApplied.toString());
-    }
-  }, [filtersApplied]);
 
   // Reset sliders to extremes when filter modal opens (if filters not already applied)
   useEffect(() => {
     if (showFilterModal && !filtersApplied) {
       setPendingFilters(prev => ({
         ...prev,
-        compatibility: { min: 0, max: 100 },
-        distance: { min: 1, max: 100 },
-        age: { min: 18, max: 80 }
+        compatibility: { ...DEFAULT_RESULTS_FILTERS.compatibility },
+        distance: { ...DEFAULT_RESULTS_FILTERS.distance },
+        age: { ...DEFAULT_RESULTS_FILTERS.age }
       }));
     }
   }, [showFilterModal, filtersApplied]);
@@ -1592,6 +1544,69 @@ function ResultsPageContent() {
     setPendingFilters(prev => ({ ...prev, requiredScope: scope }));
   };
 
+  const pendingAsSavable = (): ResultsFilters => ({
+    ...pendingFilters,
+    tags: normalizeExclusiveRequiredTags(pendingFilters.tags ?? []),
+  });
+
+  const runPresetAction = async (action: (userId: string) => Promise<void>) => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId || presetBusy) return;
+    setPresetBusy(true);
+    setPresetError('');
+    try {
+      await action(userId);
+      setPresetMenuId(null);
+      setPresetNameDraft(null);
+    } catch (presetActionError) {
+      setPresetError(presetActionError instanceof Error ? presetActionError.message : 'Could not update saved filters');
+    } finally {
+      setPresetBusy(false);
+    }
+  };
+
+  const submitPresetName = () => {
+    if (!presetNameDraft) return;
+    const name = presetNameDraft.value.trim();
+    if (!name) {
+      setPresetError('Give this filter a name.');
+      return;
+    }
+    if (presetNameDraft.id) {
+      const id = presetNameDraft.id;
+      void runPresetAction(async (userId) => {
+        const updated = await apiService.updateSavedResultFilter(userId, id, { name });
+        setSavedFilterPresets(prev => prev.map(preset => (preset.id === id ? updated : preset)));
+      });
+    } else {
+      void runPresetAction(async (userId) => {
+        const created = await apiService.createSavedResultFilter(userId, name, pendingAsSavable());
+        setSavedFilterPresets(prev => [...prev, created]);
+      });
+    }
+  };
+
+  const loadPreset = (preset: SavedResultFilter) => {
+    setPresetError('');
+    setPresetMenuId(null);
+    setPendingFilters(normalizeResultsFilters(preset.filters));
+  };
+
+  const updatePresetToCurrent = (preset: SavedResultFilter) => {
+    void runPresetAction(async (userId) => {
+      const updated = await apiService.updateSavedResultFilter(userId, preset.id, { filters: pendingAsSavable() });
+      setSavedFilterPresets(prev => prev.map(item => (item.id === preset.id ? updated : item)));
+    });
+  };
+
+  const deletePreset = (preset: SavedResultFilter) => {
+    if (!window.confirm(`Delete the saved filter "${preset.name}"?`)) return;
+    void runPresetAction(async (userId) => {
+      await apiService.deleteSavedResultFilter(userId, preset.id);
+      setSavedFilterPresets(prev => prev.filter(item => item.id !== preset.id));
+    });
+  };
+
   const clearAllFilters = () => {
     // Only reset the pending (in-modal) state – actual filters stay until Apply
     setPendingFilters({ ...defaultFilters });
@@ -1602,20 +1617,18 @@ function ResultsPageContent() {
     if (isApplyingFilters) return;
 
     // Commit pending filters → actual filters
-    const filtersToApply = {
+    const filtersToApply: ResultsFilters = {
       ...pendingFilters,
       tags: normalizeExclusiveRequiredTags(pendingFilters.tags ?? [])
     };
     setFilters(filtersToApply);
+    const userId = localStorage.getItem('user_id');
+    if (userId) {
+      apiService.setResultsFilters(userId, filtersToApply)
+        .catch((saveError) => console.error('Could not save results filters:', saveError));
+    }
 
-    // Check if clearing (all defaults)
-    const isClearing =
-      filtersToApply.compatibilityType === 'overall' &&
-      filtersToApply.compatibility.min === 0 && filtersToApply.compatibility.max === 100 &&
-      filtersToApply.distance.min === 1 && filtersToApply.distance.max === 100 &&
-      filtersToApply.age.min === 18 && filtersToApply.age.max === 80 &&
-      (!filtersToApply.tags || filtersToApply.tags.length === 0) &&
-      !filtersToApply.requiredOnly;
+    const isClearing = isDefaultResultsFilters(filtersToApply);
 
     try {
       setIsApplyingFilters(true); // Shows loading animation inside modal
@@ -2426,6 +2439,130 @@ function ResultsPageContent() {
             {/* Content */}
             <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8">
               <div className="w-full max-w-2xl">
+                {/* Saved filters: tap to load into the panel, then Apply */}
+                <div className="mb-6">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-gray-900">Saved filters</h3>
+                    {!presetNameDraft && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPresetError('');
+                          setPresetMenuId(null);
+                          setPresetNameDraft({ value: '' });
+                        }}
+                        disabled={presetBusy || savedFilterPresets.length >= MAX_SAVED_RESULT_FILTERS}
+                        className="text-sm font-semibold text-[#672DB7] hover:text-purple-900 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                      >
+                        + Save current
+                      </button>
+                    )}
+                  </div>
+
+                  {presetNameDraft && (
+                    <form
+                      className="mb-3 flex items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        submitPresetName();
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        type="text"
+                        value={presetNameDraft.value}
+                        maxLength={MAX_SAVED_RESULT_FILTER_NAME}
+                        onChange={(event) => setPresetNameDraft({ ...presetNameDraft, value: event.target.value })}
+                        placeholder={presetNameDraft.id ? 'New name' : 'Name this filter'}
+                        className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#672DB7] focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        disabled={presetBusy}
+                        className="rounded-lg bg-[#672DB7] px-3 py-2 text-sm font-semibold text-white hover:bg-purple-900 disabled:opacity-50 cursor-pointer"
+                      >
+                        {presetNameDraft.id ? 'Rename' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPresetNameDraft(null);
+                          setPresetError('');
+                        }}
+                        className="rounded-lg px-2 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  )}
+
+                  {savedFilterPresets.length === 0 ? (
+                    <p className="text-xs text-gray-500">
+                      Save the filters below to switch back to them in one tap.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {savedFilterPresets.map((preset) => (
+                        <div key={preset.id} className="relative">
+                          <div className="inline-flex items-center rounded-full bg-white ring-1 ring-purple-200 hover:ring-purple-400">
+                            <button
+                              type="button"
+                              onClick={() => loadPreset(preset)}
+                              className="max-w-[12rem] truncate py-1.5 pl-3 pr-1.5 text-sm font-semibold text-purple-900 cursor-pointer"
+                              title={`Load "${preset.name}"`}
+                            >
+                              {preset.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPresetMenuId(presetMenuId === preset.id ? null : preset.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-purple-900/60 hover:text-purple-900 cursor-pointer"
+                              aria-label={`Options for ${preset.name}`}
+                              aria-expanded={presetMenuId === preset.id}
+                            >
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+                              </svg>
+                            </button>
+                          </div>
+                          {presetMenuId === preset.id && (
+                            <div className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-gray-200">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPresetMenuId(null);
+                                  setPresetError('');
+                                  setPresetNameDraft({ id: preset.id, value: preset.name });
+                                }}
+                                className="block w-full px-3 py-2 text-left text-gray-800 hover:bg-gray-50 cursor-pointer"
+                              >
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePresetToCurrent(preset)}
+                                disabled={presetBusy}
+                                className="block w-full px-3 py-2 text-left text-gray-800 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+                              >
+                                Update to current
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deletePreset(preset)}
+                                disabled={presetBusy}
+                                className="block w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 disabled:opacity-50 cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {presetError && <p className="mt-2 text-xs font-medium text-red-600">{presetError}</p>}
+                </div>
+
                 {/* Compatibility Type Picker */}
                 <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2.5">
@@ -2620,8 +2757,8 @@ function ResultsPageContent() {
 
               {/* Compatibility Slider */}
               <DualRangeSlider
-                min={0}
-                max={100}
+                min={DEFAULT_RESULTS_FILTERS.compatibility.min}
+                max={DEFAULT_RESULTS_FILTERS.compatibility.max}
                 value={pendingFilters.compatibility}
                 onChange={(value) => handleSliderChange('compatibility', value)}
                 label="Compatibility"
@@ -2631,8 +2768,8 @@ function ResultsPageContent() {
 
               {/* Distance Slider */}
               <DualRangeSlider
-                min={1}
-                max={100}
+                min={DEFAULT_RESULTS_FILTERS.distance.min}
+                max={DEFAULT_RESULTS_FILTERS.distance.max}
                 value={pendingFilters.distance}
                 onChange={(value) => handleSliderChange('distance', value)}
                 label="Distance"
@@ -2641,8 +2778,8 @@ function ResultsPageContent() {
 
               {/* Age Slider */}
               <DualRangeSlider
-                min={18}
-                max={80}
+                min={DEFAULT_RESULTS_FILTERS.age.min}
+                max={DEFAULT_RESULTS_FILTERS.age.max}
                 value={pendingFilters.age}
                 onChange={(value) => handleSliderChange('age', value)}
                 label="Age"

@@ -68,8 +68,6 @@ export default function DashboardLayout({
       }
     });
     // Clear filter state
-    sessionStorage.removeItem('results_page_filters');
-    sessionStorage.removeItem('results_page_filters_applied');
     sessionStorage.removeItem('questions_page_filters');
     sessionStorage.removeItem('questions_current_page');
     // Redirect to login page

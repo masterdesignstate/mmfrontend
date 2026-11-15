@@ -101,6 +101,9 @@ const promptToFormItem = (prompt: UserProfilePrompt): PromptFormItem => ({
 
 const purple = '#672DB7';
 
+/** Photos uploaded but not yet attached to the profile carry this id prefix until Save. */
+const DRAFT_PICTURE_PREFIX = 'draft-';
+
 const promptCategoryFilters = [
   { id: 'about', label: 'About me', categories: ['about', 'lifestyle'] },
   { id: 'personal', label: 'Getting personal', categories: ['deeper'] },
@@ -160,8 +163,8 @@ export default function EditProfilePage() {
 
   // Photo gallery
   const [pictures, setPictures] = useState<UserPicture[]>([]);
+  const [savedPictures, setSavedPictures] = useState<UserPicture[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string>('');
   const [photoUploadProgress, setPhotoUploadProgress] = useState<number>(0);
   const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
@@ -235,6 +238,7 @@ export default function EditProfilePage() {
         try {
           const pics = await apiService.getUserPictures(data.id);
           setPictures(pics);
+          setSavedPictures(pics);
         } catch { /* noop */ }
         try {
           const prompts = await apiService.getUserProfilePrompts(data.id, { viewerId: data.id, includeVotes: true });
@@ -287,7 +291,9 @@ export default function EditProfilePage() {
     setForm((p) => ({ ...p, [name]: value } as FormState));
   };
 
-  // Photo gallery handlers
+  // Photo gallery handlers. Every change edits the draft only; Save changes applies it.
+  // A new photo is uploaded to storage straight away so it can be previewed, but it is
+  // only attached to the profile on Save.
   const onAddPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -301,9 +307,10 @@ export default function EditProfilePage() {
     setPhotoUploadProgress(0);
     try {
       const url = await uploadToAzureBlob(file, userId, (p) => setPhotoUploadProgress(p));
-      const created = await apiService.addUserPicture(userId, url);
-      setPictures((prev) => [...prev, created].sort((a, b) => a.order - b.order));
-      posthog.capture('profile_photo_uploaded', { user_id: userId });
+      setPictures((prev) => [
+        ...prev,
+        { id: `${DRAFT_PICTURE_PREFIX}${Date.now()}`, image_url: url, order: prev.length },
+      ]);
     } catch (e) {
       setPhotoError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
@@ -312,33 +319,57 @@ export default function EditProfilePage() {
     }
   };
 
-  const onRemovePhoto = async (pictureId: string) => {
-    if (!userId || photoBusy) return;
-    setPhotoBusy(true);
+  const onRemovePhoto = (pictureId: string) => {
     setPhotoError('');
-    try {
-      await apiService.deleteUserPicture(userId, pictureId);
-      const refreshed = await apiService.getUserPictures(userId);
-      setPictures(refreshed);
-    } catch (e) {
-      setPhotoError(e instanceof Error ? e.message : 'Could not remove photo');
-    } finally {
-      setPhotoBusy(false);
-    }
+    setPictures((prev) => prev.filter((p) => p.id !== pictureId));
   };
 
-  const onMakePrimary = async (pictureId: string) => {
-    if (!userId || photoBusy) return;
-    setPhotoBusy(true);
+  const onMakePrimary = (pictureId: string) => {
     setPhotoError('');
+    setPictures((prev) => {
+      const picked = prev.find((p) => p.id === pictureId);
+      return picked ? [picked, ...prev.filter((p) => p.id !== pictureId)] : prev;
+    });
+  };
+
+  const photosDirty = useMemo(
+    () => pictures.map((p) => p.id).join('|') !== savedPictures.map((p) => p.id).join('|'),
+    [pictures, savedPictures]
+  );
+
+  /** Delete, then attach, then reorder, so the photo cap is never hit midway. */
+  const applyPhotoDraft = async (uid: string) => {
+    const draftIds = new Set(pictures.map((p) => p.id));
+    const removed = savedPictures.filter((p) => !draftIds.has(p.id));
+    for (const picture of removed) {
+      try {
+        await apiService.deleteUserPicture(uid, picture.id);
+      } catch (e) {
+        throw new Error(`Could not remove a photo: ${e instanceof Error ? e.message : 'unknown error'}`);
+      }
+    }
+
+    const finalIds: string[] = [];
+    for (const picture of pictures) {
+      if (!picture.id.startsWith(DRAFT_PICTURE_PREFIX)) {
+        finalIds.push(picture.id);
+        continue;
+      }
+      try {
+        const created = await apiService.addUserPicture(uid, picture.image_url);
+        finalIds.push(created.id);
+        posthog.capture('profile_photo_uploaded', { user_id: uid });
+      } catch (e) {
+        throw new Error(`Could not add a photo: ${e instanceof Error ? e.message : 'unknown error'}`);
+      }
+    }
+
     try {
-      const newOrder = [pictureId, ...pictures.filter((p) => p.id !== pictureId).map((p) => p.id)];
-      const updated = await apiService.reorderUserPictures(userId, newOrder);
-      setPictures(updated);
+      const ordered = finalIds.length ? await apiService.reorderUserPictures(uid, finalIds) : [];
+      setPictures(ordered);
+      setSavedPictures(ordered);
     } catch (e) {
-      setPhotoError(e instanceof Error ? e.message : 'Could not reorder');
-    } finally {
-      setPhotoBusy(false);
+      throw new Error(`Could not reorder photos: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
   };
 
@@ -574,28 +605,39 @@ export default function EditProfilePage() {
     }
 
     setSaving(true);
+    setPhotoError('');
     try {
-      // Photo gallery is managed independently via add/remove/reorder above.
-      // Update personal details.
+      if (photosDirty) {
+        try {
+          await applyPhotoDraft(userId);
+        } catch (photoErr) {
+          setPhotoError(photoErr instanceof Error ? photoErr.message : 'Could not save photos');
+          apiService.getUserPictures(userId).then(setSavedPictures).catch(() => {});
+          throw photoErr;
+        }
+      }
+
       // full_name, username, date_of_birth are locked after onboarding and are
       // intentionally omitted from the payload; the backend also ignores them.
-      const payload = {
-        user_id: userId,
-        tagline: form.tagline,
-        height: form.height,
-        from: form.from,
-        live: form.live,
-        bio: form.bio,
-      };
+      if (formDirty) {
+        const payload = {
+          user_id: userId,
+          tagline: form.tagline,
+          height: form.height,
+          from: form.from,
+          live: form.live,
+          bio: form.bio,
+        };
 
-      const res = await fetch(getApiUrl(API_ENDPOINTS.PERSONAL_DETAILS), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save profile');
+        const res = await fetch(getApiUrl(API_ENDPOINTS.PERSONAL_DETAILS), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to save profile');
+        }
       }
 
       posthog.capture('profile_updated', { user_id: userId });
@@ -645,7 +687,7 @@ export default function EditProfilePage() {
     return () => clearTimeout(t);
   }, [promptSuccess]);
 
-  const isDirty = useMemo(() => {
+  const formDirty = useMemo(() => {
     if (!initialFormState) return false;
     try {
       return JSON.stringify(form) !== JSON.stringify(initialFormState);
@@ -654,7 +696,19 @@ export default function EditProfilePage() {
     }
   }, [form, initialFormState]);
 
-  const canSave = isDirty && !saving && !taglineOverLimit && !bioOverLimit;
+  const isDirty = formDirty || photosDirty;
+
+  const canSave = isDirty && !saving && !photoUploading && !taglineOverLimit && !bioOverLimit;
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
 
   const renderPromptEditorCard = (item: PromptFormItem, index: number) => {
     const selectedTemplate = promptTemplateById.get(item.template_id);
@@ -943,12 +997,15 @@ export default function EditProfilePage() {
               <span className="text-xs text-gray-500">{pictures.length} of {MAX_USER_PICTURES}</span>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Your first photo is your main thumbnail across the app. Drag-free reorder coming soon — for now, click <strong>Make primary</strong> on any photo to move it to the front.
+              Your first photo is your main thumbnail across the app. Click <strong>Make primary</strong> on any photo to move it to the front. Photo changes apply when you press <strong>Save changes</strong>.
             </p>
+            {photosDirty && (
+              <p className="mb-4 text-xs font-medium text-amber-700">You have unsaved photo changes.</p>
+            )}
             {photoError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{photoError}</div>
             )}
-            <input id="photo-input" type="file" accept="image/*" className="hidden" onChange={onAddPhoto} disabled={photoUploading || photoBusy || pictures.length >= MAX_USER_PICTURES} />
+            <input id="photo-input" type="file" accept="image/*" className="hidden" onChange={onAddPhoto} disabled={photoUploading || saving || pictures.length >= MAX_USER_PICTURES} />
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {Array.from({ length: MAX_USER_PICTURES }).map((_, i) => {
                 const pic = pictures[i];
@@ -965,7 +1022,7 @@ export default function EditProfilePage() {
                       <button
                         type="button"
                         onClick={() => onRemovePhoto(pic.id)}
-                        disabled={photoBusy}
+                        disabled={saving}
                         className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/70 hover:bg-black text-white rounded-full flex items-center justify-center cursor-pointer disabled:opacity-50"
                         title="Remove"
                         aria-label="Remove photo"
@@ -978,7 +1035,7 @@ export default function EditProfilePage() {
                         <button
                           type="button"
                           onClick={() => onMakePrimary(pic.id)}
-                          disabled={photoBusy}
+                          disabled={saving}
                           className="absolute bottom-0 left-0 right-0 bg-black/70 hover:bg-black text-white text-[11px] font-semibold py-1.5 cursor-pointer disabled:opacity-50"
                         >
                           Make primary
@@ -988,7 +1045,7 @@ export default function EditProfilePage() {
                   );
                 }
                 const isNextSlot = i === pictures.length;
-                const interactive = isNextSlot && pictures.length < MAX_USER_PICTURES && !photoUploading && !photoBusy;
+                const interactive = isNextSlot && pictures.length < MAX_USER_PICTURES && !photoUploading && !saving;
                 return (
                   <label
                     key={`empty-${i}`}
@@ -1050,14 +1107,14 @@ export default function EditProfilePage() {
             {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded">{success}</div>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Full Name (locked) */}
+              {/* Display Name (locked) */}
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Display Name</label>
                 <input
                   name="fullName"
                   value={form.fullName}
                   readOnly
-                  placeholder="Enter your full name"
+                  placeholder="Enter your display name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-500">This cannot be changed.</p>
@@ -1121,9 +1178,9 @@ export default function EditProfilePage() {
                 />
               </div>
 
-              {/* From */}
+              {/* Home Town */}
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">From</label>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Home Town</label>
                 <PlacesHttpAutocomplete
                   value={form.from}
                   onChange={(value) => setForm((prev) => ({ ...prev, from: value }))}

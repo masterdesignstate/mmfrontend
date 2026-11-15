@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { apiService, DummyApprovalStats } from '@/services/api';
+import { apiService, ActiveLimitStats, DummyApprovalStats } from '@/services/api';
 
 interface Controls {
   id: number;
@@ -108,6 +108,62 @@ export default function ControlsPage() {
       fetchDummyApproval();
     } finally {
       setDummyApprovalSaving(false);
+    }
+  };
+
+  const [activeLimits, setActiveLimits] = useState<ActiveLimitStats | null>(null);
+  const [dummyLimitInput, setDummyLimitInput] = useState('');
+  const [questionLimitInput, setQuestionLimitInput] = useState('');
+  const [activeLimitsSaving, setActiveLimitsSaving] = useState(false);
+
+  const fetchActiveLimits = async () => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId) return;
+    try {
+      const stats = await apiService.getActiveLimits(adminUserId);
+      setActiveLimits(stats);
+      setDummyLimitInput((prev) => prev || String(stats.dummies_enabled));
+      setQuestionLimitInput((prev) => prev || String(stats.questions_enabled));
+    } catch (err) {
+      console.error('Error fetching active limits:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveLimits();
+  }, []);
+
+  const handleApplyActiveLimits = async () => {
+    const adminUserId = localStorage.getItem('user_id');
+    if (!adminUserId || activeLimitsSaving) return;
+
+    const limits: { dummies?: number; questions?: number } = {};
+    for (const [key, raw] of [['dummies', dummyLimitInput], ['questions', questionLimitInput]] as const) {
+      if (raw.trim() === '') continue;
+      const value = Number(raw);
+      if (!Number.isInteger(value) || value < 0) {
+        setError(`${key === 'dummies' ? 'Dummies' : 'Questions'} must be a whole number of 0 or more`);
+        return;
+      }
+      limits[key] = value;
+    }
+    if (limits.dummies === undefined && limits.questions === undefined) return;
+
+    setActiveLimitsSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await apiService.setActiveLimits(adminUserId, limits);
+      setActiveLimits(result);
+      setSuccess(
+        `${result.dummies_enabled} dummies and ${result.questions_enabled} questions enabled. Scores are recalculating.`
+      );
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply limits');
+      fetchActiveLimits();
+    } finally {
+      setActiveLimitsSaving(false);
     }
   };
 
@@ -451,6 +507,59 @@ export default function ControlsPage() {
                 <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-gray-900 peer-focus:ring-2 peer-focus:ring-gray-900 peer-focus:ring-offset-2 peer-disabled:opacity-40 transition-colors"></div>
                 <div className="absolute w-5 h-5 ml-0.5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5 pointer-events-none"></div>
               </label>
+            </div>
+          </div>
+
+          {/* Active limits -- disables accounts and questions, applied immediately */}
+          <div className="pt-6 border-t border-gray-100 space-y-5">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
+                Active Limits
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Keeps the youngest dummy accounts and the lowest-numbered questions enabled and
+                disables the rest. Real users and mandatory questions are never disabled. Raising
+                a limit re-enables what falls back inside it. Scores are recalculated in the
+                background.
+              </p>
+              {activeLimits && (
+                <p className="mt-1 text-xs font-medium text-gray-500">
+                  {activeLimits.dummies_enabled.toLocaleString()} dummies enabled,{' '}
+                  {activeLimits.dummies_disabled.toLocaleString()} disabled ·{' '}
+                  {activeLimits.questions_enabled.toLocaleString()} questions enabled,{' '}
+                  {activeLimits.questions_disabled.toLocaleString()} disabled
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-900">Dummies to keep</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={dummyLimitInput}
+                  onChange={(e) => setDummyLimitInput(e.target.value)}
+                  className="mt-1 block w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-900">Questions to keep</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={questionLimitInput}
+                  onChange={(e) => setQuestionLimitInput(e.target.value)}
+                  className="mt-1 block w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none"
+                />
+              </label>
+              <button
+                onClick={handleApplyActiveLimits}
+                disabled={activeLimitsSaving}
+                className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-6 py-2 text-sm font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {activeLimitsSaving ? 'Applying...' : 'Apply limits'}
+              </button>
             </div>
           </div>
 

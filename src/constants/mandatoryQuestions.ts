@@ -144,7 +144,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     number: ETHNICITY,
     label: 'Ethnicity',
-    prompt: 'What ethnicity do you identify with?',
+    prompt: 'What ethnicity best describes you?',
     route: '/auth/ethnicity',
   },
   {

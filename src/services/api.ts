@@ -1,6 +1,7 @@
 // Type definitions for API responses
 import { API_BASE_URL as CONFIG_API_BASE_URL } from '@/config/api';
 import { clearStoredIdentity, getStoredUserId } from '@/utils/userSession';
+import type { ResultsFilters } from '@/constants/resultsFilters';
 
 export interface UserPicture {
   id: string;
@@ -233,6 +234,23 @@ export interface DummyApprovalStats {
   total: number;
   approval_on: number;
   approval_off: number;
+}
+
+export interface SavedResultFilter {
+  id: string;
+  name: string;
+  filters: ResultsFilters;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ActiveLimitStats {
+  dummies_enabled: number;
+  dummies_disabled: number;
+  /** Real users and admins, which the limit never disables. */
+  untouched_users: number;
+  questions_enabled: number;
+  questions_disabled: number;
 }
 
 export interface ApiUser {
@@ -480,6 +498,7 @@ async function getApiErrorMessage(response: Response): Promise<string> {
         stringifyApiErrorValue(payload.error) ||
         stringifyApiErrorValue(payload.detail) ||
         stringifyApiErrorValue(payload.non_field_errors) ||
+        stringifyApiErrorValue(payload) ||
         fallback
       );
     }
@@ -721,6 +740,69 @@ class ApiService {
       user_id: adminUserId,
       require_approval_for_likes: enabled,
     }) as Promise<DummyApprovalStats & { updated: number }>;
+  }
+
+  /** The viewer's last applied Results filters ({} when they never changed them). */
+  async getResultsFilters(userId: string): Promise<Partial<ResultsFilters>> {
+    const data = await this.request(
+      `/users/results_filters/?user_id=${encodeURIComponent(userId)}`,
+      'GET'
+    ) as { filters?: Partial<ResultsFilters> };
+    return data?.filters ?? {};
+  }
+
+  async setResultsFilters(userId: string, filters: ResultsFilters): Promise<void> {
+    await this.request('/users/results_filters/', 'PUT', { user_id: userId, filters: { ...filters } });
+  }
+
+  async getSavedResultFilters(userId: string): Promise<SavedResultFilter[]> {
+    return this.request(
+      `/saved-result-filters/?user_id=${encodeURIComponent(userId)}`,
+      'GET'
+    ) as Promise<SavedResultFilter[]>;
+  }
+
+  async createSavedResultFilter(userId: string, name: string, filters: ResultsFilters): Promise<SavedResultFilter> {
+    return this.request('/saved-result-filters/', 'POST', {
+      user_id: userId,
+      name,
+      filters: { ...filters },
+    }) as Promise<SavedResultFilter>;
+  }
+
+  async updateSavedResultFilter(
+    userId: string,
+    id: string,
+    changes: { name?: string; filters?: ResultsFilters }
+  ): Promise<SavedResultFilter> {
+    return this.request(
+      `/saved-result-filters/${id}/?user_id=${encodeURIComponent(userId)}`,
+      'PATCH',
+      { ...changes, ...(changes.filters ? { filters: { ...changes.filters } } : {}) }
+    ) as Promise<SavedResultFilter>;
+  }
+
+  async deleteSavedResultFilter(userId: string, id: string): Promise<void> {
+    await this.request(`/saved-result-filters/${id}/?user_id=${encodeURIComponent(userId)}`, 'DELETE');
+  }
+
+  /** Admin only: how many dummies and questions are enabled. */
+  async getActiveLimits(adminUserId: string): Promise<ActiveLimitStats> {
+    return this.request(
+      `/users/active_limits/?user_id=${encodeURIComponent(adminUserId)}`,
+      'GET'
+    ) as Promise<ActiveLimitStats>;
+  }
+
+  /** Admin only: keep the youngest N dummies and the first N questions enabled. */
+  async setActiveLimits(
+    adminUserId: string,
+    limits: { dummies?: number; questions?: number }
+  ): Promise<ActiveLimitStats & { rescoring: boolean }> {
+    return this.request('/users/active_limits/', 'POST', {
+      user_id: adminUserId,
+      ...limits,
+    }) as Promise<ActiveLimitStats & { rescoring: boolean }>;
   }
 
   /** Admin only: turn approval-for-likes on or off for one user. */
@@ -973,9 +1055,12 @@ class ApiService {
     return allResults;
   }
 
-  async getQuestions(includeUnapproved: boolean = false): Promise<Question[]> {
-    const endpoint = includeUnapproved ? '/questions/?include_unapproved=true' : '/questions/';
-    return this.fetchAllPages<Question>(endpoint);
+  async getQuestions(includeUnapproved: boolean = false, includeDisabled: boolean = false): Promise<Question[]> {
+    const params = new URLSearchParams();
+    if (includeUnapproved) params.set('include_unapproved', 'true');
+    if (includeDisabled) params.set('include_disabled', 'true');
+    const query = params.toString();
+    return this.fetchAllPages<Question>(query ? `/questions/?${query}` : '/questions/');
   }
 
   /** Fetch question IDs the user has marked as required (UserRequiredQuestion). */
@@ -1006,10 +1091,13 @@ class ApiService {
 
   async getQuestion(id: string, skipUserAnswers: boolean = true, includeUnapproved: boolean = false): Promise<Question> {
     // For edit operations, skip user_answers to improve performance
-    // includeUnapproved=true allows dashboard to load draft/unapproved questions for editing
+    // includeUnapproved=true allows dashboard to load draft/unapproved and disabled questions for editing
     const params = new URLSearchParams();
     if (skipUserAnswers) params.set('skip_user_answers', 'true');
-    if (includeUnapproved) params.set('include_unapproved', 'true');
+    if (includeUnapproved) {
+      params.set('include_unapproved', 'true');
+      params.set('include_disabled', 'true');
+    }
     const query = params.toString();
     const endpoint = query ? `/questions/${id}/?${query}` : `/questions/${id}/`;
     return this.request(endpoint, 'GET') as Promise<Question>;

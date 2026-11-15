@@ -27,6 +27,7 @@ import {
   MobileQuestionActionsProvider,
 } from '@/components/MobileQuestionActions';
 import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
+import { readStoredResultsFilters } from '@/constants/resultsFilters';
 import { buildQuestionScaleLabels } from '@/utils/questionScales';
 import { USER_REPORT_REASONS } from '@/config/reportReasons';
 import { renderWithHashtags } from '@/utils/hashtags';
@@ -497,23 +498,12 @@ export default function UserProfilePage() {
 
   // Check if required filter was enabled from results page
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedFilters = sessionStorage.getItem('results_page_filters');
-      if (savedFilters) {
-        try {
-          const filters = JSON.parse(savedFilters);
-          console.log('🔍 Results page filters:', filters);
-          if (filters.requiredOnly) {
-            console.log('✅ Setting showRequiredCompatibility to true');
-            setShowRequiredCompatibility(true);
-          }
-          if (filters.requiredScope === 'their') {
-            setRequiredScope('their');
-          }
-        } catch (e) {
-          console.error('Error parsing saved filters:', e);
-        }
-      }
+    const filters = readStoredResultsFilters();
+    if (filters?.requiredOnly) {
+      setShowRequiredCompatibility(true);
+    }
+    if (filters?.requiredScope === 'their') {
+      setRequiredScope('their');
     }
   }, []);
 

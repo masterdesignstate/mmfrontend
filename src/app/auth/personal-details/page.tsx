@@ -343,11 +343,11 @@ export default function PersonalDetailsPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4" style={{ opacity: userCredentials.email ? 1 : 0.6 }}>
-              {/* Full Name Field */}
+              {/* Display Name Field */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <label htmlFor="fullName" className="block text-sm font-medium text-gray-900">
-                    Full Name
+                    Display Name
                   </label>
                   <InfoTip
                     label="More information"
@@ -370,7 +370,7 @@ export default function PersonalDetailsPage() {
                   value={formData.fullName}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
-                  placeholder="Enter your full name"
+                  placeholder="Enter your display name"
                   required
                   disabled={loading}
                 />
@@ -501,10 +501,10 @@ export default function PersonalDetailsPage() {
              
               </div>
 
-              {/* From Field */}
+              {/* Home Town Field */}
               <div>
                 <label htmlFor="from" className="block text-sm font-medium text-gray-900 mb-2">
-                  From
+                  Home Town
                 </label>
                 <PlacesHttpAutocomplete
                   value={formData.from}

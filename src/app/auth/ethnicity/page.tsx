@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
-import { EDUCATION, ETHNICITY, getNextOnboardingRoute, getOnboardingProgressPercent, getPreviousOnboardingRoute } from '@/constants/mandatoryQuestions';
+import { EDUCATION, ETHNICITY, getNextOnboardingRoute, getOnboardingProgressPercent, getPreviousOnboardingRoute, MANDATORY_QUESTION_PROMPTS } from '@/constants/mandatoryQuestions';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { normalizeEthnicityQuestionName, normalizeEthnicityQuestions } from '@/utils/ethnicityQuestions';
 import posthog from 'posthog-js';
@@ -389,7 +389,7 @@ export default function EthnicityPage() {
       loading={loading}
     >
         <div className="mx-auto w-full max-w-2xl">
-          <OnboardingTitle step={`${ETHNICITY}. Ethnicity`} question={`What ethnicity do you identify with?`} />
+          <OnboardingTitle step={`${ETHNICITY}. Ethnicity`} question={MANDATORY_QUESTION_PROMPTS[ETHNICITY]} />
 
 
 

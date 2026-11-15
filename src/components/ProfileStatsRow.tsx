@@ -26,7 +26,7 @@ export const formatHeight = (heightCm: number | null | undefined): string => {
 };
 
 /**
- * The From / Live / Height / Activity row, shared by your own profile and everyone else's.
+ * The Home Town / Live / Height / Activity row, shared by your own profile and everyone else's.
  *
  * It lived twice, and the two copies had drifted: only one of them handled narrow screens,
  * so the other spilled its values past the card edge on a phone.
@@ -40,7 +40,7 @@ export default function ProfileStatsRow({
   children,
 }: ProfileStatsRowProps) {
   const cells: Array<{ label: string; content: React.ReactNode }> = [
-    { label: 'From', content: formatLocation(fromLocation) || 'Austin' },
+    { label: 'Home Town', content: formatLocation(fromLocation) || 'Austin' },
     { label: 'Live', content: formatLocation(live) || 'Austin' },
     { label: 'Height', content: formatHeight(heightCm) },
     {

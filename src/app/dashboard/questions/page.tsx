@@ -28,8 +28,8 @@ export default function QuestionsPage() {
     const fetchQuestions = async () => {
       try {
         setLoading(true);
-        // Dashboard needs to see ALL questions including unapproved ones
-        const fetchedQuestions = await apiService.getQuestions(true);
+        // Dashboard needs to see ALL questions including unapproved and disabled ones
+        const fetchedQuestions = await apiService.getQuestions(true, true);
 
         // Sort by question_number by default
         const sortedQuestions = fetchedQuestions.sort((a, b) => {
