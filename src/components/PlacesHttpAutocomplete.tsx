@@ -19,6 +19,9 @@ type PlaceSuggestion = {
 
 const AUTOCOMPLETE_ENDPOINT = 'https://places.googleapis.com/v1/places:autocomplete';
 const FIELD_MASK = 'suggestions.placePrediction.text.text,suggestions.placePrediction.placeId';
+// The Places key is invalid, so leave this off and let the field stay a plain input.
+// Turn it back on once NEXT_PUBLIC_GOOGLE_PLACES_API_KEY is valid again.
+const PLACES_AUTOCOMPLETE_ENABLED = false;
 
 function createSessionToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -89,12 +92,17 @@ export default function PlacesHttpAutocomplete({
   const debouncedValue = useDebounce(inputValue, 250);
 
   useEffect(() => {
-    // If no API key, disabled, or value was populated externally, just work as a regular input.
-    if (!apiKey || disabled || !hasUserTyped) {
+    // If autocomplete is off, no API key, disabled, or value was populated externally, just work as a regular input.
+    if (!PLACES_AUTOCOMPLETE_ENABLED || !apiKey || disabled || !hasUserTyped) {
       setSuggestions([]);
       setOpen(false);
       setLoading(false);
-      if (!apiKey && typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      if (
+        PLACES_AUTOCOMPLETE_ENABLED &&
+        !apiKey &&
+        typeof window !== 'undefined' &&
+        window.location.hostname !== 'localhost'
+      ) {
         console.error('⚠️ Google Places API Key is missing in production. Add NEXT_PUBLIC_GOOGLE_PLACES_API_KEY to your Vercel environment variables.');
       }
       setError(null);
