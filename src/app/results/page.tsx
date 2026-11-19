@@ -391,6 +391,7 @@ function ResultsPageContent() {
   const [presetError, setPresetError] = useState('');
   const [presetBusy, setPresetBusy] = useState(false);
   const [presetMenuId, setPresetMenuId] = useState<string | null>(null);
+  const presetMenuRef = useRef<HTMLDivElement | null>(null);
   // Naming a new preset (no id) or renaming one (id set).
   const [presetNameDraft, setPresetNameDraft] = useState<{ id?: string; value: string } | null>(null);
   const latestFirstPageRequestRef = useRef(0);
@@ -914,6 +915,24 @@ function ResultsPageContent() {
   }, [showSortDropdown]);
 
   useEffect(() => {
+    if (!presetMenuId) return;
+    const closeOnOutside = (event: MouseEvent) => {
+      if (presetMenuRef.current && !presetMenuRef.current.contains(event.target as Node)) {
+        setPresetMenuId(null);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPresetMenuId(null);
+    };
+    document.addEventListener('mousedown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [presetMenuId]);
+
+  useEffect(() => {
     writeStoredResultsFilters(filters);
   }, [filters]);
 
@@ -1400,13 +1419,14 @@ function ResultsPageContent() {
 
 
   // Dual range slider powered by react-slider for smooth dragging
-  const DualRangeSlider = ({ min, max, value, onChange, label, unit = '' }: {
+  const DualRangeSlider = ({ min, max, value, onChange, label, unit = '', icon }: {
     min: number;
     max: number;
     value: { min: number; max: number };
     onChange: (value: { min: number; max: number }) => void;
     label: string;
     unit?: string;
+    icon: React.ReactNode;
   }) => {
     const [sliderValues, setSliderValues] = useState<[number, number]>([value.min, value.max]);
     const [sliderKey, setSliderKey] = useState(0);
@@ -1426,8 +1446,13 @@ function ResultsPageContent() {
     }, [value.min, value.max]);
 
     return (
-      <div className="mb-10">
-        <h3 className="text-lg font-semibold text-black mb-3">{label}</h3>
+      <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 pb-8 sm:p-5 sm:pb-9 shadow-sm">
+        <div className="mb-4 flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+            {icon}
+          </span>
+          <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">{label}{unit ? ` (${unit})` : ''}</h3>
+        </div>
 
         {/* Slider */}
         <div className="flex items-center gap-3 mb-2 w-full">
@@ -2439,130 +2464,6 @@ function ResultsPageContent() {
             {/* Content */}
             <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8">
               <div className="w-full max-w-2xl">
-                {/* Saved filters: tap to load into the panel, then Apply */}
-                <div className="mb-6">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-gray-900">Saved filters</h3>
-                    {!presetNameDraft && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPresetError('');
-                          setPresetMenuId(null);
-                          setPresetNameDraft({ value: '' });
-                        }}
-                        disabled={presetBusy || savedFilterPresets.length >= MAX_SAVED_RESULT_FILTERS}
-                        className="text-sm font-semibold text-[#672DB7] hover:text-purple-900 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-                      >
-                        + Save current
-                      </button>
-                    )}
-                  </div>
-
-                  {presetNameDraft && (
-                    <form
-                      className="mb-3 flex items-center gap-2"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        submitPresetName();
-                      }}
-                    >
-                      <input
-                        autoFocus
-                        type="text"
-                        value={presetNameDraft.value}
-                        maxLength={MAX_SAVED_RESULT_FILTER_NAME}
-                        onChange={(event) => setPresetNameDraft({ ...presetNameDraft, value: event.target.value })}
-                        placeholder={presetNameDraft.id ? 'New name' : 'Name this filter'}
-                        className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#672DB7] focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        disabled={presetBusy}
-                        className="rounded-lg bg-[#672DB7] px-3 py-2 text-sm font-semibold text-white hover:bg-purple-900 disabled:opacity-50 cursor-pointer"
-                      >
-                        {presetNameDraft.id ? 'Rename' : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPresetNameDraft(null);
-                          setPresetError('');
-                        }}
-                        className="rounded-lg px-2 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </form>
-                  )}
-
-                  {savedFilterPresets.length === 0 ? (
-                    <p className="text-xs text-gray-500">
-                      Save the filters below to switch back to them in one tap.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {savedFilterPresets.map((preset) => (
-                        <div key={preset.id} className="relative">
-                          <div className="inline-flex items-center rounded-full bg-white ring-1 ring-purple-200 hover:ring-purple-400">
-                            <button
-                              type="button"
-                              onClick={() => loadPreset(preset)}
-                              className="max-w-[12rem] truncate py-1.5 pl-3 pr-1.5 text-sm font-semibold text-purple-900 cursor-pointer"
-                              title={`Load "${preset.name}"`}
-                            >
-                              {preset.name}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPresetMenuId(presetMenuId === preset.id ? null : preset.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full text-purple-900/60 hover:text-purple-900 cursor-pointer"
-                              aria-label={`Options for ${preset.name}`}
-                              aria-expanded={presetMenuId === preset.id}
-                            >
-                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
-                              </svg>
-                            </button>
-                          </div>
-                          {presetMenuId === preset.id && (
-                            <div className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-gray-200">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPresetMenuId(null);
-                                  setPresetError('');
-                                  setPresetNameDraft({ id: preset.id, value: preset.name });
-                                }}
-                                className="block w-full px-3 py-2 text-left text-gray-800 hover:bg-gray-50 cursor-pointer"
-                              >
-                                Rename
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updatePresetToCurrent(preset)}
-                                disabled={presetBusy}
-                                className="block w-full px-3 py-2 text-left text-gray-800 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
-                              >
-                                Update to current
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deletePreset(preset)}
-                                disabled={presetBusy}
-                                className="block w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 disabled:opacity-50 cursor-pointer"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {presetError && <p className="mt-2 text-xs font-medium text-red-600">{presetError}</p>}
-                </div>
-
                 {/* Compatibility Type Picker */}
                 <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
                   <div className="mb-3 flex items-center gap-2.5">
@@ -2623,7 +2524,221 @@ function ResultsPageContent() {
                   </div>
                 </div>
 
-                {/* Required Section — grouped card */}
+                              {/* Compatibility, distance, and age */}
+              <DualRangeSlider
+                min={DEFAULT_RESULTS_FILTERS.compatibility.min}
+                max={DEFAULT_RESULTS_FILTERS.compatibility.max}
+                value={pendingFilters.compatibility}
+                onChange={(value) => handleSliderChange('compatibility', value)}
+                label="Compatibility"
+                unit="%"
+                icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 5L5 19M8.5 7.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM18.5 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg>}
+              />
+
+              <DualRangeSlider
+                min={DEFAULT_RESULTS_FILTERS.distance.min}
+                max={DEFAULT_RESULTS_FILTERS.distance.max}
+                value={pendingFilters.distance}
+                onChange={(value) => handleSliderChange('distance', value)}
+                label="Distance"
+                unit="mi"
+                icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-5.4 7-11a7 7 0 10-14 0c0 5.6 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>}
+              />
+
+              <DualRangeSlider
+                min={DEFAULT_RESULTS_FILTERS.age.min}
+                max={DEFAULT_RESULTS_FILTERS.age.max}
+                value={pendingFilters.age}
+                onChange={(value) => handleSliderChange('age', value)}
+                label="Age"
+                icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 3v2m8-2v2M4 9h16M6 5h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z" /></svg>}
+              />
+
+{viewerId && (
+                  <ExcludedQuestionsSection
+                    rows={exclusionRows}
+                    loaded={exclusionsLoaded}
+                    error={exclusionError}
+                    drafts={exclusionDrafts}
+                    onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
+                  />
+                )}
+{/* Saved Filter States */}
+                <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                      </span>
+                      <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Saved Filter States</h3>
+                    </div>
+                    {!presetNameDraft && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPresetError('');
+                          setPresetMenuId(null);
+                          setPresetNameDraft({ value: '' });
+                        }}
+                        disabled={presetBusy || savedFilterPresets.length >= MAX_SAVED_RESULT_FILTERS}
+                        className="text-sm font-semibold text-[#672DB7] hover:text-purple-900 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                      >
+                        + Save current
+                      </button>
+                    )}
+                  </div>
+
+                  {presetNameDraft && (
+                    <form
+                      className="mb-3 flex items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        submitPresetName();
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        type="text"
+                        value={presetNameDraft.value}
+                        maxLength={MAX_SAVED_RESULT_FILTER_NAME}
+                        onChange={(event) => setPresetNameDraft({ ...presetNameDraft, value: event.target.value })}
+                        placeholder={presetNameDraft.id ? 'New name' : 'Name this filter'}
+                        className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#672DB7] focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        disabled={presetBusy}
+                        className="rounded-lg bg-[#672DB7] px-3 py-2 text-sm font-semibold text-white hover:bg-purple-900 disabled:opacity-50 cursor-pointer"
+                      >
+                        {presetNameDraft.id ? 'Rename' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPresetNameDraft(null);
+                          setPresetError('');
+                        }}
+                        className="rounded-lg px-2 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  )}
+
+                  {savedFilterPresets.length === 0 ? (
+                    <p className="text-xs text-gray-500">
+                      Save the filters above to switch back to them in one tap.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {savedFilterPresets.map((preset) => (
+                        <div key={preset.id} className="relative" ref={presetMenuId === preset.id ? presetMenuRef : undefined}>
+                          <div className="inline-flex items-center rounded-full bg-white ring-1 ring-purple-200 hover:ring-purple-400">
+                            <button
+                              type="button"
+                              onClick={() => loadPreset(preset)}
+                              className="max-w-[12rem] truncate py-1.5 pl-3 pr-1.5 text-sm font-semibold text-purple-900 cursor-pointer"
+                              title={`Load "${preset.name}"`}
+                            >
+                              {preset.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPresetMenuId(presetMenuId === preset.id ? null : preset.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-purple-900/60 hover:text-purple-900 cursor-pointer"
+                              aria-label={`Options for ${preset.name}`}
+                              aria-expanded={presetMenuId === preset.id}
+                            >
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+                              </svg>
+                            </button>
+                          </div>
+                          {presetMenuId === preset.id && (
+                            <div className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-gray-200">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPresetMenuId(null);
+                                  setPresetError('');
+                                  setPresetNameDraft({ id: preset.id, value: preset.name });
+                                }}
+                                className="block w-full px-3 py-2 text-left text-gray-800 hover:bg-gray-50 cursor-pointer"
+                              >
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updatePresetToCurrent(preset)}
+                                disabled={presetBusy}
+                                className="block w-full px-3 py-2 text-left text-gray-800 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+                              >
+                                Update to current
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deletePreset(preset)}
+                                disabled={presetBusy}
+                                className="block w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 disabled:opacity-50 cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {presetError && <p className="mt-2 text-xs font-medium text-red-600">{presetError}</p>}
+                </div>
+
+                {/* Tags */}
+              <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2.5">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 015 10V5a2 2 0 012-2z" />
+                    </svg>
+                  </span>
+                  <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">Tags</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Approved', 'Approved Me', 'Not Approved', 'Liked', 'Liked Me',
+                    'Matched', 'Hot', 'Maybe', 'Saved', 'Hide'
+                  ].map((tag) => {
+                    const active = pendingFilters.tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleFilterTagToggle(tag)}
+                        className={`group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                          active
+                            ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
+                            : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
+                        }`}
+                      >
+                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
+                          active
+                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
+                            : 'bg-purple-200'
+                        }`}>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
+                          </svg>
+                        </span>
+                        <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
+                          {getFilterTagLabel(tag)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+{/* Required Section — grouped card */}
                 <div className="mb-8 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-5 shadow-sm">
                   {/* Header */}
                   <div className="flex items-center justify-between gap-4 mb-4">
@@ -2744,83 +2859,6 @@ function ResultsPageContent() {
                   </div>
                 </div>
 
-                {viewerId && (
-                  <ExcludedQuestionsSection
-                    rows={exclusionRows}
-                    loaded={exclusionsLoaded}
-                    error={exclusionError}
-                    drafts={exclusionDrafts}
-                    onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
-                  />
-                )}
-              </div>
-
-              {/* Compatibility Slider */}
-              <DualRangeSlider
-                min={DEFAULT_RESULTS_FILTERS.compatibility.min}
-                max={DEFAULT_RESULTS_FILTERS.compatibility.max}
-                value={pendingFilters.compatibility}
-                onChange={(value) => handleSliderChange('compatibility', value)}
-                label="Compatibility"
-                unit="%"
-              />
-
-
-              {/* Distance Slider */}
-              <DualRangeSlider
-                min={DEFAULT_RESULTS_FILTERS.distance.min}
-                max={DEFAULT_RESULTS_FILTERS.distance.max}
-                value={pendingFilters.distance}
-                onChange={(value) => handleSliderChange('distance', value)}
-                label="Distance"
-                unit="mi"
-              />
-
-              {/* Age Slider */}
-              <DualRangeSlider
-                min={DEFAULT_RESULTS_FILTERS.age.min}
-                max={DEFAULT_RESULTS_FILTERS.age.max}
-                value={pendingFilters.age}
-                onChange={(value) => handleSliderChange('age', value)}
-                label="Age"
-              />
-
-              {/* Tags Section */}
-              <div className="mb-8">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">Tags</h3>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    'Approved', 'Approved Me', 'Not Approved', 'Liked', 'Liked Me',
-                    'Matched', 'Hot', 'Maybe', 'Saved', 'Hide'
-                  ].map((tag) => {
-                    const active = pendingFilters.tags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => handleFilterTagToggle(tag)}
-                        className={`group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                          active
-                            ? 'bg-white shadow-sm ring-1 ring-purple-300 hover:ring-purple-500'
-                            : 'bg-white/60 ring-1 ring-purple-200/60 hover:ring-purple-300 hover:bg-white'
-                        }`}
-                      >
-                        <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-all ${
-                          active
-                            ? 'bg-gradient-to-br from-purple-600 to-purple-900 shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]'
-                            : 'bg-purple-200'
-                        }`}>
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d={active ? 'M5 13l4 4L19 7' : 'M12 4v16m8-8H4'} />
-                          </svg>
-                        </span>
-                        <span className={active ? 'bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent' : 'text-purple-900/70'}>
-                          {getFilterTagLabel(tag)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
             </div>
 
