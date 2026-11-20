@@ -16,7 +16,7 @@ const OPTIONS = [
   { id: 'native', label: 'Native American', phrase: 'Native American' },
   { id: 'hispanic', label: 'Hispanic/Latino', phrase: 'Hispanic/Latino' },
   { id: 'asian', label: 'Asian', phrase: 'Asian' },
-  { id: 'other', label: 'another ethnicity', phrase: 'another ethnicity' },
+  { id: 'other', label: 'Other', phrase: 'Other' },
 ] as const;
 
 type OptionId = (typeof OPTIONS)[number]['id'];
@@ -38,11 +38,18 @@ function thumbLeft(percent: number) {
   return `calc(${percent}% - ${THUMB_PX / 2}px)`;
 }
 
+// The fill stops just inside each thumb's center. Ending it at the outer edge
+// leaves a square of gradient beside the round thumb.
+const FILL_TUCK = 4;
+
 function fillEdges(minPercent: number, maxPercent: number) {
-  return {
-    left: minPercent <= 0 ? '0px' : `calc(${minPercent}% - ${THUMB_PX / 2}px)`,
-    right: maxPercent >= 100 ? '0px' : `calc(${100 - maxPercent}% - ${THUMB_PX / 2}px)`,
-  };
+  const left = minPercent <= 0
+    ? `${THUMB_PX / 2 + FILL_TUCK}px`
+    : `calc(${minPercent}% + ${FILL_TUCK}px)`;
+  const right = maxPercent >= 100
+    ? `${THUMB_PX / 2 + FILL_TUCK}px`
+    : `calc(${100 - maxPercent}% + ${FILL_TUCK}px)`;
+  return { left, right };
 }
 
 function ExtentSlider({
@@ -110,7 +117,7 @@ function ExtentSlider({
 
   return (
     <div
-      className={`relative flex select-none items-center py-3 ${ANSWER_SLIDER_ROW_WIDTH}`}
+      className={`relative flex select-none items-center pb-0 pt-2 ${ANSWER_SLIDER_ROW_WIDTH}`}
       style={{ touchAction: 'none' }}
       onPointerDown={(event) => {
         pointerRef.current = event.pointerId;
@@ -143,10 +150,12 @@ function ExtentSlider({
           className="absolute inset-0 overflow-hidden rounded-[20px] border"
           style={{ backgroundColor: '#F5F5F5', borderColor: '#ADADAD' }}
         >
-          <div
-            className="absolute inset-y-0 bg-gradient-to-br from-purple-600 to-purple-900"
-            style={fillEdges(minPercent, maxPercent)}
-          />
+          {value.min !== value.max && (
+            <div
+              className="absolute inset-y-0 bg-gradient-to-br from-purple-600 to-purple-900"
+              style={fillEdges(minPercent, maxPercent)}
+            />
+          )}
         </div>
 
         {SCALE.map((stop) => {
@@ -182,7 +191,7 @@ function ExtentSlider({
               aria-valuemin={1}
               aria-valuemax={5}
               aria-valuenow={thumbValue}
-              className="pointer-events-none absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold outline-none"
+              className="absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold outline-none"
               style={{
                 backgroundColor: 'white',
                 color: '#672DB7',
@@ -223,7 +232,7 @@ function ImportanceBlock({
 }) {
   return (
     <div>
-      <h3 className="text-center text-lg font-bold">Importance</h3>
+      <h3 className="-mb-1 text-center text-lg font-bold">Importance</h3>
       <AnswerSliderRow
         label="IMPORTANCE"
         labels={IMPORTANCE_LABELS}
@@ -245,8 +254,21 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
   const [importance, setImportance] = useState<Record<'me' | 'them' | 'close', number>>({ me: 3, them: 3, close: 3 });
   const [note, setNote] = useState<Record<'me' | 'them' | 'close', string>>({ me: '', them: '', close: '' });
 
-  const spanFor = (id: string) => spans[id] ?? FULL_SPAN;
-  const setSpan = (id: string, value: Span) => setSpans((prev) => ({ ...prev, [id]: value }));
+  const spanKey = (id: OptionId) => `${side}-${id}`;
+  const spanFor = (id: OptionId) => spans[spanKey(id)] ?? FULL_SPAN;
+  const setSpan = (id: OptionId, value: Span) => setSpans((prev) => ({ ...prev, [spanKey(id)]: value }));
+  const isEdited = (id: OptionId) => {
+    const span = spans[spanKey(id)];
+    return Boolean(span && (span.min !== FULL_SPAN.min || span.max !== FULL_SPAN.max));
+  };
+  const hasEdits = OPTIONS.some((option) => isEdited(option.id));
+  const clearSide = () => {
+    setSpans((prev) => {
+      const next = { ...prev };
+      for (const option of OPTIONS) delete next[spanKey(option.id)];
+      return next;
+    });
+  };
 
   const groupQuestion = side === 'me'
     ? 'What ethnicity best describes you?'
@@ -276,12 +298,34 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
           <div className={`flex min-w-0 flex-wrap justify-center gap-2 transition-transform duration-300 ${ANSWER_SLIDER_ROW_WIDTH} ${chosen ? '-translate-y-1' : ''}`}>
             {OPTIONS.map((option) => {
               const active = selected[side] === option.id;
+              const edited = isEdited(option.id);
+              const selectChip = () => setSelected((prev) => ({
+                ...prev,
+                [side]: prev[side] === option.id ? null : option.id,
+              }));
+              if (edited && !active) {
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={selectChip}
+                    className="max-w-full cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-purple-900 shadow-sm"
+                    style={{
+                      border: '1px solid transparent',
+                      background:
+                        'linear-gradient(#fff, #fff) padding-box, linear-gradient(to bottom right, #9333ea, #581c87) border-box',
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              }
               return (
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => setSelected((prev) => ({ ...prev, [side]: option.id }))}
-                  className={`max-w-full rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors cursor-pointer ${
+                  onClick={selectChip}
+                  className={`max-w-full cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors ${
                     active
                       ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white ring-purple-700 shadow-sm'
                       : 'bg-white text-purple-900/70 ring-purple-200 hover:ring-purple-400'
@@ -294,15 +338,27 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
           </div>
         )}
 
+        {showChips && hasEdits && (
+          <div className={`${ANSWER_SLIDER_ROW_WIDTH} mt-2 flex justify-end`}>
+            <button
+              type="button"
+              onClick={clearSide}
+              className="cursor-pointer text-sm font-semibold text-purple-700"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
         {showRangeUnderChip && chosen && (
-          <div key={`${side}-${chosen.id}`} className="eth-slide mt-6">
+          <div key={`${side}-${chosen.id}`} className="eth-slide mt-3">
             <ExtentSlider
               label={chosen.label}
-              value={spanFor(`${side}-${chosen.id}`)}
-              onChange={(value) => setSpan(`${side}-${chosen.id}`, value)}
+              value={spanFor(chosen.id)}
+              onChange={(value) => setSpan(chosen.id, value)}
             />
             {showImportanceUnderChip && (
-              <div className="mt-4">
+              <div className="mt-1">
                 <ImportanceBlock
                   value={importance[side]}
                   onChange={(value) => setImportance((prev) => ({ ...prev, [side]: value }))}
@@ -323,8 +379,8 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                 <h3 className="text-center text-lg font-bold">{option.label}</h3>
                 <ExtentSlider
                   label={option.label}
-                  value={spanFor(`${side}-${option.id}`)}
-                  onChange={(value) => setSpan(`${side}-${option.id}`, value)}
+                  value={spanFor(option.id)}
+                  onChange={(value) => setSpan(option.id, value)}
                 />
               </div>
             ))}
