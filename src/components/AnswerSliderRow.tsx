@@ -257,7 +257,7 @@ export interface AnswerSliderRowProps extends RowControlsProps {
  * They also rise monotonically — the old grid dipped to 342px at `md`, since that
  * container was 10px narrower than the one at `sm`.
  */
-const ROW_WIDTH = 'mx-auto w-full sm:max-w-[440px] md:max-w-[520px] lg:max-w-[620px]';
+export const ANSWER_SLIDER_ROW_WIDTH = 'mx-auto w-full sm:max-w-[440px] md:max-w-[520px] lg:max-w-[620px]';
 
 /**
  * One question row: caption, slider and its own scale strip, stacked in a single column at
@@ -348,7 +348,7 @@ export default function AnswerSliderRow({
     <div
       onPointerDownCapture={() => mobileActionRegistry?.activate(actionId)}
       onFocusCapture={() => mobileActionRegistry?.activate(actionId)}
-      className={`grid grid-cols-1 items-center gap-y-1 ${ROW_WIDTH} ${className}`}
+      className={`grid grid-cols-1 items-center gap-y-1 ${ANSWER_SLIDER_ROW_WIDTH} ${className}`}
     >
       {/* Only rendered when no dock is mounted to host these controls. */}
       {!readOnly && (

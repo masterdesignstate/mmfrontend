@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import ReactSlider from 'react-slider';
-import AnswerSliderRow from '@/components/AnswerSliderRow';
+import { useRef, useState, type KeyboardEvent } from 'react';
+import AnswerSliderRow, { ANSWER_SLIDER_ROW_WIDTH } from '@/components/AnswerSliderRow';
 import OnboardingShell, { OnboardingTitle } from '@/components/OnboardingShell';
 import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { ETHNICITY } from '@/constants/mandatoryQuestions';
+import { getAnswerValueFromPercentage, getAnswerValuePosition } from '@/utils/answerValues';
 
 type Variant = 'chips' | 'steps' | 'rows';
 type Span = { min: number; max: number };
@@ -29,6 +29,22 @@ function promptFor(phrase: string, side: 'me' | 'them') {
     : `To what extent does ${phrase} describe your ideal match?`;
 }
 
+const SCALE = [1, 2, 3, 4, 5].map((value) => ({ value }));
+const THUMB_PX = 28;
+
+function thumbLeft(percent: number) {
+  if (percent <= 0) return '0px';
+  if (percent >= 100) return `calc(100% - ${THUMB_PX}px)`;
+  return `calc(${percent}% - ${THUMB_PX / 2}px)`;
+}
+
+function fillEdges(minPercent: number, maxPercent: number) {
+  return {
+    left: minPercent <= 0 ? '0px' : `calc(${minPercent}% - ${THUMB_PX / 2}px)`,
+    right: maxPercent >= 100 ? '0px' : `calc(${100 - maxPercent}% - ${THUMB_PX / 2}px)`,
+  };
+}
+
 function ExtentSlider({
   label,
   value,
@@ -38,31 +54,149 @@ function ExtentSlider({
   value: Span;
   onChange: (value: Span) => void;
 }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const spanRef = useRef(value);
+  const dragRef = useRef<'min' | 'max' | null>(null);
+  const pointerRef = useRef<number | null>(null);
+  spanRef.current = value;
+
+  const moveTo = (clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const next = getAnswerValueFromPercentage((clientX - rect.left) / rect.width, SCALE);
+    const span = spanRef.current;
+    let thumb = dragRef.current;
+    if (!thumb || span.min === span.max) {
+      if (next < span.min) thumb = 'min';
+      else if (next > span.max) thumb = 'max';
+      else if (span.min !== span.max) thumb = next - span.min <= span.max - next ? 'min' : 'max';
+      else thumb = thumb ?? 'max';
+      dragRef.current = thumb;
+    }
+    const nextSpan = thumb === 'min'
+      ? { min: Math.min(next, span.max), max: span.max }
+      : { min: span.min, max: Math.max(next, span.min) };
+    spanRef.current = nextSpan;
+    onChange(nextSpan);
+  };
+
+  const nudge = (thumb: 'min' | 'max', delta: number) => {
+    if (thumb === 'min') {
+      onChange({ min: Math.max(1, Math.min(value.max, value.min + delta)), max: value.max });
+    } else {
+      onChange({ min: value.min, max: Math.min(5, Math.max(value.min, value.max + delta)) });
+    }
+  };
+
+  const onThumbKey = (thumb: 'min' | 'max') => (event: KeyboardEvent<HTMLDivElement>) => {
+    const delta = event.key === 'ArrowRight' || event.key === 'ArrowUp'
+      ? 1
+      : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+        ? -1
+        : event.key === 'Home'
+          ? thumb === 'min' ? 1 - value.min : value.min - value.max
+          : event.key === 'End'
+            ? thumb === 'min' ? value.max - value.min : 5 - value.max
+            : 0;
+    if (delta === 0) return;
+    event.preventDefault();
+    nudge(thumb, delta);
+  };
+
+  const minPercent = getAnswerValuePosition(value.min, SCALE);
+  const maxPercent = getAnswerValuePosition(value.max, SCALE);
+
   return (
-    <div className="px-1 pb-7 pt-2">
-      <ReactSlider
-        className="eth-range"
-        thumbClassName="eth-range__thumb"
-        trackClassName="eth-range__track"
-        value={[value.min, value.max]}
-        pearling
-        minDistance={0}
-        min={1}
-        max={5}
-        step={1}
-        ariaLabel={[`${label} minimum`, `${label} maximum`]}
-        renderThumb={(props, state) => {
-          const { key, ...rest } = props;
+    <div
+      className={`relative flex select-none items-center py-3 ${ANSWER_SLIDER_ROW_WIDTH}`}
+      style={{ touchAction: 'none' }}
+      onPointerDown={(event) => {
+        pointerRef.current = event.pointerId;
+        dragRef.current = null;
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          /* capture is an optimisation, not a requirement */
+        }
+        moveTo(event.clientX);
+      }}
+      onPointerMove={(event) => {
+        if (pointerRef.current !== event.pointerId) return;
+        moveTo(event.clientX);
+      }}
+      onPointerUp={(event) => {
+        pointerRef.current = null;
+        dragRef.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={() => {
+        pointerRef.current = null;
+        dragRef.current = null;
+      }}
+    >
+      <div ref={trackRef} className="relative h-5 w-full">
+        <div
+          className="absolute inset-0 overflow-hidden rounded-[20px] border"
+          style={{ backgroundColor: '#F5F5F5', borderColor: '#ADADAD' }}
+        >
+          <div
+            className="absolute inset-y-0 bg-gradient-to-br from-purple-600 to-purple-900"
+            style={fillEdges(minPercent, maxPercent)}
+          />
+        </div>
+
+        {SCALE.map((stop) => {
+          const onFill = stop.value >= value.min && stop.value <= value.max;
+          const numberClass = `pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 text-xs ${
+            onFill ? 'text-white' : 'text-gray-500'
+          }`;
+          if (stop.value === 1) {
+            return <span key={stop.value} className={`${numberClass} left-2`}>{stop.value}</span>;
+          }
+          if (stop.value === 5) {
+            return <span key={stop.value} className={`${numberClass} right-2`}>{stop.value}</span>;
+          }
           return (
-            <div key={key} {...rest}>
-              <span className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 text-sm text-gray-600">
-                {state.valueNow}
-              </span>
+            <span
+              key={stop.value}
+              className={`${numberClass} -translate-x-1/2`}
+              style={{ left: `${getAnswerValuePosition(stop.value, SCALE)}%` }}
+            >
+              {stop.value}
+            </span>
+          );
+        })}
+
+        {(['min', 'max'] as const).map((thumb) => {
+          const thumbValue = value[thumb];
+          return (
+            <div
+              key={thumb}
+              role="slider"
+              tabIndex={0}
+              aria-label={`${label} ${thumb === 'min' ? 'minimum' : 'maximum'}`}
+              aria-valuemin={1}
+              aria-valuemax={5}
+              aria-valuenow={thumbValue}
+              className="pointer-events-none absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold outline-none"
+              style={{
+                backgroundColor: 'white',
+                color: '#672DB7',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
+                left: thumbLeft(thumb === 'min' ? minPercent : maxPercent),
+                zIndex: dragRef.current === thumb || (thumb === 'max' && value.min === value.max) ? 31 : 30,
+              }}
+              onKeyDown={onThumbKey(thumb)}
+            >
+              {thumbValue}
             </div>
           );
-        }}
-        onChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
-      />
+        })}
+      </div>
     </div>
   );
 }
@@ -75,7 +209,7 @@ function NoteField({ value, onChange }: { value: string; onChange: (value: strin
       maxLength={160}
       rows={3}
       placeholder="Add a note"
-      className="mt-2 w-full resize-none rounded-xl border border-purple-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-purple-400"
+      className={`mt-2 block resize-none rounded-xl border border-purple-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-purple-400 ${ANSWER_SLIDER_ROW_WIDTH}`}
     />
   );
 }
@@ -136,12 +270,10 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
       onNext={() => setStep((current) => (current + 1) % stepCount)}
     >
       <div className="mx-auto w-full min-w-0 max-w-[100%] sm:max-w-[640px] md:max-w-[630px] lg:max-w-[792px]">
-        <OnboardingTitle step={`${ETHNICITY}. Ethnicity`} question={question} questionKey={`${step}-${chosen?.id ?? 'none'}`}>
-          <p className="text-sm font-medium text-purple-800/70">This sample is not saved.</p>
-        </OnboardingTitle>
+        <OnboardingTitle step={`${ETHNICITY}. Ethnicity`} question={question} questionKey={`${step}-${chosen?.id ?? 'none'}`} />
 
         {showChips && (
-          <div className={`flex flex-wrap justify-center gap-2 transition-transform duration-300 ${chosen ? '-translate-y-1' : ''}`}>
+          <div className={`flex min-w-0 flex-wrap justify-center gap-2 transition-transform duration-300 ${ANSWER_SLIDER_ROW_WIDTH} ${chosen ? '-translate-y-1' : ''}`}>
             {OPTIONS.map((option) => {
               const active = selected[side] === option.id;
               return (
@@ -149,7 +281,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                   key={option.id}
                   type="button"
                   onClick={() => setSelected((prev) => ({ ...prev, [side]: option.id }))}
-                  className={`rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors cursor-pointer ${
+                  className={`max-w-full rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors cursor-pointer ${
                     active
                       ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white ring-purple-700 shadow-sm'
                       : 'bg-white text-purple-900/70 ring-purple-200 hover:ring-purple-400'
@@ -220,35 +352,6 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
         @keyframes eth-slide-up {
           from { opacity: 0; transform: translateY(16px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        .eth-range {
-          width: calc(100% - 24px);
-          height: 28px;
-          position: relative;
-          margin: 0 12px;
-        }
-        .eth-range .eth-range__track {
-          top: 50%;
-          margin-top: -4px;
-          height: 8px;
-          border-radius: 9999px;
-          background: #e5e7eb;
-        }
-        .eth-range .eth-range__track.eth-range__track-1 {
-          background: #7c3aed;
-        }
-        .eth-range .eth-range__thumb {
-          height: 24px;
-          width: 24px;
-          border-radius: 50%;
-          background: #fff;
-          border: none;
-          box-shadow: 0 3px 10px rgba(45, 35, 66, 0.25);
-          cursor: grab;
-          top: 50%;
-          transform: translateY(-50%);
-          outline: none;
-          z-index: 1;
         }
       `}</style>
     </OnboardingShell>

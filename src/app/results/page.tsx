@@ -575,34 +575,61 @@ function ResultsPageContent() {
         }
       }
 
-      const response = await apiService.getCompatibleUsers(params);
+      const isFilteringForHide = applyFilters && (activeFilters.tags.includes('Hide') || activeFilters.tags.includes('Hidden'));
+      const distanceLimit = applyFilters ? activeFilters.distance : null;
+      const filterByDistance = Boolean(
+        applyFilters && currentUserLive && distanceLimit && distanceLimit.max < 64
+      );
 
-      // Transform API response to match ResultProfile interface
-      const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
-        id: item.user.id,
-        user: item.user,
-        compatibility: item.compatibility,
-        compatibilityNonRequired: item.compatibility_non_required,
-        missingRequired: Boolean(item.missing_required),
-        theirMissingRequired: Boolean(item.their_missing_required),
-        status: 'approved', // Default status - could be determined by user tags/reactions
-        isLiked: false, // Could be determined by user tags
-        isMatched: false, // Could be determined by user tags
-        tags: [] // Initialize empty tags array
-      }));
+      const loadFilteredPage = async (pageNumber: number) => {
+        const response = await apiService.getCompatibleUsers({ ...params, page: pageNumber });
+        const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
+          id: item.user.id,
+          user: item.user,
+          compatibility: item.compatibility,
+          compatibilityNonRequired: item.compatibility_non_required,
+          missingRequired: Boolean(item.missing_required),
+          theirMissingRequired: Boolean(item.their_missing_required),
+          status: 'approved',
+          isLiked: false,
+          isMatched: false,
+          tags: []
+        }));
+        let filtered = await fetchTagsForProfiles(transformedProfiles);
+        if (isFilteringForHide) {
+          filtered = filtered.filter(profile => profile.tags.map(tag => tag.toLowerCase()).includes('hide'));
+        }
+        if (filterByDistance && distanceLimit) {
+          filtered = filtered.filter(profile => {
+            const distance = getDistance(currentUserLive, profile.user.live);
+            if (distance === null) return true;
+            return distance >= distanceLimit.min && distance <= distanceLimit.max;
+          });
+        }
+        return {
+          filtered,
+          hasNext: response.has_next || false,
+          total: response.total_count || response.count,
+        };
+      };
 
-      const profilesWithTags = await fetchTagsForProfiles(transformedProfiles);
+      let pageCursor = page;
+      let loaded = await loadFilteredPage(pageCursor);
       // A newer first-page fetch (say, the server's saved filters arriving) supersedes this one.
       if (page === 1 && firstPageRequest !== latestFirstPageRequestRef.current) return;
 
-      const isFilteringForHide = applyFilters && (activeFilters.tags.includes('Hide') || activeFilters.tags.includes('Hidden'));
-
-      // Apply client-side filtering
-      let filteredProfiles = profilesWithTags;
-
-      // Filter by Hide tag if needed
-      if (isFilteringForHide) {
-        filteredProfiles = filteredProfiles.filter(p => p.tags.map(t => t.toLowerCase()).includes('hide'));
+      let combined = loaded.filtered;
+      let guard = 0;
+      // An excluded person, or a distance check, can leave this page short. Pull the
+      // following pages until the slot is a real profile, before the grid paints.
+      while (combined.length < PAGE_SIZE && loaded.hasNext && guard < 8) {
+        guard += 1;
+        pageCursor += 1;
+        const more = await loadFilteredPage(pageCursor);
+        if (page === 1 && firstPageRequest !== latestFirstPageRequestRef.current) return;
+        loaded = { ...loaded, hasNext: more.hasNext, total: more.total };
+        const seen = new Set(combined.map(profile => profile.user.id));
+        combined = [...combined, ...more.filtered.filter(profile => !seen.has(profile.user.id))];
       }
 
       // Note: Required/Pending/Their Required/Their Pending filtering is now done server-side
@@ -611,7 +638,7 @@ function ResultsPageContent() {
       if (page === 1) {
         backfillAttemptsRef.current = 0;
         backfillInFlightRef.current = false;
-        setProfiles(filteredProfiles);
+        setProfiles(combined);
         // Sync color-affecting filter snapshots with the filters we just fetched against.
         // This prevents card colors from flipping before the new profile data arrives.
         setAppliedRequiredOnly(applyFilters ? !!activeFilters.requiredOnly : false);
@@ -623,16 +650,16 @@ function ResultsPageContent() {
       } else {
         setProfiles(prev => {
           const seen = new Set(prev.map(profile => profile.user.id));
-          return [...prev, ...filteredProfiles.filter(profile => !seen.has(profile.user.id))];
+          return [...prev, ...combined.filter(profile => !seen.has(profile.user.id))];
         });
       }
 
-      const totalFromResponse = response.total_count || response.count;
+      const totalFromResponse = loaded.total;
       setTotalCount(totalFromResponse);
       setFilteredTotalCount(applyFilters ? totalFromResponse : null);
-      setHasNextPage(response.has_next || false);
-      setCurrentPage(page);
-      timingLog('fetchCompatibleUsers', { page, count: filteredProfiles.length, total: totalFromResponse });
+      setHasNextPage(loaded.hasNext);
+      setCurrentPage(pageCursor);
+      timingLog('fetchCompatibleUsers', { page, count: combined.length, total: totalFromResponse });
 
     } catch (error) {
       console.error('Error fetching compatible users:', error);
@@ -842,38 +869,9 @@ function ResultsPageContent() {
       // fetchCompatibleUsers), so `profiles` already contains only matches.
       // Re-filtering here would only ever narrow that set to the pages loaded so
       // far, hiding matches that live on pages the user hasn't scrolled to yet.
-      let filteredProfiles = profiles;
-
-      // Apply distance filtering using the APPLIED snapshot — so the visible cards
-      // don't get re-filtered until the new fetch (which uses the new filters server-side) arrives.
-      if (appliedFiltersApplied && currentUserLive && appliedDistance) {
-
-        // Maximum distance in the CSV is 64 miles (Hutto to San Marcos)
-        // If max distance filter is >= 65, include all profiles since they're all within range
-        const maxDistanceInCSV = 64;
-        const shouldIncludeAll = appliedDistance.max >= maxDistanceInCSV;
-
-        if (!shouldIncludeAll) {
-          filteredProfiles = filteredProfiles.filter(profile => {
-            const profileLive = profile.user.live;
-            const distance = getDistance(currentUserLive, profileLive);
-
-            // If distance is null (city not found), include the profile
-            // This handles cases where cities aren't in the CSV or user hasn't set their live field
-            if (distance === null) {
-              return true;
-            }
-
-            // Check if distance is within the filter range
-            const isWithinRange = distance >= appliedDistance.min && distance <= appliedDistance.max;
-            return isWithinRange;
-          });
-
-        }
-      }
-
-      // Then sort the filtered profiles using the applied-compatibility-type snapshot
-      const nextSorted = sortProfiles(filteredProfiles, currentUserLive, appliedCompatibilityType);
+      // Distance is applied while the page is loaded, before these profiles are stored.
+      // Filtering again here removed people after the page was chosen and left an empty slot.
+      const nextSorted = sortProfiles(profiles, currentUserLive, appliedCompatibilityType);
       setSortedProfiles(nextSorted);
       // The grid only renders people still in this list. If a filter removed someone after
       // the page was sliced, pull the next page so that slot is a real profile.
@@ -892,7 +890,7 @@ function ResultsPageContent() {
       // If no profiles, clear sorted profiles
       setSortedProfiles([]);
     }
-  }, [profiles, sortOption, searchTerm, searchField, appliedFiltersApplied, appliedDistance, appliedCompatibilityType, appliedRequiredOnly, appliedRequiredScope, currentUserLive, loading, hasNextPage, visibleCount, currentPage, filtersApplied]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, sortOption, searchTerm, searchField, appliedFiltersApplied, appliedCompatibilityType, appliedRequiredOnly, appliedRequiredScope, currentUserLive, loading, hasNextPage, visibleCount, currentPage, filtersApplied]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click outside detection for sort dropdown
   useEffect(() => {
