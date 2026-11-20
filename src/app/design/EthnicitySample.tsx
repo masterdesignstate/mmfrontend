@@ -117,7 +117,7 @@ function ExtentSlider({
 
   return (
     <div
-      className={`relative flex select-none items-center pb-0 pt-2 ${ANSWER_SLIDER_ROW_WIDTH}`}
+      className={`relative flex cursor-pointer select-none items-center pb-0 pt-2 ${ANSWER_SLIDER_ROW_WIDTH}`}
       style={{ touchAction: 'none' }}
       onPointerDown={(event) => {
         pointerRef.current = event.pointerId;
@@ -191,7 +191,7 @@ function ExtentSlider({
               aria-valuemin={1}
               aria-valuemax={5}
               aria-valuenow={thumbValue}
-              className="absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 text-sm font-semibold outline-none"
+              className="absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-300 text-sm font-semibold outline-none"
               style={{
                 backgroundColor: 'white',
                 color: '#672DB7',
@@ -232,7 +232,7 @@ function ImportanceBlock({
 }) {
   return (
     <div>
-      <h3 className="-mb-1 text-center text-lg font-bold">Importance</h3>
+      <h3 className="text-center text-lg font-bold">Importance</h3>
       <AnswerSliderRow
         label="IMPORTANCE"
         labels={IMPORTANCE_LABELS}
@@ -284,6 +284,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
   const showRangeUnderChip = showChips && chosen && (variant === 'chips' || variant === 'steps');
   const showImportanceUnderChip = variant === 'chips' && Boolean(chosen);
   const showClosingStep = variant !== 'chips' && step === 2;
+  const showClear = Boolean(showRangeUnderChip && hasEdits);
 
   return (
     <OnboardingShell
@@ -295,7 +296,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
         <OnboardingTitle step={`${ETHNICITY}. Ethnicity`} question={question} questionKey={`${step}-${chosen?.id ?? 'none'}`} />
 
         {showChips && (
-          <div className={`flex min-w-0 flex-wrap justify-center gap-2 transition-transform duration-300 ${ANSWER_SLIDER_ROW_WIDTH} ${chosen ? '-translate-y-1' : ''}`}>
+          <div className={`flex min-w-0 flex-wrap justify-center gap-2 ${ANSWER_SLIDER_ROW_WIDTH}`}>
             {OPTIONS.map((option) => {
               const active = selected[side] === option.id;
               const edited = isEdited(option.id);
@@ -303,13 +304,14 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                 ...prev,
                 [side]: prev[side] === option.id ? null : option.id,
               }));
+              const chipWidth = 'w-[calc((100%-0.5rem)/2)] md:w-[calc((100%-1rem)/3)]';
               if (edited && !active) {
                 return (
                   <button
                     key={option.id}
                     type="button"
                     onClick={selectChip}
-                    className="max-w-full cursor-pointer rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-purple-900 shadow-sm"
+                    className={`${chipWidth} flex min-h-9 cursor-pointer items-center justify-center rounded-full bg-white px-2.5 py-1.5 text-center text-sm font-semibold leading-snug text-purple-900 shadow-sm`}
                     style={{
                       border: '1px solid transparent',
                       background:
@@ -325,7 +327,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                   key={option.id}
                   type="button"
                   onClick={selectChip}
-                  className={`max-w-full cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors ${
+                  className={`${chipWidth} flex min-h-9 cursor-pointer items-center justify-center rounded-full px-2.5 py-1.5 text-center text-sm font-semibold leading-snug ring-1 transition-colors ${
                     active
                       ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white ring-purple-700 shadow-sm'
                       : 'bg-white text-purple-900/70 ring-purple-200 hover:ring-purple-400'
@@ -338,15 +340,17 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
           </div>
         )}
 
-        {showChips && hasEdits && (
-          <div className={`${ANSWER_SLIDER_ROW_WIDTH} mt-2 flex justify-end`}>
-            <button
-              type="button"
-              onClick={clearSide}
-              className="cursor-pointer text-sm font-semibold text-purple-700"
-            >
-              Clear
-            </button>
+        {showChips && (
+          <div className={`${ANSWER_SLIDER_ROW_WIDTH} mt-2 flex h-7 items-center justify-end`}>
+            {showClear && (
+              <button
+                type="button"
+                onClick={clearSide}
+                className="eth-clear-in cursor-pointer text-sm font-semibold text-purple-700"
+              >
+                Clear
+              </button>
+            )}
           </div>
         )}
 
@@ -358,7 +362,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
               onChange={(value) => setSpan(chosen.id, value)}
             />
             {showImportanceUnderChip && (
-              <div className="mt-1">
+              <div className="mt-6">
                 <ImportanceBlock
                   value={importance[side]}
                   onChange={(value) => setImportance((prev) => ({ ...prev, [side]: value }))}
@@ -403,10 +407,18 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
 
       <style jsx global>{`
         .eth-slide {
-          animation: eth-slide-up 280ms ease-out;
+          animation: eth-slide-up 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          transform-origin: top center;
         }
         @keyframes eth-slide-up {
-          from { opacity: 0; transform: translateY(16px); }
+          from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        .eth-clear-in {
+          animation: eth-clear-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes eth-clear-in {
+          from { opacity: 0; transform: translateY(5px); }
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
