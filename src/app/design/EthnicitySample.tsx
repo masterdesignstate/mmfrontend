@@ -341,12 +341,12 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
         )}
 
         {showChips && (
-          <div className={`${ANSWER_SLIDER_ROW_WIDTH} mt-2 flex h-7 items-center justify-end`}>
+          <div className={`${ANSWER_SLIDER_ROW_WIDTH} mt-2 flex h-7 items-end justify-end`}>
             {showClear && (
               <button
                 type="button"
                 onClick={clearSide}
-                className="eth-clear-in cursor-pointer text-sm font-semibold text-purple-700"
+                className="eth-clear-in cursor-pointer text-sm font-semibold text-black"
               >
                 Clear
               </button>
@@ -355,7 +355,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
         )}
 
         {showRangeUnderChip && chosen && (
-          <div key={`${side}-${chosen.id}`} className="eth-slide mt-3">
+          <div key={`${side}-${chosen.id}`} className="eth-slide mt-1">
             <ExtentSlider
               label={chosen.label}
               value={spanFor(chosen.id)}
