@@ -27,10 +27,6 @@ export default function MandatoryQuestionsSample({ variant }: { variant: Variant
         {variant === 'list' && <ListLayout />}
         {variant === 'cards' && <CardsLayout />}
         {variant === 'modern' && <ModernLayout />}
-
-        <p className="mt-4 text-center text-xs text-gray-400 sm:text-sm">
-          Optional questions come after these.
-        </p>
       </div>
     </OnboardingShell>
   );
