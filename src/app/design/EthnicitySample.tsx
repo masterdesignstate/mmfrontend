@@ -7,7 +7,7 @@ import { IMPORTANCE_LABELS } from '@/constants/answerLabels';
 import { ETHNICITY } from '@/constants/mandatoryQuestions';
 import { getAnswerValueFromPercentage, getAnswerValuePosition } from '@/utils/answerValues';
 
-type Variant = 'chips' | 'steps' | 'rows';
+type Variant = 'chips' | 'steps' | 'rows' | 'solid-steps' | 'solid-note';
 type Span = { min: number; max: number };
 
 const OPTIONS = [
@@ -22,6 +22,7 @@ const OPTIONS = [
 type OptionId = (typeof OPTIONS)[number]['id'];
 
 const FULL_SPAN: Span = { min: 1, max: 5 };
+const MAIN_PURPLE = '#672DB7';
 
 function promptFor(phrase: string, side: 'me' | 'them') {
   return side === 'me'
@@ -56,10 +57,12 @@ function ExtentSlider({
   label,
   value,
   onChange,
+  solid = false,
 }: {
   label: string;
   value: Span;
   onChange: (value: Span) => void;
+  solid?: boolean;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const spanRef = useRef(value);
@@ -152,8 +155,11 @@ function ExtentSlider({
         >
           {value.min !== value.max && (
             <div
-              className="absolute inset-y-0 bg-gradient-to-br from-purple-600 to-purple-900"
-              style={fillEdges(minPercent, maxPercent)}
+              className={`absolute inset-y-0 ${solid ? '' : 'bg-gradient-to-br from-purple-600 to-purple-900'}`}
+              style={{
+                ...fillEdges(minPercent, maxPercent),
+                ...(solid ? { backgroundColor: MAIN_PURPLE } : {}),
+              }}
             />
           )}
         </div>
@@ -194,7 +200,7 @@ function ExtentSlider({
               className="absolute top-1/2 z-30 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-300 text-sm font-semibold outline-none"
               style={{
                 backgroundColor: 'white',
-                color: '#672DB7',
+                color: MAIN_PURPLE,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
                 left: thumbLeft(thumb === 'min' ? minPercent : maxPercent),
                 zIndex: dragRef.current === thumb || (thumb === 'max' && value.min === value.max) ? 31 : 30,
@@ -246,7 +252,9 @@ function ImportanceBlock({
 }
 
 export default function EthnicitySample({ variant }: { variant: Variant }) {
-  const stepCount = variant === 'chips' ? 2 : 3;
+  const stepCount = variant === 'chips' || variant === 'solid-note' ? 2 : 3;
+  const solid = variant === 'solid-steps' || variant === 'solid-note';
+  const hugText = solid;
   const [step, setStep] = useState(0);
   const side: 'me' | 'them' = step === 1 ? 'them' : 'me';
   const [selected, setSelected] = useState<Record<'me' | 'them', OptionId | null>>({ me: null, them: null });
@@ -281,9 +289,9 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
       : groupQuestion;
 
   const showChips = variant !== 'rows' && step < 2;
-  const showRangeUnderChip = showChips && chosen && (variant === 'chips' || variant === 'steps');
-  const showImportanceUnderChip = variant === 'chips' && Boolean(chosen);
-  const showClosingStep = variant !== 'chips' && step === 2;
+  const showRangeUnderChip = showChips && Boolean(chosen);
+  const showImportanceUnderChip = (variant === 'chips' || variant === 'solid-note') && Boolean(chosen);
+  const showClosingStep = variant !== 'chips' && variant !== 'solid-note' && step === 2;
   const showClear = Boolean(showRangeUnderChip && hasEdits);
 
   return (
@@ -304,15 +312,20 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                 ...prev,
                 [side]: prev[side] === option.id ? null : option.id,
               }));
-              const chipWidth = 'w-[calc((100%-0.5rem)/2)] md:w-[calc((100%-1rem)/3)]';
+              const chipWidth = hugText ? '' : 'w-[calc((100%-0.5rem)/2)] md:w-[calc((100%-1rem)/3)]';
+              const chipShape = hugText
+                ? 'px-3 py-1.5'
+                : `${chipWidth} flex min-h-9 items-center justify-center px-2.5 py-1.5 text-center leading-snug`;
               if (edited && !active) {
                 return (
                   <button
                     key={option.id}
                     type="button"
                     onClick={selectChip}
-                    className={`${chipWidth} flex min-h-9 cursor-pointer items-center justify-center rounded-full bg-white px-2.5 py-1.5 text-center text-sm font-semibold leading-snug text-purple-900 shadow-sm`}
-                    style={{
+                    className={`${chipShape} cursor-pointer rounded-full bg-white text-sm font-semibold shadow-sm ${
+                      solid ? 'text-[#672DB7] ring-1 ring-[#672DB7]' : 'text-purple-900'
+                    }`}
+                    style={solid ? undefined : {
                       border: '1px solid transparent',
                       background:
                         'linear-gradient(#fff, #fff) padding-box, linear-gradient(to bottom right, #9333ea, #581c87) border-box',
@@ -327,9 +340,11 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                   key={option.id}
                   type="button"
                   onClick={selectChip}
-                  className={`${chipWidth} flex min-h-9 cursor-pointer items-center justify-center rounded-full px-2.5 py-1.5 text-center text-sm font-semibold leading-snug ring-1 transition-colors ${
+                  className={`${chipShape} cursor-pointer rounded-full text-sm font-semibold ring-1 transition-colors ${
                     active
-                      ? 'bg-gradient-to-br from-purple-600 to-purple-900 text-white ring-purple-700 shadow-sm'
+                      ? solid
+                        ? 'bg-[#672DB7] text-white ring-[#672DB7] shadow-sm'
+                        : 'bg-gradient-to-br from-purple-600 to-purple-900 text-white ring-purple-700 shadow-sm'
                       : 'bg-white text-purple-900/70 ring-purple-200 hover:ring-purple-400'
                   }`}
                 >
@@ -360,6 +375,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
               label={chosen.label}
               value={spanFor(chosen.id)}
               onChange={(value) => setSpan(chosen.id, value)}
+              solid={solid}
             />
             {showImportanceUnderChip && (
               <div className="mt-6">
@@ -385,6 +401,7 @@ export default function EthnicitySample({ variant }: { variant: Variant }) {
                   label={option.label}
                   value={spanFor(option.id)}
                   onChange={(value) => setSpan(option.id, value)}
+                  solid={solid}
                 />
               </div>
             ))}
