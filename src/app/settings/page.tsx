@@ -33,6 +33,37 @@ function SettingsPageContent() {
   const [importanceExclusionValues, setImportanceExclusionValues] = useState<number[]>([]);
   const [savingImportanceExclusion, setSavingImportanceExclusion] = useState(false);
 
+  const [allowExcludedSearch, setAllowExcludedSearch] = useState(false);
+  const [searchPreferenceLoaded, setSearchPreferenceLoaded] = useState(false);
+  const [savingSearchPreference, setSavingSearchPreference] = useState(false);
+  const [searchPreferenceError, setSearchPreferenceError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    apiService.getExcludedSearchPreference().then(preference => {
+      if (!active) return;
+      setAllowExcludedSearch(preference.allow_excluded_search);
+      setSearchPreferenceLoaded(true);
+    }).catch(() => {
+      if (active) setSearchPreferenceError('Could not load the setting. Sign in again or reload this page to retry.');
+    });
+    return () => { active = false; };
+  }, []);
+
+  const changeSearchPreference = async (enabled: boolean) => {
+    setAllowExcludedSearch(enabled);
+    setSavingSearchPreference(true);
+    setSearchPreferenceError('');
+    try {
+      await apiService.setExcludedSearchPreference(enabled);
+    } catch {
+      setAllowExcludedSearch(!enabled);
+      setSearchPreferenceError('Could not update the setting. Please try again.');
+    } finally {
+      setSavingSearchPreference(false);
+    }
+  };
+
   // Email change form state
   const [emailForm, setEmailForm] = useState({
     new_email: '',
@@ -548,6 +579,27 @@ function SettingsPageContent() {
             </div>
           </div>
         </div>
+
+        <section className="mb-4 rounded-lg border border-gray-200 bg-white shadow-sm">
+          <h2 className="border-b border-gray-200 px-5 py-3 text-base font-semibold text-gray-900">Search visibility</h2>
+          <div className="px-5 py-4">
+            <label className="flex items-start justify-between gap-4 text-sm text-gray-900">
+              <span>
+                <span className="block font-medium">Let excluded users find me in search</span>
+                <span className="mt-1 block text-gray-600">People excluded from your Results can find and open your profile when they type a search. Your profile stays hidden in their regular Results.</span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={allowExcludedSearch}
+                onChange={event => void changeSearchPreference(event.target.checked)}
+                disabled={!searchPreferenceLoaded || savingSearchPreference}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-[#672DB7]"
+              />
+            </label>
+            {searchPreferenceError && <p role="alert" className="mt-2 text-sm text-red-700">{searchPreferenceError}</p>}
+          </div>
+        </section>
 
         {/* Importance Exclusion Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl, API_ENDPOINTS } from '@/config/api';
 import posthog from 'posthog-js';
+import { PREVIEW_STORAGE_PREFIX, takeQuestionPreviewResume } from '@/app/design/useQuestionPreview';
 
 type OnboardingStatusResponse = {
   step?: string;
@@ -62,7 +63,7 @@ export default function LoginPage() {
     // Save keys to preserve before clearing
     const preservedKeys: { [key: string]: string } = {};
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('celebrated_matches_') || key.startsWith('onboarding_answered_numbers_') || key.startsWith('impostor_') || key === 'is_impostor') {
+      if (key.startsWith(PREVIEW_STORAGE_PREFIX) || key.startsWith('celebrated_matches_') || key.startsWith('onboarding_answered_numbers_') || key.startsWith('impostor_') || key === 'is_impostor') {
         preservedKeys[key] = localStorage.getItem(key) || '';
       }
     });
@@ -85,9 +86,8 @@ export default function LoginPage() {
 
     try {
       // Make API call to authenticate user
-      const apiUrl = getApiUrl(API_ENDPOINTS.LOGIN);
+      const apiUrl = `/member-api${API_ENDPOINTS.LOGIN}`;
       console.log('🌐 Making API call to:', apiUrl);
-      console.log('📤 Request data:', { email, password });
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -120,7 +120,7 @@ export default function LoginPage() {
         if (isAdminLogin) {
           console.log('🛡️ Admin login detected, redirecting directly to dashboard');
           localStorage.setItem('is_admin', 'true');
-          router.push('/dashboard');
+          router.replace((userId && takeQuestionPreviewResume(userId)) || '/dashboard');
           return;
         }
 
@@ -129,6 +129,12 @@ export default function LoginPage() {
         if (data?.email_verification_required && !data?.email_verified) {
           const params = new URLSearchParams({ email: normalizedEmail });
           router.push(`/auth/check-email?${params.toString()}`);
+          return;
+        }
+
+        const preview = userId && takeQuestionPreviewResume(userId);
+        if (preview) {
+          router.replace(preview);
           return;
         }
 

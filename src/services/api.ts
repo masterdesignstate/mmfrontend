@@ -1,7 +1,7 @@
 // Type definitions for API responses
 import { API_BASE_URL as CONFIG_API_BASE_URL } from '@/config/api';
 import { clearStoredIdentity, getStoredUserId } from '@/utils/userSession';
-import type { ResultsFilters } from '@/constants/resultsFilters';
+import type { CompatibilityRanges, ResultsFilters } from '@/constants/resultsFilters';
 
 export interface UserPicture {
   id: string;
@@ -523,18 +523,25 @@ function endpointTargetsStoredUser(endpoint: string): boolean {
 
 
 class ApiService {
-  private async request(endpoint: string, method: string, data?: Record<string, unknown>): Promise<unknown> {
-    const url = `${API_BASE_URL}${endpoint}`;
+  private async request(
+    endpoint: string, method: string, data?: Record<string, unknown>, memberSession = false,
+  ): Promise<unknown> {
+    const url = `${memberSession ? '/member-api' : API_BASE_URL}${endpoint}`;
     const headers: HeadersInit = {};
 
     if (method !== 'GET' || data) {
       headers['Content-Type'] = 'application/json';
     }
 
-    const options: RequestInit = {
-      method,
-      headers
-    };
+    if (memberSession && method !== 'GET') {
+      const csrfResponse = await fetch('/member-api/auth/csrf/', { cache: 'no-store' });
+      if (!csrfResponse.ok) throw new Error('Could not verify your session. Please try again.');
+      const { csrf_token } = await csrfResponse.json();
+      headers['X-CSRFToken'] = csrf_token;
+    }
+
+    const options: RequestInit = { method, headers };
+    if (memberSession) options.cache = 'no-store';
 
     if (data) {
       options.body = JSON.stringify(data);
@@ -654,11 +661,11 @@ class ApiService {
   }
 
   async impostorLogin(adminUserId: string, targetUserId: string): Promise<Record<string, unknown>> {
-    return this.request('/auth/impostor-login/', 'POST', { admin_user_id: adminUserId, target_user_id: targetUserId }) as Promise<Record<string, unknown>>;
+    return this.request('/auth/impostor-login/', 'POST', { admin_user_id: adminUserId, target_user_id: targetUserId }, true) as Promise<Record<string, unknown>>;
   }
 
   async impostorExit(adminUserId: string): Promise<Record<string, unknown>> {
-    return this.request('/auth/impostor-exit/', 'POST', { admin_user_id: adminUserId }) as Promise<Record<string, unknown>>;
+    return this.request('/auth/impostor-exit/', 'POST', { admin_user_id: adminUserId }, true) as Promise<Record<string, unknown>>;
   }
 
   async getPictureModerationQueue(adminUserId: string): Promise<unknown[]> {
@@ -746,19 +753,21 @@ class ApiService {
   async getResultsFilters(userId: string): Promise<Partial<ResultsFilters>> {
     const data = await this.request(
       `/users/results_filters/?user_id=${encodeURIComponent(userId)}`,
-      'GET'
+      'GET', undefined, true
     ) as { filters?: Partial<ResultsFilters> };
     return data?.filters ?? {};
   }
 
-  async setResultsFilters(userId: string, filters: ResultsFilters): Promise<void> {
-    await this.request('/users/results_filters/', 'PUT', { user_id: userId, filters: { ...filters } });
+  async setResultsFilters(userId: string, filters: ResultsFilters, exclusions: Record<string, number[]> = {}): Promise<void> {
+    await this.request('/users/results_filters/', 'PUT', {
+      user_id: userId, filters: { ...filters }, answer_exclusions: exclusions,
+    }, true);
   }
 
   async getSavedResultFilters(userId: string): Promise<SavedResultFilter[]> {
     return this.request(
       `/saved-result-filters/?user_id=${encodeURIComponent(userId)}`,
-      'GET'
+      'GET', undefined, true
     ) as Promise<SavedResultFilter[]>;
   }
 
@@ -767,7 +776,7 @@ class ApiService {
       user_id: userId,
       name,
       filters: { ...filters },
-    }) as Promise<SavedResultFilter>;
+    }, true) as Promise<SavedResultFilter>;
   }
 
   async updateSavedResultFilter(
@@ -778,12 +787,12 @@ class ApiService {
     return this.request(
       `/saved-result-filters/${id}/?user_id=${encodeURIComponent(userId)}`,
       'PATCH',
-      { ...changes, ...(changes.filters ? { filters: { ...changes.filters } } : {}) }
+      { ...changes, ...(changes.filters ? { filters: { ...changes.filters } } : {}) }, true
     ) as Promise<SavedResultFilter>;
   }
 
   async deleteSavedResultFilter(userId: string, id: string): Promise<void> {
-    await this.request(`/saved-result-filters/${id}/?user_id=${encodeURIComponent(userId)}`, 'DELETE');
+    await this.request(`/saved-result-filters/${id}/?user_id=${encodeURIComponent(userId)}`, 'DELETE', undefined, true);
   }
 
   /** Admin only: how many dummies and questions are enabled. */
@@ -903,8 +912,32 @@ class ApiService {
     return response.json() as Promise<PromptPollVote>;
   }
 
+  async logOut(): Promise<void> {
+    await this.request('/auth/logout/', 'POST', undefined, true);
+  }
+
+  async getExcludedSearchPreference(): Promise<{ allow_excluded_search: boolean }> {
+    return this.request('/users/excluded_search_preference/', 'GET', undefined, true) as Promise<{ allow_excluded_search: boolean }>;
+  }
+
+  async setExcludedSearchPreference(enabled: boolean): Promise<void> {
+    await this.request('/users/excluded_search_preference/', 'PUT', { allow_excluded_search: enabled }, true);
+  }
+
+  async getProfileAccess(userId: string, grant?: string, signal?: AbortSignal): Promise<boolean> {
+    const response = await fetch(`/member-api/users/${encodeURIComponent(userId)}/profile_access/`, {
+      cache: 'no-store',
+      headers: grant ? { 'X-Results-Search-Grant': grant } : undefined,
+      signal,
+    });
+    if (response.status === 404) return false;
+    if (!response.ok) throw new Error(await getApiErrorMessage(response));
+    return (await response.json()).available === true;
+  }
+
   async getCompatibleUsers(params: {
     compatibility_type?: string;
+    compatibility_ranges?: CompatibilityRanges;
     min_compatibility?: number;
     max_compatibility?: number;
     min_age?: number;
@@ -924,10 +957,11 @@ class ApiService {
     user_id?: string;
     search?: string;
     search_field?: 'name' | 'username' | 'live' | 'bio';
-  }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult; missing_required?: boolean; their_missing_required?: boolean; compatibility_non_required?: CompatibilityResult }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
+  }): Promise<{ results: Array<{ user: ApiUser; compatibility: CompatibilityResult; missing_required?: boolean; their_missing_required?: boolean; compatibility_non_required?: CompatibilityResult; profile_search_grant?: string }>; count: number; total_count: number; page: number; page_size: number; has_next: boolean }> {
     const queryParams = new URLSearchParams();
 
     if (params.compatibility_type) queryParams.append('compatibility_type', params.compatibility_type);
+    if (params.compatibility_ranges) queryParams.append('compatibility_ranges', JSON.stringify(params.compatibility_ranges));
     if (params.min_compatibility !== undefined) queryParams.append('min_compatibility', params.min_compatibility.toString());
     if (params.max_compatibility !== undefined) queryParams.append('max_compatibility', params.max_compatibility.toString());
     if (params.min_age !== undefined) queryParams.append('min_age', params.min_age.toString());
@@ -962,7 +996,7 @@ class ApiService {
       queryParams.append('search_field', params.search_field);
     }
 
-    return this.request(`/users/compatible/?${queryParams.toString()}`, 'GET') as Promise<{
+    return this.request(`/users/compatible/?${queryParams.toString()}`, 'GET', undefined, true) as Promise<{
       results: Array<{ user: ApiUser; compatibility: CompatibilityResult }>;
       count: number;
       total_count: number;

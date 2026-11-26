@@ -14,6 +14,7 @@ interface ExcludedQuestionsSectionProps {
   error?: string;
   /** Unsaved edits, keyed by answer id. The filter panel saves them on Apply. */
   drafts: Record<string, number[]>;
+  onClear: () => void;
   onDraftChange: (answerId: string, values: number[]) => void;
 }
 
@@ -42,7 +43,7 @@ const valuesSummary = (row: AnswerExclusion, values: number[]) =>
  * chips whose filter button picks the values, plus a searchable picker to add more.
  * Only answered questions are offered, since an exclusion is stored on the viewer's answer.
  */
-export default function ExcludedQuestionsSection({ rows, loaded = true, error, drafts, onDraftChange }: ExcludedQuestionsSectionProps) {
+export default function ExcludedQuestionsSection({ rows, loaded = true, error, drafts, onClear, onDraftChange }: ExcludedQuestionsSectionProps) {
   const [addedIds, setAddedIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -65,13 +66,25 @@ export default function ExcludedQuestionsSection({ rows, loaded = true, error, d
           </InfoTip>
         </div>
         {!error && activeRows.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#672DB7] ring-1 ring-purple-200 hover:ring-purple-400"
-          >
-            + Add question
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {activeRows.some(row => valuesFor(row).length > 0) && (
+              <button
+                type="button"
+                aria-label="Clear all question exclusions"
+                onClick={() => { onClear(); setAddedIds([]); setPickerOpen(false); }}
+                className="shrink-0 text-sm font-semibold text-[#672DB7] hover:underline"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#672DB7] ring-1 ring-purple-200 hover:ring-purple-400"
+            >
+              + Add question
+            </button>
+          </div>
         )}
       </div>
 

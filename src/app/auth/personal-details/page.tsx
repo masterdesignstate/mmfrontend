@@ -191,9 +191,16 @@ export default function PersonalDetailsPage() {
     }));
   };
 
+  const [acceptedTermsAndPrivacy, setAcceptedTermsAndPrivacy] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!acceptedTermsAndPrivacy) {
+      setError('Accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
 
     // Ensure credentials are loaded
     if (!userCredentials.email || !userCredentials.user_id) {
@@ -257,6 +264,7 @@ export default function PersonalDetailsPage() {
     const userData = {
       user_id: userCredentials.user_id,
       full_name: formData.fullName,
+      accept_terms_and_privacy: acceptedTermsAndPrivacy,
       username: formData.username,
       tagline: formData.tagline,
       date_of_birth: backendDateFormat,
@@ -576,9 +584,26 @@ export default function PersonalDetailsPage() {
               </div>
 
               {/* Continue Button */}
+              <div className="flex items-start gap-3 rounded-md bg-purple-50 px-3 py-3 text-sm text-gray-800">
+                <input
+                  id="accept-terms-and-privacy"
+                  type="checkbox"
+                  required
+                  checked={acceptedTermsAndPrivacy}
+                  onChange={event => setAcceptedTermsAndPrivacy(event.target.checked)}
+                  disabled={loading}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#672DB7]"
+                />
+                <label htmlFor="accept-terms-and-privacy">
+                  I agree to the{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#672DB7] underline">Terms of Service</a>
+                  {' '}and{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#672DB7] underline">Privacy Policy</a>.
+                </label>
+              </div>
               <button
                 type="submit"
-                disabled={loading || !userCredentials.email || taglineOverLimit || bioOverLimit}
+                disabled={loading || !userCredentials.email || !acceptedTermsAndPrivacy || taglineOverLimit || bioOverLimit}
                 className="w-full bg-[#672DB7] text-white py-3 px-4 rounded-md font-medium hover:bg-[#5a2a9e] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed mt-6 cursor-pointer"
               >
                 {loading ? (

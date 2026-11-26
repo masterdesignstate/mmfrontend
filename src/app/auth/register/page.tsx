@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getApiUrl, API_ENDPOINTS } from '@/config/api';
+import { API_ENDPOINTS } from '@/config/api';
 import posthog from 'posthog-js';
 import InfoTip from '@/components/InfoTip';
 
@@ -35,7 +35,7 @@ export default function RegisterPage() {
 
     try {
       // Make API call to create user
-      const apiUrl = getApiUrl(API_ENDPOINTS.SIGNUP);
+      const apiUrl = `/member-api${API_ENDPOINTS.SIGNUP}`;
       console.log('🌐 Making API call to:', apiUrl);
 
       const response = await fetch(apiUrl, {

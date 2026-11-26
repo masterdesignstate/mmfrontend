@@ -53,7 +53,7 @@ function fillEdges(minPercent: number, maxPercent: number) {
   return { left, right };
 }
 
-function ExtentSlider({
+export function ExtentSlider({
   label,
   value,
   onChange,
@@ -216,20 +216,21 @@ function ExtentSlider({
   );
 }
 
-function NoteField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function NoteField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
       maxLength={160}
       rows={3}
+      aria-label="Add a note"
       placeholder="Add a note"
       className={`mt-2 block resize-none rounded-xl border border-purple-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-purple-400 ${ANSWER_SLIDER_ROW_WIDTH}`}
     />
   );
 }
 
-function ImportanceBlock({
+export function ImportanceBlock({
   value,
   onChange,
 }: {

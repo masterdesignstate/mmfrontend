@@ -24,7 +24,7 @@ export default function VerifyEmailPage() {
       }
 
       try {
-        const response = await fetch(getApiUrl(API_ENDPOINTS.VERIFY_EMAIL), {
+        const response = await fetch(`/member-api${API_ENDPOINTS.VERIFY_EMAIL}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),

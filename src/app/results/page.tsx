@@ -8,7 +8,10 @@ import { useRouter } from 'next/navigation';
 import ReactSlider from 'react-slider';
 import { apiService, MAX_LIKE_NOTE_CHARS, type AnswerExclusion, type ApiUser, type CompatibilityResult, type SavedResultFilter } from '@/services/api';
 import {
+  COMPATIBILITY_TYPES,
   DEFAULT_RESULTS_FILTERS,
+  FULL_COMPATIBILITY_RANGE,
+  isFullCompatibilityRange,
   MAX_SAVED_RESULT_FILTERS,
   MAX_SAVED_RESULT_FILTER_NAME,
   isDefaultResultsFilters,
@@ -16,6 +19,7 @@ import {
   readStoredResultsFilters,
   sameResultsFilters,
   writeStoredResultsFilters,
+  type CompatibilityType,
   type FilterRange,
   type ResultsFilters,
 } from '@/constants/resultsFilters';
@@ -27,15 +31,135 @@ import InfoTip from '@/components/InfoTip';
 import NavLogo from '@/components/NavLogo';
 import MatchCelebration from '@/components/MatchCelebration';
 import ProtectedPageGate from '@/components/ProtectedPageGate';
+import { useDismissOnOutside } from '@/hooks/useDismissOnOutside';
+import { rememberProfileSearchGrant } from '@/utils/profileSearchGrant';
 import { getDistance } from '@/utils/distance';
 import { isOverLimit } from '@/utils/textLimits';
 import posthog from 'posthog-js';
+
+const DualRangeSlider = ({ min, max, value, onChange, label, unit = '', icon, onClear }: {
+  min: number;
+  max: number;
+  value: { min: number; max: number };
+  onChange: (value: { min: number; max: number }) => void;
+  label: string;
+  unit?: string;
+  icon: React.ReactNode;
+  onClear: () => void;
+}) => {
+  const [sliderValues, setSliderValues] = useState<[number, number]>([value.min, value.max]);
+  const [sliderKey, setSliderKey] = useState(0);
+  const sliderValuesRef = useRef(sliderValues);
+
+  useEffect(() => {
+    sliderValuesRef.current = sliderValues;
+  }, [sliderValues]);
+
+  useEffect(() => {
+    if (value.min !== sliderValuesRef.current[0] || value.max !== sliderValuesRef.current[1]) {
+      const next: [number, number] = [value.min, value.max];
+      sliderValuesRef.current = next;
+      setSliderValues(next);
+      setSliderKey(prev => prev + 1);
+    }
+  }, [value.min, value.max]);
+
+  return (
+    <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 pb-8 sm:p-5 sm:pb-9 shadow-sm">
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
+          {icon}
+        </span>
+        <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">{label}{unit ? ` (${unit})` : ''}</h3>
+        {(value.min !== min || value.max !== max) && (
+          <button type="button" aria-label={`Clear ${label}`} className="ml-auto text-sm font-semibold text-[#672DB7] hover:underline" onClick={onClear}>
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Slider */}
+      <div className="flex items-center gap-3 mb-2 w-full">
+        <div className="flex-1 relative min-w-0 max-w-full overflow-visible">
+      <ReactSlider
+        key={`${label}-${sliderKey}`}
+        className="range-slider"
+        thumbClassName="range-slider__thumb"
+        trackClassName="range-slider__track"
+        defaultValue={sliderValues}
+        pearling
+            minDistance={0}
+        min={min}
+        max={max}
+        step={1}
+        ariaLabel={[`${label} minimum`, `${label} maximum`]}
+            ariaValuetext={(state) => `${label} value ${state.valueNow}`}
+        renderThumb={(props, state) => {
+          const { key, ...restProps } = props;
+              return (
+                <div key={key} {...restProps}>
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-sm text-gray-600 whitespace-nowrap">
+                    {state.valueNow}
+                  </div>
+                </div>
+              );
+        }}
+        onChange={(vals) => setSliderValues(vals as [number, number])}
+        onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
+      />
+        </div>
+      </div>
+
+      <style jsx global>{`
+        .range-slider {
+          width: calc(100% - 24px);
+          height: 28px;
+          position: relative;
+          overflow: visible;
+          margin: 0 12px;
+        }
+
+        .range-slider .range-slider__track {
+          top: 50%;
+          margin-top: -4px;
+          height: 8px;
+          border-radius: 9999px;
+          background: #e5e7eb;
+        }
+
+        .range-slider .range-slider__track.range-slider__track-1 {
+          background: #7C3AED;
+        }
+
+        .range-slider .range-slider__thumb {
+          height: 24px;
+          width: 24px;
+          border-radius: 50%;
+          background: #ffffff;
+          border: none;
+          box-shadow: 0 3px 10px rgba(45, 35, 66, 0.25);
+          cursor: grab;
+          top: 50%;
+          transform: translateY(-50%);
+          outline: none;
+          z-index: 1;
+          position: absolute;
+        }
+
+        .range-slider .range-slider__thumb:active {
+          cursor: grabbing;
+        }
+      `}</style>
+    </div>
+  );
+};
 
 interface ResultProfile {
   id: string;
   user: ApiUser;
   compatibility: CompatibilityResult;
   compatibilityNonRequired?: CompatibilityResult;
+  profileSearchGrant?: string;
   missingRequired?: boolean;
   theirMissingRequired?: boolean;
   status: 'approved' | 'liked' | 'matched';
@@ -293,6 +417,7 @@ function ResultsPageContent() {
   const [exclusionRows, setExclusionRows] = useState<AnswerExclusion[]>([]);
   const [exclusionsLoaded, setExclusionsLoaded] = useState(false);
   const [exclusionError, setExclusionError] = useState('');
+  const [applyFiltersError, setApplyFiltersError] = useState('');
   const [viewerId, setViewerId] = useState('');
   const [hasHydrated, setHasHydrated] = useState(false);
   // The last applied filters, stored per user. Read once; the server copy may replace them on mount.
@@ -363,6 +488,8 @@ function ResultsPageContent() {
   const [searchField, setSearchField] = useState<'name' | 'username' | 'live' | 'bio'>('name');
   const [showSearchFieldDropdown, setShowSearchFieldDropdown] = useState(false);
   const searchFieldDropdownRef = useRef<HTMLDivElement>(null);
+  const dismissSearchFieldDropdown = useCallback(() => setShowSearchFieldDropdown(false), []);
+  useDismissOnOutside(searchFieldDropdownRef, showSearchFieldDropdown, dismissSearchFieldDropdown);
   const lastCompatibilityTypeRef = useRef<string>('');
   const isCheckingMatchesRef = useRef(false);
   const hasMountedRef = useRef(false);
@@ -488,8 +615,7 @@ function ResultsPageContent() {
         page: number;
         page_size: number;
         compatibility_type?: string;
-        min_compatibility?: number;
-        max_compatibility?: number;
+        compatibility_ranges?: ResultsFilters['compatibilityRanges'];
         min_age?: number;
         max_age?: number;
         min_distance?: number;
@@ -530,8 +656,7 @@ function ResultsPageContent() {
       if (applyFilters) {
         // Only ranges the user actually narrowed. Sending the defaults made turning Required
         // on also apply age 18-80, which quietly dropped anyone older than 80 from the list.
-        if (activeFilters.compatibility.min !== defaultFilters.compatibility.min) params.min_compatibility = activeFilters.compatibility.min;
-        if (activeFilters.compatibility.max !== defaultFilters.compatibility.max) params.max_compatibility = activeFilters.compatibility.max;
+        params.compatibility_ranges = activeFilters.compatibilityRanges;
         if (activeFilters.age.min !== defaultFilters.age.min) params.min_age = activeFilters.age.min;
         if (activeFilters.age.max !== defaultFilters.age.max) params.max_age = activeFilters.age.max;
         if (activeFilters.distance.min !== defaultFilters.distance.min) params.min_distance = activeFilters.distance.min;
@@ -576,11 +701,6 @@ function ResultsPageContent() {
       }
 
       const isFilteringForHide = applyFilters && (activeFilters.tags.includes('Hide') || activeFilters.tags.includes('Hidden'));
-      const distanceLimit = applyFilters ? activeFilters.distance : null;
-      const filterByDistance = Boolean(
-        applyFilters && currentUserLive && distanceLimit && distanceLimit.max < 64
-      );
-
       const loadFilteredPage = async (pageNumber: number) => {
         const response = await apiService.getCompatibleUsers({ ...params, page: pageNumber });
         const transformedProfiles: ResultProfile[] = response.results.map((item) => ({
@@ -588,6 +708,7 @@ function ResultsPageContent() {
           user: item.user,
           compatibility: item.compatibility,
           compatibilityNonRequired: item.compatibility_non_required,
+          profileSearchGrant: item.profile_search_grant,
           missingRequired: Boolean(item.missing_required),
           theirMissingRequired: Boolean(item.their_missing_required),
           status: 'approved',
@@ -598,13 +719,6 @@ function ResultsPageContent() {
         let filtered = await fetchTagsForProfiles(transformedProfiles);
         if (isFilteringForHide) {
           filtered = filtered.filter(profile => profile.tags.map(tag => tag.toLowerCase()).includes('hide'));
-        }
-        if (filterByDistance && distanceLimit) {
-          filtered = filtered.filter(profile => {
-            const distance = getDistance(currentUserLive, profile.user.live);
-            if (distance === null) return true;
-            return distance >= distanceLimit.min && distance <= distanceLimit.max;
-          });
         }
         return {
           filtered,
@@ -709,6 +823,7 @@ function ResultsPageContent() {
   // Snapshot current filters into pendingFilters when modal opens
   useEffect(() => {
     if (showFilterModal) {
+      setApplyFiltersError('');
       setPendingFilters({
         ...filters,
         tags: normalizeExclusiveRequiredTags(filters.tags ?? [])
@@ -933,18 +1048,6 @@ function ResultsPageContent() {
   useEffect(() => {
     writeStoredResultsFilters(filters);
   }, [filters]);
-
-  // Reset sliders to extremes when filter modal opens (if filters not already applied)
-  useEffect(() => {
-    if (showFilterModal && !filtersApplied) {
-      setPendingFilters(prev => ({
-        ...prev,
-        compatibility: { ...DEFAULT_RESULTS_FILTERS.compatibility },
-        distance: { ...DEFAULT_RESULTS_FILTERS.distance },
-        age: { ...DEFAULT_RESULTS_FILTERS.age }
-      }));
-    }
-  }, [showFilterModal, filtersApplied]);
 
   useEffect(() => {
     if (!lastCompatibilityTypeRef.current) {
@@ -1417,124 +1520,19 @@ function ResultsPageContent() {
 
 
   // Dual range slider powered by react-slider for smooth dragging
-  const DualRangeSlider = ({ min, max, value, onChange, label, unit = '', icon }: {
-    min: number;
-    max: number;
-    value: { min: number; max: number };
-    onChange: (value: { min: number; max: number }) => void;
-    label: string;
-    unit?: string;
-    icon: React.ReactNode;
-  }) => {
-    const [sliderValues, setSliderValues] = useState<[number, number]>([value.min, value.max]);
-    const [sliderKey, setSliderKey] = useState(0);
-    const sliderValuesRef = useRef(sliderValues);
-
-    useEffect(() => {
-      sliderValuesRef.current = sliderValues;
-    }, [sliderValues]);
-
-    useEffect(() => {
-      if (value.min !== sliderValuesRef.current[0] || value.max !== sliderValuesRef.current[1]) {
-        const next: [number, number] = [value.min, value.max];
-        sliderValuesRef.current = next;
-        setSliderValues(next);
-        setSliderKey(prev => prev + 1);
-      }
-    }, [value.min, value.max]);
-
-    return (
-      <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 pb-8 sm:p-5 sm:pb-9 shadow-sm">
-        <div className="mb-4 flex items-center gap-2.5">
-          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-purple-900 text-white shadow-[0_2px_6px_-1px_rgba(124,58,237,0.5)]">
-            {icon}
-          </span>
-          <h3 className="text-base font-semibold bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">{label}{unit ? ` (${unit})` : ''}</h3>
-        </div>
-
-        {/* Slider */}
-        <div className="flex items-center gap-3 mb-2 w-full">
-          <div className="flex-1 relative min-w-0 max-w-full overflow-visible">
-        <ReactSlider
-          key={`${label}-${sliderKey}`}
-          className="range-slider"
-          thumbClassName="range-slider__thumb"
-          trackClassName="range-slider__track"
-          defaultValue={sliderValues}
-          pearling
-              minDistance={0}
-          min={min}
-          max={max}
-          step={1}
-          ariaLabel={[`${label} minimum`, `${label} maximum`]}
-              ariaValuetext={(state) => `${label} value ${state.valueNow}`}
-          renderThumb={(props, state) => {
-            const { key, ...restProps } = props;
-                return (
-                  <div key={key} {...restProps}>
-                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-sm text-gray-600 whitespace-nowrap">
-                      {state.valueNow}
-                    </div>
-                  </div>
-                );
-          }}
-          onChange={(vals) => setSliderValues(vals as [number, number])}
-          onAfterChange={(vals) => onChange({ min: vals[0], max: vals[1] })}
-        />
-          </div>
-        </div>
-
-        <style jsx global>{`
-          .range-slider {
-            width: calc(100% - 24px);
-            height: 28px;
-            position: relative;
-            overflow: visible;
-            margin: 0 12px;
-          }
-
-          .range-slider .range-slider__track {
-            top: 50%;
-            margin-top: -4px;
-            height: 8px;
-            border-radius: 9999px;
-            background: #e5e7eb;
-          }
-
-          .range-slider .range-slider__track.range-slider__track-1 {
-            background: #7C3AED;
-          }
-
-          .range-slider .range-slider__thumb {
-            height: 24px;
-            width: 24px;
-            border-radius: 50%;
-            background: #ffffff;
-            border: none;
-            box-shadow: 0 3px 10px rgba(45, 35, 66, 0.25);
-            cursor: grab;
-            top: 50%;
-            transform: translateY(-50%);
-            outline: none;
-            z-index: 1;
-            position: absolute;
-          }
-
-          .range-slider .range-slider__thumb:active {
-            cursor: grabbing;
-          }
-        `}</style>
-      </div>
-    );
-  };
-
-
   // Filter handling functions – operate on pendingFilters (committed on Apply)
-  const handleCompatibilityTypeChange = (type: string) => {
+  const handleCompatibilityTypeChange = (type: CompatibilityType) => {
     setPendingFilters(prev => ({ ...prev, compatibilityType: type }));
   };
 
-  const handleSliderChange = (category: 'compatibility' | 'distance' | 'age', value: { min: number; max: number }) => {
+  const changeCompatibilityRange = (kind: CompatibilityType, value: FilterRange) => {
+    setPendingFilters(prev => ({
+      ...prev,
+      compatibilityRanges: { ...prev.compatibilityRanges, [kind]: value },
+    }));
+  };
+
+  const handleSliderChange = (category: 'distance' | 'age', value: { min: number; max: number }) => {
     setPendingFilters(prev => ({ ...prev, [category]: value }));
   };
 
@@ -1644,31 +1642,21 @@ function ResultsPageContent() {
       ...pendingFilters,
       tags: normalizeExclusiveRequiredTags(pendingFilters.tags ?? [])
     };
-    setFilters(filtersToApply);
     const userId = localStorage.getItem('user_id');
-    if (userId) {
-      apiService.setResultsFilters(userId, filtersToApply)
-        .catch((saveError) => console.error('Could not save results filters:', saveError));
-    }
-
     const isClearing = isDefaultResultsFilters(filtersToApply);
 
     try {
-      setIsApplyingFilters(true); // Shows loading animation inside modal
-
-      // Exclusions are answer data, not filter state: persist them before refetching so the
-      // new results already reflect them.
-      const draftEntries = Object.entries(exclusionDrafts);
-      if (draftEntries.length > 0) {
-        await Promise.all(draftEntries.map(([answerId, values]) => apiService.updateAnswerExclusions(answerId, values)));
-        const draftsMap = Object.fromEntries(draftEntries);
-        setExclusionRows(prev => prev.map(row => (
-          row.answer_id in draftsMap
-            ? { ...row, excluded_answer_values: draftsMap[row.answer_id] }
-            : row
-        )));
-        setExclusionDrafts({});
-      }
+      setIsApplyingFilters(true);
+      setApplyFiltersError('');
+      if (!userId) throw new Error('Log in again to apply your filters.');
+      await apiService.setResultsFilters(userId, filtersToApply, exclusionDrafts);
+      setFilters(filtersToApply);
+      setExclusionRows(prev => prev.map(row => (
+        row.answer_id in exclusionDrafts
+          ? { ...row, excluded_answer_values: exclusionDrafts[row.answer_id] }
+          : row
+      )));
+      setExclusionDrafts({});
 
       // NOTE: setAppliedTags is intentionally NOT called here.
       // It's updated inside fetchCompatibleUsers when new profiles arrive,
@@ -1693,8 +1681,7 @@ function ResultsPageContent() {
 
     } catch (error) {
       console.error('Error applying filters:', error);
-      setError('Failed to apply filters. Please try again.');
-      setShowFilterModal(false);
+      setApplyFiltersError(error instanceof Error ? error.message : 'Failed to apply filters. Please try again.');
     } finally {
       setLoading(false);
       setIsApplyingFilters(false);
@@ -1794,20 +1781,15 @@ function ResultsPageContent() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      {/* Header — logo and menu sit in flow rather than absolutely positioned, so the
-          search row can never grow underneath them on a narrow screen. */}
-      <div className="relative flex items-center gap-2 p-3 sm:gap-4 sm:p-4 border-b border-gray-200">
-        {/* Hidden on a phone: the row needs the ~40px more than it needs a second brand mark,
-            and without it the longer placeholders ("Search by Location") were clipped. */}
-        <div className="hidden shrink-0 sm:block">
+      <div className="relative flex items-center gap-2 border-b border-gray-200 p-3 sm:gap-4 sm:p-4">
+        <div className="hidden shrink-0 xl:block">
           <NavLogo />
         </div>
 
         {/* Centered Search Bar */}
         <div className="flex min-w-0 flex-1 items-center justify-center">
-          <div className="flex min-w-0 flex-1 items-center sm:flex-none sm:max-w-2xl">
-            <div className="relative flex min-w-0 flex-1 items-center sm:flex-none">
+          <div className="flex min-w-0 flex-1 items-center xl:flex-none xl:max-w-2xl">
+            <div className="relative flex min-w-0 flex-1 items-center xl:flex-none">
               <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none">
                 <svg className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1818,9 +1800,9 @@ function ResultsPageContent() {
                 placeholder={searchField === 'name' ? 'Search by Name' : searchField === 'username' ? 'Search by Username' : searchField === 'live' ? 'Search by Location' : 'Search by About Me'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full min-w-0 sm:w-[400px] md:w-[280px] lg:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-l-full rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
+                className="w-full min-w-0 xl:w-[400px] pl-8 sm:pl-10 pr-3 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-l-full rounded-r-none leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 shadow-sm"
               />
-              {/* Search Field Dropdown Button - visible on md+ screens */}
+              {/* Search field picker */}
               <div className="relative shrink-0 self-stretch" ref={searchFieldDropdownRef}>
                 <button
                   onClick={() => setShowSearchFieldDropdown(!showSearchFieldDropdown)}
@@ -1899,7 +1881,8 @@ function ResultsPageContent() {
 
             <button
               onClick={() => setShowFilterModal(true)}
-              className={`ml-1.5 shrink-0 sm:ml-4 inline-flex items-center justify-center h-[38px] w-[38px] sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
+              aria-label="Filter"
+              className={`ml-1.5 shrink-0 xl:ml-4 inline-flex items-center justify-center h-[38px] w-[38px] xl:w-auto xl:h-auto xl:px-4 xl:py-3 border rounded-full text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer relative overflow-hidden ${
                 showFiltersApplied ? 'border-black text-black' : 'border-gray-300 text-gray-700 bg-white'
               }`}
             >
@@ -1907,10 +1890,10 @@ function ResultsPageContent() {
                 <div className="absolute inset-0 bg-black opacity-[0.05]"></div>
               )}
               <span className="relative z-10 flex items-center">
-                <svg className="w-4 h-4 text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-black xl:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
                 </svg>
-                <span className="hidden sm:inline md:hidden lg:inline">Filter</span>
+                <span className="hidden xl:inline">Filter</span>
               </span>
             </button>
 
@@ -1918,12 +1901,14 @@ function ResultsPageContent() {
               <button
                 ref={sortButtonRef}
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="inline-flex items-center justify-center h-[38px] w-[38px] sm:w-auto sm:h-auto md:w-10 md:h-10 lg:w-auto lg:h-auto px-0 py-0 sm:px-4 sm:py-3 md:px-0 md:py-0 lg:px-4 lg:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                aria-label="Sort"
+                aria-expanded={showSortDropdown}
+                className="inline-flex items-center justify-center h-[38px] w-[38px] xl:w-auto xl:h-auto xl:px-4 xl:py-3 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
               >
-                <svg className="w-4 h-4 inline text-black sm:mr-1 md:mr-0 lg:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 inline text-black xl:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
-                <span className="hidden sm:inline md:hidden lg:inline">Sort</span>
+                <span className="hidden xl:inline">Sort</span>
               </button>
 
               {/* Sort Dropdown */}
@@ -1978,7 +1963,7 @@ function ResultsPageContent() {
         </div>
 
         <div className="shrink-0">
-          <HamburgerMenu />
+          <HamburgerMenu desktopBells />
         </div>
       </div>
 
@@ -2063,8 +2048,12 @@ function ResultsPageContent() {
             )}
 
             {/* Compatibility range chip (only when non-default) */}
-            {showFiltersApplied && (filters.compatibility.min > 0 || filters.compatibility.max < 100) && (
+            {showFiltersApplied && COMPATIBILITY_TYPES.map(kind => {
+              const range = filters.compatibilityRanges[kind];
+              if (isFullCompatibilityRange(range)) return null;
+              return (
               <button
+                key={kind}
                 type="button"
                 onClick={() => setShowFilterModal(true)}
                 className="group relative inline-flex items-center gap-1.5 sm:gap-2 pl-1 pr-2.5 py-1 sm:pl-1.5 sm:pr-4 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-semibold bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-1 ring-purple-200/70 hover:ring-purple-400 cursor-pointer"
@@ -2075,10 +2064,11 @@ function ResultsPageContent() {
                   </svg>
                 </span>
                 <span className="bg-gradient-to-r from-purple-700 to-purple-900 bg-clip-text text-transparent">
-                  Compatibility {filters.compatibility.min === filters.compatibility.max ? `${filters.compatibility.min}%` : `${filters.compatibility.min}% – ${filters.compatibility.max}%`}
+                  {COMPATIBILITY_TYPE_LABELS[kind]} {range.min === range.max ? `${range.min}%` : `${range.min}% – ${range.max}%`}
                 </span>
               </button>
-            )}
+              );
+            })}
 
             {/* Distance range chip (only when non-default) */}
             {showFiltersApplied && (filters.distance.min > 1 || filters.distance.max < 100) && (
@@ -2283,7 +2273,13 @@ function ResultsPageContent() {
                 <div key={`${profile.user.id}-${index}`} className="relative">
                   <CardWithProgressBorder percentage={compatibilityScore} variant={cardVariant}>
                     <div
-                      onClick={() => router.push(`/profile/${profile.user.id}?border=${cardVariant}`)}
+                      onClick={() => {
+                        const fromSearch = Boolean(searchTerm.trim() && profile.profileSearchGrant);
+                        if (fromSearch && profile.profileSearchGrant) {
+                          rememberProfileSearchGrant(profile.user.id, profile.profileSearchGrant);
+                        }
+                        router.push(`/profile/${profile.user.id}?border=${cardVariant}${fromSearch ? '&from=search' : ''}`);
+                      }}
                       className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     >
                       {/* Status Indicator */}
@@ -2450,6 +2446,8 @@ function ResultsPageContent() {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Filters</h2>
               <button
+                type="button"
+                aria-label="Close filters"
                 onClick={() => { if (!isApplyingFilters) setShowFilterModal(false); }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -2458,6 +2456,8 @@ function ResultsPageContent() {
                 </svg>
               </button>
             </div>
+
+            {applyFiltersError && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-red-700 sm:px-8">{applyFiltersError}</p>}
 
             {/* Content */}
             <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8">
@@ -2522,22 +2522,27 @@ function ResultsPageContent() {
                   </div>
                 </div>
 
-                              {/* Compatibility, distance, and age */}
-              <DualRangeSlider
-                min={DEFAULT_RESULTS_FILTERS.compatibility.min}
-                max={DEFAULT_RESULTS_FILTERS.compatibility.max}
-                value={pendingFilters.compatibility}
-                onChange={(value) => handleSliderChange('compatibility', value)}
-                label="Compatibility"
-                unit="%"
-                icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 5L5 19M8.5 7.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM18.5 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg>}
-              />
+              {/* Compatibility, distance, and age */}
+              {COMPATIBILITY_TYPES.map(kind => (
+                <DualRangeSlider
+                  key={kind}
+                  min={FULL_COMPATIBILITY_RANGE.min}
+                  max={FULL_COMPATIBILITY_RANGE.max}
+                  value={pendingFilters.compatibilityRanges[kind]}
+                  onChange={(value) => changeCompatibilityRange(kind, value)}
+                  onClear={() => changeCompatibilityRange(kind, FULL_COMPATIBILITY_RANGE)}
+                  label={COMPATIBILITY_TYPE_LABELS[kind]}
+                  unit="%"
+                  icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 5L5 19M8.5 7.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM18.5 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg>}
+                />
+              ))}
 
               <DualRangeSlider
                 min={DEFAULT_RESULTS_FILTERS.distance.min}
                 max={DEFAULT_RESULTS_FILTERS.distance.max}
                 value={pendingFilters.distance}
                 onChange={(value) => handleSliderChange('distance', value)}
+                onClear={() => handleSliderChange('distance', DEFAULT_RESULTS_FILTERS.distance)}
                 label="Distance"
                 unit="mi"
                 icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-5.4 7-11a7 7 0 10-14 0c0 5.6 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>}
@@ -2548,20 +2553,24 @@ function ResultsPageContent() {
                 max={DEFAULT_RESULTS_FILTERS.age.max}
                 value={pendingFilters.age}
                 onChange={(value) => handleSliderChange('age', value)}
+                onClear={() => handleSliderChange('age', DEFAULT_RESULTS_FILTERS.age)}
                 label="Age"
                 icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 3v2m8-2v2M4 9h16M6 5h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z" /></svg>}
               />
 
-{viewerId && (
+                {viewerId && (
                   <ExcludedQuestionsSection
                     rows={exclusionRows}
                     loaded={exclusionsLoaded}
                     error={exclusionError}
                     drafts={exclusionDrafts}
+                    onClear={() => setExclusionDrafts(Object.fromEntries(
+                      exclusionRows.filter(row => row.excluded_answer_values.length).map(row => [row.answer_id, []])
+                    ))}
                     onDraftChange={(answerId, values) => setExclusionDrafts(prev => ({ ...prev, [answerId]: values }))}
                   />
                 )}
-{/* Saved Filter States */}
+                {/* Saved Filter States */}
                 <div className="mb-6 rounded-2xl ring-1 ring-purple-200/70 bg-gradient-to-br from-purple-50/60 to-white p-4 sm:p-5 shadow-sm">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2.5">

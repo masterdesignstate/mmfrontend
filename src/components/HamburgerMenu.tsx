@@ -13,13 +13,13 @@ const answersFetcher = (url: string) => fetch(url, { headers: { 'Content-Type': 
 
 interface HamburgerMenuProps {
   className?: string;
+  desktopBells?: boolean;
 }
 
-export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
+export default function HamburgerMenu({ className = '', desktopBells = false }: HamburgerMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [showMenu, setShowMenu] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string>('');
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -32,20 +32,6 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
     if (storedUserId) {
       setUserId(storedUserId);
     }
-  }, []);
-
-  const [isNarrow, setIsNarrow] = useState(false); // very small: bells move into menu
-
-  // Detect mobile (lg) and narrow (sm) for moving bells into menu
-  useEffect(() => {
-    const check = () => {
-      const w = window.innerWidth;
-      setIsMobile(w < 1024);
-      setIsNarrow(w < 640); // sm breakpoint: hide bells, show Chats/Notifications in menu first
-    };
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
   }, []);
 
   // Check if we're on the profile page (handle both /profile and /profile/)
@@ -73,12 +59,11 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
 
   return (
     <div className={`relative z-[100] flex items-center gap-1.5 md:gap-3 ${className}`}>
-      {/* Chat and Notification Bells — hidden on very small screens (moved into menu) */}
-      {userId && !isNarrow && (
-        <>
+      {userId && (
+        <div className={desktopBells ? 'hidden items-center gap-3 xl:flex' : 'hidden items-center gap-3 sm:flex'}>
           <ChatBell userId={userId} />
           <NotificationBell userId={userId} />
-        </>
+        </div>
       )}
 
       {/* Hamburger Menu Button — smaller on medium and below */}
@@ -97,8 +82,7 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
       {/* Dropdown Menu */}
       {showMenu && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-[110] border border-gray-200">
-          {/* On very small screens: Chats and Notifications first (bells are hidden) */}
-          {isNarrow && userId && (
+          {userId && (
             <>
               <button
                 onClick={() => handleNavigation('/chats')}
@@ -116,27 +100,13 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
             </>
           )}
 
-          {/* Desktop: Always show "My Profile" */}
-          {!isMobile && (
-            <button
-              onMouseEnter={prefetchProfile}
-              onClick={() => handleNavigation('/profile')}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              My Profile
-            </button>
-          )}
-
-          {/* Mobile: Toggle between "My Profile" and "Edit Profile" based on current page */}
-          {isMobile && (
-            <button
-              onMouseEnter={!isProfilePage ? prefetchProfile : undefined}
-              onClick={() => handleNavigation(isProfilePage ? '/profile/edit' : '/profile')}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              {isProfilePage ? 'Edit Profile' : 'My Profile'}
-            </button>
-          )}
+          <button
+            onMouseEnter={!isProfilePage ? prefetchProfile : undefined}
+            onClick={() => handleNavigation(isProfilePage ? '/profile/edit' : '/profile')}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            {isProfilePage ? 'Edit Profile' : 'My Profile'}
+          </button>
 
           <button
             onClick={() => handleNavigation('/feed')}
@@ -166,24 +136,6 @@ export default function HamburgerMenu({ className = '' }: HamburgerMenuProps) {
           >
             Matches
           </button>
-
-          {/* Chats and Notifications — only when bells are visible (not narrow) */}
-          {!isNarrow && (
-            <>
-              <button
-                onClick={() => handleNavigation('/chats')}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Chats
-              </button>
-              <button
-                onClick={() => handleNavigation('/notifications')}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Notifications
-              </button>
-            </>
-          )}
 
           <button
             onClick={() => handleNavigation('/settings')}

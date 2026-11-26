@@ -8,9 +8,14 @@ export interface FilterRange {
   max: number;
 }
 
+export const COMPATIBILITY_TYPES = ['overall', 'compatible_with_me', 'im_compatible_with'] as const;
+export type CompatibilityType = typeof COMPATIBILITY_TYPES[number];
+export type CompatibilityRanges = Record<CompatibilityType, FilterRange>;
+export const FULL_COMPATIBILITY_RANGE: FilterRange = { min: 0, max: 100 };
+
 export interface ResultsFilters {
-  compatibilityType: string;
-  compatibility: FilterRange;
+  compatibilityType: CompatibilityType;
+  compatibilityRanges: CompatibilityRanges;
   distance: FilterRange;
   age: FilterRange;
   tags: string[];
@@ -20,7 +25,11 @@ export interface ResultsFilters {
 
 export const DEFAULT_RESULTS_FILTERS: ResultsFilters = {
   compatibilityType: 'overall',
-  compatibility: { min: 0, max: 100 },
+  compatibilityRanges: {
+    overall: FULL_COMPATIBILITY_RANGE,
+    compatible_with_me: FULL_COMPATIBILITY_RANGE,
+    im_compatible_with: FULL_COMPATIBILITY_RANGE,
+  },
   distance: { min: 1, max: 100 },
   age: { min: 18, max: 80 },
   tags: [],
@@ -44,12 +53,17 @@ const cleanRange = (value: unknown, fallback: FilterRange): FilterRange => {
 /** Fill gaps from the defaults, so a partial or older payload is always a full filter set. */
 export const normalizeResultsFilters = (value: unknown): ResultsFilters => {
   if (!value || typeof value !== 'object') return { ...DEFAULT_RESULTS_FILTERS, tags: [] };
-  const raw = value as Partial<ResultsFilters>;
+  const raw = value as Partial<ResultsFilters> & { compatibility?: unknown };
+  const compatibilityType = COMPATIBILITY_TYPES.find(kind => kind === raw.compatibilityType) ?? 'overall';
+  const legacyRanges = { [compatibilityType]: raw.compatibility };
+  const ranges = raw.compatibilityRanges ?? legacyRanges;
   return {
-    compatibilityType: typeof raw.compatibilityType === 'string'
-      ? raw.compatibilityType
-      : DEFAULT_RESULTS_FILTERS.compatibilityType,
-    compatibility: cleanRange(raw.compatibility, DEFAULT_RESULTS_FILTERS.compatibility),
+    compatibilityType,
+    compatibilityRanges: {
+      overall: cleanRange(ranges.overall, FULL_COMPATIBILITY_RANGE),
+      compatible_with_me: cleanRange(ranges.compatible_with_me, FULL_COMPATIBILITY_RANGE),
+      im_compatible_with: cleanRange(ranges.im_compatible_with, FULL_COMPATIBILITY_RANGE),
+    },
     distance: cleanRange(raw.distance, DEFAULT_RESULTS_FILTERS.distance),
     age: cleanRange(raw.age, DEFAULT_RESULTS_FILTERS.age),
     tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : [],
@@ -58,10 +72,12 @@ export const normalizeResultsFilters = (value: unknown): ResultsFilters => {
   };
 };
 
+export const isFullCompatibilityRange = ({ min, max }: FilterRange): boolean =>
+  min === FULL_COMPATIBILITY_RANGE.min && max === FULL_COMPATIBILITY_RANGE.max;
+
 export const isDefaultResultsFilters = (filters: ResultsFilters): boolean =>
   filters.compatibilityType === DEFAULT_RESULTS_FILTERS.compatibilityType &&
-  filters.compatibility.min === DEFAULT_RESULTS_FILTERS.compatibility.min &&
-  filters.compatibility.max === DEFAULT_RESULTS_FILTERS.compatibility.max &&
+  COMPATIBILITY_TYPES.every(kind => isFullCompatibilityRange(filters.compatibilityRanges[kind])) &&
   filters.distance.min === DEFAULT_RESULTS_FILTERS.distance.min &&
   filters.distance.max === DEFAULT_RESULTS_FILTERS.distance.max &&
   filters.age.min === DEFAULT_RESULTS_FILTERS.age.min &&

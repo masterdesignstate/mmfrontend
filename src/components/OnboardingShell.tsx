@@ -21,6 +21,8 @@ interface OnboardingShellProps {
   contentClassName?: string;
   /** Optional brand text centred in the header (used by the intro card). */
   headerTitle?: string;
+  headerBrand?: ReactNode;
+  headerAction?: ReactNode;
   /** One note for the whole question, independent of its Me/Them answer rows. */
   questionNote?: string;
   onQuestionNoteChange?: (note: string) => void;
@@ -45,6 +47,8 @@ export default function OnboardingShell({
   disabled = false,
   contentClassName = '',
   headerTitle,
+  headerBrand,
+  headerAction,
   questionNote,
   onQuestionNoteChange,
 }: OnboardingShellProps) {
@@ -57,16 +61,20 @@ export default function OnboardingShell({
       <div className="flex h-[100dvh] flex-col overflow-hidden bg-white">
         <div
           className={`flex shrink-0 items-center justify-between p-3 sm:p-4 ${
-            headerTitle ? 'border-b border-gray-100' : ''
+            headerTitle || headerBrand || headerAction ? 'border-b border-gray-100' : ''
           }`}
         >
-          <Image src="/assets/mmlogox.png" alt="Logo" width={32} height={32} />
+          <div className="flex items-center gap-2">
+            <Image src="/assets/mmlogox.png" alt={headerBrand ? '' : 'Logo'} width={32} height={32} />
+            {headerBrand}
+          </div>
           {headerTitle && (
             <>
               <h1 className="text-sm font-semibold text-gray-900 sm:text-base">{headerTitle}</h1>
               <div className="w-8" />
             </>
           )}
+          {headerAction}
         </div>
 
         {/* Every step centres its content vertically, so a short step (one slider) and a
